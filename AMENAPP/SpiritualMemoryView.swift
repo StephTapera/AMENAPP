@@ -70,7 +70,7 @@ private struct SpiritualMemoryRow: View {
                     .fill(Color.accentColor.opacity(0.10))
                     .frame(width: 40, height: 40)
                 Image(systemName: record.type.icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(Color.accentColor)
             }
 

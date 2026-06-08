@@ -167,7 +167,7 @@ private struct ActivityFilterChipBar: View {
                                           ? AnyShapeStyle(AmenTheme.Colors.buttonPrimary)
                                           : AnyShapeStyle(Color.clear))
                             )
-                            .glassEffect(isSelected ? .regular : .subtle, in: Capsule())
+                            .amenGlassEffect(in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }

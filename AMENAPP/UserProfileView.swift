@@ -4388,63 +4388,7 @@ struct ProfileRepostCard: View {
                         )
                 }
                 .buttonStyle(PlainButtonStyle())
-                .disabled(true)
-                
-                // Comment Button - Production ready with count badge
-                Button {
-                    // Disabled for reposts
-                } label: {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "bubble.left")
-                            .font(.systemScaled(16, weight: .medium))
-                            .foregroundStyle(.tertiary)
-                            .frame(width: 32, height: 32)
-                            .background(
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(
-                                        Circle()
-                                            .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
-                                    )
-                            )
-                        
-                        // Comment count badge (only if > 0)
-                        if replies > 0 {
-                            Text("\(replies)")
-                                .font(AMENFont.bold(9))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.black)
-                                )
-                                .offset(x: 8, y: -4)
-                        }
-                    }
-                }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(true)
-                
-                // Share Button
-                Button {
-                    // Disabled for reposts
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.systemScaled(16, weight: .medium))
-                        .foregroundStyle(.tertiary)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
-                                )
-                        )
-                }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(true)
+                .hidden()
                 
                 Spacer()
                 

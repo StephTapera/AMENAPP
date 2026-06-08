@@ -57,7 +57,7 @@ struct MentorshipPlanSheet: View {
     private var mentorshipPlanUnavailableView: some View {
         VStack(spacing: 16) {
             Image(systemName: "creditcard.trianglebadge.exclamationmark")
-                .font(.system(size: 40, weight: .semibold))
+                .font(.systemScaled(40, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text("Mentorship plans are disabled")
                 .font(.systemScaled(18, weight: .bold))

@@ -188,7 +188,7 @@ struct AmenSmartEventComposerView: View {
         HStack {
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
                     .background(.ultraThinMaterial, in: Circle())
@@ -196,7 +196,7 @@ struct AmenSmartEventComposerView: View {
             .accessibilityLabel("Dismiss event composer")
             Spacer()
             Text("New Event")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(.white)
             Spacer()
             Color.clear.frame(width: 32, height: 32)
@@ -214,7 +214,7 @@ struct AmenSmartEventComposerView: View {
             TextField("", text: $title, prompt: Text("Thursday 8pm Discipleship Call")
                 .foregroundStyle(Color.white.opacity(0.3)))
                 .foregroundStyle(.white)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .padding(14)
                 .background(Color(hex: "1A1820"), in: RoundedRectangle(cornerRadius: 12))
                 .overlay(
@@ -270,7 +270,7 @@ struct AmenSmartEventComposerView: View {
                             }
                         }) {
                             Text(option.label)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(isSelected ? Color(hex: "070607") : Color.white.opacity(0.85))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
@@ -294,7 +294,7 @@ struct AmenSmartEventComposerView: View {
                     TextField("", text: $customDurationText, prompt: Text("e.g. 75").foregroundStyle(.white.opacity(0.3)))
                         .keyboardType(.numberPad)
                         .foregroundStyle(.white)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .onChange(of: customDurationText) { _, new in
                             if let mins = Int(new.filter(\.isNumber)), mins > 0 {
                                 durationMinutes = min(mins, 480)
@@ -308,7 +308,7 @@ struct AmenSmartEventComposerView: View {
                         )
                         .accessibilityLabel("Custom duration in minutes")
                     Text("min")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .transition(.opacity)
@@ -329,10 +329,10 @@ struct AmenSmartEventComposerView: View {
                     }) {
                         VStack(spacing: 4) {
                             Image(systemName: p.systemImage)
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(isSelected ? Color(hex: "070607") : Color(hex: "D9A441"))
                             Text(p.rawValue)
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(isSelected ? Color(hex: "070607") : Color.white.opacity(0.75))
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
@@ -361,7 +361,7 @@ struct AmenSmartEventComposerView: View {
             TextField("", text: $meetingURL, prompt: Text("Paste your \(platform.rawValue) link here")
                 .foregroundStyle(Color.white.opacity(0.3)))
                 .foregroundStyle(.white)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
@@ -383,7 +383,7 @@ struct AmenSmartEventComposerView: View {
                     Image(systemName: "repeat")
                         .foregroundStyle(Color(hex: "D9A441"))
                     Text("Repeat this event")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }
@@ -406,7 +406,7 @@ struct AmenSmartEventComposerView: View {
                             }
                         }) {
                             Text(freq.rawValue)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(isSel ? Color(hex: "070607") : Color.white.opacity(0.85))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
@@ -433,7 +433,7 @@ struct AmenSmartEventComposerView: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionLabel("Invite Preview")
             Text(generateInviteText())
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.75))
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -455,7 +455,7 @@ struct AmenSmartEventComposerView: View {
                 // Add to My Calendar
                 Button(action: handleAddToCalendar) {
                     Label(calendarAdded ? "Added" : "My Calendar", systemImage: calendarAdded ? "checkmark.circle.fill" : "calendar.badge.plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(calendarAdded ? Color(hex: "D9A441") : Color.white.opacity(0.85))
                         .padding(.vertical, 12)
                         .frame(maxWidth: .infinity)
@@ -472,7 +472,7 @@ struct AmenSmartEventComposerView: View {
                 // Share Invite
                 Button(action: { showShareSheet = true }) {
                     Label("Share Invite", systemImage: "square.and.arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.85))
                         .padding(.vertical, 12)
                         .frame(maxWidth: .infinity)
@@ -498,7 +498,7 @@ struct AmenSmartEventComposerView: View {
                         Image(systemName: "megaphone.fill")
                     }
                     Text(isBroadcasting ? "Sending to Space…" : "Send to Space")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                 }
                 .foregroundStyle(Color(hex: "070607"))
                 .frame(maxWidth: .infinity)
@@ -525,7 +525,7 @@ struct AmenSmartEventComposerView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(Color(hex: "D9A441"))
                 Text("Added to Calendar")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, 18)
@@ -540,7 +540,7 @@ struct AmenSmartEventComposerView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.systemScaled(11, weight: .semibold))
             .foregroundStyle(.secondary)
             .textCase(.uppercase)
             .tracking(0.5)
@@ -551,7 +551,7 @@ struct AmenSmartEventComposerView: View {
             Image(systemName: "exclamationmark.circle")
                 .foregroundStyle(Color(hex: "FF3B30"))
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.white)
         }
         .padding(14)
@@ -662,7 +662,7 @@ struct AmenSmartEventComposerView: View {
                     "inviteText":         generateInviteText(),
                 ]
 
-                let fn = Functions.functions().httpsCallable("broadcastSpaceEvent")
+                let fn = Functions.functions(region: "us-east1").httpsCallable("broadcastSpaceEvent")
                 _ = try await fn.call(payload)
 
                 let newEvent = buildSpaceEvent(title: trimmedTitle)

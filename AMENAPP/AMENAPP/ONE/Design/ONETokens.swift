@@ -138,13 +138,13 @@ extension View {
     @ViewBuilder
     func onePillGlass(tint: Color = ONE.Colors.glassWarm) -> some View {
         self
-            .glassEffect(.regular.tint(tint).interactive(), in: Capsule())
+            .amenGlassEffect(in: Capsule())
     }
 
     /// Applies ONE card glass — for dock action buttons, not feed cells.
     @ViewBuilder
     func oneCardGlass(cornerRadius: CGFloat = ONE.Radius.card) -> some View {
         self
-            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius))
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: cornerRadius))
     }
 }

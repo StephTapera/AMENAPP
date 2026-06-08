@@ -44,6 +44,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 
@@ -72,16 +73,18 @@ function maskEmail(email: string): string {
 
 // ─── request2FAOTP ────────────────────────────────────────────────────────────
 
-export const request2FAOTP = functions.https.onCall(async (data, context) => {
+export const request2FAOTP = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "unauthenticated",
             "Must be signed in to request a 2FA OTP."
         );
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -91,7 +94,7 @@ export const request2FAOTP = functions.https.onCall(async (data, context) => {
     const deliveryMethod: unknown = data?.deliveryMethod;
 
     if (deliveryMethod !== "email" && deliveryMethod !== "sms") {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "deliveryMethod must be 'email' or 'sms'."
         );
@@ -106,7 +109,7 @@ export const request2FAOTP = functions.https.onCall(async (data, context) => {
         .get();
 
     if (recentSnap.size >= MAX_OTP_REQUESTS_PER_WINDOW) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "resource-exhausted",
             "Too many OTP requests. Please wait before requesting another code."
         );
@@ -118,7 +121,7 @@ export const request2FAOTP = functions.https.onCall(async (data, context) => {
 
     if (deliveryMethod === "email") {
         if (!userRecord.email) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "failed-precondition",
                 "No email address on file for this account."
             );
@@ -126,7 +129,7 @@ export const request2FAOTP = functions.https.onCall(async (data, context) => {
         destination = userRecord.email;
     } else {
         if (!userRecord.phoneNumber) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "failed-precondition",
                 "No phone number on file for this account."
             );
@@ -180,16 +183,18 @@ export const request2FAOTP = functions.https.onCall(async (data, context) => {
 
 // ─── verify2FAOTP ─────────────────────────────────────────────────────────────
 
-export const verify2FAOTP = functions.https.onCall(async (data, context) => {
+export const verify2FAOTP = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "unauthenticated",
             "Must be signed in to verify a 2FA OTP."
         );
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -200,39 +205,39 @@ export const verify2FAOTP = functions.https.onCall(async (data, context) => {
     const code: unknown = data?.code;
 
     if (typeof otpId !== "string" || otpId.trim() === "") {
-        throw new functions.https.HttpsError("invalid-argument", "otpId must be a non-empty string.");
+        throw new HttpsError("invalid-argument", "otpId must be a non-empty string.");
     }
 
     if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
-        throw new functions.https.HttpsError("invalid-argument", "code must be a 6-digit string.");
+        throw new HttpsError("invalid-argument", "code must be a 6-digit string.");
     }
 
     const otpRef = db.collection("otpRequests").doc(otpId);
     const otpDoc = await otpRef.get();
 
     if (!otpDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "OTP not found.");
+        throw new HttpsError("not-found", "OTP not found.");
     }
 
     const otp = otpDoc.data()!;
 
     // Security checks
     if (otp.uid !== uid) {
-        throw new functions.https.HttpsError("permission-denied", "OTP does not belong to this user.");
+        throw new HttpsError("permission-denied", "OTP does not belong to this user.");
     }
 
     if (otp.used === true) {
-        throw new functions.https.HttpsError("already-exists", "OTP has already been used.");
+        throw new HttpsError("already-exists", "OTP has already been used.");
     }
 
     const now = admin.firestore.Timestamp.now();
     if (otp.expiresAt.toMillis() < now.toMillis()) {
-        throw new functions.https.HttpsError("deadline-exceeded", "OTP has expired.");
+        throw new HttpsError("deadline-exceeded", "OTP has expired.");
     }
 
     const expectedHash = hashCode(code, otpId);
     if (otp.codeHash !== expectedHash) {
-        throw new functions.https.HttpsError("unauthenticated", "Invalid OTP code.");
+        throw new HttpsError("unauthenticated", "Invalid OTP code.");
     }
 
     // Mark OTP as used atomically.
@@ -275,13 +280,15 @@ export const verify2FAOTP = functions.https.onCall(async (data, context) => {
 // for "2FA not enabled") so caller2FASessionValid() passes without a Firestore
 // read. Called by TwoFactorAuthService.swift when the user disables 2FA.
 
-export const disable2FASession = functions.https.onCall(async (data, context) => {
+export const disable2FASession = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
+        throw new HttpsError("unauthenticated", "Must be signed in.");
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );

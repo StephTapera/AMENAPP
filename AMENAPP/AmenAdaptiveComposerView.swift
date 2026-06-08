@@ -216,7 +216,7 @@ struct AmenAdaptiveComposerView: View {
                 showScheduleSheet = true
             } label: {
                 Label("Schedule", systemImage: "calendar.badge.clock")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .buttonStyle(.amenGlass(role: .neutral, size: .compact, shape: .capsule, background: .balanced, placement: .inline))
             .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -256,9 +256,9 @@ struct AmenAdaptiveComposerView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(hint.reference)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                 Text(hint.snippet)
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }
@@ -299,7 +299,7 @@ struct AmenAdaptiveComposerView: View {
                             aiLayer.suggestedHashtags = []
                         } label: {
                             Text(tag)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.accentColor)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
@@ -326,7 +326,7 @@ struct AmenAdaptiveComposerView: View {
 
             HStack(spacing: 10) {
                 Text(improved)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.primary)
                     .lineLimit(3)
 
@@ -336,7 +336,7 @@ struct AmenAdaptiveComposerView: View {
                     updateText(improved)
                     aiLayer.captionImprovement = nil
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
 
                 Button {

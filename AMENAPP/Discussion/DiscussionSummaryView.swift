@@ -12,15 +12,15 @@ struct DiscussionSummaryV2: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.accentColor)
                     Text("Berean Summary")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                         .tracking(1)
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.white.opacity(0.4))
                 }
             }
@@ -28,7 +28,7 @@ struct DiscussionSummaryV2: View {
 
             if isExpanded {
                 Text(summary.summary)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white.opacity(0.75))
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -60,13 +60,13 @@ private struct TagFlowRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title.uppercased())
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.35))
                 .tracking(1.5)
             TagChipFlowLayout(spacing: 4) {
                 ForEach(items.prefix(4), id: \.self) { item in
                     Text(item)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.white.opacity(0.7))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)

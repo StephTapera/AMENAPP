@@ -833,9 +833,7 @@ struct CommentThreadCard: View {
                                 Label("Report", systemImage: "exclamationmark.triangle")
                             }
                             
-                            Button {
-                                // Share action
-                            } label: {
+                            ShareLink(item: comment.content) {
                                 Label("Share", systemImage: "square.and.arrow.up")
                             }
                         } label: {

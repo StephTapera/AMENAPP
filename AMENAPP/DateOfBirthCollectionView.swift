@@ -99,7 +99,7 @@ struct DateOfBirthCollectionView: View {
                 isPresented = false
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
             }
@@ -116,14 +116,14 @@ struct DateOfBirthCollectionView: View {
     private var titleSection: some View {
         VStack(spacing: 12) {
             Image(systemName: "calendar.badge.checkmark")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(.indigo)
                 .opacity(appeared ? 1 : 0)
                 .scaleEffect(appeared ? 1 : 0.8)
                 .animation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7)), value: appeared)
             
             Text("What's your birthday?")
-                .font(.system(size: 28, weight: .bold))
+                .font(.systemScaled(28, weight: .bold))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .opacity(appeared ? 1 : 0)
@@ -131,7 +131,7 @@ struct DateOfBirthCollectionView: View {
                 .animation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1)), value: appeared)
             
             Text("You must be at least \(AppConfig.Legal.minimumAge) to use AMEN")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.white.opacity(0.6))
                 .multilineTextAlignment(.center)
                 .opacity(appeared ? 1 : 0)
@@ -169,11 +169,11 @@ struct DateOfBirthCollectionView: View {
     private var privacyNote: some View {
         HStack(spacing: 8) {
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.white.opacity(0.5))
             
             Text("Your birthday is private and won't be shown on your profile")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
         }
@@ -195,16 +195,16 @@ struct DateOfBirthCollectionView: View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: ageTierIcon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(ageTierColor)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(ageTierTitle)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                     
                     Text(ageTierDescription)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 
@@ -260,11 +260,11 @@ struct DateOfBirthCollectionView: View {
     private var underAgeMessage: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.red)
             
             Text("Sorry, you must be \(AppConfig.Legal.minimumAge) or older to create an account")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.red)
                 .multilineTextAlignment(.leading)
         }
@@ -294,10 +294,10 @@ struct DateOfBirthCollectionView: View {
         } label: {
             HStack(spacing: 8) {
                 Text("Continue")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                 
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)

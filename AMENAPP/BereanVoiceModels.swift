@@ -46,6 +46,7 @@ enum BereanVoiceState: String {
     case listening   = "listening"
     case thinking    = "thinking"
     case speaking    = "speaking"
+    case paused      = "paused"
     case interrupted = "interrupted"
     case error       = "error"
 
@@ -55,6 +56,7 @@ enum BereanVoiceState: String {
         case .listening:   return "Listening…"
         case .thinking:    return "Thinking…"
         case .speaking:    return "Speaking…"
+        case .paused:      return "Paused"
         case .interrupted: return "Interrupted"
         case .error:       return "Something went wrong"
         }

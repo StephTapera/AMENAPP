@@ -569,7 +569,7 @@ private struct BulletLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .top, spacing: 6) {
             configuration.icon
-                .font(.system(size: 5))
+                .font(.systemScaled(5))
                 .padding(.top, 6)
                 .foregroundStyle(.secondary)
             configuration.title

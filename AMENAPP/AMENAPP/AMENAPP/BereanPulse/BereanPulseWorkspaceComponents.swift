@@ -92,7 +92,7 @@ struct BereanPulseStatusBanner: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 32, height: 32)
                 .background(Color.black.opacity(0.05), in: Circle())
@@ -125,7 +125,8 @@ struct BereanPulseStatusBanner: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.75)
         )
-        .accessibilityElement(children: .combine)
+        // Use .contain so the action button (when present) remains separately reachable by VoiceOver.
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -145,7 +146,7 @@ struct BereanPulseSmartComposerDock: View {
         HStack(spacing: 10) {
             Button(action: onCurate) {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(BereanPulseGlassIconButtonStyle())
@@ -154,7 +155,7 @@ struct BereanPulseSmartComposerDock: View {
             Button(action: onAskBerean) {
                 HStack(spacing: 8) {
                     Image(systemName: canAskBerean ? "sparkles" : "lock")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .accessibilityHidden(true)
                     Text(prompt)
                         .font(.subheadline.weight(.semibold))
@@ -178,7 +179,7 @@ struct BereanPulseSmartComposerDock: View {
 
             Button(action: onRefresh) {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(BereanPulseGlassIconButtonStyle())
@@ -207,7 +208,7 @@ struct BereanPulseMiniWorkCard: View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
                     .background(Color.black.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -240,7 +241,8 @@ struct BereanPulseMiniWorkCard: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text("\(title). \(actionTitle)"))
+        .accessibilityHint(Text("Activates the suggested action."))
     }
 }
 

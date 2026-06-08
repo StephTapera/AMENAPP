@@ -52,11 +52,11 @@ struct SuggestedForYouModule: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Suggested for you")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text("Based on community, trust, and shared activity")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
 
@@ -67,7 +67,7 @@ struct SuggestedForYouModule: View {
                 vm.hideModule()
             } label: {
                 Text("Hide")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -167,14 +167,14 @@ struct SuggestedForYouModule: View {
     private var hiddenBanner: some View {
         HStack(spacing: 10) {
             Text("Suggestions hidden")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Show again") {
                 HapticManager.impact(style: .light)
                 vm.restoreModule()
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(.systemScaled(13, weight: .medium))
             .foregroundStyle(.primary)
             .accessibilityLabel("Show suggestions again")
         }
@@ -264,19 +264,19 @@ struct SuggestedAccountCardView: View {
 
             HStack(spacing: 3) {
                 Text(item.displayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 if item.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.accentColor)
                 }
             }
 
             Text("@\(item.handle)")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -287,14 +287,14 @@ struct SuggestedAccountCardView: View {
     private var reasonSection: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(item.reasonText)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(.secondary.opacity(0.9))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let badge = item.accountType.badge {
                 Text(badge)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -314,12 +314,12 @@ struct SuggestedAccountCardView: View {
 
             if let context = item.contextLine {
                 Text(context)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             } else if item.mutualCount > 0 {
                 Text("Mutuals · community")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
@@ -361,7 +361,7 @@ struct SuggestedAccountCardView: View {
 
             Button(action: onView) {
                 Text("View")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 30)
@@ -388,7 +388,7 @@ struct SuggestedAccountCardView: View {
     private var dismissButton: some View {
         Button(action: onDismiss) {
             Image(systemName: "xmark")
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
                 .foregroundStyle(.secondary.opacity(0.7))
                 .frame(width: 20, height: 20)
                 .background(

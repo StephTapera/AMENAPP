@@ -94,11 +94,11 @@ struct MediaDetailView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     if let name = item.authorName {
                         Text(name)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundColor(.white)
                     }
                     Text(item.postTimestamp)
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.systemScaled(11, weight: .regular))
                         .foregroundColor(.white.opacity(0.7))
                 }
             }
@@ -109,7 +109,7 @@ struct MediaDetailView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(.white.opacity(0.15)))
@@ -148,7 +148,7 @@ struct MediaDetailView: View {
                 .frame(width: 32, height: 32)
                 .overlay(
                     Text(String((item.authorName ?? "?").prefix(1)).uppercased())
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundColor(.white)
                 )
         }
@@ -167,7 +167,7 @@ struct MediaDetailView: View {
             HStack {
                 if item.isCarousel {
                     Text("\(currentIndex + 1) of \(item.carouselCount)")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(.systemScaled(12, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.7))
                 }
 
@@ -179,9 +179,9 @@ struct MediaDetailView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Text("View post")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                             Image(systemName: "arrow.right")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                         }
                         .foregroundColor(.white)
                         .padding(.horizontal, 12)
@@ -218,14 +218,14 @@ struct MediaDetailView: View {
         if !item.postContent.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.postContent)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundColor(.white)
                     .lineLimit(showFullCaption ? nil : 2)
                     .onTapGesture { showFullCaption.toggle() }
 
                 if item.postContent.count > 100 && !showFullCaption {
                     Text("more")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(.white.opacity(0.6))
                         .onTapGesture { showFullCaption = true }
                 }
@@ -236,9 +236,9 @@ struct MediaDetailView: View {
     private func versePill(_ verse: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
             Text(verse)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
         }
         .foregroundColor(.white)
         .padding(.horizontal, 10)

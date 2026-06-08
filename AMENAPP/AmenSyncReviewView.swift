@@ -69,7 +69,7 @@ struct AmenSyncReviewView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.teal)
                 Text("Ready to Distribute")
                     .font(.custom("OpenSans-Bold", size: 17))
@@ -122,7 +122,7 @@ struct AmenSyncReviewView: View {
     private var safetyCard: some View {
         HStack(spacing: 12) {
             Image(systemName: moderationIcon)
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(moderationColor)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -256,7 +256,7 @@ struct AmenSyncReviewView: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "paperplane.fill")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                             Text("Publish to AMEN")
                                 .font(.custom("OpenSans-Bold", size: 16))
                         }
@@ -277,7 +277,7 @@ struct AmenSyncReviewView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                 Text("Export All Versions")
                                     .font(.custom("OpenSans-SemiBold", size: 14))
                             }
@@ -317,7 +317,7 @@ struct AmenSyncReviewView: View {
                         .fill(Color.green.opacity(0.1))
                         .frame(width: 100, height: 100)
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 50))
+                        .font(.systemScaled(50))
                         .foregroundStyle(.green)
                 }
                 .scaleEffect(publishSucceeded ? 1 : 0.5)
@@ -359,7 +359,7 @@ struct ReviewVariantCard: View {
                         .fill(variant.platform.iconColor.opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: variant.platform.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(variant.platform.iconColor)
                 }
 
@@ -372,7 +372,7 @@ struct ReviewVariantCard: View {
                         if variant.aiCaption {
                             HStack(spacing: 3) {
                                 Image(systemName: "sparkle")
-                                    .font(.system(size: 9))
+                                    .font(.systemScaled(9))
                                 Text("AI Caption")
                                     .font(.custom("OpenSans-Regular", size: 10))
                             }

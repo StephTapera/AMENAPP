@@ -97,6 +97,10 @@ struct AMENAPPApp: App {
         Task {
             Self.setupRemoteConfig()
         }
+
+        // ✅ Start StoreKit 2 transaction listener so renewals, billing-retry
+        // recoveries, and Ask-to-Buy approvals are processed across app sessions.
+        AmenStoreKitManager.shared.startTransactionListener()
         
         // One-time migration: upgrade any stored rememberMe=false to true so existing
         // users are not logged out every 30 minutes after the policy change.

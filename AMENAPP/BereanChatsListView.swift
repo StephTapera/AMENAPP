@@ -28,6 +28,7 @@ struct BereanChatsListView: View {
     @State private var conversations: [BereanChatListItem] = []
     @State private var showNewConversation = false
     @State private var animateIn = false
+    @State private var showCollectionsSheet = false
 
     var filtered: [BereanChatListItem] {
         guard !searchText.isEmpty else { return conversations }
@@ -89,6 +90,9 @@ struct BereanChatsListView: View {
                 animateIn = true
             }
         }
+        .sheet(isPresented: $showCollectionsSheet) {
+            BereanChatCollectionsSheet()
+        }
     }
 
     // MARK: - Header
@@ -122,7 +126,8 @@ struct BereanChatsListView: View {
 
             HStack(spacing: 8) {
                 Button {
-                    // folder action
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showCollectionsSheet = true
                 } label: {
                     Image(systemName: "folder")
                         .font(.systemScaled(15, weight: .medium))
@@ -398,6 +403,30 @@ struct BereanChatsListView: View {
                 date: saved.date
             )
         }
+    }
+}
+
+// MARK: - Collections Sheet
+
+private struct BereanChatCollectionsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                Label("All Conversations", systemImage: "bubble.left.and.bubble.right")
+                Label("Saved", systemImage: "bookmark.fill")
+                Label("Scripture Study", systemImage: "book.fill")
+                Label("Prayer", systemImage: "hands.and.sparkles.fill")
+            }
+            .navigationTitle("Collections")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 

@@ -47,3 +47,36 @@ const v2intel = require("./v2intelligenceFunctions");
 exports.buildDailyIntelligenceBriefs  = v2intel.buildDailyIntelligenceBriefs;
 exports.getIntelligenceBrief          = v2intel.getIntelligenceBrief;
 exports.recordIntelligenceAction      = v2intel.recordIntelligenceAction;
+
+// ── biblicalAlignmentFunctions: callable + scheduled alignment ────────────────
+// NOTE: attachSharedKnowledgeIntegrity, voteKnowledgeIntegrity,
+// getWeeklyAlignmentSummary, updateAlignmentProfile are owned by the creator
+// codebase (Backend/functions) and must not be re-exported here.
+exports.checkBiblicalAlignment           = v2.checkBiblicalAlignment;
+exports.suggestBiblicalRewrite           = v2.suggestBiblicalRewrite;
+exports.saveAICorrection                 = v2.saveAICorrection;
+exports.getDiscernmentPrompt             = v2.getDiscernmentPrompt;
+exports.generateWeeklyAlignmentSummary   = v2.generateWeeklyAlignmentSummary;
+
+// NOTE: feedContextFunctions (computeFeedContextLabels, attachFeedContextToRankedPosts,
+// updateUserContextLabelPreferences, trackContextLabelEvent, suppressContextLabelForUser)
+// are owned by the creator codebase (Backend/functions) and must not be re-exported here.
+
+// ── smartInboxDenormalization: per-message inbox metadata triggers ─────────────
+exports.onMessageCreatedForSmartInbox    = v2.onMessageCreatedForSmartInbox;
+exports.onMessageCreatedClearsNeedsReply = v2.onMessageCreatedClearsNeedsReply;
+
+// ── Berean v1 callables (2026-06-07) ──────────────────────────────────────────
+// bereanChat          — main Berean answer callable (routes through callModel)
+// bereanMemory        — memory summarization callable (berean_memory_summarize)
+// bereanCrisisDetect  — crisis detection only; AI answer never returned; T&S gate
+// bereanBibleLookup   — server-side Bible API proxy (BIBLE_API_KEY stays server-side)
+exports.bereanChat         = v2.bereanChat;
+exports.bereanMemory       = v2.bereanMemory;
+exports.bereanCrisisDetect = v2.bereanCrisisDetect;
+exports.bereanBibleLookup  = v2.bereanBibleLookup;
+
+// ── 242hub triggers ───────────────────────────────────────────────────────────
+exports.flockIntelligence      = v2.flockIntelligence;
+exports.processSermonMemory    = v2.processSermonMemory;
+exports.reviewPrayerSubmission = v2.reviewPrayerSubmission;

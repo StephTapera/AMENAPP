@@ -41,7 +41,7 @@ struct IceBreakerCard: View {
 
                 Text(iceBreaker.message)
                     .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -60,7 +60,7 @@ struct IceBreakerCard: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
+                    .fill(Color(.secondarySystemBackground))
                     .shadow(color: .black.opacity(isPressed ? 0.15 : 0.08), radius: isPressed ? 4 : 8, y: isPressed ? 2 : 4)
             )
             .scaleEffect(isPressed ? 0.98 : 1.0)

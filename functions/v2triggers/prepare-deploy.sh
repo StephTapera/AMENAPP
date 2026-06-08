@@ -26,7 +26,9 @@ echo "[prepare-deploy] Source parent: $PARENT_DIR"
 echo "[prepare-deploy] Target:        $TARGET_DIR"
 
 # Copy top-level v2 files
-for FILE in v2entry.js v2functions.js v2intelligenceFunctions.js shabbatMiddleware.js; do
+for FILE in v2entry.js v2functions.js v2intelligenceFunctions.js shabbatMiddleware.js \
+            biblicalAlignmentFunctions.js feedContextFunctions.js smartInboxDenormalization.js \
+            alignmentPipeline.js rateLimiter.js 242hub.js; do
     echo "[prepare-deploy] Copying $FILE"
     cp "$PARENT_DIR/$FILE" "$TARGET_DIR/$FILE"
 done
@@ -35,6 +37,24 @@ done
 echo "[prepare-deploy] Copying intelligence/ directory"
 rm -rf "$TARGET_DIR/intelligence"
 cp -r "$PARENT_DIR/intelligence" "$TARGET_DIR/intelligence"
+
+# Copy router/ directory (needed by Berean callables via callModel.js)
+echo "[prepare-deploy] Copying router/ directory"
+rm -rf "$TARGET_DIR/router"
+cp -r "$PARENT_DIR/router" "$TARGET_DIR/router"
+
+# Copy mlClients.js (needed by router/callModel.js)
+echo "[prepare-deploy] Copying mlClients.js"
+cp "$PARENT_DIR/mlClients.js" "$TARGET_DIR/mlClients.js"
+
+# Copy selah/ directory (needed by Selah corpus + discernment callables)
+echo "[prepare-deploy] Copying selah/ directory (js files only)"
+rm -rf "$TARGET_DIR/selah"
+mkdir -p "$TARGET_DIR/selah"
+for SF in bibleProviderAdapter.js discernmentEngine.js discernmentPrompts.js \
+          openLicenseVerseService.js selahCorpusService.js selahCorpusUtils.js; do
+    cp "$PARENT_DIR/selah/$SF" "$TARGET_DIR/selah/$SF"
+done
 
 # Copy node_modules symlink reference by creating a symlink to parent node_modules
 # (Firebase CLI will not follow this symlink during upload; instead we copy the

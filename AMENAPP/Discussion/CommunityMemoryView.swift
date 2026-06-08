@@ -65,7 +65,7 @@ struct CommunityMemoryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Community Memory".uppercased())
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.35))
                 .tracking(1.5)
 
@@ -75,21 +75,21 @@ struct CommunityMemoryView: View {
                     .scaleEffect(0.8)
             } else if outcomes.isEmpty {
                 Text("No outcomes recorded yet.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.35))
             } else {
                 ForEach(outcomes) { outcome in
                     HStack(spacing: 8) {
                         Image(systemName: outcome.type.icon)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.accentColor)
                         Text(outcome.summary)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.white.opacity(0.75))
                             .lineLimit(2)
                         Spacer()
                         Text(outcome.type.label)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(Color.white.opacity(0.35))
                     }
                 }

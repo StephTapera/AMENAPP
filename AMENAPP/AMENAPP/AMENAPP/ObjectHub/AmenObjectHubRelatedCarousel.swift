@@ -32,7 +32,7 @@ struct AmenObjectHubRelatedCarousel: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     AmenRelatedObjectArtwork(object: object)
                                     Text(object.title)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                         .foregroundStyle(.black)
                                         .lineLimit(2)
                                     if let subtitle = object.subtitle ?? object.creatorName {

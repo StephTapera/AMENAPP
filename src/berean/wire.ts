@@ -131,8 +131,8 @@ const _crisisResourcesCheck = (() => {
     throw new Error('[berean/wire] INVARIANT VIOLATED: getCrisisResources() must return at least 3 real resources');
   }
   for (const r of resources) {
-    if (!r.phone && !r.sms) {
-      throw new Error(`[berean/wire] INVARIANT VIOLATED: Crisis resource "${r.name}" must have a phone or SMS contact`);
+    if (!r.contact) {
+      throw new Error(`[berean/wire] INVARIANT VIOLATED: Crisis resource "${r.name}" must have a contact value`);
     }
   }
 })();

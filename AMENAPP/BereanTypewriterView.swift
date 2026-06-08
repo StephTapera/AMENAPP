@@ -32,7 +32,7 @@ struct BereanStreamingTextView: View {
     /// `true` while the backend stream is active; `false` once complete.
     var isStreaming: Bool = false
 
-    var font: Font = .system(size: 16, weight: .regular)
+    var font: Font = .systemScaled(16, weight: .regular)
     var textColor: Color = Color(white: 0.14)
     var lineSpacing: CGFloat = 9
 
@@ -287,7 +287,7 @@ struct BereanStreamingTextView: View {
 struct TypewriterTextView: View {
 
     let text: String
-    var font: Font = .system(size: 36, weight: .bold, design: .default)
+    var font: Font = .systemScaled(36, weight: .bold, design: .default)
     var textColor: Color = Color(.label)
     var typingInterval: TimeInterval = 0.07   // per-word interval
     var cursorVisible: Bool = true
@@ -439,7 +439,7 @@ struct BereanHeroGreetingView: View {
             // — Greeting line —
             TypewriterTextView(
                 text: greeting.greeting,
-                font: .system(size: 40, weight: .bold, design: .default),
+                font: .systemScaled(40, weight: .bold, design: .default),
                 textColor: Color(.label),
                 typingInterval: shouldAnimate ? 0.055 : 0,
                 cursorVisible: shouldAnimate,

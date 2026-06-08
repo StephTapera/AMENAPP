@@ -47,9 +47,9 @@ struct BereanComposerActionPillRow: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: pill.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(pill.rawValue)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
@@ -57,7 +57,7 @@ struct BereanComposerActionPillRow: View {
             // Shadow before glass so it renders under the specular rim.
             .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
             .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
-            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+            .amenGlassEffect(in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(pill.rawValue)
@@ -78,11 +78,11 @@ struct BereanThinkingStateBanner: View {
                 BereanThinkingDots()
             } else {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             Text(step.rawValue)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .contentTransition(.numericText())
                 .animation(.easeInOut(duration: 0.3), value: step)
@@ -99,7 +99,7 @@ struct BereanThinkingStateBanner: View {
         }
         // Shadow before glass so it renders under the specular rim.
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+        .amenGlassEffect(in: Capsule())
         .accessibilityLabel(step.rawValue)
     }
 }

@@ -235,7 +235,7 @@ private struct AmenSpacePickerSheet: View {
             HStack(spacing: 10) {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                 }
                 .accessibilityLabel("Back")
@@ -297,7 +297,7 @@ private struct AmenSpacePickerSheet: View {
     private var spaceEmptyView: some View {
         VStack(spacing: 10) {
             Image(systemName: "building.2")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.tertiary)
             Text("You haven't joined any Spaces yet.")
                 .font(AMENFont.regular(15))
@@ -319,7 +319,7 @@ private struct AmenSpacePickerSheet: View {
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: iconFor(spaceType: space.spaceType))
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.systemScaled(18, weight: .semibold))
                                 .foregroundStyle(Color.accentColor)
                                 .frame(width: 32, height: 32)
                                 .background(Circle().fill(Color.accentColor.opacity(0.12)))
@@ -334,7 +334,7 @@ private struct AmenSpacePickerSheet: View {
                             }
                             Spacer()
                             Image(systemName: "checkmark.circle")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.horizontal, 16)
@@ -452,7 +452,7 @@ private struct AudienceOptionRow: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: audience.icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Color.accentColor.opacity(0.12)))
@@ -469,7 +469,7 @@ private struct AudienceOptionRow: View {
                 Spacer()
 
                 Image(systemName: trailingIcon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 16)

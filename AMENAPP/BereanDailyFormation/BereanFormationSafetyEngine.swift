@@ -42,7 +42,7 @@ enum BereanFormationSafetyEngine {
 struct BereanMockLabel: View {
     var body: some View {
         Text("Prototype — mock text. Real Scripture from YouVersion license only.")
-            .font(.system(size: 9))
+            .font(.systemScaled(9))
             .foregroundStyle(Color.white.opacity(0.30))
             .padding(.horizontal, 7).padding(.vertical, 2)
             .background(Color.white.opacity(0.04))
@@ -62,7 +62,7 @@ struct BereanTenderBadge: View {
         HStack(spacing: 3) {
             Text("🕊️")
             Text("Gentle")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(Color(hex: "#4A9ECC"))
                 .tracking(0.5)
         }

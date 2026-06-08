@@ -90,9 +90,9 @@ struct AmenCommunityModerationDashboardView: View {
                 } label: {
                     VStack(spacing: 3) {
                         Image(systemName: tab.symbolName)
-                            .font(.system(size: 15, weight: selectedTab == tab ? .semibold : .regular))
+                            .font(.systemScaled(15, weight: selectedTab == tab ? .semibold : .regular))
                         Text(tab.rawValue)
-                            .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .regular))
+                            .font(.systemScaled(11, weight: selectedTab == tab ? .semibold : .regular))
                     }
                     .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
                     .padding(.horizontal, 16)
@@ -245,7 +245,7 @@ struct AmenCommunityModerationDashboardView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text("Couldn't load queue")
@@ -629,7 +629,7 @@ private struct AmenCommunityHealthView: View {
             } else if let error = loadError {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 36))
+                        .font(.systemScaled(36))
                         .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                     Text(error)
@@ -659,7 +659,7 @@ private struct AmenCommunityHealthView: View {
                     }
                     Spacer()
                     Image(systemName: signal.isHealthy ? "heart.fill" : "heart.slash")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(signal.isHealthy ? Color.green : Color.orange)
                         .accessibilityLabel(signal.isHealthy ? "Healthy" : "Needs attention")
                 }

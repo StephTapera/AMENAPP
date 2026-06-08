@@ -153,13 +153,13 @@ struct AmenCreatorHubTabView: View {
                         .fill(Color(hex: "D9A441").opacity(0.18))
                         .frame(width: 36, height: 36)
                     Image(systemName: "banknote.fill")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 .accessibilityHidden(true)
 
                 Text("Earnings")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.55))
                     .textCase(.uppercase)
                     .kerning(0.7)
@@ -171,12 +171,12 @@ struct AmenCreatorHubTabView: View {
             // This Month number
             VStack(alignment: .leading, spacing: 2) {
                 Text("This Month")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.45))
                     .textCase(.uppercase)
                     .kerning(0.5)
                 Text("$247")
-                    .font(.system(size: 38, weight: .black))
+                    .font(.systemScaled(38, weight: .black))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityLabel("This month earnings: $247")
             }
@@ -186,15 +186,15 @@ struct AmenCreatorHubTabView: View {
             // Pending payout row
             HStack(spacing: 8) {
                 Image(systemName: "clock.badge.checkmark")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white.opacity(0.45))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Pending Payout")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.45))
                     Text("$189")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(Color.white)
                 }
                 .accessibilityElement(children: .combine)
@@ -210,9 +210,9 @@ struct AmenCreatorHubTabView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("View Full Dashboard")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                     }
                     .foregroundStyle(Color(hex: "D9A441"))
                 }
@@ -261,21 +261,21 @@ struct AmenCreatorHubTabView: View {
                         }
                         .frame(width: 40, height: 40)
                     Image(systemName: space.type.systemIcon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(space.type.accentColor)
                 }
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(space.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                         .lineLimit(1)
 
                     HStack(spacing: 6) {
                         // Type badge
                         Text(space.type.displayName)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(space.type.accentColor.opacity(0.85))
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
@@ -284,18 +284,10 @@ struct AmenCreatorHubTabView: View {
                                     .fill(space.type.accentColor.opacity(0.12))
                             }
 
-                        // Member count (muted, private metric)
-                        Image(systemName: "person.2")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.white.opacity(0.35))
-                            .accessibilityHidden(true)
-                        Text("\(space.memberCount)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.white.opacity(0.35))
                     }
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(space.name), \(space.type.displayName), \(space.memberCount) members")
+                .accessibilityLabel("\(space.name), \(space.type.displayName)")
 
                 Spacer()
             }
@@ -308,9 +300,9 @@ struct AmenCreatorHubTabView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                         Text("Manage")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                     }
                     .foregroundStyle(Color(hex: "6E4BB5"))
                     .frame(maxWidth: .infinity)
@@ -334,9 +326,9 @@ struct AmenCreatorHubTabView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "banknote")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                         Text("Earnings")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                     }
                     .foregroundStyle(Color(hex: "D9A441"))
                     .frame(maxWidth: .infinity)
@@ -390,10 +382,10 @@ struct AmenCreatorHubTabView: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                 Text(action.label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.80))
                     .lineLimit(1)
             }
@@ -438,18 +430,18 @@ struct AmenCreatorHubTabView: View {
                         .fill(Color(hex: "D9A441").opacity(0.18))
                         .frame(width: 40, height: 40)
                     Image(systemName: "checkmark.seal")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Become a Verified Creator")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color.white)
 
                     Text("Get verified to unlock premium features.")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(Color.white.opacity(0.60))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -462,7 +454,7 @@ struct AmenCreatorHubTabView: View {
                 showVerificationAlert = true
             } label: {
                 Text("Apply")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(Color(hex: "070607"))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)
@@ -519,20 +511,20 @@ struct AmenCreatorHubTabView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "doc.text")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.55))
                     .frame(width: 24)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.85))
 
                 Spacer()
 
                 // Version badge
                 Text("v\(docType.version)")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.35))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
@@ -542,7 +534,7 @@ struct AmenCreatorHubTabView: View {
                     }
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.25))
             }
             .padding(.horizontal, 14)
@@ -571,22 +563,22 @@ struct AmenCreatorHubTabView: View {
 
                 VStack(spacing: 16) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 40, weight: .light))
+                        .font(.systemScaled(40, weight: .light))
                         .foregroundStyle(Color(hex: "D9A441").opacity(0.60))
                         .accessibilityHidden(true)
 
                     Text("Discovery Settings")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.systemScaled(20, weight: .bold))
                         .foregroundStyle(Color.white)
 
                     Text("Control how your spaces appear in discovery results.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color.white.opacity(0.55))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
 
                     Text("Coming soon")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color(hex: "D9A441").opacity(0.70))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -613,7 +605,7 @@ struct AmenCreatorHubTabView: View {
     @ViewBuilder
     private func sectionPill(title: String, accent: Color) -> some View {
         Text(title.uppercased())
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .kerning(1.1)
             .foregroundStyle(accent)
             .padding(.horizontal, 14)

@@ -29,20 +29,23 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 
-export const createFollow = functions.https.onCall(async (data, context) => {
+export const createFollow = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "unauthenticated",
             "Must be signed in to follow a user."
         );
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -52,14 +55,14 @@ export const createFollow = functions.https.onCall(async (data, context) => {
     const followingId: unknown = data?.followingId;
 
     if (typeof followingId !== "string" || followingId.trim() === "") {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "followingId must be a non-empty string."
         );
     }
 
     if (followerId === followingId) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "Cannot follow yourself."
         );
@@ -111,16 +114,18 @@ export const createFollow = functions.https.onCall(async (data, context) => {
 
 // ─── createUnfollow ───────────────────────────────────────────────────────────
 
-export const createUnfollow = functions.https.onCall(async (data, context) => {
+export const createUnfollow = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "unauthenticated",
             "Must be signed in to unfollow a user."
         );
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -130,7 +135,7 @@ export const createUnfollow = functions.https.onCall(async (data, context) => {
     const followingId: unknown = data?.followingId;
 
     if (typeof followingId !== "string" || followingId.trim() === "") {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "followingId must be a non-empty string."
         );

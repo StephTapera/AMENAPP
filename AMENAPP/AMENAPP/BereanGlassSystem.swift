@@ -163,7 +163,7 @@ struct BereanModeChip: View {
             HStack(spacing: 6) {
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                 }
                 Text(label)
                     .font(AMENFont.semiBold(12))
@@ -207,7 +207,7 @@ struct BereanContextStrip: View {
             HStack(spacing: 6) {
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 7, weight: .bold))
+                        .font(.systemScaled(7, weight: .bold))
                         .foregroundStyle(.primary.opacity(0.45))
                 }
                 Text(label)
@@ -215,7 +215,7 @@ struct BereanContextStrip: View {
                     .foregroundStyle(.primary.opacity(0.65))
                 if onTap != nil {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(.primary.opacity(0.35))
                 }
             }
@@ -348,7 +348,7 @@ struct BereanReflectionCard: View {
                 HStack {
                     HStack(spacing: 6) {
                         Image(systemName: "moon.stars")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.primary.opacity(0.60))
                         Text("Sit with this")
                             .font(AMENFont.semiBold(13))
@@ -358,7 +358,7 @@ struct BereanReflectionCard: View {
                     if let dismiss = onDismiss {
                         Button(action: dismiss) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 28, height: 28)
                                 .background(Circle().fill(.ultraThinMaterial).overlay(Circle().fill(Color.white.opacity(0.50))))
@@ -373,7 +373,7 @@ struct BereanReflectionCard: View {
                         .font(AMENFont.regular(11))
                         .foregroundStyle(.secondary)
                     Text(verse)
-                        .font(.system(size: 15, weight: .regular, design: .serif))
+                        .font(.systemScaled(15, weight: .regular, design: .serif))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -406,7 +406,7 @@ struct BereanReflectionCard: View {
                         Button(action: save) {
                             HStack(spacing: 6) {
                                 Image(systemName: "square.and.arrow.down")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                 Text("Save to notes")
                                     .font(AMENFont.semiBold(12))
                             }
@@ -453,7 +453,7 @@ struct BereanGlassUtilButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.78))
                 .frame(width: size, height: size)
                 .background(

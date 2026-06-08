@@ -151,7 +151,7 @@ struct BereanVoiceOrb: View {
             switch state {
             case .idle:
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(.primary)
             case .thinking:
                 ProgressView()
@@ -160,12 +160,16 @@ struct BereanVoiceOrb: View {
                     .tint(.primary)
             case .interrupted:
                 Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(.primary)
             case .error:
                 Image(systemName: "exclamationmark")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(.red)
+            case .paused:
+                Image(systemName: "pause.fill")
+                    .font(.systemScaled(18, weight: .medium))
+                    .foregroundStyle(.primary)
             case .listening, .speaking:
                 EmptyView()
             }
@@ -246,6 +250,12 @@ struct BereanVoiceOrb: View {
             case .error:
                 pulseScale  = 1.0
                 glowOpacity = 0.0
+
+            case .paused:
+                pulseScale  = 1.0
+                glowOpacity = 0.1
+                outerScale  = 1.0
+                outerOpacity = 0.0
             }
         }
     }

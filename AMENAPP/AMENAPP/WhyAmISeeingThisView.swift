@@ -31,7 +31,7 @@ struct DiscoveryWhyPill: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "questionmark.circle")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .accessibilityHidden(true)
                         Text("Why?")
                             .font(.caption.weight(.semibold))
@@ -181,7 +181,7 @@ private struct ReasonCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: reason.icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 26)
                 .accessibilityHidden(true)

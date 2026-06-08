@@ -25,7 +25,7 @@ final class ChurchNotesIntelligenceRepository: ObservableObject {
     @Published private(set) var isLoadingSummary = false
 
     private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private let functions = Functions.functions(region: "us-east1")
     private var reflectionsListener: ListenerRegistration?
     private var bridgeListener: ListenerRegistration?
     private var activeNoteId: String?

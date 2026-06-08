@@ -153,7 +153,7 @@ struct BereanProjectBrainView: View {
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(label, systemImage: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .foregroundStyle(isSelected ? .white : .primary)
@@ -264,7 +264,7 @@ struct BereanProjectBrainView: View {
             showingExtractSheet = true
         } label: {
             Label("Extract from text", systemImage: "text.badge.plus")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)

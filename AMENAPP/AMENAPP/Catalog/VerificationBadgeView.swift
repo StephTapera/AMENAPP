@@ -48,13 +48,13 @@ struct VerificationBadge: View {
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: type.icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(type.color)
                 .accessibilityHidden(true)
 
             if showLabel {
                 Text(type.label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(type.color)
             }
         }
@@ -80,18 +80,18 @@ struct VerificationBadgeCard: View {
                     .frame(width: 40, height: 40)
 
                 Image(systemName: type.icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(type.color)
             }
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(type.label)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text("Verified by Amen")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(.secondary)
             }
 
@@ -126,12 +126,12 @@ struct UnofficialCatalogBanner: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "info.circle.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.orange)
                     .accessibilityHidden(true)
 
                 Text("Unofficial catalog – public sources only")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color.orange)
                     .lineLimit(1)
             }
@@ -172,7 +172,7 @@ private struct UnofficialCatalogExplanationSheet: View {
                                 .fill(Color.orange.opacity(0.12))
                                 .frame(width: 64, height: 64)
                             Image(systemName: "info.circle.fill")
-                                .font(.system(size: 30))
+                                .font(.systemScaled(30))
                                 .foregroundStyle(Color.orange)
                         }
                         Spacer()
@@ -236,7 +236,7 @@ struct GetVerifiedView: View {
                     // Intro header
                     VStack(spacing: 8) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
 
@@ -335,7 +335,7 @@ private struct VerificationMethodCard: View {
                     .fill(Color.accentColor.opacity(0.12))
                     .frame(width: 44, height: 44)
                 Image(systemName: method.icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
             }
             .accessibilityHidden(true)
@@ -343,10 +343,10 @@ private struct VerificationMethodCard: View {
             // Method name + description
             VStack(alignment: .leading, spacing: 3) {
                 Text(method.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
 
                 Text(method.description)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -361,7 +361,7 @@ private struct VerificationMethodCard: View {
                         .frame(width: 56)
                 } else {
                     Text("Verify")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(.ultraThinMaterial)

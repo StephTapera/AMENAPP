@@ -51,7 +51,7 @@ struct ContextCardView: View {
             if let verse = term.glossaryEntry.relatedVerse {
                 HStack(spacing: 6) {
                     Image(systemName: "book.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text(verse)
                         .font(AMENFont.semiBold(13))
                 }
@@ -68,7 +68,7 @@ struct ContextCardView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "bookmark")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Save Term")
                             .font(AMENFont.semiBold(13))
                     }

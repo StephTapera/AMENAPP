@@ -112,12 +112,19 @@ class ImageModerationService {
     // MARK: - Main Moderation Function
 
     /// Moderate an image before allowing upload.
-    /// Direct Vision API calls are disabled on the client; all images are held for
-    /// server-side Cloud Function moderation (moderateImage callable) to process.
+    ///
+    /// Server-side pipeline (functions/imageModeration.js — `moderateUploadedImage` Storage trigger):
+    ///   Layer 1 — Google Cloud Vision SafeSearch: blocks adult/racy (≥ POSSIBLE) and violent (≥ LIKELY) content.
+    ///   Layer 2 — NVIDIA NIM vision LLM (meta/llama-3.2-11b-vision-instruct): faith-context second pass;
+    ///             can approve SafeSearch over-flags on biblical art or block contextually inappropriate content.
+    ///   Fail-closed: if both checks error out the image stays in the review queue; it is never silently approved.
+    ///   NCMEC mandatory reporting fires on any confirmed-blocked image (18 U.S.C. § 2258A).
+    ///
+    /// The client returns `.review` so the UI can surface "pending review" state while the Storage trigger runs.
     func moderateImage(imageData: Data, userId: String, context: ImageContext) async throws -> ImageModerationDecision {
         dlog("🛡️ [IMAGE MOD] Moderating \(context.rawValue) image for user: \(userId)")
-        dlog("ℹ️ [IMAGE MOD] Deferring to Cloud Function for image safety check")
-        // Hold for server-side processing rather than calling Vision API directly from client.
+        dlog("ℹ️ [IMAGE MOD] Deferring to Storage trigger (moderateUploadedImage) for server-side safety check")
+        // Hold for server-side processing. Final decision comes from the Storage-triggered Cloud Function.
         return .review(reasons: ["Image safety check pending server-side moderation"])
     }
 

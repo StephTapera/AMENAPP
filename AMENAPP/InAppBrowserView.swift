@@ -73,7 +73,7 @@ struct InAppBrowserView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
             }
@@ -85,7 +85,7 @@ struct InAppBrowserView: View {
                 browserState.goBack()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(browserState.canGoBack ? .black : .black.opacity(0.25))
                     .frame(width: 36, height: 36)
             }
@@ -98,7 +98,7 @@ struct InAppBrowserView: View {
                     browserState.goForward()
                 } label: {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                 }
@@ -158,7 +158,7 @@ struct InAppBrowserView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
             }
@@ -172,7 +172,7 @@ struct InAppBrowserView: View {
     private var errorOverlay: some View {
         VStack(spacing: 20) {
             Image(systemName: "wifi.slash")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.black.opacity(0.25))
 
             Text("Couldn't load this page")

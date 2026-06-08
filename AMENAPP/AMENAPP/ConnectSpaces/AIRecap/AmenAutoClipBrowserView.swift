@@ -31,7 +31,7 @@ private struct AmenAutoClipCell: View {
 
                 // Duration badge — glass control
                 Text(formatDuration(clip.durationSecs))
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
@@ -48,7 +48,7 @@ private struct AmenAutoClipCell: View {
                         onPlay(clip)
                     } label: {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .background {
@@ -70,13 +70,13 @@ private struct AmenAutoClipCell: View {
             // Clip info
             VStack(alignment: .leading, spacing: 4) {
                 Text(clip.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(formatDuration(clip.durationSecs))
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
@@ -166,14 +166,14 @@ struct AmenAutoClipBrowserView: View {
     private var emptyState: some View {
         VStack(spacing: 18) {
             Image(systemName: "film.stack")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color.white.opacity(0.2))
                 .accessibilityHidden(true)
             Text("No clips yet")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text("Clips are generated automatically after recordings are processed.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)

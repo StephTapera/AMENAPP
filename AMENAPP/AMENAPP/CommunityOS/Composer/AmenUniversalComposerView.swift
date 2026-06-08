@@ -170,11 +170,11 @@ struct AmenUniversalComposerView: View {
                     )
                 }
             }
-            .onChange(of: vm.didSubmit) { submitted in
+            .onChange(of: vm.didSubmit) { _, submitted in
                 if submitted { onDismiss() }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(AmenRadius.card)
     }
@@ -314,9 +314,9 @@ struct AmenUniversalComposerView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: meta.systemImage)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                 Text(meta.displayName)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
             }
             .foregroundStyle(
                 isSelected
@@ -580,8 +580,8 @@ struct AmenUniversalComposerView: View {
             Picker("Audience", selection: $vm.draft.audience) {
                 Text("Public").tag("public_feed")
                 Text("Church").tag("church_only")
-                Text("Space Members").tag("space_members")
-                Text("Trusted Circle").tag("trusted_circle")
+                Text("My Space").tag("space_members")
+                Text("Trusted").tag("trusted_circle")
                 Text("Only Me").tag("private")
             }
             .pickerStyle(.segmented)

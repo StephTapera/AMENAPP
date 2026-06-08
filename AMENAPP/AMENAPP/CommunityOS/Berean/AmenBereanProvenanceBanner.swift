@@ -87,7 +87,7 @@ struct AmenBereanProvenanceBanner: View {
         HStack(spacing: 5) {
             // Berean brain icon
             Image(systemName: "brain.head.profile")
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color.accentColor)
 
             // Attribution text
@@ -98,7 +98,7 @@ struct AmenBereanProvenanceBanner: View {
             // Tappable disclosure chevron
             if tappable {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             }
         }
@@ -129,7 +129,7 @@ struct AmenBereanProvenanceInline: View {
         if provenance.sourceType == "bereanInsight" {
             HStack(spacing: 4) {
                 Image(systemName: "brain.head.profile")
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.systemScaled(10, weight: .regular))
                     .foregroundStyle(Color.accentColor)
                 Text("Berean")
                     .font(.caption2)

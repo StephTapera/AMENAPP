@@ -594,14 +594,14 @@ struct AmenMentorChannelView: View {
 
                     // Name
                     Text(profile.displayName)
-                        .font(.system(size: 34, weight: .bold))
+                        .font(.systemScaled(34, weight: .bold))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
 
                     // Tagline
                     if let tagline = profile.tagline {
                         Text(tagline)
-                            .font(.system(size: 17))
+                            .font(.systemScaled(17))
                             .foregroundStyle(.white.opacity(0.85))
                             .lineLimit(1)
                     }
@@ -652,9 +652,9 @@ struct AmenMentorChannelView: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
@@ -677,9 +677,9 @@ struct AmenMentorChannelView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: vm.isFollowing ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(vm.isFollowing ? "Following" : "Follow Journey")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
@@ -762,7 +762,7 @@ struct AmenMentorChannelView: View {
     private func statCell(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .font(.systemScaled(17, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
             Text(label)
                 .font(.caption)
@@ -825,7 +825,7 @@ struct AmenMentorChannelView: View {
                         ZStack {
                             Circle().fill(Color.accentColor.opacity(0.14)).frame(width: 44, height: 44)
                             Image(systemName: "calendar.badge.plus")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(Color.accentColor)
                         }
                         VStack(alignment: .leading, spacing: 2) {
@@ -838,7 +838,7 @@ struct AmenMentorChannelView: View {
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.tertiary)
                     }
                     .padding(16)
@@ -948,7 +948,7 @@ struct AmenMentorChannelView: View {
             ZStack {
                 Circle().fill(Color.amenPrayer.opacity(0.16)).frame(width: 48, height: 48)
                 Image(systemName: "hands.and.sparkles.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(Color.amenPrayer)
             }
             VStack(alignment: .leading, spacing: 3) {
@@ -1033,7 +1033,7 @@ struct AmenMentorChannelView: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
                     .background {
@@ -1053,7 +1053,7 @@ struct AmenMentorChannelView: View {
                 shareChannel()
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
                     .background {
@@ -1109,7 +1109,7 @@ struct AmenMentorChannelView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "person.slash")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.tertiary)
             Text("Channel not found.")
                 .font(.headline)
@@ -1238,7 +1238,7 @@ private struct TeachingRailCard: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(red: 0.28, green: 0.12, blue: 0.55).opacity(0.12))
             Image(systemName: "play.rectangle.fill")
-                .font(.system(size: 30))
+                .font(.systemScaled(30))
                 .foregroundStyle(Color(red: 0.28, green: 0.12, blue: 0.55).opacity(0.35))
         }
     }
@@ -1266,7 +1266,7 @@ private struct OfficeHourCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "clock.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.accentColor)
                 Spacer()
                 if slot.isBooked {
@@ -1337,7 +1337,7 @@ private struct DiscussionRailCard: View {
                         .fill(Color.amenScripture.opacity(0.12))
                         .frame(height: 48)
                     Image(systemName: "bubble.left.and.bubble.right.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(Color.amenScripture)
                 }
 
@@ -1349,7 +1349,7 @@ private struct DiscussionRailCard: View {
 
                 HStack(spacing: 4) {
                     Image(systemName: "person.2.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.secondary)
                     Text("\(item.participantCount)")
                         .font(.caption2)
@@ -1409,14 +1409,14 @@ private struct EventRailCard: View {
                 VStack(spacing: 0) {
                     if let date = event.startAt {
                         Text(Self.monthFormatter.string(from: date).uppercased())
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 3)
                             .background(Color.amenError)
 
                         Text(Self.dayFormatter.string(from: date))
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .font(.systemScaled(18, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
@@ -1432,7 +1432,7 @@ private struct EventRailCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Image(systemName: event.isOnline ? "video.fill" : "mappin.circle.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(event.isOnline ? Color.amenInfo : Color.amenWarning)
                     Text(event.isOnline ? "Online" : "In Person")
                         .font(.caption2.weight(.medium))
@@ -1486,7 +1486,7 @@ private struct StudySeriesRailCard: View {
                     .fill(Color.accentColor.opacity(0.12))
                     .frame(height: 52)
                 Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(Color.accentColor)
             }
 
@@ -1589,7 +1589,7 @@ private struct RelatedMentorCard: View {
                 .joined()
                 .uppercased()
             )
-            .font(.system(size: 24, weight: .semibold))
+            .font(.systemScaled(24, weight: .semibold))
             .foregroundStyle(Color(red: 0.28, green: 0.12, blue: 0.55))
         }
     }

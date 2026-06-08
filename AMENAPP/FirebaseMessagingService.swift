@@ -35,6 +35,7 @@ public enum FirebaseMessagingError: LocalizedError {
     case userBlocked
     case followRequired
     case messagesNotAllowed
+    case minorCannotInitiateDM
     case customError(String)
 
     public var errorDescription: String? {
@@ -63,6 +64,8 @@ public enum FirebaseMessagingError: LocalizedError {
             return "You must follow this user to message them"
         case .messagesNotAllowed:
             return "This user doesn't accept messages"
+        case .minorCannotInitiateDM:
+            return "Users under 18 may not initiate direct messages"
         case .customError(let message):
             return message
         }
@@ -242,7 +245,7 @@ public class FirebaseMessagingService: ObservableObject {
             switch msgError {
             case .permissionDenied, .invalidInput, .userBlocked,
                  .notAuthenticated, .selfConversation, .followRequired,
-                 .messagesNotAllowed, .invalidUserId:
+                 .messagesNotAllowed, .invalidUserId, .minorCannotInitiateDM:
                 return true
             case .networkError, .uploadFailed, .conversationNotFound,
                  .messageNotFound, .customError:

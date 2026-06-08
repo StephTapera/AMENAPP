@@ -1698,9 +1698,12 @@ class FirebasePostService: ObservableObject {
         
         try await db.collection(FirebaseManager.CollectionPath.posts)
             .document(postId)
-            .delete()
-        
-        dlog("✅ Post deleted successfully")
+            .updateData([
+                "isDeleted": true,
+                "deletedAt": FieldValue.serverTimestamp()
+            ])
+
+        dlog("✅ Post soft-deleted successfully")
         
         // Update user's post count
         try await db.collection(FirebaseManager.CollectionPath.users)

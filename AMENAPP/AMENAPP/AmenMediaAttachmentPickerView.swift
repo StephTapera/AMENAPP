@@ -272,7 +272,7 @@ struct AmenMediaAttachmentPickerView: View {
     private func emptyState(icon: String, title: String, subtitle: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.tertiary)
             Text(title)
                 .font(.systemScaled(15, weight: .semibold))

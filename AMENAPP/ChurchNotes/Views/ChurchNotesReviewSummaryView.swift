@@ -18,9 +18,9 @@ struct ChurchNotesReviewSummaryView: View {
     private func item(_ count: Int, _ label: String) -> some View {
         VStack(spacing: 3) {
             Text("\(count)")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.systemScaled(16, weight: .semibold, design: .rounded))
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)

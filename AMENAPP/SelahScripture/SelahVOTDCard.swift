@@ -45,15 +45,16 @@ struct SelahVOTDCard: View {
             heroArea
             bottomArea
         }
-        // §2 Floating white card
-        .background(Color.white)
+        // §2 Floating adaptive card
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous))
         .shadow(color: .black.opacity(0.10), radius: 20, x: 0, y: 8)
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
-        // TODO: Wire to DiscernmentEntrySheet once Agent C files are added to target
-        // .sheet(isPresented: $showDiscernmentSheet) {
-        //     DiscernmentEntrySheet(inputText: verseText, sourceType: "verse", sourceRef: verseRef)
-        // }
+        .sheet(isPresented: $showDiscernmentSheet) {
+            DiscernmentEntrySheet(inputText: verseText, sourceType: "verse", sourceRef: verseRef)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Hero Area

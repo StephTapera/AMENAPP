@@ -13,11 +13,11 @@ struct DrivingModeBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "car.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Text("Driving Mode")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Spacer()
@@ -29,7 +29,7 @@ struct DrivingModeBanner: View {
                 )
             } label: {
                 Text("Berean Voice")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
@@ -62,11 +62,11 @@ struct SundayModeCalloutBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "building.2.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Text("Good morning, ready for church?")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -80,7 +80,7 @@ struct SundayModeCalloutBanner: View {
                 )
             } label: {
                 Text("Church Mode")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
@@ -116,11 +116,11 @@ struct EventCheckInBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(didCheckIn ? Color.green : Color.primary)
 
             Text("\(spaceName) is starting soon")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -129,7 +129,7 @@ struct EventCheckInBanner: View {
 
             if didCheckIn {
                 Text("Checked in")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.green)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
@@ -139,7 +139,7 @@ struct EventCheckInBanner: View {
                     performCheckIn()
                 } label: {
                     Text("Check In")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
@@ -186,11 +186,11 @@ struct TravelModeBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "airplane")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Text("You're traveling — find a local church")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -204,7 +204,7 @@ struct TravelModeBanner: View {
                 )
             } label: {
                 Text("Find Churches")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)

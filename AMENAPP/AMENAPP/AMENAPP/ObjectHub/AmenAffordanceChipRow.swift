@@ -67,19 +67,19 @@ private struct AffordanceChip: View {
             HStack(spacing: 8) {
                 // Icon
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(accentColor)
 
                 // Label
                 VStack(alignment: .leading, spacing: 1) {
                     Text(affordance.label)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
 
                     Group {
                         if affordance.spawnable {
                             Text("Tap to start")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                         } else if affordance.participantCount > 0 {
                             HStack(spacing: 3) {
@@ -87,12 +87,12 @@ private struct AffordanceChip: View {
                                     .fill(Color.green)
                                     .frame(width: 6, height: 6)
                                 Text("\(affordance.participantCount) inside")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.secondary)
                             }
                         } else {
                             Text("Tap to join")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -101,11 +101,11 @@ private struct AffordanceChip: View {
                 // Spawn indicator
                 if affordance.spawnable {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(accentColor.opacity(0.7))
                 } else {
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(accentColor.opacity(0.7))
                 }
             }

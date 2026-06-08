@@ -282,7 +282,7 @@ struct DiscussionThreadView: View {
                     HStack(spacing: 12) {
                         if let snap = vm.healthSnapshot {
                             Image(systemName: snap.status.icon)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(snap.status.color)
                                 .accessibilityLabel("Discussion health: \(snap.status.label)")
                         }
@@ -445,7 +445,7 @@ struct DiscussionThreadView: View {
             ProgressView()
                 .tint(Color.accentColor)
             Text("Opening discussion…")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.4))
             Spacer()
         }
@@ -457,7 +457,7 @@ struct DiscussionThreadView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 32, weight: .ultraLight))
+                .font(.systemScaled(32, weight: .ultraLight))
                 .foregroundStyle(Color.white.opacity(0.2))
             Text("Be the first to share your perspective.")
                 .font(.custom("Georgia", size: 16))
@@ -473,9 +473,9 @@ struct DiscussionThreadView: View {
     private var modePill: some View {
         HStack(spacing: 5) {
             Image(systemName: vm.mode.icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             Text(vm.mode.displayName)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
         }
         .foregroundStyle(Color.accentColor)
         .padding(.horizontal, 10)
@@ -489,14 +489,14 @@ struct DiscussionThreadView: View {
     private var slowModeNudgeBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "tortoise.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.accentColor)
             Text("Slow mode is on — take a breath before posting.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.primary.opacity(0.7))
             Spacer()
             Button("OK") { showSlowModeNudge = false }
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 12)
@@ -519,7 +519,7 @@ struct DiscussionThreadView: View {
             HStack(spacing: 10) {
                 ProgressView().tint(Color.accentColor).scaleEffect(0.8)
                 Text("Berean is reading the discussion…")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.45))
             }
             .padding(14)
@@ -547,10 +547,10 @@ struct DiscussionThreadView: View {
         }()
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(color)
             Text(text)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(color.opacity(0.9))
         }
         .padding(.horizontal, 12)
@@ -577,9 +577,9 @@ struct DiscussionThreadView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                     Text("Ask Berean")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                 }
                 .foregroundStyle(Color.accentColor)
             }
@@ -600,9 +600,9 @@ struct DiscussionThreadView: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: dest.icon)
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                 Text(dest.label)
-                                    .font(.system(size: 12, weight: destination == dest ? .semibold : .regular))
+                                    .font(.systemScaled(12, weight: destination == dest ? .semibold : .regular))
                             }
                             .foregroundStyle(destination == dest ? Color.accentColor : Color.secondary)
                             .padding(.horizontal, 12)
@@ -632,12 +632,12 @@ struct DiscussionThreadView: View {
                 }()
                 if let icon = badgeIcon {
                     Image(systemName: icon)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(vm.reputation != .none ? vm.reputation.color : Color.accentColor)
                 }
 
                 TextField(vm.mode.composerPlaceholder, text: $draftBody, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color.white)
                     .tint(Color.accentColor)
                     .lineLimit(1...5)
@@ -671,7 +671,7 @@ struct DiscussionThreadView: View {
                         showReflection = true
                     } label: {
                         Image(systemName: "book.closed")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(Color.white.opacity(0.3))
                     }
                     .accessibilityLabel("Save as reflection")
@@ -714,13 +714,13 @@ struct DiscussionThreadView: View {
                     ProgressView().tint(.white).scaleEffect(0.75)
                 } else if vm.isSlowModeActive {
                     Text("\(vm.slowModeSecondsLeft)")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                         .foregroundStyle(Color.accentColor)
                         .frame(width: 36, height: 36)
                         .background(Color.accentColor.opacity(0.15), in: Circle())
                 } else {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(
                             draftBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                 ? Color.secondary.opacity(0.4)
@@ -774,21 +774,21 @@ private struct CommentRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(comment.authorDisplayName)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(isOwn ? Color.accentColor : Color.primary.opacity(0.75))
                     Text(timeLabel)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.white.opacity(0.28))
                     Spacer()
                     if comment.destination != "public" {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(Color.white.opacity(0.25))
                     }
                 }
 
                 Text(comment.body)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white.opacity(0.85))
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -798,10 +798,10 @@ private struct CommentRow: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: isHelpfulSent ? "hand.thumbsup.fill" : "hand.thumbsup")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         if comment.helpfulCount > 0 {
                             Text("\(comment.helpfulCount + (isHelpfulSent ? 1 : 0))")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.systemScaled(11, weight: .medium))
                         }
                     }
                     .foregroundStyle(isHelpfulSent
@@ -843,7 +843,7 @@ private struct CommentRow: View {
 
     private var initialsLabel: some View {
         Text(initials)
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .foregroundStyle(isOwn ? Color.accentColor : Color.secondary)
     }
 }

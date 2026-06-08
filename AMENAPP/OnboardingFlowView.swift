@@ -22,6 +22,9 @@ struct OnboardingFlowView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.dismiss) private var dismiss
 
+    /// Offline banner: visible only on slides that require a live network call.
+    @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
+
     @State private var currentPage = 0
     @State private var selectedInterests: Set<String> = []
     @State private var selectedFaithStage: String = ""
@@ -43,12 +46,39 @@ struct OnboardingFlowView: View {
     private var dotColor: Color { Color.black.opacity(0.82) }
     private var dotDimColor: Color { Color.black.opacity(0.16) }
 
+    /// Slides that make live Firestore / Firebase Auth calls and need connectivity.
+    private var isNetworkRequiringSlide: Bool {
+        // Slide 7 = username availability check (Firestore)
+        // Slide 8 = suggested users fetch + follow actions (Firestore)
+        currentPage >= 7
+    }
+
     var body: some View {
         ZStack {
             canvas
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                // Offline banner — shown on network-requiring slides when connectivity is lost
+                if !networkMonitor.isConnected && isNetworkRequiringSlide {
+                    HStack(spacing: 8) {
+                        Image(systemName: "wifi.slash")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("No internet connection — please connect to continue")
+                            .font(.system(size: 13, weight: .medium))
+                            .multilineTextAlignment(.leading)
+                        Spacer()
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color(red: 0.80, green: 0.15, blue: 0.15))
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: networkMonitor.isConnected)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("No internet connection. Please connect to continue.")
+                }
+
                 // Progress dots
                 HStack(spacing: 6) {
                     ForEach(0..<totalPages, id: \.self) { index in

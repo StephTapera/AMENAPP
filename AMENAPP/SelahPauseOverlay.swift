@@ -24,12 +24,12 @@ struct SelahPauseOverlay: View {
                     // Selah wordmark
                     VStack(spacing: 12) {
                         Image(systemName: "moon.stars.fill")
-                            .font(.system(size: 52))
+                            .font(.systemScaled(52))
                             .foregroundStyle(.white)
                             .symbolRenderingMode(.hierarchical)
 
                         Text("Selah")
-                            .font(.system(size: 38, weight: .light, design: .serif))
+                            .font(.systemScaled(38, weight: .light, design: .serif))
                             .foregroundStyle(.white)
 
                         Text("Pause. Breathe. Be still.")

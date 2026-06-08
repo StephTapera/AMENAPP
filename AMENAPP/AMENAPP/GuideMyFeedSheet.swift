@@ -44,7 +44,7 @@ struct GuideMyFeedSheet: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 28, weight: .semibold))
+                .font(.systemScaled(28, weight: .semibold))
                 .foregroundStyle(.primary)
                 .padding(.top, 8)
             Text("Tell Amen what to show more or less of. You stay in control.")
@@ -96,8 +96,8 @@ struct GuideMyFeedSheet: View {
             }
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 11, weight: .medium))
-                Text(label).font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                Image(systemName: icon).font(.systemScaled(11, weight: .medium))
+                Text(label).font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
             }
             .foregroundStyle(isSelected ? .primary : .secondary)
             .padding(.horizontal, 14).padding(.vertical, 8)
@@ -156,7 +156,7 @@ struct GuideMyFeedSheet: View {
                         }
                     } label: {
                         Label(surface.displayName, systemImage: surface.icon)
-                            .font(.system(size: 13, weight: isOn ? .semibold : .regular))
+                            .font(.systemScaled(13, weight: isOn ? .semibold : .regular))
                             .foregroundStyle(isOn ? .primary : .secondary)
                             .padding(.horizontal, 12).padding(.vertical, 7)
                             .background {
@@ -217,7 +217,7 @@ struct GuideMyFeedSheet: View {
     private func selectionPill(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? .primary : .secondary)
                 .padding(.horizontal, 14).padding(.vertical, 8)
                 .background {

@@ -101,7 +101,7 @@ struct AmenCovenantModerationQueueView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.green)
             Text("No Items Needing Review")
                 .font(.headline)
@@ -143,7 +143,7 @@ private struct ModerationItemRow: View {
                     HStack(spacing: 6) {
                         ForEach(item.reportReasons.prefix(4), id: \.self) { reason in
                             Text(reason.replacingOccurrences(of: "_", with: " ").capitalized)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.systemScaled(10, weight: .medium))
                                 .foregroundStyle(.orange)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)

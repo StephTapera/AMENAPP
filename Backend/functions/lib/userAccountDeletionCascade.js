@@ -70,18 +70,20 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.userAccountDeletionCascade = void 0;
 const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 const ALGOLIA_APP_ID = "182SCN7O9S";
 // ─── Callable ─────────────────────────────────────────────────────────────────
-exports.userAccountDeletionCascade = functions
-    .runWith({ timeoutSeconds: 540, memory: "512MB" })
-    .https.onCall(async (_data, context) => {
+exports.userAccountDeletionCascade = (0, https_1.onCall)(async (request) => {
+    const _data = request.data;
+    const data = _data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in");
     }
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     const userId = context.auth.uid;
     functions.logger.info(`[userAccountDeletionCascade] Starting for user ${userId}`);
@@ -112,6 +114,11 @@ exports.userAccountDeletionCascade = functions
     await removeUserFromAlgolia(userId);
     // ── Phase 7: Delete user subcollections ──────────────────────────────
     await deleteUserSubcollections(userId);
+    // ── Phase 7b: Delete event RSVPs authored by this user ───────────────
+    // amenEvents/{eventId}/rsvps/{uid} documents are keyed on the user's UID.
+    // A collection-group query finds all of them regardless of which event they
+    // belong to, then deletes them in pages to avoid orphaning stale RSVP data.
+    await deleteEventRsvpsForUser(userId);
     // ── Phase 8: Delete Firebase Auth account ────────────────────────────
     try {
         await admin.auth().deleteUser(userId);
@@ -263,6 +270,34 @@ async function deleteSubcollection(userId, subcollection) {
         snap.docs.forEach((doc) => batch.delete(doc.ref));
         await batch.commit();
         if (snap.size < 500)
+            break;
+    }
+}
+/**
+ * Deletes all RSVP documents the user has left inside any amenEvent.
+ *
+ * Each RSVP is stored at amenEvents/{eventId}/rsvps/{userId}, so the
+ * document ID equals the user's UID. A collection-group query on "rsvps"
+ * filtered by "userId" field finds every one of them, regardless of which
+ * event they belong to, without requiring a full scan of all events.
+ *
+ * This ensures no orphan RSVP documents remain after account deletion.
+ */
+async function deleteEventRsvpsForUser(userId) {
+    // The RSVP document ID is the user's UID, and the userId field is also
+    // stored on the document for querying.
+    const rsvpsQuery = db
+        .collectionGroup("rsvps")
+        .where("userId", "==", userId)
+        .limit(400);
+    while (true) {
+        const snap = await rsvpsQuery.get();
+        if (snap.empty)
+            break;
+        const batch = db.batch();
+        snap.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        if (snap.size < 400)
             break;
     }
 }

@@ -65,14 +65,14 @@ private enum WLToken {
     static let shelfH: CGFloat     = 158
 
     // Typography
-    static let heroTitle    = Font.system(size: 32, weight: .bold, design: .default)
-    static let heroSub      = Font.system(size: 14, weight: .regular)
-    static let sectionTitle = Font.system(size: 19, weight: .bold)
-    static let sectionSub   = Font.system(size: 12, weight: .regular)
-    static let cardTitle    = Font.system(size: 13, weight: .semibold)
-    static let cardAuthor   = Font.system(size: 11, weight: .regular)
-    static let chipLabel    = Font.system(size: 13, weight: .medium)
-    static let labelFont    = Font.system(size: 11, weight: .semibold)
+    static let heroTitle    = Font.systemScaled(32, weight: .bold, design: .default)
+    static let heroSub      = Font.systemScaled(14, weight: .regular)
+    static let sectionTitle = Font.systemScaled(19, weight: .bold)
+    static let sectionSub   = Font.systemScaled(12, weight: .regular)
+    static let cardTitle    = Font.systemScaled(13, weight: .semibold)
+    static let cardAuthor   = Font.systemScaled(11, weight: .regular)
+    static let chipLabel    = Font.systemScaled(13, weight: .medium)
+    static let labelFont    = Font.systemScaled(11, weight: .semibold)
 }
 
 // MARK: - Main View

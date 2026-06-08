@@ -2,6 +2,8 @@ import SwiftUI
 
 struct AmenStudioResourcesView: View {
     @ObservedObject private var featureFlags = AMENFeatureFlags.shared
+    @State private var showLibrary = false
+    @State private var showRecentAll = false
 
     private let quickStarts: [AmenStudioQuickStart] = [
         AmenStudioQuickStart(title: "Sermon Clip", subtitle: "Auto-captions + trim", accent: "Clip"),
@@ -93,8 +95,11 @@ struct AmenStudioResourcesView: View {
 
                 Spacer()
 
-                Button("Open library") {}
+                Button("Open library") { showLibrary = true }
                     .buttonStyle(.amenGlass(role: .utility, size: .compact, shape: .capsule))
+                    .sheet(isPresented: $showLibrary) {
+                        NavigationStack { AMENCreatorHomeView() }
+                    }
             }
 
             VStack(spacing: 12) {
@@ -114,8 +119,11 @@ struct AmenStudioResourcesView: View {
 
                 Spacer()
 
-                Button("View all") {}
+                Button("View all") { showRecentAll = true }
                     .buttonStyle(.amenGlass(role: .utility, size: .compact, shape: .capsule))
+                    .sheet(isPresented: $showRecentAll) {
+                        NavigationStack { AMENCreatorHomeView() }
+                    }
             }
 
             VStack(spacing: 12) {
@@ -166,7 +174,7 @@ private struct AmenStudioSearchBar: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             TextField(placeholder, text: $text)
@@ -233,6 +241,7 @@ private struct AmenStudioResourceSectionCard: View {
 
 private struct AmenStudioRecentCard: View {
     let item: AmenStudioRecentWork
+    @State private var showComingSoon = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -248,8 +257,13 @@ private struct AmenStudioRecentCard: View {
 
             Spacer()
 
-            Button("Resume") {}
+            Button("Resume") { showComingSoon = true }
                 .buttonStyle(.amenGlass(role: .primary, size: .compact, shape: .capsule))
+                .alert("Coming Soon", isPresented: $showComingSoon) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text("\"\(item.title)\" will be available when AMEN Studio launches.")
+                }
         }
         .padding(14)
         .amenGlassSurface(shape: .rounded(22), background: .balanced, placement: .inline)
@@ -271,7 +285,7 @@ private struct AmenStudioBottomBar: View {
                 let item = items[index]
                 VStack(spacing: 6) {
                     Image(systemName: item.1)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     Text(item.0)
                         .font(AMENFont.medium(10))
                 }

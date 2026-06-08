@@ -37,7 +37,7 @@ struct BereanVoiceModeChip: View {
         Button(action: onSelect) {
             HStack(spacing: 5) {
                 Image(systemName: mode.systemIconName)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
 
                 Text(mode.displayName)
                     .font(.custom("OpenSans-SemiBold", size: 12))

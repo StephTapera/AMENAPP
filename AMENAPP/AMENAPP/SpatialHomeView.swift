@@ -40,8 +40,8 @@ struct SpatialHomeView: View {
         // The parent is responsible for showing regular HomeView instead.
         if flags.spatialHomeEnabled {
             ZStack(alignment: .bottom) {
-                // Layer 1 — white canvas
-                Color.white
+                // Layer 1 — adaptive canvas
+                Color(.systemBackground)
                     .ignoresSafeArea()
 
                 // Layer 2 — primary scrollable feed
@@ -176,7 +176,7 @@ private struct PrimaryFocusPlane: View {
             scrollVelocityFast = delta > 24
             lastScrollOffset = value
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .refreshable {
             viewModel.refresh()
         }
@@ -205,36 +205,36 @@ struct SpatialPostPlaceholderCard: View {
             // Author row
             HStack(spacing: 10) {
                 Circle()
-                    .fill(Color.black.opacity(0.08))
+                    .fill(Color.primary.opacity(0.08))
                     .frame(width: 36, height: 36)
                     .overlay(
                         Text(String(UnicodeScalar(65 + (index % 26))!))
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.black.opacity(0.6))
+                            .font(.systemScaled(15, weight: .semibold))
+                            .foregroundStyle(.primary.opacity(0.6))
                     )
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Community Member")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.black)
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.primary)
                     Text("Just now")
-                        .font(.system(size: 12))
-                        .foregroundColor(.black.opacity(0.45))
+                        .font(.systemScaled(12))
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 15))
-                    .foregroundColor(.black.opacity(0.4))
+                    .font(.systemScaled(15))
+                    .foregroundStyle(.tertiary)
                     .accessibilityLabel("More options")
             }
 
             // Content body
             Text("This is a placeholder post card for spatial feed item \(index + 1). In production this will render a real PostCard(post:) with full community content.")
-                .font(.system(size: 15))
-                .foregroundColor(.black.opacity(0.85))
+                .font(.systemScaled(15))
+                .foregroundStyle(.primary)
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -260,9 +260,9 @@ struct SpatialPostPlaceholderCard: View {
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
+        .shadow(color: Color.primary.opacity(0.06), radius: 8, x: 0, y: 2)
         .accessibilityElement(children: .contain)
     }
 }
@@ -284,11 +284,11 @@ private struct PlaceholderActionButton: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text(label)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
             }
-            .foregroundColor(.black.opacity(0.55))
+            .foregroundStyle(.secondary)
         }
         .scaleEffect(isPressed && !reduceMotion ? 0.88 : 1.0)
         .animation(reduceMotion ? .none : .spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
@@ -319,7 +319,7 @@ private struct SpatialContextRail: View {
                         // Rail header
                         HStack {
                             Text("Context")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundColor(.black)
                             Spacer()
                             Button {
@@ -332,7 +332,7 @@ private struct SpatialContextRail: View {
                                 AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "context_rail_dismiss"))
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 20))
+                                    .font(.systemScaled(20))
                                     .foregroundColor(.black.opacity(0.35))
                             }
                             .accessibilityLabel("Close context rail")
@@ -404,7 +404,7 @@ private struct ContextRailSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(.black.opacity(0.4))
                 .textCase(.uppercase)
                 .kerning(0.4)
@@ -413,9 +413,9 @@ private struct ContextRailSection: View {
                 ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in
                     HStack(spacing: 4) {
                         Image(systemName: chip.0)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                         Text(chip.1)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundColor(.black.opacity(0.75))
                     .padding(.horizontal, 10)
@@ -433,7 +433,7 @@ private struct ContextRailSection: View {
 /// Floating capsule at the top of the feed that shows current session info.
 /// Non-interactive. Fades out when the user is scrolling fast.
 ///
-/// Glass surface: iOS 26 `.glassEffect(in: Capsule())` when transparency is
+/// Glass surface: iOS 26 `.amenGlassEffect(in: Capsule())` when transparency is
 /// allowed; solid `.ultraThinMaterial` capsule otherwise. Shadow is placed
 /// before the glass modifier so it sits under the specular rim.
 private struct AmbientStatusBar: View {
@@ -484,18 +484,18 @@ private struct AmbientStatusBar: View {
             // Shadow before .glassEffect so it renders under the specular rim.
             labelRow
                 .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 2)
-                .glassEffect(GlassEffectStyle.regular, in: Capsule())
+                .amenGlassEffect(in: Capsule())
         }
     }
 
     private var labelRow: some View {
         HStack(spacing: 6) {
             Image(systemName: "infinity.circle")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundColor(.black.opacity(0.6))
                 .accessibilityHidden(true)
             Text(sessionLabel)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundColor(.black.opacity(0.75))
         }
         .padding(.horizontal, 14)
@@ -508,7 +508,7 @@ private struct AmbientStatusBar: View {
 /// Floating action dock anchored above the bottom safe area.
 ///
 /// Glass surface: the dock `HStack` is wrapped in `GlassEffectContainer` and
-/// the outer container receives `.glassEffect(in: Capsule())` as its last
+/// the outer container receives `.amenGlassEffect(in: Capsule())` as its last
 /// modifier. The manual `.ultraThinMaterial` fill and stroke overlay are
 /// removed — the glass provides both automatically.
 ///
@@ -550,7 +550,7 @@ private struct FloatingComposerDock: View {
                     .padding(.vertical, 6)
             }
             .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 4)
-            .glassEffect(GlassEffectStyle.regular, in: Capsule())
+            .amenGlassEffect(in: Capsule())
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Composer actions")
         }
@@ -620,13 +620,13 @@ private struct DockButton: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundColor(.black.opacity(0.8))
                     .frame(width: 28, height: 28)
                     .accessibilityHidden(true)
 
                 Text(label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundColor(.black.opacity(0.55))
             }
             .frame(minWidth: 60)

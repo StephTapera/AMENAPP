@@ -63,7 +63,7 @@ struct SelahAboutAIInfoSheet: View {
                     )
 
                     Text("Selah is meant to help you sit with scripture. If anything you see disrupts that, turn the AI features off in Settings and the calm reader still works on its own.")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
                 }
@@ -84,10 +84,10 @@ struct SelahAboutAIInfoSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             SelahAIGeneratedBadge()
             Text("Honest AI in Selah")
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(.systemScaled(22, weight: .semibold, design: .serif))
                 .foregroundStyle(.primary)
             Text("Selah uses AI to help you read scripture more deeply — never to replace it.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .padding(.bottom, 4)
@@ -96,14 +96,14 @@ struct SelahAboutAIInfoSheet: View {
     private func section(title: String, bullets: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .tracking(1.5)
                 .foregroundStyle(.secondary)
             ForEach(bullets, id: \.self) { line in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("•").foregroundStyle(.secondary)
                     Text(line)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

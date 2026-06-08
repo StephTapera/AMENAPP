@@ -64,9 +64,9 @@ struct ONEReportMomentView: View {
             HStack(alignment: .top, spacing: ONE.Spacing.sm) {
                 Image(systemName: "lock.shield.fill")
                     .foregroundStyle(ONE.Colors.witnessGold)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text("Evidence is locked server-side before any decay can run. The author's decay settings do not apply to reported content.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -84,16 +84,16 @@ struct ONEReportMomentView: View {
     private func categoryRow(_ cat: ONEReportCategory) -> some View {
         HStack(spacing: ONE.Spacing.md) {
             Image(systemName: cat.icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(ONE.Colors.ephemeralRed.opacity(0.8))
                 .frame(width: 24)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(cat.displayLabel)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 Text(cat.displayDescription)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -115,7 +115,7 @@ struct ONEReportMomentView: View {
                 HStack {
                     ProgressView()
                     Text("Locking evidence…")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                 }
             } else {
@@ -125,7 +125,7 @@ struct ONEReportMomentView: View {
                     HStack {
                         Spacer()
                         Text("Lock evidence & report")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                         Spacer()
                     }
@@ -152,13 +152,13 @@ struct ONEReportMomentView: View {
                 HStack(spacing: ONE.Spacing.sm) {
                     Image(systemName: "checkmark.shield.fill")
                         .foregroundStyle(ONE.Colors.repairGreen)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Evidence locked")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(ONE.Colors.repairGreen)
                         Text("Retained for 90 days · \(r.evidenceID)")
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.systemScaled(11, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -220,20 +220,20 @@ struct ONEReportMomentView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: ONE.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(done ? color : .secondary)
                 .frame(width: 20)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(done ? .primary : .secondary)
                 Text(detail)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                 if let t = time {
                     Text(t.formatted(date: .omitted, time: .shortened))
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.tertiary)
                 }
             }

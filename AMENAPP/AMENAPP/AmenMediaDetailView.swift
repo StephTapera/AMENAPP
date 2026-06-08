@@ -38,7 +38,7 @@ struct AmenMediaDetailLoaderView: View {
             } else {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.systemScaled(28, weight: .semibold))
                     Text(errorMessage ?? "Unable to load this post.")
                         .font(AMENFont.semiBold(15))
                         .multilineTextAlignment(.center)
@@ -313,7 +313,7 @@ struct AmenMediaDetailView: View {
                     }
                 } label: {
                     Image(systemName: showChrome ? "eye.slash" : "eye")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.72))
                         .frame(width: 40, height: 40)
                         .background(AmenGlassCapsule())
@@ -324,7 +324,7 @@ struct AmenMediaDetailView: View {
                     showOverflowSheet = true
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.72))
                         .frame(width: 40, height: 40)
                         .background(AmenGlassCapsule())
@@ -361,7 +361,7 @@ struct AmenMediaDetailView: View {
                                 .frame(width: 42, height: 42)
                         } else {
                             Image(systemName: "paperplane.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(width: 42, height: 42)
                                 .background(Circle().fill(Color.black))
@@ -568,7 +568,7 @@ private struct AmenVideoPlayerSurface: View {
                     .overlay(alignment: .center) {
                         if !model.isPlaying {
                             Image(systemName: "play.fill")
-                                .font(.system(size: 22, weight: .semibold))
+                                .font(.systemScaled(22, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(width: 58, height: 58)
                                 .background(Circle().fill(Color.black.opacity(0.35)))

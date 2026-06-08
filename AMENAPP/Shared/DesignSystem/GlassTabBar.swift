@@ -83,14 +83,14 @@ struct GlassTabBar: View {
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: isSelected ? tab.selectedIcon : tab.icon)
-                    .font(.system(size: 22, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(22, weight: isSelected ? .semibold : .regular))
                     // PURGED: Color.amenGold → Color.accentColor per C3 design contract
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     .scaleEffect(reduceMotion ? 1 : (isSelected ? 1.08 : 1.0))
                     .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.7), value: isSelected)
 
                 Text(tab.label)
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(10, weight: isSelected ? .semibold : .regular))
                     // PURGED: Color.amenGold → Color.accentColor per C3 design contract
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             }

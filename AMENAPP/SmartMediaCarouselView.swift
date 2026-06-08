@@ -91,13 +91,16 @@ struct SmartMediaCarouselView: View {
                         Label("Smart Actions", systemImage: "sparkles")
                     }
                     Button {
-                        // Save action stub
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        let item = items[currentIndex]
+                        let url = item.thumbnailURL ?? item.videoURL
+                        UserDefaults.standard.set(url, forKey: "saved_media_\(item.id)")
+                        let feedback = UINotificationFeedbackGenerator()
+                        feedback.notificationOccurred(.success)
                     } label: {
                         Label("Save", systemImage: "square.and.arrow.down")
                     }
-                    Button {
-                        // Share action stub
-                    } label: {
+                    ShareLink(item: items[currentIndex].contextTag ?? "Check out this media on Amen!") {
                         Label("Share Safely", systemImage: "square.and.arrow.up")
                     }
                 }

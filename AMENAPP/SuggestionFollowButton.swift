@@ -34,7 +34,7 @@ struct SuggestionFollowButton: View {
                         .tint(state == .notFollowing || state == .followsYou ? .white : .primary)
                 } else {
                     Text(state.buttonTitle)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(buttonForeground)
                 }
                 Spacer()

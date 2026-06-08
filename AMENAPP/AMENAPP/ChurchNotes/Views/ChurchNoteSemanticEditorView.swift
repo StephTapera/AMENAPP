@@ -426,7 +426,7 @@ struct ChurchNoteSemanticEditorView: View {
                         // Posture indicator
                         if let posture = vm.detectedPosture {
                             Image(systemName: posture.icon)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.secondary)
                                 .accessibilityLabel("Tone: \(posture.displayName)")
                         }
@@ -434,7 +434,7 @@ struct ChurchNoteSemanticEditorView: View {
                             showLivingEntries = true
                         } label: {
                             Image(systemName: "square.stack.3d.up")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                         }
                         .accessibilityLabel("Open Living Entries")
                         Button {
@@ -933,7 +933,7 @@ struct ChurchNoteSemanticEditorView: View {
                         }
                     } label: {
                         Image(systemName: "camera.on.rectangle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.primary)
                             .frame(width: 36, height: 36)
                             .background(Color.accentColor.opacity(0.12))
@@ -949,7 +949,7 @@ struct ChurchNoteSemanticEditorView: View {
                         vm.addBlock(ChurchNoteBlockV2.callout(style: style, order: (blockRepo.activeBlocks.last?.sortOrder ?? -1) + 1))
                     } label: {
                         Image(systemName: style.icon)
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.primary)
                             .frame(width: 36, height: 36)
                             .background(style.fillColor.opacity(0.9))
@@ -963,7 +963,7 @@ struct ChurchNoteSemanticEditorView: View {
                     vm.showBridgeCard = true
                 } label: {
                     Image(systemName: "calendar.badge.checkmark")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                         .background(Color(.systemGreen).opacity(0.12))
@@ -1123,7 +1123,7 @@ struct SemanticBlockCellView: View {
     private var semanticPillCell: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: block.type.icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(block.semanticType.accentColor)
                 .frame(width: 22)
                 .padding(.top, 2)
@@ -1162,7 +1162,7 @@ struct SemanticBlockCellView: View {
         let style = block.calloutPayload?.style ?? .reflection
         return HStack(alignment: .top, spacing: 10) {
             Image(systemName: style.icon)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(style.borderColor)
                 .frame(width: 22)
                 .padding(.top, 2)
@@ -1198,7 +1198,7 @@ struct SemanticBlockCellView: View {
     private var verseCell: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "book.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(hex: "8AA8D8"))
                 .frame(width: 22)
                 .padding(.top, 2)
@@ -1253,7 +1253,7 @@ struct SemanticBlockCellView: View {
                     HStack(spacing: 8) {
                         Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(item.completed ? .primary : Color(.tertiaryLabel))
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .accessibilityHidden(true)
                         Text(item.text)
                             .font(.subheadline)
@@ -1366,7 +1366,7 @@ struct BlockFactorySheet: View {
             } label: {
                 VStack(spacing: 6) {
                     Image(systemName: ChurchNoteBlockV2Type.verseEmbed.icon)
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(Color(hex: "8AA8D8"))
                     Text(ChurchNoteBlockV2Type.verseEmbed.displayName)
                         .font(.caption)
@@ -1388,7 +1388,7 @@ struct BlockFactorySheet: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.primary)
                 Text(type.displayName)
                     .font(.caption)
@@ -1410,7 +1410,7 @@ struct BlockFactorySheet: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: style.icon)
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(style.borderColor)
                         Text(style.displayName)
                             .font(.subheadline)
@@ -1439,7 +1439,7 @@ struct BlockFactorySheet: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: category.icon)
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                         Text(category.displayName)
                             .font(.subheadline)
@@ -1730,7 +1730,7 @@ private struct BereanChurchNoteInsightCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(red: 0.18, green: 0.44, blue: 0.80))
                 Text("Berean Insight")
                     .font(AMENFont.semiBold(13))
@@ -1764,7 +1764,7 @@ private struct BereanChurchNoteInsightCard: View {
                    !christConnection.connectionStatement.isEmpty {
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "cross.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.secondary)
                             .padding(.top, 2)
                         Text(christConnection.connectionStatement)

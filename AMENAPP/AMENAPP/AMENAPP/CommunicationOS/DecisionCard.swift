@@ -44,8 +44,8 @@ struct DecisionCard: View {
             }
             AmenMessagingAnalytics.track(.decisionCardSeen)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Suggested decision: \(decision.summary). Status: \(decision.status.rawValue)")
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Suggested decision card")
     }
 
     private var header: some View {

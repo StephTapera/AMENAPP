@@ -32,12 +32,12 @@ struct AmenDiscoverTileView: View {
             if let subtitle = item.subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(.black.opacity(0.65))
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
         }
         .padding(8)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .scaleEffect(reduceMotion ? 1 : 0.995)
     }

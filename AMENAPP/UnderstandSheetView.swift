@@ -56,7 +56,7 @@ struct UnderstandSheetView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityLabel("Close")
@@ -100,7 +100,7 @@ struct UnderstandSheetView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: mode.iconName)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(mode.displayName)
                     .font(AMENFont.semiBold(13))
             }
@@ -177,7 +177,7 @@ struct UnderstandSheetView: View {
             if let verse = term.relatedVerse {
                 HStack(spacing: 4) {
                     Image(systemName: "book.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text(verse)
                         .font(AMENFont.semiBold(12))
                 }
@@ -213,7 +213,7 @@ struct UnderstandSheetView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(Color(.tertiaryLabel))
             Text(message)
                 .font(AMENFont.regular(14))
@@ -233,7 +233,7 @@ struct UnderstandSheetView: View {
     private var placeholderView: some View {
         VStack(spacing: 8) {
             Image(systemName: "lightbulb")
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(Color(.tertiaryLabel))
             Text("Select a mode above to understand this content")
                 .font(AMENFont.regular(14))

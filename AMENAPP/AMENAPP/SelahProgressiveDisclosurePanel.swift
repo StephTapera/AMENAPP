@@ -263,10 +263,10 @@ struct SelahDisclosureContainer<Content: View>: View {
         Button(action: action) {
             VStack(spacing: 2) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.primary)
                 Text(label)
-                    .font(.system(size: 9))
+                    .font(.systemScaled(9))
                     .foregroundStyle(.secondary)
             }
         }

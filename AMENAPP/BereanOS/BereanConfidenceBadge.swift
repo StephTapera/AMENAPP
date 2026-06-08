@@ -54,7 +54,7 @@ struct BereanConfidenceBadge: View {
                 .fill(badgeColor)
                 .frame(width: 8, height: 8)
             Text(abbreviation)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(.systemScaled(11, weight: .semibold, design: .rounded))
                 .foregroundStyle(badgeColor)
         }
         .accessibilityLabel("Confidence: \(level.displayName). \(level.explanation)")
@@ -68,7 +68,7 @@ struct BereanConfidenceBadge: View {
             showingPopover.toggle()
         } label: {
             Text(level.displayName)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(.systemScaled(12, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)

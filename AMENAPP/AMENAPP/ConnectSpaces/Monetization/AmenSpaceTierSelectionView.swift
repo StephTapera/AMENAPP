@@ -63,7 +63,7 @@ struct AmenSpaceTierSelectionView: View {
                     }
                     if let error = saveError {
                         Text(error)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.red.opacity(0.85))
                             .padding(.horizontal, 20)
                             .padding(.top, 8)
@@ -82,10 +82,10 @@ struct AmenSpaceTierSelectionView: View {
     private var pageHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Membership Tiers")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .foregroundStyle(Color.white)
             Text("Manage the tiers available to your community members.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.55))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -120,9 +120,9 @@ struct AmenSpaceTierSelectionView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text("Add tier")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundStyle(Color(hex: "D9A441"))
             .frame(maxWidth: .infinity)
@@ -164,10 +164,10 @@ private struct TierManagementCard: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(tier.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                     Text(priceLabel)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.55))
                 }
                 Spacer()
@@ -202,9 +202,9 @@ private struct TierManagementCard: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "trash")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                             Text("Delete tier")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                         }
                         .foregroundStyle(Color.red.opacity(0.70))
                     }
@@ -256,7 +256,7 @@ private struct AddTierFormCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("New Tier")
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
                 .foregroundStyle(Color.white)
 
             formField(label: "Tier name", placeholder: "e.g. Member") {
@@ -278,7 +278,7 @@ private struct AddTierFormCard: View {
 
             Toggle("Free tier (no charge)", isOn: $isFreeTier)
                 .tint(Color(hex: "D9A441"))
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.85))
 
             if !isFreeTier {
@@ -290,7 +290,7 @@ private struct AddTierFormCard: View {
             HStack(spacing: 12) {
                 Button(action: onCancel) {
                     Text("Cancel")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.65))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -310,7 +310,7 @@ private struct AddTierFormCard: View {
                             .padding(.vertical, 12)
                     } else {
                         Text("Save tier")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(Color(hex: "070607"))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -341,7 +341,7 @@ private struct AddTierFormCard: View {
     private var monthlyPriceField: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Monthly price (USD)")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.55))
             HStack {
                 Text("$")
@@ -357,13 +357,13 @@ private struct AddTierFormCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Toggle("Offer annual pricing", isOn: $hasAnnualPrice)
                 .tint(Color(hex: "D9A441"))
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.85))
 
             if hasAnnualPrice {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Annual price (USD)")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.55))
                     HStack {
                         Text("$")
@@ -381,21 +381,21 @@ private struct AddTierFormCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Toggle("Intro pricing", isOn: $hasIntro)
                 .tint(Color(hex: "D9A441"))
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.85))
 
             if hasIntro {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Duration (months)")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.55))
                         Stepper("\(introMonths)", value: $introMonths, in: 1...12)
                             .foregroundStyle(Color.white)
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Intro price (USD/mo)")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.55))
                         HStack {
                             Text("$")
@@ -420,7 +420,7 @@ private struct AddTierFormCard: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.55))
             content()
         }
@@ -488,7 +488,7 @@ private struct AddTierFormCard: View {
 private extension View {
     func formTextFieldStyle() -> some View {
         self
-            .font(.system(size: 14))
+            .font(.systemScaled(14))
             .foregroundStyle(Color.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)

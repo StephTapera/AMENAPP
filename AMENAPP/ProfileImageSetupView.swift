@@ -230,7 +230,7 @@ struct ProfileImageSetupView: View {
         VStack(alignment: .leading, spacing: 14) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .frame(width: 42, height: 42)
                     .background(liquidWhiteMaterial, in: Circle())
                     .overlay(Circle().stroke(.white.opacity(0.72), lineWidth: 1))
@@ -296,17 +296,17 @@ struct LiquidWhiteAvatarPlaceholder: View {
                         .padding(8)
                 } else {
                     Image(systemName: "person.crop.circle")
-                        .font(.system(size: 86, weight: .ultraLight))
+                        .font(.systemScaled(86, weight: .ultraLight))
                         .foregroundStyle(.black.opacity(0.22))
                 }
             }
             .frame(width: 224, height: 224)
 
             Image(systemName: "plus")
-                .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(.black)
+                .font(.systemScaled(19, weight: .semibold))
+                .foregroundStyle(.primary)
                 .frame(width: 54, height: 54)
-                .background(reduceTransparency ? Color.white : Color.white.opacity(0.74), in: Circle())
+                .background(reduceTransparency ? Color(.secondarySystemBackground) : Color(.secondarySystemBackground).opacity(0.74), in: Circle())
                 .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
                 .shadow(color: .black.opacity(0.10), radius: 14, y: 7)
                 .accessibilityHidden(true)
@@ -334,19 +334,19 @@ struct LiquidWhiteBottomActionCard: View {
             Button(action: primaryAction) {
                 Text(primaryTitle)
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
-                    .background(.black, in: Capsule())
+                    .background(Color(.label), in: Capsule())
             }
             .accessibilityLabel(primaryTitle)
 
             Button("Choose from Library", action: libraryAction)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
-                .background(.white.opacity(0.58), in: Capsule())
+                .background(Color.primary.opacity(0.10), in: Capsule())
                 .accessibilityLabel("Choose profile image from photo library")
 
             if showRemove {
@@ -535,7 +535,7 @@ struct ProfileImageSuccessView: View {
                         .clipShape(Circle())
                 }
                 Image(systemName: "checkmark")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                     .foregroundStyle(.black)
                     .frame(width: 48, height: 48)
                     .background(.regularMaterial, in: Circle())

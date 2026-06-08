@@ -100,7 +100,7 @@ struct IndexedMediaGridView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(filter.rawValue)
                     .font(AMENFont.medium(13))
             }
@@ -121,7 +121,7 @@ struct IndexedMediaGridView: View {
     private func errorState(message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 28, weight: .semibold))
+                .font(.systemScaled(28, weight: .semibold))
                 .foregroundStyle(Color(white: 0.6))
             Text(message)
                 .font(AMENFont.regular(14))

@@ -25,7 +25,7 @@ struct PostAILabelPill: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                     Text(label.displayText)
                         .font(AMENFont.semiBold(10))
                         .lineLimit(1)
@@ -109,7 +109,7 @@ struct AILabelDetailSheet: View {
     private var labelHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkle")
-                .font(.system(size: 18, weight: .light))
+                .font(.systemScaled(18, weight: .light))
                 .foregroundStyle(.primary)
 
             Text(label.displayText)
@@ -149,7 +149,7 @@ struct AILabelDetailSheet: View {
     private var authorControlLine: some View {
         HStack(spacing: 6) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Text("The author stayed in control of the final post.")
                 .font(AMENFont.regular(13))

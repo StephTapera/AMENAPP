@@ -9,6 +9,31 @@ import AVKit
 import FirebaseFirestore
 import FirebaseAuth
 
+// MARK: - Fullscreen Video Player (with dismiss button)
+
+private struct FullscreenVideoPlayerView: View {
+    let url: URL
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            VideoPlayer(player: AVPlayer(url: url))
+                .ignoresSafeArea()
+            Button {
+                isPresented = false
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
+            }
+            .accessibilityLabel("Close video")
+            .padding(.top, 56)
+            .padding(.trailing, 16)
+        }
+    }
+}
+
 // MARK: - Models
 
 enum ClipType: String, CaseIterable {
@@ -433,8 +458,7 @@ struct TeachingClipCard: View {
         }
         .fullScreenCover(isPresented: $showingVideoPlayer) {
             if let url = fullscreenVideoURL {
-                VideoPlayer(player: AVPlayer(url: url))
-                    .ignoresSafeArea()
+                FullscreenVideoPlayerView(url: url, isPresented: $showingVideoPlayer)
             }
         }
         .sheet(isPresented: $showingBereanAI) {

@@ -48,7 +48,7 @@ struct SmartAccountResumeView: View {
 
                 // AMEN watermark
                 Text("AMEN")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(12, weight: .semibold, design: .rounded))
                     .tracking(5)
                     .foregroundStyle(.primary.opacity(0.1))
                     .padding(.bottom, 40)
@@ -420,7 +420,7 @@ struct SmartAccountResumeView: View {
                             .stroke(Color.secondary.opacity(0.3), lineWidth: 1.5)
                             .frame(width: 36, height: 36)
                         Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                     Text("Add another account")
@@ -484,7 +484,7 @@ struct SmartAccountResumeView: View {
             Circle()
                 .fill(Color(.tertiarySystemBackground))
             Text(account.initials)
-                .font(.system(size: size * 0.35, weight: .semibold))
+                .font(.systemScaled(size * 0.35, weight: .semibold))
                 .foregroundStyle(.primary)
         }
     }

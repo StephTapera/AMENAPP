@@ -139,7 +139,7 @@ struct AmenConnectGlassPill: View {
             HStack(spacing: 7) {
                 if let iconName {
                     Image(systemName: iconName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                 }
                 Text(title)
                     .font(.systemScaled(13, weight: isSelected ? .semibold : .medium))
@@ -197,7 +197,7 @@ struct AmenConnectFloatingActionButton: View {
     var body: some View {
         AmenConnectGlassButton(accessibilityLabel: "Create in Amen Connect", isSelected: true, action: action) {
             Image(systemName: "plus")
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(.primary)
                 .frame(width: 58, height: 58)
         }

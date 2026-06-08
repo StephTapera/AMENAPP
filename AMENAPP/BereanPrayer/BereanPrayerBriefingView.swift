@@ -8,7 +8,7 @@ import FirebaseFunctions
 
 struct BereanPrayerBriefingView: View {
     @StateObject private var service = BereanPrayerService.shared
-    @AppStorage("bereanPrayerOS_enabled") private var isEnabled = false
+    @AppStorage("bereanPrayerOS_enabled") private var isEnabled = true
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @State private var showJournal = false
     @State private var showAddEntry = false
@@ -296,7 +296,7 @@ struct BereanPrayerBriefingView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "hands.clap")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(Color.accentColor.opacity(0.6))
                 .accessibilityHidden(true)
 
@@ -339,7 +339,7 @@ struct BereanPrayerBriefingView: View {
             Color(.systemBackground).ignoresSafeArea()
             VStack(spacing: 16) {
                 Image(systemName: "hands.clap")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(Color.accentColor.opacity(0.5))
                     .accessibilityHidden(true)
 
@@ -348,9 +348,10 @@ struct BereanPrayerBriefingView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.primary)
 
-                Text("Coming Soon")
+                Text("Your personalized prayer briefing will appear here once you've prayed at least once.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
         }
         .accessibilityElement(children: .combine)
@@ -374,7 +375,7 @@ struct BereanPrayerEntryCard: View {
                     .frame(width: 36, height: 36)
 
                 Image(systemName: entry.category.systemImage)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(categoryColor)
             }
             .accessibilityHidden(true)
@@ -400,7 +401,7 @@ struct BereanPrayerEntryCard: View {
             statusDot
         }
         .padding(14)
-        .background(.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {

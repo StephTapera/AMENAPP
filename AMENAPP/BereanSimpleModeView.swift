@@ -2,18 +2,19 @@ import SwiftUI
 
 struct BereanSimpleModeView: View {
     @State private var question = ""
+    @StateObject private var berean = BereanStudyService.shared
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Simple Mode")
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.systemScaled(30, weight: .bold))
                 Text("Large, clear actions for a calmer Berean experience.")
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundStyle(.secondary)
 
                 TextField("Ask Berean", text: $question, axis: .vertical)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .padding(16)
                     .background(Color.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
@@ -33,12 +34,33 @@ struct BereanSimpleModeView: View {
     }
 
     private func simpleAction(_ title: String, icon: String) -> some View {
-        Button(action: {}) {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+            Task {
+                switch title {
+                case "Ask Berean":
+                    _ = await berean.studyPlan(topic: q.isEmpty ? "general faith questions" : q)
+                case "Explain Scripture":
+                    _ = await berean.explainVerse(ref: q.isEmpty ? "John 3:16" : q)
+                case "Pray With Me":
+                    _ = await berean.prayerFromPassage(ref: q.isEmpty ? "Psalm 23" : q, context: q.isEmpty ? nil : q)
+                case "Explain This Simply":
+                    _ = await berean.explainVerse(ref: q.isEmpty ? "John 3:16" : q, context: "Explain in very simple language")
+                case "Read Today’s Verse":
+                    _ = await berean.explainVerse(ref: q.isEmpty ? "Psalm 119:105" : q)
+                case "Help Me Make a Decision":
+                    _ = await berean.studyPlan(topic: q.isEmpty ? "godly decision making" : q)
+                default:
+                    _ = await berean.studyPlan(topic: q.isEmpty ? title : q)
+                }
+            }
+        }) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                 Spacer()
             }
             .padding(18)

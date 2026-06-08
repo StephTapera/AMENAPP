@@ -537,15 +537,15 @@ struct AmenFeedContextLabelView: View {
                 Button(action: onTap) {
                     HStack(spacing: 6) {
                         Image(systemName: label.type.iconName)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.7))
                             .accessibilityHidden(true)
                         (
                             Text("\(label.displayPrefix): ")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                             +
                             Text(label.title)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                         )
                         .foregroundStyle(Color.black.opacity(0.88))
                         .lineLimit(1)
@@ -687,7 +687,7 @@ struct WhyThisAppearedSheet: View {
                     ForEach(signalBullets, id: \.self) { bullet in
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "circle.fill")
-                                .font(.system(size: 5, weight: .semibold))
+                                .font(.systemScaled(5, weight: .semibold))
                                 .padding(.top, 6)
                                 .foregroundStyle(.secondary)
                             Text(bullet)

@@ -253,7 +253,7 @@ struct AmenConnectTutorPanelView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .glassEffect(in: .rect(cornerRadius: 0))
+        .amenGlassEffect(in: .rect(cornerRadius: 0))
     }
 
     // MARK: - Action buttons
@@ -294,7 +294,7 @@ struct AmenConnectTutorPanelView: View {
                 Capsule(style: .continuous)
                     .fill(Color.amenPurple.opacity(vm.selectedAction == action ? 1.0 : 0.80))
             )
-            .glassEffect(in: .capsule)
+            .amenGlassEffect(in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(action.rawValue)
@@ -596,7 +596,7 @@ struct AmenConnectTutorPanelView: View {
     private var panelBackground: some View {
         Rectangle()
             .fill(Color(.secondarySystemBackground))
-            .glassEffect(in: .rect(cornerRadius: 20))
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
     }
 
     // MARK: - Action handler

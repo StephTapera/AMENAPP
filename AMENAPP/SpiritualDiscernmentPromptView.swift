@@ -8,9 +8,9 @@ struct SpiritualDiscernmentPromptView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(prompt.promptTitle)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
             Text(prompt.promptMessage)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.black.opacity(0.7))
 
             ForEach(prompt.options) { option in
@@ -19,9 +19,9 @@ struct SpiritualDiscernmentPromptView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(option.label)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                         Text(option.description)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.black.opacity(0.65))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -32,7 +32,7 @@ struct SpiritualDiscernmentPromptView: View {
             }
 
             Button("Not now", role: .cancel, action: onDismiss)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
         }
         .padding(20)
     }

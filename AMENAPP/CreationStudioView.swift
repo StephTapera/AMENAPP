@@ -153,7 +153,7 @@ struct CreationStudioView: View {
                             .fill(template.category.color.opacity(0.12))
                             .frame(width: 48, height: 48)
                         Image(systemName: template.iconName)
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundStyle(template.category.color)
                     }
 
@@ -171,7 +171,7 @@ struct CreationStudioView: View {
                         vm.selectedTemplate = nil
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -202,7 +202,7 @@ struct CreationStudioView: View {
                                 Text("More")
                                     .font(.custom("OpenSans-SemiBold", size: 13))
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                             }
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 14)
@@ -228,7 +228,7 @@ struct CreationStudioView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 Text("Scripture (optional)")
                     .font(.custom("OpenSans-Bold", size: 15))
@@ -257,7 +257,7 @@ struct CreationStudioView: View {
             if vm.selectedAssets.isEmpty && vm.selectedTemplate == nil {
                 VStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.secondary)
                     Text("Add media or choose a template to begin")
                         .font(.custom("OpenSans-Regular", size: 14))
@@ -300,7 +300,7 @@ struct CreationStudioView: View {
                     }
 
                     Image(systemName: "sparkles")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.primary)
                 }
                 .frame(height: 130)
@@ -390,7 +390,7 @@ struct CreationStudioView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                         Text(tab.rawValue)
                             .font(.custom("OpenSans-SemiBold", size: 11))
                     }
@@ -438,7 +438,7 @@ struct CreationStudioView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Regenerate")
                             .font(.custom("OpenSans-SemiBold", size: 12))
                     }
@@ -549,7 +549,7 @@ struct CreationStudioView: View {
                                 .fill(Color.purple.opacity(0.1))
                                 .frame(width: 50, height: 50)
                             Image(systemName: "waveform")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(.purple)
                         }
                         VStack(alignment: .leading, spacing: 3) {
@@ -596,7 +596,7 @@ struct CreationStudioView: View {
                         .fill(Color.green.opacity(0.1))
                         .frame(width: 100, height: 100)
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(.green)
                 }
                 VStack(spacing: 8) {
@@ -721,7 +721,7 @@ struct QuickTemplateChip: View {
         Button(action: onSelect) {
             HStack(spacing: 7) {
                 Image(systemName: template.iconName)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(template.category.color)
                 Text(template.name)
                     .font(.custom("OpenSans-SemiBold", size: 13))

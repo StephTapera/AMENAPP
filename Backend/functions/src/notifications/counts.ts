@@ -6,7 +6,7 @@
  * functions for marking notifications as seen/opened.
  */
 
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -88,10 +88,11 @@ export async function decrementUnseenCount(
  * Input: { notificationIds: string[] }
  * Output: { markedCount: number }
  */
-export const markNotificationsSeen = functions.https.onCall(
-    async (data, context) => {
+export const markNotificationsSeen = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "unauthenticated",
                 "Must be signed in"
             );
@@ -104,7 +105,7 @@ export const markNotificationsSeen = functions.https.onCall(
             !Array.isArray(notificationIds) ||
             notificationIds.length === 0
         ) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "invalid-argument",
                 "notificationIds must be a non-empty array"
             );
@@ -173,10 +174,11 @@ export const markNotificationsSeen = functions.https.onCall(
  * Input: { notificationId: string }
  * Output: { success: boolean }
  */
-export const markNotificationOpened = functions.https.onCall(
-    async (data, context) => {
+export const markNotificationOpened = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "unauthenticated",
                 "Must be signed in"
             );
@@ -186,7 +188,7 @@ export const markNotificationOpened = functions.https.onCall(
         const notificationId: string = data.notificationId;
 
         if (!notificationId || typeof notificationId !== "string") {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "invalid-argument",
                 "notificationId must be a string"
             );
@@ -200,7 +202,7 @@ export const markNotificationOpened = functions.https.onCall(
 
         const doc = await docRef.get();
         if (!doc.exists) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "not-found",
                 "Notification not found"
             );
@@ -208,7 +210,7 @@ export const markNotificationOpened = functions.https.onCall(
 
         const docData = doc.data();
         if (!docData) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "not-found",
                 "Notification data missing"
             );
@@ -216,7 +218,7 @@ export const markNotificationOpened = functions.https.onCall(
 
         // Verify ownership
         if (docData.userId !== userId) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "permission-denied",
                 "Not your notification"
             );
@@ -263,10 +265,11 @@ export const markNotificationOpened = functions.https.onCall(
  * Input: { notificationId: string }
  * Output: { success: boolean }
  */
-export const markNotificationDismissed = functions.https.onCall(
-    async (data, context) => {
+export const markNotificationDismissed = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "unauthenticated",
                 "Must be signed in"
             );
@@ -276,7 +279,7 @@ export const markNotificationDismissed = functions.https.onCall(
         const notificationId: string = data.notificationId;
 
         if (!notificationId || typeof notificationId !== "string") {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "invalid-argument",
                 "notificationId must be a string"
             );
@@ -290,14 +293,14 @@ export const markNotificationDismissed = functions.https.onCall(
 
         const doc = await docRef.get();
         if (!doc.exists) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "not-found",
                 "Notification not found"
             );
         }
 
         if (doc.data()?.userId !== userId) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "permission-denied",
                 "Not your notification"
             );
@@ -323,10 +326,12 @@ export const markNotificationDismissed = functions.https.onCall(
  * Input: {} (no args)
  * Output: { previousCount: number, actualCount: number, corrected: boolean }
  */
-export const reconcileNotificationCount = functions.https.onCall(
-    async (_data, context) => {
+export const reconcileNotificationCount = onCall(async (request) => {
+    const data = request.data as any;
+    const _data = data;
+    const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "unauthenticated",
                 "Must be signed in"
             );

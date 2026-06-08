@@ -231,3 +231,62 @@ extension View {
         modifier(SuggestionChipStyle())
     }
 }
+
+// MARK: - iOS 18 symbolEffect compatibility shims
+
+extension View {
+    @ViewBuilder
+    func amenBreatheSymbolEffect(isActive: Bool = true) -> some View {
+        if #available(iOS 18, *) {
+            self.symbolEffect(.breathe, isActive: isActive)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func amenSymbolReplaceTransition() -> some View {
+        if #available(iOS 18, *) {
+            self.contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
+        } else {
+            self.contentTransition(.symbolEffect(.replace))
+        }
+    }
+}
+
+// MARK: - iOS 18 scrollTargetBehavior(.viewAligned(limitBehavior:)) shim
+
+extension View {
+    @ViewBuilder
+    func amenViewAlignedScrollTarget() -> some View {
+        if #available(iOS 18, *) {
+            self.scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByFew))
+        } else {
+            self.scrollTargetBehavior(.viewAligned)
+        }
+    }
+}
+
+// MARK: - iOS 26 glassEffect compatibility shim
+
+extension View {
+    /// Wraps `.glassEffect(in:)` behind `#available(iOS 26, *)` so the call site
+    /// compiles on any deployment target. On older OS versions the modifier is a no-op.
+    @ViewBuilder
+    func amenGlassEffect<S: Shape>(in shape: S) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(in: shape)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func amenGlassEffect() -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect()
+        } else {
+            self
+        }
+    }
+}

@@ -64,7 +64,7 @@ struct AmenBroadcastComposerView: View {
         HStack {
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
                     .background(.ultraThinMaterial, in: Circle())
@@ -169,7 +169,7 @@ struct AmenBroadcastComposerView: View {
     private func channelBadge(icon: String, label: String) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color(hex: "D9A441"))
             Text(label)
                 .font(.caption.weight(.medium))
@@ -184,7 +184,7 @@ struct AmenBroadcastComposerView: View {
     private func attachedEventPreview(_ event: AmenSpaceEvent) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "calendar")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .frame(width: 36, height: 36)
                 .background(Color(hex: "D9A441").opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
@@ -202,7 +202,7 @@ struct AmenBroadcastComposerView: View {
                         .foregroundStyle(.secondary)
                     HStack(spacing: 3) {
                         Image(systemName: "paperclip")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                         Text(".ics will be auto-attached")
                             .font(.caption2)
                     }

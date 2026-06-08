@@ -112,7 +112,7 @@ struct GetReadyView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "wand.and.stars")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                     Text("Already handled")
@@ -150,7 +150,7 @@ struct GetReadyView: View {
                 ForEach(vm.autoHandledItems.filter(\.isReady)) { item in
                     HStack(spacing: 6) {
                         Image(systemName: item.icon)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color(.systemGreen).opacity(0.88))
                             .accessibilityHidden(true)
                         Text(item.label)
@@ -191,7 +191,7 @@ struct GetReadyView: View {
     private func closeButton(topInset: CGFloat) -> some View {
         Button { dismiss() } label: {
             Image(systemName: "xmark")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 30, height: 30)
                 .background(.ultraThinMaterial, in: Circle())
@@ -269,13 +269,13 @@ struct GetReadyGlassBanner: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 Text("Get Ready")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(secondaryForeground)
                     .textCase(.uppercase)
                     .tracking(0.8)
                 Spacer()
                 Text(motion.readingMode ? "You're going" : "Sunday plan")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(secondaryForeground)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
@@ -285,10 +285,10 @@ struct GetReadyGlassBanner: View {
 
             HStack(alignment: .center, spacing: 8) {
                 Text("You're going")
-                    .font(.system(size: 29, weight: .semibold))
+                    .font(.systemScaled(29, weight: .semibold))
                     .foregroundStyle(foreground)
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(secondaryForeground)
                     .accessibilityHidden(true)
             }
@@ -296,7 +296,7 @@ struct GetReadyGlassBanner: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(secondaryForeground)
                     .accessibilityHidden(true)
                 Text("\(plan.serviceTimeString) · \(plan.churchName)")
@@ -352,11 +352,11 @@ struct GetReadyGlassBanner: View {
     private func glassChip(_ label: String, icon: String) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(secondaryForeground)
                 .accessibilityHidden(true)
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(foreground)
         }
         .padding(.horizontal, 10)
@@ -419,7 +419,7 @@ struct GetReadyJourneySectionCard: View {
                             .fill(Color(.tertiarySystemFill))
                             .frame(width: 28, height: 28)
                         Image(systemName: section.moment.icon)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityHidden(true)
@@ -551,7 +551,7 @@ struct GetReadyDepartureCard: View {
                     Button(action: onOpenMaps) {
                         HStack(spacing: 10) {
                             Image(systemName: "map.fill")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(Color(.systemBlue))
                                 .accessibilityHidden(true)
                             Text("Open in Maps")
@@ -576,7 +576,7 @@ struct GetReadyDepartureCard: View {
     private func detailRow(_ text: String, icon: String, tint: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(tint)
                 .frame(width: 18)
                 .accessibilityHidden(true)
@@ -606,7 +606,7 @@ struct GetReadyQuietModeCard: View {
         case let .suggesting(name):
             HStack(spacing: 12) {
                 Image(systemName: "moon.stars.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(Color(.systemIndigo))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
@@ -639,7 +639,7 @@ struct GetReadyQuietModeCard: View {
     private func cardRow(icon: String, tint: Color, title: String, subtitle: String, badge: String? = nil) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(tint)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
@@ -679,7 +679,7 @@ struct GetReadyBereanCard: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "text.book.closed.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(Color(.systemIndigo).opacity(0.84))
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {
@@ -723,7 +723,7 @@ struct GetReadyBereanCard: View {
     private func detailRow(_ text: String, _ icon: String, _ tint: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(tint)
                 .frame(width: 20)
                 .accessibilityHidden(true)
@@ -750,7 +750,7 @@ struct GetReadyKidsCard: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "person.2.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(Color(.systemBlue))
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {
@@ -795,7 +795,7 @@ struct GetReadyKidsCard: View {
     private func detailRow(_ text: String, _ icon: String, _ tint: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(tint)
                 .frame(width: 20)
                 .accessibilityHidden(true)
@@ -816,7 +816,7 @@ struct GetReadyInfoRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(tint)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
@@ -847,7 +847,7 @@ struct GetReadyChurchNotesCard: View {
         Button { showChurchNotes = true } label: {
             HStack(spacing: 12) {
                 Image(systemName: "pencil.and.list.clipboard")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(Color(.systemIndigo))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
@@ -914,7 +914,7 @@ struct GetReadyBibleReminderRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(Color(.systemBrown))
                 .accessibilityHidden(true)
             Text(summary)
@@ -946,7 +946,7 @@ struct GetReadyFirstVisitCard: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color(.systemYellow))
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {
@@ -992,7 +992,7 @@ struct GetReadyFirstVisitCard: View {
     private func tipRow(_ label: String, _ icon: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .frame(width: 18)
                 .accessibilityHidden(true)
@@ -1028,7 +1028,7 @@ struct GetReadyHeroFallback: View {
 
             VStack(spacing: 10) {
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 36, weight: .light))
+                    .font(.systemScaled(36, weight: .light))
                     .foregroundStyle(Color.white.opacity(0.92))
                     .accessibilityHidden(true)
                 Text(plan.churchName)

@@ -115,7 +115,7 @@ struct AmenMediaTabView: View {
                             showIntentPicker = true
                         } label: {
                             Image(systemName: "play.circle")
-                                .font(.system(size: 17, weight: .medium))
+                                .font(.systemScaled(17, weight: .medium))
                         }
                         .accessibilityLabel("Choose a session intent")
 
@@ -123,7 +123,7 @@ struct AmenMediaTabView: View {
                             showUploadFlow = true
                         } label: {
                             Image(systemName: "plus.circle")
-                                .font(.system(size: 17, weight: .medium))
+                                .font(.systemScaled(17, weight: .medium))
                         }
                         .accessibilityLabel("Upload media")
 
@@ -131,7 +131,7 @@ struct AmenMediaTabView: View {
                             showPersonalization = true
                         } label: {
                             Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 17, weight: .medium))
+                                .font(.systemScaled(17, weight: .medium))
                         }
                         .accessibilityLabel("Media personalization settings")
                     }

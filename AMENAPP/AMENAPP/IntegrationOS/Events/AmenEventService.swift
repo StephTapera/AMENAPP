@@ -86,4 +86,32 @@ actor AmenIntegrationEventService {
             .getDocuments()
         return snap.documents.compactMap { try? $0.data(as: EventAttendee.self) }
     }
+
+    // MARK: - Delete Event
+
+    /// Deletes an event and all its RSVP sub-documents in batched Firestore writes.
+    /// Caller is responsible for verifying ownership before calling this method.
+    func deleteEvent(eventId: String) async throws {
+        guard isEnabled else { return }
+
+        let eventRef = db.collection("amenEvents").document(eventId)
+        let rsvpsRef = eventRef.collection("rsvps")
+
+        // Batch-delete all rsvp documents in pages of 400 to stay under the 500-op batch limit.
+        var moreRsvps = true
+        while moreRsvps {
+            let page = try await rsvpsRef.limit(to: 400).getDocuments()
+            if page.documents.isEmpty {
+                moreRsvps = false
+                break
+            }
+            let batch = db.batch()
+            page.documents.forEach { batch.deleteDocument($0.reference) }
+            try await batch.commit()
+            moreRsvps = page.documents.count == 400
+        }
+
+        // Delete the event document itself after all sub-documents are gone.
+        try await eventRef.delete()
+    }
 }

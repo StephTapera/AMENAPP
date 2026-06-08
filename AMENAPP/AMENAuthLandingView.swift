@@ -39,6 +39,7 @@ struct AMENAuthLandingView: View {
     @State private var showEmailSignUp = false
     @State private var showEmailSignIn = false
     @State private var showPhoneSignUp = false
+    @State private var showPhoneSignIn = false
 
     // Apple Sign In nonce
     @State private var currentNonce: String?
@@ -106,6 +107,25 @@ struct AMENAuthLandingView: View {
                         signInLink
                             .opacity(linkOpacity)
                             .padding(.top, 4)
+
+#if DEBUG
+                        // Debug-only: skip auth entirely for simulator testing
+                        Button {
+                            authViewModel.bypassAuthForTesting()
+                        } label: {
+                            Text("Skip — Test Mode")
+                                .font(.systemScaled(12, weight: .medium))
+                                .foregroundStyle(Color(white: 0.50))
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 20)
+                                .background(
+                                    Capsule()
+                                        .stroke(Color(white: 0.78), lineWidth: 1)
+                                )
+                        }
+                        .opacity(linkOpacity)
+                        .padding(.top, 8)
+#endif
                     }
                     .frame(maxWidth: 375)
                     .padding(.horizontal, 28)
@@ -125,8 +145,19 @@ struct AMENAuthLandingView: View {
                 PhoneSignUpView()
                     .environmentObject(authViewModel)
             }
+            .navigationDestination(isPresented: $showPhoneSignIn) {
+                PhoneVerificationView()
+                    .environmentObject(authViewModel)
+            }
         }
         .onAppear { runEntryAnimation() }
+        .alert("Sign-in Failed", isPresented: $authViewModel.showError) {
+            Button("OK", role: .cancel) {
+                authViewModel.errorMessage = nil
+            }
+        } message: {
+            Text(authViewModel.errorMessage ?? "An error occurred. Please try again.")
+        }
     }
 
     // MARK: - Apple button
@@ -173,10 +204,10 @@ struct AMENAuthLandingView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color(white: 0.898), lineWidth: 1.5)
+                    .strokeBorder(Color(.separator), lineWidth: 1.5)
             )
         }
         .buttonStyle(ScaleButtonStyle())
@@ -255,18 +286,29 @@ struct AMENAuthLandingView: View {
     // MARK: - Sign-in link
 
     private var signInLink: some View {
-        HStack(spacing: 4) {
-            Text("Already have an account?")
-                .font(.systemScaled(12))
-                .foregroundStyle(Color(white: 0.667))
+        VStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Text("Already have an account?")
+                    .font(.systemScaled(12))
+                    .foregroundStyle(Color(white: 0.667))
+                Button {
+                    showEmailSignIn = true
+                } label: {
+                    Text("Sign in with email")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+            }
             Button {
-                showEmailSignIn = true
+                showPhoneSignIn = true
             } label: {
-                Text("Sign in")
+                Text("Sign in with phone number")
                     .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Sign in with phone number")
         }
     }
 
@@ -280,9 +322,11 @@ struct AMENAuthLandingView: View {
                   let idTokenString = String(data: identityToken, encoding: .utf8),
                   let nonce = currentNonce else {
                 print("❌ Missing Apple credential data")
+                authViewModel.errorMessage = "Apple sign-in failed. Please try again."
+                authViewModel.showError = true
                 return
             }
-            
+
             do {
                 _ = try await FirebaseManager.shared.signInWithApple(
                     idToken: idTokenString,
@@ -292,19 +336,33 @@ struct AMENAuthLandingView: View {
                 print("✅ Apple sign-in successful")
             } catch {
                 print("❌ Apple sign-in failed: \(error.localizedDescription)")
+                authViewModel.errorMessage = error.localizedDescription
+                authViewModel.showError = true
             }
-            
+
         case .failure(let error):
-            print("❌ Apple sign-in error: \(error.localizedDescription)")
+            let nsError = error as NSError
+            // 1000 = unknown (simulator/no Apple ID), 1001 = user cancelled — both silent
+            let silentCodes = [1000, 1001]
+            if !silentCodes.contains(nsError.code) {
+                print("❌ Apple sign-in error: \(error.localizedDescription)")
+                authViewModel.errorMessage = error.localizedDescription
+                authViewModel.showError = true
+            }
         }
     }
-    
+
     private func handleGoogleSignIn() async {
         do {
             _ = try await FirebaseManager.shared.signInWithGoogle()
             print("✅ Google sign-in successful")
-        } catch {
+        } catch let error as NSError {
             print("❌ Google sign-in failed: \(error.localizedDescription)")
+            // -5 is the user-cancelled code from Google Sign-In SDK
+            if error.code != -5 {
+                authViewModel.errorMessage = error.localizedDescription
+                authViewModel.showError = true
+            }
         }
     }
 

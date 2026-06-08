@@ -143,7 +143,7 @@ struct LongitudinalSelfView: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 26)
-            .glassEffect(GlassEffectStyle.regular.tint(.white.opacity(0.15)).interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .strokeBorder(.white.opacity(0.22), lineWidth: 1)

@@ -82,7 +82,7 @@ struct GroupView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(.orange)
             Text(message)
                 .font(.systemScaled(14))
@@ -99,7 +99,7 @@ struct GroupView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.3.sequence")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(.secondary)
             Text("Group not found")
                 .font(.systemScaled(15, weight: .semibold))
@@ -209,7 +209,7 @@ struct GroupView: View {
                         image.resizable().scaledToFill()
                     default:
                         Image(systemName: group.category.icon)
-                            .font(.system(size: 36, weight: .semibold))
+                            .font(.systemScaled(36, weight: .semibold))
                             .foregroundStyle(group.category.color)
                     }
                 }
@@ -217,7 +217,7 @@ struct GroupView: View {
                 .clipShape(Circle())
             } else {
                 Image(systemName: group.category.icon)
-                    .font(.system(size: 36, weight: .semibold))
+                    .font(.systemScaled(36, weight: .semibold))
                     .foregroundStyle(group.category.color)
             }
         }
@@ -270,7 +270,7 @@ struct GroupView: View {
                 ShareRouter.presentGroup(group, sourceSurface: "group_profile_action")
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .frame(width: 50, height: 50)
                     .background(
                         Circle().fill(Color(.systemGray6))
@@ -342,7 +342,7 @@ struct GroupView: View {
     private func metadataRow(icon: String, label: String, value: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
             Text(label)

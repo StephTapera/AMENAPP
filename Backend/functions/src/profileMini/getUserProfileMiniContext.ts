@@ -12,6 +12,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { enforceRateLimit, RATE_LIMITS } from "../rateLimit";
 import {
@@ -62,16 +63,17 @@ const CACHE_TTL_MS = 60_000; // 60 seconds
 
 // ─── Callable ────────────────────────────────────────────────────────
 
-export const getUserProfileMiniContext = functions.https.onCall(
-    async (data: Request, context) => {
+export const getUserProfileMiniContext = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
         // Auth guard
         if (!context.auth) {
-            throw new functions.https.HttpsError("unauthenticated", "Auth required.");
+            throw new HttpsError("unauthenticated", "Auth required.");
         }
 
         // App Check enforcement
         if (context.app == undefined) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "failed-precondition",
                 "The function must be called from an App Check verified app."
             );
@@ -81,11 +83,11 @@ export const getUserProfileMiniContext = functions.https.onCall(
         const { targetUserId, surface, triggerArtifactId, triggerArtifactType } = data;
 
         if (!targetUserId || typeof targetUserId !== "string") {
-            throw new functions.https.HttpsError("invalid-argument", "targetUserId is required.");
+            throw new HttpsError("invalid-argument", "targetUserId is required.");
         }
 
         if (viewerUid === targetUserId) {
-            throw new functions.https.HttpsError("invalid-argument", "Cannot request context for self.");
+            throw new HttpsError("invalid-argument", "Cannot request context for self.");
         }
 
         // Rate limit — same budget as suggested accounts rail (10/min, 100/day)
@@ -122,7 +124,7 @@ export const getUserProfileMiniContext = functions.https.onCall(
         ]);
 
         if (!targetDoc.exists) {
-            throw new functions.https.HttpsError("not-found", "Target user not found.");
+            throw new HttpsError("not-found", "Target user not found.");
         }
 
         const viewerData = viewerDoc.data() ?? {};

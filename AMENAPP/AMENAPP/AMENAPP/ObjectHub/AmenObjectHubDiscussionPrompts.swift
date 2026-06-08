@@ -37,7 +37,7 @@ struct AmenObjectHubDiscussionPrompts: View {
                         onSelectPrompt(prompt)
                     } label: {
                         Text(prompt)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(glass.primaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 14)

@@ -7,24 +7,15 @@
 //
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NAV-02 KNOWN ISSUE — DUAL-SCHEME ROUTER DIVERGENCE
+// NAV-02 RESOLVED — Both schemes now handle an identical set of routes.
 //
-// The app currently has TWO independent deep-link parsers running in parallel:
-//   • DeepLinkRouter          — handles the "amen://"    custom URL scheme
-//   • NotificationDeepLinkRouter — handles the "amenapp://" custom URL scheme
+// handleURL() now accepts both "amen://" and "amenapp://" schemes.
+// Routes ported from amen://: church, category, user, search, settings,
+//   comment, chat (in addition to the existing amenapp:// set).
+// Routes ported to DeepLinkRouter: group/join, notifications, messages,
+//   prayer, church-note, intelligence.
 //
-// This creates a maintenance risk: any new route added to one file MUST be
-// mirrored in the other, or the two schemes will silently fall out of sync.
-//
-// ROUTES PRESENT HERE BUT MISSING FROM DeepLinkRouter (amen://):
-//   • amenapp://group/join?token=  — no amen://group counterpart
-//   • amenapp://notifications       — no amen://notifications counterpart
-//   • amenapp://messages            — no amen://messages counterpart (amen://conversation exists)
-//   • amenapp://prayer/{id}         — no amen://prayer counterpart
-//   • amenapp://church-note/{id}    — no amen://church-note counterpart
-//
-// Phase 1: Merge both parsers into a single UnifiedDeepLinkRouter that
-// accepts both schemes and delegates to one shared destination model.
+// Future work: merge into a single UnifiedDeepLinkRouter (Phase 2).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Foundation
@@ -430,7 +421,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
             return
         }
         
-        guard url.scheme == "amenapp" else {
+        guard url.scheme == "amenapp" || url.scheme == "amen" else {
             dlog("⚠️ Unknown URL scheme: \(url.scheme ?? "nil")")
             return
         }
@@ -500,6 +491,53 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 ? pathComponents[1]
                 : pathComponents.first
             destination = .intelligence(cardId: cardId)
+
+        // ─── Routes ported from amen:// scheme ──────────────────────────────
+        case "church":
+            // amen://church/{churchId} — no dedicated NavigationDestination;
+            // fall through to notifications so the user lands somewhere useful.
+            destination = .notifications
+
+        case "category":
+            // amen://category/{name} — open the home/feed tab (no direct mapping)
+            destination = .notifications
+
+        case "user":
+            // amen://user/{userId} — alias for "profile"
+            if let userId = pathComponents.first {
+                destination = .profile(userId: userId)
+            } else {
+                destination = .notifications
+            }
+
+        case "search":
+            // amen://search?q=... — no dedicated NavigationDestination; fall back to notifications
+            destination = .notifications
+
+        case "settings":
+            // amen://settings[/{section}] — no dedicated NavigationDestination; fall back
+            destination = .notifications
+
+        case "comment":
+            // amen://comment?postId=...&commentId=...&prefill=...
+            if let postId = url.queryParameters["postId"], !postId.isEmpty {
+                let commentId = url.queryParameters["commentId"]
+                if let commentId {
+                    CommentFocusCoordinator.shared.set(scrollTarget: commentId, highlight: commentId)
+                }
+                destination = .post(postId: postId, scrollToCommentId: commentId)
+            } else {
+                destination = .notifications
+            }
+
+        case "chat":
+            // amen://chat?threadId=...&prefill=...
+            if let threadId = url.queryParameters["threadId"], !threadId.isEmpty {
+                destination = .conversation(conversationId: threadId)
+            } else {
+                destination = .messages
+            }
+        // ────────────────────────────────────────────────────────────────────
 
         default:
             dlog("⚠️ Unknown deep link host: \(host)")

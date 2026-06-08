@@ -105,7 +105,7 @@ struct PrayerPartnerRow: View {
                 )
 
             Text("+\(overflowCount)")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }
         .accessibilityLabel("\(overflowCount) more prayer partners")
@@ -119,9 +119,9 @@ struct PrayerPartnerRow: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text("Invite")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(Color.accentColor)
             .padding(.horizontal, 10)
@@ -154,7 +154,7 @@ private struct PartnerAvatarCircle: View {
 
             // Initials fallback — replace with AsyncImage once avatar URL resolution is wired
             Text(initials)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }
         .zIndex(Double(index) * -1)

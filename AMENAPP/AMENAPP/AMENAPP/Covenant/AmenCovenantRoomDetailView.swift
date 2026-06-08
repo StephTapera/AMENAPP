@@ -166,6 +166,7 @@ struct AmenCovenantRoomDetailView: View {
     @State private var isAtBottom: Bool = true
     @State private var sendError: String?
     @State private var showUpgradeAlert = false
+    @State private var showPaywall = false
 
     private var canPost: Bool {
         guard let room = detailVM.room else { return false }
@@ -280,7 +281,7 @@ struct AmenCovenantRoomDetailView: View {
     private func pinnedMessageBanner(_ message: CovenantMessage) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "pin.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Pinned message")
@@ -388,7 +389,7 @@ struct AmenCovenantRoomDetailView: View {
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(
                                 messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? Color.secondary
@@ -412,7 +413,7 @@ struct AmenCovenantRoomDetailView: View {
     private var disabledComposerBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
             Text("Upgrade to post in this room.")
                 .font(.subheadline)
@@ -428,13 +429,15 @@ struct AmenCovenantRoomDetailView: View {
         .padding(.vertical, 14)
         .padding(.bottom, 4)
         .alert("Unlock This Room", isPresented: $showUpgradeAlert) {
-            Button("Learn More", role: .none) {
-                // Upgrade flow is managed by the Covenant paywall system.
-                // Navigate to AmenCovenantPaywallView when a Covenant object is available.
-            }
+            Button("Learn More") { showPaywall = true }
             Button("Not Now", role: .cancel) {}
         } message: {
             Text("Posting in this room requires a higher membership tier. Upgrade your community membership to unlock posting access and all premium rooms.")
+        }
+        .sheet(isPresented: $showPaywall) {
+            if let covenant = vm.currentCovenant {
+                AmenCovenantPaywallView(covenant: covenant, context: .general)
+            }
         }
     }
 }
@@ -481,7 +484,7 @@ private struct RoomMessageBubble: View {
             VStack(alignment: isOwn ? .trailing : .leading, spacing: 4) {
                 if !isOwn {
                     Text(message.authorDisplayName)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
 
@@ -502,11 +505,11 @@ private struct RoomMessageBubble: View {
                     Button(action: onReply) {
                         HStack(spacing: 4) {
                             Image(systemName: "bubble.left.fill")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                             Text("\(message.replyCount) \(message.replyCount == 1 ? "reply" : "replies")")
                                 .font(.caption.weight(.medium))
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                         }
                         .foregroundStyle(.purple)
                     }
@@ -575,7 +578,7 @@ private struct RoomMessageBubble: View {
 
     private var initialsLabel: some View {
         Text(initials)
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .foregroundStyle(.purple)
     }
 
@@ -589,7 +592,7 @@ private struct RoomMessageBubble: View {
             HStack {
                 Spacer()
                 Text(message.createdAt.dateValue(), style: .time)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(isOwn ? Color.white.opacity(0.6) : Color.secondary.opacity(0.7))
             }
             .padding(.top, 4)
@@ -610,10 +613,10 @@ private struct RoomMessageBubble: View {
             ) { emoji, count in
                 HStack(spacing: 3) {
                     Text(emoji)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                     if count > 1 {
                         Text("\(count)")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }

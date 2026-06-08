@@ -55,7 +55,7 @@ struct MediaMetadataAuthoringSheet: View {
                 }
                 .padding(16)
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .navigationTitle("Media setup")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

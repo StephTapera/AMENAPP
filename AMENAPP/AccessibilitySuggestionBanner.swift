@@ -16,7 +16,7 @@ struct AccessibilitySuggestionBanner: View {
             VStack(spacing: 8) {
                 HStack(spacing: 12) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(Color.accentColor)
 
                     VStack(alignment: .leading, spacing: 2) {

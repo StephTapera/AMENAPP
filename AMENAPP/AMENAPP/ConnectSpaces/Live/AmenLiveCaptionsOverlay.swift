@@ -54,11 +54,11 @@ struct AmenLiveCaptionsOverlay: View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
             if let speaker = line.speakerName {
                 Text(speaker + ":")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundStyle(Color(hex: "D9A441"))
             }
             Text(line.text)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(Color.white)
                 .fixedSize(horizontal: false, vertical: true)
         }

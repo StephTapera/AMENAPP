@@ -36,7 +36,7 @@ struct BereanAttachmentPickerSheet: View {
         NavigationStack {
             VStack(spacing: 18) {
                 Image(systemName: iconName)
-                    .font(.system(size: 38, weight: .semibold))
+                    .font(.systemScaled(38, weight: .semibold))
                     .foregroundStyle(.blue)
                     .frame(width: 72, height: 72)
                     .background(Color.blue.opacity(0.12), in: Circle())

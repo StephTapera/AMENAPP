@@ -117,7 +117,7 @@ struct ContentObjectCardView: View {
         ZStack {
             Color(.secondarySystemBackground)
             Image(systemName: contentObject.kind.systemImage)
-                .font(.system(size: 28, weight: .medium))
+                .font(.systemScaled(28, weight: .medium))
                 .foregroundStyle(Color(.secondaryLabel))
         }
     }
@@ -129,7 +129,7 @@ struct ContentObjectCardView: View {
 
             // Title
             Text(contentObject.title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(Color(.label))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -137,7 +137,7 @@ struct ContentObjectCardView: View {
             // Subtitle
             if let subtitle = contentObject.subtitle {
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(.secondaryLabel))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -149,9 +149,9 @@ struct ContentObjectCardView: View {
     private var kindPill: some View {
         HStack(spacing: 4) {
             Image(systemName: contentObject.kind.systemImage)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text(contentObject.kind.displayName)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
         }
         .foregroundStyle(kindPillColor(for: contentObject.kind))
         .padding(.horizontal, Layout.kindPillHPadding)
@@ -168,9 +168,9 @@ struct ContentObjectCardView: View {
         let color = purityColor(for: rating)
         HStack(spacing: 5) {
             Image(systemName: rating.systemImage)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
             Text(rating.label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
         }
         .foregroundStyle(rating == .notRecommended ? .white : color)
         .padding(.horizontal, 10)
@@ -209,10 +209,10 @@ struct ContentObjectCardView: View {
     private func statLabel(systemImage: String, count: Int, label: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: systemImage)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color(.secondaryLabel))
             Text(formattedCount(count))
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(.secondaryLabel))
         }
         .accessibilityLabel("\(count) \(label)")
@@ -226,9 +226,9 @@ struct ContentObjectCardView: View {
         }) {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.up.right.square.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text("Open")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
             }
             .foregroundStyle(Color(.label))
             .padding(.horizontal, Layout.openPillHPadding)

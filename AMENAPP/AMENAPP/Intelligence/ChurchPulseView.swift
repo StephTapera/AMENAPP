@@ -63,7 +63,7 @@ struct ChurchPulseView: View {
     private var emptyView: some View {
         VStack(spacing: 16) {
             Image(systemName: "building.columns")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
 
             Text("No activity yet")
@@ -85,7 +85,7 @@ struct ChurchPulseView: View {
     private func errorView(message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
 
             Text("Couldn't load pulse")
@@ -428,7 +428,7 @@ private struct FlowChips: View {
 #Preview("Empty") {
     let view = VStack {
         Image(systemName: "building.columns")
-            .font(.system(size: 48))
+            .font(.systemScaled(48))
             .foregroundStyle(.secondary)
         Text("No activity yet")
             .font(.headline)

@@ -127,7 +127,7 @@ struct AmenCovenantRoomsView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.tertiary)
             Text("No rooms yet")
                 .font(.headline)
@@ -250,7 +250,7 @@ private struct UnreadRoomPill: View {
         Button(action: onTap) {
             HStack(spacing: 8) {
                 Image(systemName: room.type.icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.purple)
 
                 Text(room.name)
@@ -258,7 +258,7 @@ private struct UnreadRoomPill: View {
                     .lineLimit(1)
 
                 Text(room.unreadCount > 99 ? "99+" : "\(room.unreadCount)")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
@@ -294,7 +294,7 @@ private struct RoomsViewRoomRow: View {
                         .fill(isLocked ? Color.secondary.opacity(0.12) : Color.purple.opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: room.type.icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(isLocked ? Color.secondary : Color.purple)
                 }
 
@@ -307,7 +307,7 @@ private struct RoomsViewRoomRow: View {
 
                         if isLocked {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -341,18 +341,18 @@ private struct RoomsViewRoomRow: View {
 
                     if isLocked {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
                     } else if room.unreadCount > 0 {
                         Text(room.unreadCount > 99 ? "99+" : "\(room.unreadCount)")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
                             .background(Capsule().fill(Color.red))
                     } else {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -387,7 +387,7 @@ private struct LockedRoomPaywallSheet: View {
                             .fill(Color.purple.opacity(0.1))
                             .frame(width: 80, height: 80)
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 32, weight: .medium))
+                            .font(.systemScaled(32, weight: .medium))
                             .foregroundStyle(.purple)
                     }
 
@@ -459,7 +459,7 @@ private struct LockedRoomPaywallSheet: View {
     private func paywallPill(icon: String, label: String) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
             Text(label)
                 .font(.caption)

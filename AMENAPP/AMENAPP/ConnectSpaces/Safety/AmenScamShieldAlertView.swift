@@ -63,17 +63,17 @@ struct AmenScamShieldAlertView: View {
             // Header row
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "exclamationmark.shield.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(Self.amber)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("This message may be unsafe")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
 
                     Text(combinedFlagDescription(flag.flagTypes))
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .lineSpacing(2)
@@ -96,7 +96,7 @@ struct AmenScamShieldAlertView: View {
                 // Report button — gold outline
                 Button(action: onReport) {
                     Text("Report")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -110,7 +110,7 @@ struct AmenScamShieldAlertView: View {
                 // Dismiss — ghost
                 Button(action: onDismiss) {
                     Text("Dismiss")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -137,7 +137,7 @@ struct AmenScamShieldAlertView: View {
             HStack(spacing: 6) {
                 ForEach(flag.flagTypes, id: \.self) { flagType in
                     Text(flagType.shortLabel)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Self.amber)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)

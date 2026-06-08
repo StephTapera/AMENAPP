@@ -81,12 +81,12 @@ struct AmenSpaceNowLiveMiniPlayer: View {
             // Title stack
             VStack(alignment: .leading, spacing: 2) {
                 Text(spaceName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.60))
                     .lineLimit(1)
 
                 Text(liveTitle)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
             }
@@ -95,17 +95,17 @@ struct AmenSpaceNowLiveMiniPlayer: View {
             // Participant count
             HStack(spacing: 3) {
                 Image(systemName: "person.fill")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.50))
                 Text(formattedParticipantCount)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.50))
             }
 
             // Join button
             Button(action: onJoin) {
                 Text("Join")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(Color(hex: "070607"))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
@@ -120,7 +120,7 @@ struct AmenSpaceNowLiveMiniPlayer: View {
             // Dismiss button
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.55))
                     .frame(width: 28, height: 28)
                     .background {

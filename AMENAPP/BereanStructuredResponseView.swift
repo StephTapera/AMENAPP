@@ -161,7 +161,7 @@ struct BereanStructuredResponseView: View {
 
     private var plainContent: some View {
         Text(message.content)
-            .font(.system(size: 16, weight: .regular))
+            .font(.systemScaled(16, weight: .regular))
             .foregroundColor(.black)
             .lineSpacing(2)
             .padding(.horizontal, 14)

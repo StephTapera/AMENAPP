@@ -49,7 +49,7 @@ struct DiscussionFollowUpPrompt: View {
             // Header row
             HStack(spacing: 8) {
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
                     .accessibilityHidden(true)
 

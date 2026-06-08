@@ -40,7 +40,7 @@ struct BereanStudyOutlineSheet: View {
         .overlay(alignment: .top) {
             if showSavedToast {
                 Text("Saved to Church Notes")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 9)
@@ -79,7 +79,7 @@ struct BereanStudyOutlineSheet: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "list.bullet.indent")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.secondary)
             Text("Couldn't build outline")
                 .font(.headline)

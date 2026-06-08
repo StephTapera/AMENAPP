@@ -135,7 +135,7 @@ struct SelahMediaHomeView: View {
     private var pauseHero: some View {
         VStack(spacing: 16) {
             Image(systemName: "moon.stars.fill")
-                .font(.system(size: 56, weight: .ultraLight))
+                .font(.systemScaled(56, weight: .ultraLight))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.indigo, .purple],
@@ -181,7 +181,7 @@ struct SelahMediaHomeView: View {
     private var restSignalBanner: some View {
         HStack(spacing: 12) {
             Image(systemName: "moon.zzz.fill")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(.indigo)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Time to rest")
@@ -249,7 +249,7 @@ struct SelahMediaHomeView: View {
             Spacer()
             Button { showUploader = true } label: {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 26))
+                    .font(.systemScaled(26))
                     .foregroundStyle(.purple)
                     .symbolRenderingMode(.hierarchical)
             }
@@ -262,7 +262,7 @@ struct SelahMediaHomeView: View {
     private var mediaEmptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "photo.stack")
-                .font(.system(size: 48, weight: .ultraLight))
+                .font(.systemScaled(48, weight: .ultraLight))
                 .foregroundStyle(.secondary)
             Text("No media yet")
                 .font(.headline)
@@ -299,11 +299,11 @@ struct SelahMediaHomeView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: mode.icon)
-                            .font(.system(size: 18, weight: selectedMode == mode ? .semibold : .regular))
+                            .font(.systemScaled(18, weight: selectedMode == mode ? .semibold : .regular))
                             .foregroundStyle(selectedMode == mode ? Color.purple : Color.secondary)
                             .scaleEffect(selectedMode == mode ? 1.08 : 1.0)
                         Text(mode.label)
-                            .font(.system(size: 10, weight: selectedMode == mode ? .semibold : .regular))
+                            .font(.systemScaled(10, weight: selectedMode == mode ? .semibold : .regular))
                             .foregroundStyle(selectedMode == mode ? Color.purple : Color.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -329,7 +329,7 @@ struct SelahMediaHomeView: View {
         ToolbarItem(placement: .topBarLeading) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.secondary)
                     .symbolRenderingMode(.hierarchical)
             }
@@ -342,7 +342,7 @@ struct SelahMediaHomeView: View {
         ToolbarItem(placement: .topBarTrailing) {
             Button { showTrustCircleManager = true } label: {
                 Image(systemName: "person.2.circle")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.secondary)
             }
             .accessibilityLabel("Trust Circles")
@@ -441,7 +441,7 @@ struct PauseMomentCard: View {
                 }
                 if let ref = item.scriptureRef, !ref.isEmpty {
                     Text(ref)
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                         .foregroundStyle(.white.opacity(0.85))
                         .lineLimit(1)
                 }
@@ -540,7 +540,7 @@ struct SelahMediaUploadSheet: View {
                                     .foregroundStyle(.blue)
                             } else {
                                 Image(systemName: "photo.badge.plus")
-                                    .font(.system(size: 32))
+                                    .font(.systemScaled(32))
                                     .foregroundStyle(.secondary)
                                     .frame(width: 72, height: 72)
                                 Text("Choose a Photo")

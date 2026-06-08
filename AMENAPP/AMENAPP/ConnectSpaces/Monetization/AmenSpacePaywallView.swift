@@ -57,12 +57,12 @@ struct AmenSpacePaywallView: View {
                 Spacer().frame(height: 24)
                 lockIcon
                 Text("Join \(space.name) to unlock")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
                 Text("Choose a membership tier to access content and community features.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white.opacity(0.60))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -79,7 +79,7 @@ struct AmenSpacePaywallView: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.70))
                     .padding(9)
                     .background(
@@ -100,7 +100,7 @@ struct AmenSpacePaywallView: View {
                 .overlay(Circle().strokeBorder(Color(hex: "D9A441").opacity(0.40), lineWidth: 1))
                 .frame(width: 56, height: 56)
             Image(systemName: "lock.fill")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(Color(hex: "D9A441"))
         }
         .accessibilityHidden(true)
@@ -118,10 +118,10 @@ private struct TierCard: View {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(tier.name)
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.systemScaled(17, weight: .bold))
                         .foregroundStyle(Color.white)
                     Text(tier.description)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -161,16 +161,16 @@ private struct TierCard: View {
     private var priceStack: some View {
         if tier.isFreeTier {
             Text("Free")
-                .font(.system(size: 24, weight: .black))
+                .font(.systemScaled(24, weight: .black))
                 .foregroundStyle(Color.white)
         } else {
             VStack(alignment: .trailing, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text(monthlyPriceString)
-                        .font(.system(size: 24, weight: .black))
+                        .font(.systemScaled(24, weight: .black))
                         .foregroundStyle(Color.white)
                     Text("/mo")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.50))
                 }
                 if let annualCents = tier.annualPriceCents {
@@ -178,7 +178,7 @@ private struct TierCard: View {
                     let savingsPct = savingsPercent(annualEquivMonthly: annualEquivMonthly)
                     if savingsPct > 0 {
                         Text("Save \(savingsPct)% annually")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(Color(hex: "D9A441"))
                     }
                 }
@@ -212,7 +212,7 @@ private struct TierCard: View {
     private var ctaButton: some View {
         Button(action: onSelect) {
             Text(tier.isFreeTier ? "Join for free" : "Join — \(monthlyPriceString)/mo")
-                .font(.system(size: 15, weight: .bold))
+                .font(.systemScaled(15, weight: .bold))
                 .foregroundStyle(Color(hex: "070607"))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
@@ -265,12 +265,12 @@ private struct FeatureBulletList: View {
             ForEach(features, id: \.self) { feature in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .frame(width: 14, height: 14)
                         .offset(y: 2)
                     Text(feature)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.75))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -295,7 +295,7 @@ private struct IntroBadge: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.systemScaled(10, weight: .semibold))
             .foregroundStyle(Color(hex: "070607"))
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
@@ -313,7 +313,7 @@ private struct AnnualBadge: View {
 
     var body: some View {
         Text("Save \(savingsPercent)% yearly")
-            .font(.system(size: 10, weight: .semibold))
+            .font(.systemScaled(10, weight: .semibold))
             .foregroundStyle(Color(hex: "D9A441"))
             .padding(.horizontal, 9)
             .padding(.vertical, 4)

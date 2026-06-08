@@ -97,13 +97,13 @@ struct TemplateCard: View {
                             .fill(template.category.color.opacity(0.12))
                             .frame(width: 44, height: 44)
                         Image(systemName: template.iconName)
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(template.category.color)
                     }
                     Spacer()
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(template.category.color)
                     }
                 }
@@ -127,7 +127,7 @@ struct TemplateCard: View {
                     if template.supportsScripture {
                         HStack(spacing: 3) {
                             Image(systemName: "book.fill")
-                                .font(.system(size: 9))
+                                .font(.systemScaled(9))
                             Text("Scripture")
                                 .font(.custom("OpenSans-SemiBold", size: 10))
                         }
@@ -170,7 +170,7 @@ struct CategoryFilterChip: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(label)
                     .font(.custom("OpenSans-SemiBold", size: 13))
             }

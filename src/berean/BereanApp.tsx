@@ -9,8 +9,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously, type User } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { BereanProvider, useBerean } from './core/BereanCore';
 import VoiceSettings from './voice/VoiceSettings';
 import VoiceSession from './voice/VoiceSession';
@@ -38,7 +39,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ChatScreen() {
-  const { sendMessage, context } = useBerean();
+  const { sendMessage } = useBerean();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'berean'; text: string; refusal?: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -151,6 +152,12 @@ function BereanShell({ userId }: { userId: string }) {
   const [tab, setTab] = useState<Tab>('chat');
   const [voiceActive, setVoiceActive] = useState(false);
 
+  const firestoreWriter = async (path: string, data: Record<string, unknown>): Promise<void> => {
+    const segments = path.split('/');
+    const ref = doc(db, segments[0], ...segments.slice(1));
+    await setDoc(ref, data, { merge: true });
+  };
+
   const tabBarStyle: React.CSSProperties = {
     display: 'flex', borderTop: `1px solid ${tokens.divider}`,
     backgroundColor: tokens.card, padding: '4px 0',
@@ -176,16 +183,32 @@ function BereanShell({ userId }: { userId: string }) {
             <VoiceSession
               mode="push_to_talk"
               persona="still"
-              speed="normal"
               onEnd={() => setVoiceActive(false)}
             />
           ) : (
             <div style={screenStyle}>
               {tab === 'chat'       && <ChatScreen />}
-              {tab === 'voice'      && <VoiceSettings userId={userId} onVoiceSessionStart={() => setVoiceActive(true)} />}
+              {tab === 'voice'      && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <VoiceSettings userId={userId} firestoreWriter={firestoreWriter} />
+                  <div style={{ padding: '0 16px 24px' }}>
+                    <button
+                      onClick={() => setVoiceActive(true)}
+                      style={{
+                        width: '100%', padding: '14px', borderRadius: tokens.radius,
+                        border: 'none', backgroundColor: tokens.accent, color: '#fff',
+                        fontSize: 16, fontWeight: 600, cursor: 'pointer',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+                      }}
+                    >
+                      Begin Voice Session
+                    </button>
+                  </div>
+                </div>
+              )}
               {tab === 'usage'      && <UsageMeters userId={userId} />}
               {tab === 'connectors' && <ConnectorsScreen userId={userId} minorScoped={false} />}
-              {tab === 'settings'   && <CapabilitiesScreen userId={userId} minorScoped={false} />}
+              {tab === 'settings'   && <CapabilitiesScreen userId={userId} />}
             </div>
           )}
         </div>

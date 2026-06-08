@@ -14,7 +14,7 @@ struct ChildSafetyAgentStubView: View {
                 Spacer(minLength: 48)
 
                 Image(systemName: "shield.lefthalf.filled.trianglebadge.exclamationmark")
-                    .font(.system(size: 56, weight: .light))
+                    .font(.systemScaled(56, weight: .light))
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 8) {
@@ -22,7 +22,7 @@ struct ChildSafetyAgentStubView: View {
                         .font(.title2.bold())
                         .foregroundStyle(.secondary)
 
-                    Text("This feature requires a vendor integration review and is not yet active.")
+                    Text("This feature is undergoing final review before it becomes available.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -58,7 +58,7 @@ struct ThreatDetectionAgentStubView: View {
                 Spacer(minLength: 48)
 
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 56, weight: .light))
+                    .font(.systemScaled(56, weight: .light))
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 8) {
@@ -66,7 +66,7 @@ struct ThreatDetectionAgentStubView: View {
                         .font(.title2.bold())
                         .foregroundStyle(.secondary)
 
-                    Text("This feature requires a vendor integration review and is not yet active.")
+                    Text("This feature is undergoing final review before it becomes available.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -102,7 +102,7 @@ struct SafeMeetupsAgentStubView: View {
                 Spacer(minLength: 48)
 
                 Image(systemName: "location.magnifyingglass")
-                    .font(.system(size: 56, weight: .light))
+                    .font(.systemScaled(56, weight: .light))
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 8) {
@@ -110,7 +110,7 @@ struct SafeMeetupsAgentStubView: View {
                         .font(.title2.bold())
                         .foregroundStyle(.secondary)
 
-                    Text("This feature requires a vendor integration review and is not yet active.")
+                    Text("This feature is undergoing final review before it becomes available.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

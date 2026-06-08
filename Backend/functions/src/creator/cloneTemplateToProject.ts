@@ -1,13 +1,15 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
-export const cloneTemplateToProject = functions.https.onCall(async (data, context) => {
+export const cloneTemplateToProject = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new HttpsError("unauthenticated", "Auth required");
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -17,14 +19,14 @@ export const cloneTemplateToProject = functions.https.onCall(async (data, contex
     const templateID = String(data?.templateID ?? "");
 
     if (!templateID) {
-        throw new functions.https.HttpsError("invalid-argument", "Missing templateID");
+        throw new HttpsError("invalid-argument", "Missing templateID");
     }
 
     const templateRef = admin.firestore().collection("creatorTemplates").doc(templateID);
     const templateSnap = await templateRef.get();
 
     if (!templateSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Template not found");
+        throw new HttpsError("not-found", "Template not found");
     }
 
     const projectRef = admin.firestore()

@@ -201,11 +201,11 @@ struct AmenCreatorWorkspaceView: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: intent.icon)
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(Color.accentColor)
                                 .frame(width: 24)
                             Text(intent.displayName)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
                             Spacer()
@@ -247,7 +247,7 @@ struct AmenCreatorWorkspaceView: View {
     private func performanceRow(_ stat: AmenCreatorWorkspaceViewModel.PostPerformanceStat) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(stat.title)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .lineLimit(1)
 
             HStack(spacing: 16) {
@@ -266,10 +266,10 @@ struct AmenCreatorWorkspaceView: View {
     private func statPill(icon: String, value: Int, label: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
             Text(formatCount(value))
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
         }
     }
 

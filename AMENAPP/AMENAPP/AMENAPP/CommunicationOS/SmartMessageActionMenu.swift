@@ -110,7 +110,7 @@ struct SmartMessageActionMenu: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.systemScaled(20, weight: .regular))
                     .foregroundStyle(.primary)
                     .frame(width: 28, height: 28)
 

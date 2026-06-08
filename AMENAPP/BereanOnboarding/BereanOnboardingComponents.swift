@@ -264,7 +264,7 @@ struct BereanFocusCard: View {
         Button(action: onTap) {
             VStack(spacing: 8) {
                 Image(systemName: focus.icon)
-                    .font(.system(size: 20, weight: .light))
+                    .font(.systemScaled(20, weight: .light))
                     .foregroundStyle(isSelected ? BereanColor.selectedText : BereanColor.textPrimary)
 
                 Text(focus.label)
@@ -305,7 +305,7 @@ struct BereanStrengthTile: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .light))
+                .font(.systemScaled(13, weight: .light))
                 .foregroundStyle(BereanColor.textSecondary)
                 .frame(width: 18)
                 .accessibilityHidden(true)

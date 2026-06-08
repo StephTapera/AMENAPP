@@ -163,7 +163,7 @@ struct SecurityCenterView: View {
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: deviceIcon(for: session.deviceInfo.platform))
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(session.current ? .green : .primary)
                 }
                 
@@ -195,7 +195,7 @@ struct SecurityCenterView: View {
                         showRevokeConfirmation = true
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.gray)
                     }
                 }
@@ -260,7 +260,7 @@ struct SecurityCenterView: View {
                     .frame(width: 40, height: 40)
                 
                 Image(systemName: record.success ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(record.success ? .green : .red)
             }
             
@@ -291,7 +291,7 @@ struct SecurityCenterView: View {
             // Risk indicator
             if record.riskScore > 0.5 {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.orange)
             }
         }
@@ -338,7 +338,7 @@ struct SecurityCenterView: View {
         HStack(spacing: 12) {
             // Event icon
             Image(systemName: eventIcon(for: event.eventType))
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(eventColor(for: event.eventType))
                 .frame(width: 32)
             
@@ -368,7 +368,7 @@ struct SecurityCenterView: View {
     private func emptyStateView(icon: String, title: String, subtitle: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.gray.opacity(0.5))
             
             Text(title)
@@ -386,7 +386,7 @@ struct SecurityCenterView: View {
     private func infoRow(icon: String, text: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
             

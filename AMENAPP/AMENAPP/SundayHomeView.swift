@@ -113,7 +113,7 @@ struct SundayHomeView: View {
             }
             Spacer()
             Image(systemName: "moon.stars")
-                .font(.system(size: 20, weight: .light))
+                .font(.systemScaled(20, weight: .light))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 20)
@@ -196,7 +196,7 @@ struct SundayHomeView: View {
         }) {
             HStack(spacing: 16) {
                 Image(systemName: "mappin.and.ellipse")
-                    .font(.system(size: 24, weight: .light))
+                    .font(.systemScaled(24, weight: .light))
                     .foregroundStyle(.primary)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -211,7 +211,7 @@ struct SundayHomeView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .padding(20)
@@ -229,7 +229,7 @@ struct SundayHomeView: View {
         }) {
             HStack(spacing: 16) {
                 Image(systemName: "note.text")
-                    .font(.system(size: 24, weight: .light))
+                    .font(.systemScaled(24, weight: .light))
                     .foregroundStyle(.primary)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -244,7 +244,7 @@ struct SundayHomeView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .padding(20)
@@ -294,7 +294,7 @@ struct SundayHomeView: View {
         Button(action: onPrayerRequest) {
             HStack(spacing: 16) {
                 Image(systemName: "hands.sparkles")
-                    .font(.system(size: 24, weight: .light))
+                    .font(.systemScaled(24, weight: .light))
                     .foregroundStyle(.primary)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -310,7 +310,7 @@ struct SundayHomeView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .padding(20)
@@ -327,7 +327,7 @@ struct SundayHomeView: View {
 
             HStack(spacing: 12) {
                 Image(systemName: "tray.2")
-                    .font(.system(size: 20, weight: .light))
+                    .font(.systemScaled(20, weight: .light))
                     .foregroundStyle(.secondary)
 
                 Text("\(reflectionDraftsCount) reflection\(reflectionDraftsCount == 1 ? "" : "s") saved for Monday")
@@ -475,7 +475,7 @@ private struct SundayActionChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text(title)
                     .font(AMENFont.semiBold(13))
             }

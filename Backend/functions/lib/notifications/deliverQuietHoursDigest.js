@@ -66,16 +66,14 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deliverQuietHoursDigest = void 0;
 const functions = __importStar(require("firebase-functions"));
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));
 const helpers_1 = require("./helpers");
 const db = admin.firestore();
 // Notifications pending for ≥ this many minutes are assumed to be outside
 // the quiet window. Conservative buffer to avoid delivering before the window ends.
 const STALENESS_THRESHOLD_MINUTES = 30;
-exports.deliverQuietHoursDigest = functions.pubsub
-    .schedule("every 30 minutes")
-    .timeZone("UTC")
-    .onRun(async () => {
+exports.deliverQuietHoursDigest = (0, scheduler_1.onSchedule)({ schedule: "every 30 minutes", timeZone: "UTC" }, async () => {
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - STALENESS_THRESHOLD_MINUTES * 60 * 1000);
     // Query all pending digest entries that have been waiting long enough.
     const pendingSnap = await db

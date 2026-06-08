@@ -1,4 +1,6 @@
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import {
   classifyWithFallback,
@@ -12,16 +14,16 @@ import { buildGentleRegretCopy, calculateIntentGravityScore, clamp01 } from "./l
 
 const db = admin.firestore();
 
-function requireAuth(context: functions.https.CallableContext): string {
+function requireAuth(context: { auth?: any; app?: any }): string {
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Auth required");
+    throw new HttpsError("unauthenticated", "Auth required");
   }
   return context.auth.uid;
 }
 
-function requireAppCheck(context: functions.https.CallableContext) {
+function requireAppCheck(context: { auth?: any; app?: any }) {
   if (context.app == undefined) {
-    throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+    throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
   }
 }
 
@@ -32,7 +34,7 @@ async function enforceLivingEntryRateLimit(userId: string, key: string, maxReque
     const snap = await tx.get(ref);
     const count = snap.exists ? Number(snap.data()?.count ?? 0) : 0;
     if (count >= maxRequests) {
-      throw new functions.https.HttpsError("resource-exhausted", "Rate limit exceeded");
+      throw new HttpsError("resource-exhausted", "Rate limit exceeded");
     }
     tx.set(ref, {
       userId,
@@ -43,21 +45,27 @@ async function enforceLivingEntryRateLimit(userId: string, key: string, maxReque
   });
 }
 
-export const classifyLivingEntry = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const classifyLivingEntry = onCall(async (request) => {
+  const data = request.data as any;
+  const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
   requireAppCheck(context);
   await enforceLivingEntryRateLimit(uid, "classify");
   return classifyWithFallback(data ?? {}, openAIClassification, claudeClassification);
 });
 
-export const evaluateLivingEntryContext = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const evaluateLivingEntryContext = onCall(async (request) => {
+  const data = request.data as any;
+  const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
   requireAppCheck(context);
   await enforceLivingEntryRateLimit(uid, "context");
   return evaluateContext(data ?? {});
 });
 
-export const calculateIntentGravity = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const calculateIntentGravity = onCall(async (request) => {
+  const data = request.data as any;
+  const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
   requireAppCheck(context);
   await enforceLivingEntryRateLimit(uid, "gravity");
@@ -66,7 +74,9 @@ export const calculateIntentGravity = functions.runWith({ enforceAppCheck: true 
   };
 });
 
-export const calculateRegretRisk = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const calculateRegretRisk = onCall(async (request) => {
+  const data = request.data as any;
+  const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
   requireAppCheck(context);
   await enforceLivingEntryRateLimit(uid, "regret");
@@ -81,14 +91,16 @@ export const calculateRegretRisk = functions.runWith({ enforceAppCheck: true }).
   };
 });
 
-export const completeLivingEntryWithReflection = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const completeLivingEntryWithReflection = onCall(async (request) => {
+  const data = request.data as any;
+  const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
   requireAppCheck(context);
   await enforceLivingEntryRateLimit(uid, "complete");
 
   const entryId = String(data?.entryId ?? "");
   if (!entryId) {
-    throw new functions.https.HttpsError("invalid-argument", "entryId is required");
+    throw new HttpsError("invalid-argument", "entryId is required");
   }
 
   const reflectionRef = db.collection("users").doc(uid).collection("living_entry_reflections").doc();
@@ -127,14 +139,17 @@ export const completeLivingEntryWithReflection = functions.runWith({ enforceAppC
   return { ok: true, reflectionId: reflectionRef.id };
 });
 
-export const evolveLivingEntries = functions.runWith({ enforceAppCheck: true }).https.onCall(async (_data, context) => {
+export const evolveLivingEntries = onCall(async (request) => {
+    const _data = request.data as any;
+    const data = _data;
+    const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
   requireAppCheck(context);
   await enforceLivingEntryRateLimit(uid, "evolve", 10);
   return evolveEntriesForUser(uid);
 });
 
-export const evolveLivingEntriesScheduled = functions.pubsub.schedule("every 6 hours").onRun(async () => {
+export const evolveLivingEntriesScheduled = onSchedule({ schedule: "every 6 hours" }, async () => {
   const users = await db.collection("users").limit(50).get();
   for (const user of users.docs) {
     await evolveEntriesForUser(user.id);

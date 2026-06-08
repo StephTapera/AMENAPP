@@ -124,7 +124,6 @@ struct GrowthMetrics: Codable {
     var consistencyScore: Double = 0    // (completed / total)
     var reflectionDepthScore: Double = 0 // avg word count normalized
     var obedienceActionCount: Int = 0
-    var longestStreak: Int = 0          // consecutive days with a loop activity
 
     var completionRate: Double {
         guard totalLoops > 0 else { return 0 }

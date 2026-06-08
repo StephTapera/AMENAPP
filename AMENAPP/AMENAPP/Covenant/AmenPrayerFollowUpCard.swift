@@ -38,7 +38,7 @@ struct AmenPrayerFollowUpCard: View {
     private var headerRow: some View {
         HStack(spacing: 6) {
             Image(systemName: "hands.sparkles.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.purple)
             Text("Prayer Request")
                 .font(.caption.weight(.semibold))
@@ -50,7 +50,7 @@ struct AmenPrayerFollowUpCard: View {
 
     private var statusChip: some View {
         Text(request.status.displayLabel)
-            .font(.system(size: 9, weight: .bold))
+            .font(.systemScaled(9, weight: .bold))
             .foregroundStyle(statusColor)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
@@ -107,7 +107,7 @@ struct AmenPrayerFollowUpCard: View {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: hasPrayed ? "hands.sparkles.fill" : "hands.sparkles")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                     Text(hasPrayed ? "Prayed" : "I Prayed")
                         .font(.caption.weight(.semibold))
                 }
@@ -127,7 +127,7 @@ struct AmenPrayerFollowUpCard: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "text.bubble")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                         Text("Post Update")
                             .font(.caption.weight(.semibold))
                     }

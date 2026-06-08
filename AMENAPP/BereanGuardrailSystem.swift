@@ -212,23 +212,23 @@ struct BereanCommunityPromptCard: View {
                         .fill(AmenColor.accentMuted)
                         .frame(width: 40, height: 40)
                     Image(systemName: promptIcon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundColor(AmenColor.accent)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(promptTitle)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundColor(AmenColor.titleText)
                     Text("Community reminder")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundColor(AmenColor.mutedText)
                 }
             }
             
             // Message
             Text(promptMessage)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(AmenColor.bodyText)
                 .lineSpacing(4)
             
@@ -261,7 +261,7 @@ struct BereanCommunityPromptCard: View {
                 
                 Button(action: onContinue) {
                     Text(promptType == .crisis ? "I understand" : "Keep Reflecting")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(AmenColor.mutedText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -363,12 +363,12 @@ struct GuardrailActionButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 Spacer()
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
             }
             .foregroundColor(style == .critical ? .white : (style == .primary ? AmenColor.accent : AmenColor.titleText))
             .padding(.horizontal, 16)
@@ -407,16 +407,16 @@ struct BereanOnboardingGuardrailView: View {
             // Hero
             VStack(alignment: .leading, spacing: 8) {
                 Text("Before we begin...")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.systemScaled(28, weight: .bold))
                     .foregroundColor(AmenColor.titleText)
                 
                 Text("Berean can guide you with Scripture and reflection, but it does not replace real community, church, or trusted people in your life.")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundColor(AmenColor.bodyText)
                     .lineSpacing(4)
                 
                 Text("If you're struggling, don't walk alone.")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(AmenColor.titleText)
             }
             .padding(.top, 32)
@@ -441,7 +441,7 @@ struct BereanOnboardingGuardrailView: View {
                 
                 Button(action: onContinue) {
                     Text("Continue to Berean")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundColor(AmenColor.accent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -461,11 +461,11 @@ struct BereanInlineCommunityNudge: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "person.2.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundColor(AmenColor.accent)
             
             Text("Remember: real community matters more than any AI can offer.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundColor(AmenColor.mutedText)
             
             Spacer()

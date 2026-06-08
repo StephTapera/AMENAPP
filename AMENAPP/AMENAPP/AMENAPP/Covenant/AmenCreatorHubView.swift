@@ -164,7 +164,7 @@ struct AmenCreatorHubView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(hubVM.covenant?.name ?? " ")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.systemScaled(22, weight: .bold))
                         .lineLimit(1)
                     Text("@\(hubVM.covenant?.creatorId ?? "")")
                         .font(.caption)
@@ -209,7 +209,7 @@ struct AmenCreatorHubView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Manage Community")
                         .font(.subheadline.weight(.semibold))
                     Spacer()
@@ -233,7 +233,7 @@ struct AmenCreatorHubView: View {
             HStack(spacing: 12) {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundStyle(.green)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("You're a member")
                         .font(.subheadline.weight(.semibold))
@@ -510,7 +510,7 @@ private struct HubTierPill: View {
         HStack(spacing: 5) {
             if tier.isPopular {
                 Image(systemName: "star.fill")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.yellow)
             }
             Text(tier.name)
@@ -551,7 +551,7 @@ private struct HubFeaturedPostCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("Teaching")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.indigo)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -560,7 +560,7 @@ private struct HubFeaturedPostCard: View {
                 Spacer()
 
                 Image(systemName: "arrow.right.circle")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.secondary)
             }
 
@@ -575,7 +575,7 @@ private struct HubFeaturedPostCard: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.purple)
                 Text("Galatians 5:16-25")
                     .font(.caption.weight(.medium))
@@ -602,7 +602,7 @@ private struct HubDigestCard: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: "newspaper.fill")
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(.purple)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(Color.purple.opacity(0.1)))
@@ -637,7 +637,7 @@ private struct HubPrayerFollowUpStrip: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: "hands.sparkles.fill")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(.indigo)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(Color.indigo.opacity(0.1)))
@@ -678,7 +678,7 @@ private struct HubPostRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text(post.postType)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.purple)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -702,7 +702,7 @@ private struct HubPostRow: View {
 
             HStack(spacing: 4) {
                 Image(systemName: "eye")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
                 Text("\(post.readCount) reads")
                     .font(.caption2)
@@ -732,7 +732,7 @@ private struct AboutTierRow: View {
                         .font(.subheadline.weight(.semibold))
                     if tier.isPopular {
                         Text("Popular")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)

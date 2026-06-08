@@ -155,7 +155,7 @@ struct AmenMediaWellbeingSettingsView: View {
         Section {
             HStack(spacing: 12) {
                 Image(systemName: "heart.text.square")
-                    .font(.system(size: 18, weight: .light))
+                    .font(.systemScaled(18, weight: .light))
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 Text("Amen is designed to leave you fulfilled, not exhausted. These settings help you stay in control of your time and attention.")

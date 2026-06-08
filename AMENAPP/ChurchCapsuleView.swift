@@ -22,7 +22,7 @@ struct ChurchCapsuleView: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             Text(churchName)

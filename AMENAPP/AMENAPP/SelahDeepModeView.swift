@@ -65,7 +65,7 @@ struct SelahDeepModeView: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(.ultraThinMaterial))
@@ -137,7 +137,7 @@ struct SelahDeepModeView: View {
                 )
                 .frame(width: 280, height: 280)
             Image(systemName: "moon.stars.fill")
-                .font(.system(size: 64, weight: .light))
+                .font(.systemScaled(64, weight: .light))
                 .foregroundStyle(.white.opacity(0.7))
         }
     }
@@ -219,7 +219,7 @@ struct SelahDeepModeView: View {
         VStack(spacing: 24) {
             Spacer()
             Image(systemName: "moon.stars.fill")
-                .font(.system(size: 72, weight: .ultraLight))
+                .font(.systemScaled(72, weight: .ultraLight))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.indigo, .purple],

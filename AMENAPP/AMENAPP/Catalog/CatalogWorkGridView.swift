@@ -75,7 +75,7 @@ struct CatalogWorkGridView: View {
     private func carouselSection(works: [CatalogWork]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Recent")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
 
@@ -96,7 +96,7 @@ struct CatalogWorkGridView: View {
     private func gridSection(works: [CatalogWork]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("All Works")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
 
@@ -117,30 +117,30 @@ struct CatalogWorkGridView: View {
             ProgressView()
                 .scaleEffect(1.2)
             Text("Loading catalog...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(40)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 16)
     }
 
     private var emptyView: some View {
         VStack(spacing: 12) {
             Image(systemName: "books.vertical")
-                .font(.system(size: 40, weight: .light))
+                .font(.systemScaled(40, weight: .light))
                 .foregroundStyle(.secondary)
             Text("No published works yet")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
             Text("This creator hasn't published any works to their catalog.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(40)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 16)
     }
 
@@ -149,27 +149,27 @@ struct CatalogWorkGridView: View {
             ProgressView()
                 .scaleEffect(1.2)
             Text("Importing works...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
             Text("This may take a moment.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(40)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 16)
     }
 
     private func errorView(message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(.secondary)
             Text("Couldn't load catalog")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Try Again") {
@@ -179,7 +179,7 @@ struct CatalogWorkGridView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(40)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 16)
     }
 }
@@ -196,15 +196,15 @@ struct CatalogCoverCard: View {
                     .fill(.secondary.opacity(0.08))
                     .frame(width: 100, height: 100)
                 Image(systemName: work.type.icon)
-                    .font(.system(size: 32, weight: .light))
+                    .font(.systemScaled(32, weight: .light))
                     .foregroundStyle(.secondary)
             }
             Text(work.title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .lineLimit(2)
                 .frame(width: 100, alignment: .leading)
             Text(work.type.displayName)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -242,22 +242,22 @@ struct CatalogWorkCard: View {
                     .fill(.secondary.opacity(0.08))
                     .aspectRatio(1, contentMode: .fit)
                 Image(systemName: work.type.icon)
-                    .font(.system(size: 28, weight: .light))
+                    .font(.systemScaled(28, weight: .light))
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(work.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .lineLimit(2)
                 Text(work.type.displayName)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
             if let link = primaryLink, let url = URL(string: link.url) {
                 Link(ctaLabel, destination: url)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(Capsule().fill(.primary.opacity(0.08)))
@@ -265,6 +265,6 @@ struct CatalogWorkCard: View {
             }
         }
         .padding(10)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

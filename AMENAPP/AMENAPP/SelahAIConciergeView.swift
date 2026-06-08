@@ -141,7 +141,7 @@ struct SelahAIConciergeView: View {
     private func conciergeSuggestionRow(_ s: ConciergeSuggestion) -> some View {
         HStack(spacing: 12) {
             Image(systemName: s.icon)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(s.color)
                 .frame(width: 28)
 
@@ -214,7 +214,7 @@ struct SelahAIConciergeView: View {
     private func learningPathCard(_ path: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(.teal)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Learning path detected")
@@ -244,7 +244,7 @@ struct SelahAIConciergeView: View {
     private func relationshipNudgeCard(_ nudge: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "person.2")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.purple)
             Text(nudge)
                 .font(.subheadline)

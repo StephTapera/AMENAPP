@@ -64,15 +64,22 @@ struct VisitPlanningView: View {
             }
             .task { await loadCarpools() }
             .sheet(isPresented: $showCarpoolForm) {
-                CarpoolFormSheet(churchId: destination.identifier?.rawValue ?? "unknown")
+                CarpoolFormSheet(churchId: {
+                    if #available(iOS 18, *) { return destination.identifier?.rawValue ?? "unknown" }
+                    return "unknown"
+                }())
             }
         }
     }
 
     private func loadCarpools() async {
         isLoading = true
+        let carpoolChurchId: String = {
+            if #available(iOS 18, *) { return destination.identifier?.rawValue ?? "" }
+            return ""
+        }()
         carpoolRequests = (try? await TransportCoordinatorService.shared.fetchCarpoolRequests(
-            for: destination.identifier?.rawValue ?? ""
+            for: carpoolChurchId
         )) ?? []
         isLoading = false
     }

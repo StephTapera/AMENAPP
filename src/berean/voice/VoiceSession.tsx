@@ -12,7 +12,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { tokens, VoiceMode, VoicePersona } from '../../contracts';
+import { tokens, VoiceMode, VoicePersona } from '../contracts';
 import { voiceService, VoiceSessionState } from './voiceService';
 
 // ─────────────────────────────────────────────────────────────────────────────

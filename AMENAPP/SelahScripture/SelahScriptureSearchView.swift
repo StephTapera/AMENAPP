@@ -124,9 +124,9 @@ struct SelahScriptureSearchView: View {
                     } label: {
                         VStack(spacing: 2) {
                             Text(t.abbreviation)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                             availabilityCaption(for: t)
-                                .font(.system(size: 9, weight: .medium))
+                                .font(.systemScaled(9, weight: .medium))
                         }
                         .foregroundStyle(t.id == translation.id ? Color.accentColor : .secondary)
                         .padding(.horizontal, 12)
@@ -192,7 +192,7 @@ struct SelahScriptureSearchView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(.system(size: 10, weight: .semibold))
+            .font(.systemScaled(10, weight: .semibold))
             .tracking(1.5)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 16)
@@ -207,15 +207,15 @@ struct SelahScriptureSearchView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(ref.displayString)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(translation.abbreviation)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
@@ -232,17 +232,17 @@ struct SelahScriptureSearchView: View {
         } label: {
             HStack {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 Text(book.displayName)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("\(book.chapterCount) chapters")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
@@ -259,16 +259,16 @@ struct SelahScriptureSearchView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(hit.reference.displayString)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                     Spacer()
                     Text(hit.translationId.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 if !hit.preview.isEmpty {
                     Text(hit.preview)
-                        .font(.system(size: 14, design: .serif))
+                        .font(.systemScaled(14, design: .serif))
                         .foregroundStyle(.primary.opacity(0.85))
                         .lineLimit(3)
                 }
@@ -286,12 +286,12 @@ struct SelahScriptureSearchView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "book.pages")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(.secondary.opacity(0.55))
             Text("Search for a verse")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
             Text("Try \"John 3:16\", \"Psalm 23\", or a word\nlike \"peace\".")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Spacer()
@@ -301,10 +301,10 @@ struct SelahScriptureSearchView: View {
     private var noResults: some View {
         VStack(spacing: 10) {
             Text("No matches")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("Try a different word or a reference.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)

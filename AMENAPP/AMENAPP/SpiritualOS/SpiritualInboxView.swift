@@ -45,9 +45,9 @@ struct SpiritualInboxView: View {
                     let displayItems = viewModel.filteredItems(for: selectedFilter)
                     if displayItems.isEmpty && !viewModel.isLoading {
                         ContentUnavailableView(
-                            "You're all caught up",
+                            emptyStateTitle(for: selectedFilter),
                             systemImage: "checkmark.circle",
-                            description: Text("No \(selectedFilter?.label ?? "") items")
+                            description: Text(emptyStateDescription(for: selectedFilter))
                         )
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
@@ -87,7 +87,7 @@ struct SpiritualInboxView: View {
                         showCommHub = true
                     } label: {
                         Image(systemName: "bubble.left.and.bubble.right.fill")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                     }
                     .accessibilityLabel("Communication Hub")
                     .accessibilityHint("Open the AI-enhanced messaging hub")
@@ -111,6 +111,31 @@ struct SpiritualInboxView: View {
         }
         .onDisappear {
             viewModel.stopListening()
+        }
+    }
+
+    // MARK: - Empty state copy
+
+    /// Returns a filter-aware title for the empty state, always with exactly one space
+    /// between words (guards against double-space when the filter label is empty or nil).
+    private func emptyStateTitle(for filter: AmenHubItemType?) -> String {
+        guard let filter else { return "Your inbox is empty" }
+        let label = filter.label.trimmingCharacters(in: .whitespaces)
+        if label.isEmpty { return "No items" }
+        return "No \(label) items"
+    }
+
+    private func emptyStateDescription(for filter: AmenHubItemType?) -> String {
+        switch filter {
+        case .none:             return "Messages, prayer requests, and activity from your community will appear here."
+        case .message:          return "No messages yet. Start a conversation with someone in your community."
+        case .prayerRequest:    return "No prayer requests yet. When someone asks for prayer, you'll see it here."
+        case .churchMention:    return "No mentions yet. When your church or community tags you, it'll show up here."
+        case .bereanResponse:   return "No Berean responses yet. Ask a question to start a conversation."
+        case .volunteerRequest: return "No volunteer opportunities yet. Check back soon for ways to serve."
+        case .eventInvitation:  return "No event invitations yet. Invitations from your church will appear here."
+        case .mentorReply:      return "No mentor replies yet. Your mentor's responses will show up here."
+        case .spaceActivity:    return "No Space activity yet. Updates from Spaces you've joined will appear here."
         }
     }
 }

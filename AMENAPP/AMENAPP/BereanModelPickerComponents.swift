@@ -92,7 +92,7 @@ struct BereanModelPickerPill: View {
                     .font(AMENFont.semiBold(13))
                     .foregroundColor(.primary)
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal, 12)
@@ -204,7 +204,7 @@ private struct BereanModelMenuRow: View {
                 ZStack {
                     if isSelected {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundColor(.black)
                     }
                 }

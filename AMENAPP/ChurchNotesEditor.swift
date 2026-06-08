@@ -2243,9 +2243,9 @@ struct CNFeatureChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(isActive ? accentColor : Color.primary.opacity(0.65))
             .padding(.horizontal, 14)

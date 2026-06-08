@@ -43,7 +43,7 @@ struct ONEMessageComposerView: View {
             }
             if let err = sendError {
                 Text(err)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.red)
                     .padding(.horizontal, ONE.Spacing.md)
                     .padding(.top, ONE.Spacing.xs)
@@ -62,11 +62,11 @@ struct ONEMessageComposerView: View {
     private var contractBar: some View {
         HStack(spacing: ONE.Spacing.sm) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(ONE.Colors.privateIndigo)
 
             Text(contractSummary)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
@@ -78,7 +78,7 @@ struct ONEMessageComposerView: View {
                 }
             } label: {
                 Text(overridesOpen ? "Done" : "Override ›")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(ONE.Colors.privateIndigo)
                     .padding(.horizontal, ONE.Spacing.sm)
                     .padding(.vertical, 4)
@@ -96,7 +96,7 @@ struct ONEMessageComposerView: View {
     private var overridePanel: some View {
         VStack(alignment: .leading, spacing: ONE.Spacing.sm) {
             Text("Override for this message")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, ONE.Spacing.md)
 
@@ -122,7 +122,7 @@ struct ONEMessageComposerView: View {
     private func permToggle(_ label: String, isOn: Binding<Bool>) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.primary)
             Spacer()
             Toggle(label, isOn: isOn)
@@ -141,10 +141,10 @@ struct ONEMessageComposerView: View {
     private var privacyWarning: some View {
         HStack(spacing: ONE.Spacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.orange)
             Text("Enabling forward or save reduces the recipient's privacy. They will see this change.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -163,7 +163,7 @@ struct ONEMessageComposerView: View {
             lockButton
 
             TextField("Message", text: $text, axis: .vertical)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .lineLimit(1...5)
                 .focused($isFocused)
                 .padding(.horizontal, 14)
@@ -188,7 +188,7 @@ struct ONEMessageComposerView: View {
             }
         } label: {
             Image(systemName: "lock.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(overridesOpen ? ONE.Colors.privateIndigo : Color.secondary)
                 .frame(width: 36, height: 36)
                 .background(
@@ -207,7 +207,7 @@ struct ONEMessageComposerView: View {
     private var sendButton: some View {
         Button { Task { await trySend() } } label: {
             Image(systemName: "arrow.up")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(

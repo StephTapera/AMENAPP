@@ -95,9 +95,9 @@ public struct MessagingInboxFilterTray: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: filter.symbol)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(filter.title)
-                    .font(.system(size: 14, weight: isActive ? .semibold : .medium))
+                    .font(.systemScaled(14, weight: isActive ? .semibold : .medium))
             }
             .foregroundStyle(isActive ? Color.white : Color.primary)
             .padding(.horizontal, 14)
@@ -173,20 +173,20 @@ public struct MessagingInboxFilterTray: View {
                         .fill(Color.accentColor)
                         .frame(width: 32, height: 32)
                     Image(systemName: activeFilter.symbol)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white)
                 }
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Filtered by")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.secondary)
                     HStack(spacing: 3) {
                         Text(activeFilter.title)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color.accentColor)
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(Color.accentColor)
                     }
                 }
@@ -231,7 +231,7 @@ public struct MessagingInboxFilterTray: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.primary)
                 .frame(width: 44, height: 44)
                 .background(

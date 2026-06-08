@@ -21,11 +21,11 @@ struct TrustExplainerView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(explanation.headline)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(.black)
 
                 Text(explanation.detail)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundColor(.black.opacity(0.5))
                     .lineLimit(2)
             }
@@ -51,22 +51,22 @@ struct TrustExplainerView: View {
         switch explanation.trustLevel {
         case .high:
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.green)
                 .accessibilityLabel("Trusted sender")
         case .medium:
             Image(systemName: "person.badge.clock.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.orange)
                 .accessibilityLabel("Pending trust")
         case .low:
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.yellow)
                 .accessibilityLabel("Low trust — review recommended")
         case .spam:
             Image(systemName: "xmark.shield.fill")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundColor(.red)
                 .accessibilityLabel("Filtered — likely spam")
         }
@@ -99,7 +99,7 @@ struct TrustLevelBadge: View {
                 .accessibilityHidden(true)
 
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundColor(badgeColor)
         }
         .padding(.horizontal, 6)

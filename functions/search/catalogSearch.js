@@ -17,7 +17,7 @@
 
 "use strict";
 
-const functions = require("firebase-functions");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin     = require("firebase-admin");
 
 // admin is already initialized in index.js — do not call initializeApp() again.
@@ -326,16 +326,16 @@ function topicId(name) {
 // CF: searchCatalog
 // ═════════════════════════════════════════════════════════════════════════════
 
-exports.searchCatalog = functions.https.onCall(async (data, context) => {
+exports.searchCatalog = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Sign in required.");
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = context.auth.uid;
 
   // Rate limit: 60/hr/user
   const allowed = await checkSearchRateLimit(uid);
   if (!allowed) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       "resource-exhausted",
       "Search rate limit reached. Please wait before searching again."
     );
@@ -439,15 +439,15 @@ exports.searchCatalog = functions.https.onCall(async (data, context) => {
 // CF: searchCreators
 // ═════════════════════════════════════════════════════════════════════════════
 
-exports.searchCreators = functions.https.onCall(async (data, context) => {
+exports.searchCreators = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Sign in required.");
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = context.auth.uid;
 
   const allowed = await checkSearchRateLimit(uid);
   if (!allowed) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       "resource-exhausted",
       "Search rate limit reached."
     );
@@ -567,9 +567,9 @@ exports.searchCreators = functions.https.onCall(async (data, context) => {
 // CF: getTopicSuggestions
 // ═════════════════════════════════════════════════════════════════════════════
 
-exports.getTopicSuggestions = functions.https.onCall(async (data, context) => {
+exports.getTopicSuggestions = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Sign in required.");
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
 
   const query  = (data.query ?? "").trim().toLowerCase();

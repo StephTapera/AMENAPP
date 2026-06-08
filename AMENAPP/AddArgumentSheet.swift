@@ -86,7 +86,7 @@ struct AddArgumentSheet: View {
             HStack {
                 Button(action: handleDismiss) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                         .background(
@@ -152,7 +152,7 @@ struct AddArgumentSheet: View {
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(selected ? tint : .secondary)
                 Text(type.label)
                     .font(.systemScaled(13, weight: .semibold))
@@ -316,7 +316,7 @@ struct AddArgumentSheet: View {
                         ProgressView().controlSize(.small).tint(.primary)
                     } else {
                         Image(systemName: "shield.lefthalf.filled")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                     }
                     Text(isScreening ? "Checking..." : "Check Argument")
                         .font(.systemScaled(13, weight: .semibold))
@@ -342,7 +342,7 @@ struct AddArgumentSheet: View {
                         ProgressView().controlSize(.small).tint(.white)
                     } else {
                         Image(systemName: "paperplane.fill")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                     }
                     Text(postButtonTitle)
                         .font(.systemScaled(14, weight: .bold))

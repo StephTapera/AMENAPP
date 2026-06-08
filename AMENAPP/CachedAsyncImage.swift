@@ -41,7 +41,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 placeholder()
                     .overlay(
                         Image(systemName: "photo")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary.opacity(0.3))
                     )
             } else {

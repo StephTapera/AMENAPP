@@ -6,7 +6,7 @@ import SwiftUI
 /// ```swift
 /// AmenLiquidGlassPill(intensity: .light, isPressed: isPressed) {
 ///     Label("Explain", systemImage: "sparkles")
-///         .font(.system(size: 13, weight: .medium))
+///         .font(.systemScaled(13, weight: .medium))
 ///         .foregroundStyle(.primary)
 /// }
 /// ```

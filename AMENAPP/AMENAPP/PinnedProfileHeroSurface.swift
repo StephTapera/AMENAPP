@@ -127,10 +127,10 @@ struct PinnedProfileHeroSection: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.72))
                         .frame(width: 34, height: 34)
-                        .glassEffect(.regular.tint(.white.opacity(0.12)), in: Circle())
+                        .amenGlassEffect(in: Circle())
                         .glassEffectID("pinned-overflow-\(post.firestoreId)", in: namespace)
                 }
                 .buttonStyle(.plain)
@@ -148,7 +148,7 @@ struct PinnedProfileHeroSection: View {
                 HStack(spacing: 6) {
                     ForEach(Array(semanticTags.enumerated()), id: \.element) { index, tag in
                         Text(tag)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.7))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -172,7 +172,7 @@ struct PinnedProfileHeroSection: View {
     private var pill: some View {
         HStack(spacing: 7) {
             Image(systemName: "pin.fill")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
 
             PinnedProfileAnimatedLabelText(text: metadata.label, transitionKey: labelTransitionKey)
                 .lineLimit(1)
@@ -180,7 +180,7 @@ struct PinnedProfileHeroSection: View {
         .foregroundStyle(.black.opacity(0.82))
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+        .amenGlassEffect(in: Capsule())
         .glassEffectID("pinned-pill-\(post.firestoreId)", in: namespace)
     }
 
@@ -201,7 +201,7 @@ struct PinnedProfileHeroSection: View {
                             Text(verseReference)
                         }
                     }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
                 }
 
@@ -209,7 +209,7 @@ struct PinnedProfileHeroSection: View {
 
                 if mediaItems.contains(where: { $0.type == .video }) {
                     Label("Video", systemImage: "play.circle.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.72))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -334,7 +334,7 @@ struct PinnedProfileHeroSection: View {
                     )
                     .overlay {
                         Text(initials(from: post.authorName))
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(.white.opacity(0.88))
                     }
             }
@@ -361,11 +361,11 @@ struct PinnedProfileHeroSection: View {
             action()
         } label: {
             Label(title, systemImage: systemImage)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.black.opacity(0.78))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
-                .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+                .amenGlassEffect(in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -373,9 +373,9 @@ struct PinnedProfileHeroSection: View {
     private func labelMetric(systemName: String, text: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: systemName)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
             Text(text)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
         }
         .foregroundStyle(.black.opacity(0.62))
     }
@@ -412,16 +412,16 @@ struct PinnedProfileMiniTokenView: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "pin.fill")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
 
             Text(metadata.label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .lineLimit(1)
         }
         .foregroundStyle(.black.opacity(0.78))
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+        .amenGlassEffect(in: Capsule())
         .glassEffectID("pinned-pill-\(postID)", in: namespace)
         .scaleEffect(0.97 + (collapseProgress * 0.03))
         .opacity(1 - fadeProgress)
@@ -435,19 +435,19 @@ struct PinnedReadOnlyProfileHeader: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "pin.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(metadata.label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .lineLimit(1)
             }
             .foregroundStyle(.black.opacity(0.78))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+            .amenGlassEffect(in: Capsule())
 
             if let rationale = metadata.rationale, !rationale.isEmpty {
                 Text(rationale)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
         }
@@ -544,7 +544,7 @@ private struct PinnedProfileMediaTile: View {
                     .frame(width: 56, height: 56)
                     .overlay {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.white.opacity(0.92))
                             .padding(.leading, 3)
                     }
@@ -555,7 +555,7 @@ private struct PinnedProfileMediaTile: View {
                         HStack {
                             Spacer()
                             Text(duration)
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.systemScaled(11, weight: .bold))
                                 .foregroundStyle(.white.opacity(0.94))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 5)
@@ -596,11 +596,11 @@ private struct PinnedProfileFocusedMediaOverlay: View {
                     Button("Close") {
                         onDismiss()
                     }
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.78))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .glassEffect(.regular.tint(.white.opacity(0.12)), in: Capsule())
+                    .amenGlassEffect(in: Capsule())
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)

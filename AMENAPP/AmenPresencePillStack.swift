@@ -71,14 +71,14 @@ struct AmenPresencePillStack: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(action.title)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                     if let sub = action.subtitle {
                         Text(sub)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .opacity(0.72)
                     }
                 }
@@ -102,9 +102,9 @@ struct AmenPresencePillStack: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text("More")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, AmenGlassMetrics.pillHorizontalPadding)

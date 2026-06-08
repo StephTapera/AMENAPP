@@ -117,7 +117,7 @@ struct AmenCovenantHomeView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                     Text("Search communities…")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -137,7 +137,7 @@ struct AmenCovenantHomeView: View {
                 showComposer = true
             } label: {
                 Image(systemName: "plus.bubble.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(Color.purple))
@@ -165,7 +165,7 @@ struct AmenCovenantHomeView: View {
             } label: {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "bell")
-                        .font(.system(size: 17))
+                        .font(.systemScaled(17))
                     if vm.unreadActivityCount > 0 {
                         Circle()
                             .fill(Color.red)
@@ -197,7 +197,7 @@ struct AmenCovenantHomeView: View {
     private func modeBanner(_ mode: CovenantOperatingMode) -> some View {
         HStack(spacing: 12) {
             Image(systemName: mode.icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(Circle().fill(Color.purple.opacity(0.85)))
@@ -363,7 +363,7 @@ struct AmenCovenantHomeView: View {
     private func emptyStateCard(icon: String, message: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(.tertiary)
             Text(message)
                 .font(.caption)
@@ -434,7 +434,7 @@ private struct ContinueWhereLeftOffCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Image(systemName: item.icon)
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(.purple)
             Text(item.title)
                 .font(.subheadline.weight(.semibold))
@@ -494,7 +494,7 @@ private struct MentionedRoomRow: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: room.type.icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.purple)
                 .frame(width: 36, height: 36)
                 .background(Circle().fill(Color.purple.opacity(0.1)))
@@ -555,7 +555,7 @@ private struct NewPaidPostCard: View {
 
                 Spacer()
                 Image(systemName: "crown.fill")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.yellow)
             }
 

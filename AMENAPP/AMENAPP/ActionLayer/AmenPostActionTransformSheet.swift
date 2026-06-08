@@ -47,7 +47,7 @@ struct AmenPostActionTransformSheet: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityLabel("Dismiss")
@@ -115,7 +115,7 @@ struct AmenPostActionTransformSheet: View {
     private var headerTitle: some View {
         VStack(spacing: 2) {
             Text("Turn this into action")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(.primary)
         }
     }
@@ -124,7 +124,7 @@ struct AmenPostActionTransformSheet: View {
 
     private var authorSubtitle: some View {
         Text("by @\(authorName)")
-            .font(.system(size: 14, weight: .regular))
+            .font(.systemScaled(14, weight: .regular))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .center)
     }
@@ -133,7 +133,7 @@ struct AmenPostActionTransformSheet: View {
 
     private var postPreviewChip: some View {
         Text(postText)
-            .font(.system(size: 14, weight: .regular))
+            .font(.systemScaled(14, weight: .regular))
             .foregroundStyle(.primary)
             .lineLimit(2)
             .multilineTextAlignment(.leading)
@@ -172,7 +172,7 @@ struct AmenPostActionTransformSheet: View {
     private func inlineDetail(for action: AmenPostTransformAction) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(action.displayName)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(action.accentColor)
 
             detailControls(for: action)
@@ -189,7 +189,7 @@ struct AmenPostActionTransformSheet: View {
         case .reminder, .event:
             VStack(alignment: .leading, spacing: 8) {
                 Label("When", systemImage: "clock")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                 DatePicker(
                     "Schedule",
@@ -206,10 +206,10 @@ struct AmenPostActionTransformSheet: View {
         case .task:
             VStack(alignment: .leading, spacing: 8) {
                 Label("Assign to", systemImage: "person")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                 TextField("Your name", text: $assignedTo)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
                     .background(
@@ -226,7 +226,7 @@ struct AmenPostActionTransformSheet: View {
 
         case .prayerItem, .discussion, .volunteerOpportunity:
             Text(action.description)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -246,10 +246,10 @@ struct AmenPostActionTransformSheet: View {
                         .scaleEffect(0.85)
                 } else {
                     Image(systemName: action.icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                 }
                 Text(isSaving ? "Saving…" : "Save")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
@@ -272,7 +272,7 @@ struct AmenPostActionTransformSheet: View {
             "Actions are private by default. Only you can see this.",
             systemImage: "lock.fill"
         )
-        .font(.system(size: 12, weight: .regular))
+        .font(.systemScaled(12, weight: .regular))
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity, alignment: .center)
@@ -339,19 +339,19 @@ private struct ActionCardButton: View {
                         .fill(action.accentColor.opacity(isSelected ? 0.22 : 0.12))
                         .frame(width: 48, height: 48)
                     Image(systemName: action.icon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(action.accentColor)
                         .symbolEffect(.bounce, value: isSelected)
                 }
 
                 Text(action.displayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
 
                 Text(action.description)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)

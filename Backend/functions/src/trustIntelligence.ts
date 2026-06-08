@@ -1,18 +1,18 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 
 function requireAuth(context: functions.https.CallableContext) {
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new HttpsError("unauthenticated", "Auth required");
     }
     return context.auth.uid;
 }
 
 function requireAppCheck(context: functions.https.CallableContext) {
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -21,11 +21,13 @@ function requireAppCheck(context: functions.https.CallableContext) {
 
 function assertOwner(uid: string, userId: string) {
     if (uid !== userId) {
-        throw new functions.https.HttpsError("permission-denied", "User mismatch");
+        throw new HttpsError("permission-denied", "User mismatch");
     }
 }
 
-export const writeAgentInsight = functions.https.onCall(async (data, context) => {
+export const writeAgentInsight = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);
@@ -49,7 +51,9 @@ export const writeAgentInsight = functions.https.onCall(async (data, context) =>
     return { ok: true, id: insightId };
 });
 
-export const writeAgentRecommendation = functions.https.onCall(async (data, context) => {
+export const writeAgentRecommendation = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);
@@ -72,7 +76,9 @@ export const writeAgentRecommendation = functions.https.onCall(async (data, cont
     return { ok: true, id: recId };
 });
 
-export const writeAgentExecutionLog = functions.https.onCall(async (data, context) => {
+export const writeAgentExecutionLog = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);
@@ -94,7 +100,9 @@ export const writeAgentExecutionLog = functions.https.onCall(async (data, contex
     return { ok: true, id: logId };
 });
 
-export const writeTrustEvent = functions.https.onCall(async (data, context) => {
+export const writeTrustEvent = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);
@@ -117,7 +125,9 @@ export const writeTrustEvent = functions.https.onCall(async (data, context) => {
     return { ok: true, id: eventId };
 });
 
-export const writeTrustSnapshot = functions.https.onCall(async (data, context) => {
+export const writeTrustSnapshot = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);

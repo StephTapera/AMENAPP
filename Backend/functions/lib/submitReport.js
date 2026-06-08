@@ -62,6 +62,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.submitReport = void 0;
 const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -155,29 +156,31 @@ async function isRateLimited(reporterId) {
  *
  * Output: { reportId: string }
  */
-exports.submitReport = functions.https.onCall(async (data, context) => {
+exports.submitReport = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     // ── Auth check ─────────────────────────────────────────────────────────
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in to submit a report");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to submit a report");
     }
     // ── App Check enforcement (5.1 FIX) ────────────────────────────────────
     // Rejects calls from clients that cannot produce a valid App Check token.
     // Prevents scripted abuse with a stolen Firebase Auth token alone.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     const reporterId = context.auth.uid;
     // ── Input validation ───────────────────────────────────────────────────
     const reportedUserId = (data.reportedUserId ?? "").trim();
     if (!reportedUserId) {
-        throw new functions.https.HttpsError("invalid-argument", "reportedUserId is required");
+        throw new https_1.HttpsError("invalid-argument", "reportedUserId is required");
     }
     if (reportedUserId === reporterId) {
-        throw new functions.https.HttpsError("invalid-argument", "Cannot report yourself");
+        throw new https_1.HttpsError("invalid-argument", "Cannot report yourself");
     }
     const reason = (data.reason ?? "").trim();
     if (!VALID_REASONS.has(reason)) {
-        throw new functions.https.HttpsError("invalid-argument", `reason '${reason}' is not a valid report reason`);
+        throw new https_1.HttpsError("invalid-argument", `reason '${reason}' is not a valid report reason`);
     }
     const conversationId = (data.conversationId ?? "").trim();
     const evidenceMessageIds = Array.isArray(data.evidenceMessageIds)
@@ -190,11 +193,11 @@ exports.submitReport = functions.https.onCall(async (data, context) => {
     // ── Validate reported user exists ──────────────────────────────────────
     const reportedUserDoc = await db.collection("users").doc(reportedUserId).get();
     if (!reportedUserDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Reported user not found");
+        throw new https_1.HttpsError("not-found", "Reported user not found");
     }
     // ── Rate limiting ──────────────────────────────────────────────────────
     if (await isRateLimited(reporterId)) {
-        throw new functions.https.HttpsError("resource-exhausted", "You have submitted too many reports recently. Please try again later.");
+        throw new https_1.HttpsError("resource-exhausted", "You have submitted too many reports recently. Please try again later.");
     }
     // ── Deduplication ─────────────────────────────────────────────────────
     if (await isDuplicateReport(reporterId, reportedUserId)) {

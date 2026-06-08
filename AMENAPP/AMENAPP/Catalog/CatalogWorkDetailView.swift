@@ -40,7 +40,7 @@ struct CatalogWorkDetailView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 260)
                 Image(systemName: work.type.icon)
-                    .font(.system(size: 64, weight: .ultraLight))
+                    .font(.systemScaled(64, weight: .ultraLight))
                     .foregroundStyle(.secondary)
             }
 
@@ -54,11 +54,11 @@ struct CatalogWorkDetailView: View {
             VStack(alignment: .leading, spacing: 4) {
                 typeBadge
                 Text(work.title)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                     .foregroundStyle(.primary)
                 if let subtitle = work.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -71,9 +71,9 @@ struct CatalogWorkDetailView: View {
     private var typeBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: work.type.icon)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
             Text(work.type.displayName)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
@@ -88,17 +88,17 @@ struct CatalogWorkDetailView: View {
             if work.verifiedOwnership {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.blue)
                     Text("Verified by creator")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.blue)
                 }
             }
 
             if let description = work.description {
                 Text(description)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.primary)
                     .lineSpacing(3)
             }
@@ -106,10 +106,10 @@ struct CatalogWorkDetailView: View {
             if let date = work.publishedAt {
                 HStack(spacing: 4) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                     Text("Published \(date, style: .date)")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -124,7 +124,7 @@ struct CatalogWorkDetailView: View {
         if !work.topics.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Topics")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
 
@@ -132,7 +132,7 @@ struct CatalogWorkDetailView: View {
                     HStack(spacing: 8) {
                         ForEach(work.topics, id: \.self) { topic in
                             Text(topic)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(Capsule().fill(.secondary.opacity(0.08)))
@@ -152,7 +152,7 @@ struct CatalogWorkDetailView: View {
         if !work.links.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Where to find it")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
 
@@ -172,24 +172,24 @@ struct CatalogWorkDetailView: View {
         Link(destination: url) {
             HStack(spacing: 12) {
                 Image(systemName: linkIcon(kind: link.kind))
-                    .font(.system(size: 16, weight: .light))
+                    .font(.systemScaled(16, weight: .light))
                     .foregroundStyle(.primary)
                     .frame(width: 24)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(ctaLabel(kind: link.kind))
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.primary)
                     Text("on \(link.platform)")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .padding(14)
-            .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
 

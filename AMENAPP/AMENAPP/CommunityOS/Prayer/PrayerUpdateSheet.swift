@@ -127,7 +127,7 @@ struct PrayerUpdateSheet: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 30)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
         .presentationCornerRadius(28)
@@ -147,9 +147,9 @@ struct PrayerUpdateSheet: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: type.systemImage)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                             Text(type.displayName)
-                                .font(.system(size: 13, weight: selectedType == type ? .semibold : .regular))
+                                .font(.systemScaled(13, weight: selectedType == type ? .semibold : .regular))
                         }
                         .foregroundStyle(
                             selectedType == type ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel)

@@ -171,6 +171,8 @@ struct FindChurchView: View {
     @State private var hasSearchedOnce = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var isLocationPermissionError = false
+    @State private var isFirestorePermissionError = false
     @State private var scrollOffset: CGFloat = 0
     @State private var filtersCollapsed = false
     @State private var headerCollapsed = false
@@ -1317,9 +1319,7 @@ struct FindChurchView: View {
                                                 }
                                                 .padding(16)
                                                 .findChurchGlassSurface(cornerRadius: FindChurchDesignTokens.cardCornerRadius, emphasized: showAIRecommendations)
-                                                .glassEffect(
-                                                    GlassEffectStyle.regular.tint(.purple.opacity(showAIRecommendations ? 0.08 : 0.05)),
-                                                    in: RoundedRectangle(cornerRadius: FindChurchDesignTokens.cardCornerRadius, style: .continuous)
+                                                .amenGlassEffect(in: RoundedRectangle(cornerRadius: FindChurchDesignTokens.cardCornerRadius, style: .continuous)
                                                 )
                                             }
                                             .buttonStyle(FindChurchTactileButtonStyle())
@@ -1433,7 +1433,7 @@ struct FindChurchView: View {
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, 80)
                             }
-                            .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByFew))
+                            .amenViewAlignedScrollTarget()
                             .coordinateSpace(name: "churchScroll")
                             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                                 withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8)) {
@@ -1525,19 +1525,22 @@ struct FindChurchView: View {
             .toolbar(.hidden, for: .tabBar)
         }
         .tint(Color(red: 0.2, green: 0.2, blue: 0.2))
-        .alert("Error", isPresented: $showErrorAlert) {
-            Button("OK", role: .cancel) { }
-            
-            // Show retry button if it was a search error and location is available
-            if errorMessage.contains("search") || errorMessage.contains("network") || errorMessage.contains("internet"),
-               locationManager.isAuthorized {
+        .alert(isLocationPermissionError ? "Location Access Needed" : "Couldn't Load Churches", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) {
+                isLocationPermissionError = false
+                isFirestorePermissionError = false
+            }
+
+            // Show Retry button for retriable errors (network, timeout, permissions)
+            if !isLocationPermissionError && locationManager.isAuthorized {
                 Button("Retry") {
+                    isFirestorePermissionError = false
                     performRealSearch()
                 }
             }
-            
-            // Show settings button if location is denied
-            if errorMessage.contains("Location") && !locationManager.isAuthorized {
+
+            // Show Open Settings button for location permission errors
+            if isLocationPermissionError {
                 Button("Open Settings") {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
@@ -1687,16 +1690,21 @@ struct FindChurchView: View {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         Task {
             do {
-                guard let request = MKReverseGeocodingRequest(location: location) else {
-                    currentLocationName = "Unknown Location"
-                    return
-                }
-                let mapItems = try await request.mapItems
-                if let mapItem = mapItems.first,
-                   let addr = mapItem.addressRepresentations?.cityWithContext(.automatic) {
-                    currentLocationName = addr
+                if #available(iOS 26, *) {
+                    guard let request = MKReverseGeocodingRequest(location: location) else {
+                        currentLocationName = "Unknown Location"
+                        return
+                    }
+                    let mapItems = try await request.mapItems
+                    if let mapItem = mapItems.first,
+                       let addr = mapItem.addressRepresentations?.cityWithContext(.automatic) {
+                        currentLocationName = addr
+                    } else {
+                        currentLocationName = "Current Location"
+                    }
                 } else {
-                    currentLocationName = "Current Location"
+                    let placemarks = try await CLGeocoder().reverseGeocodeLocation(location)
+                    currentLocationName = placemarks.first?.locality ?? "Current Location"
                 }
                 dlog("📍 Location: \(currentLocationName)")
             } catch {
@@ -1925,7 +1933,9 @@ struct FindChurchView: View {
     func performRealSearch() {
         guard let userLoc = userLocation else {
             dlog("⚠️ Cannot search: User location not available")
-            errorMessage = "Location not available. Please enable location services in Settings."
+            isLocationPermissionError = true
+            isFirestorePermissionError = false
+            errorMessage = "We couldn't load churches because your location is turned off. Please enable location access in Settings, or type a city or zip code in the search bar to find churches manually."
             showErrorAlert = true
             return
         }
@@ -2003,7 +2013,9 @@ struct FindChurchView: View {
                 dlog("❌ Location unavailable")
 
                 await MainActor.run {
-                    errorMessage = "Location services are unavailable. Please enable location access in Settings."
+                    isLocationPermissionError = true
+                    isFirestorePermissionError = false
+                    errorMessage = "We couldn't load churches because your location is turned off. Please enable location access in Settings, or type a city or zip code in the search bar to find churches manually."
                     showErrorAlert = true
                 }
 
@@ -2015,13 +2027,21 @@ struct FindChurchView: View {
                 dlog("❌ Church search failed: \(error.localizedDescription)")
 
                 await MainActor.run {
-                    // Provide more specific error messages
-                    if error.localizedDescription.contains("network") || error.localizedDescription.contains("Internet") {
+                    let desc = error.localizedDescription
+                    isLocationPermissionError = false
+                    // Provide user-friendly error messages — never expose raw Firestore/system errors
+                    if desc.contains("network") || desc.contains("Internet") {
+                        isFirestorePermissionError = false
                         errorMessage = "Network error. Please check your internet connection and try again."
-                    } else if error.localizedDescription.contains("timeout") {
+                    } else if desc.contains("timeout") {
+                        isFirestorePermissionError = false
                         errorMessage = "Search timed out. The network may be slow. Please try again."
+                    } else if desc.lowercased().contains("permission") || desc.lowercased().contains("insufficient") || desc.lowercased().contains("denied") {
+                        isFirestorePermissionError = true
+                        errorMessage = "We couldn't load churches. Please check your location permissions in Settings, or try searching manually."
                     } else {
-                        errorMessage = "Unable to search for churches. \(error.localizedDescription)"
+                        isFirestorePermissionError = false
+                        errorMessage = "We couldn't load churches right now. Please try again."
                     }
 
                     showErrorAlert = true
@@ -2125,10 +2145,12 @@ struct FindChurchView: View {
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
 
-        let mapItem = MKMapItem(location: CLLocation(
-            latitude: coord.latitude,
-            longitude: coord.longitude
-        ), address: nil)
+        let mapItem: MKMapItem
+        if #available(iOS 26, *) {
+            mapItem = MKMapItem(location: CLLocation(latitude: coord.latitude, longitude: coord.longitude), address: nil)
+        } else {
+            mapItem = MKMapItem(placemark: MKPlacemark(coordinate: coord))
+        }
         mapItem.name = church.name
         mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }
@@ -2469,7 +2491,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             isAuthorized = true
             manager.startUpdatingLocation()
         case .notDetermined:
-            isAuthorized = false
+            manager.requestWhenInUseAuthorization()
         case .denied, .restricted:
             isAuthorized = false
             dlog("⚠️ Location access denied. User must enable in Settings.")
@@ -4308,7 +4330,7 @@ struct MinimalChurchHeader: View {
                     )
                     .shadow(color: Color.black.opacity(isSearchFocused ? 0.08 : 0.04), radius: isSearchFocused ? 18 : 10, y: isSearchFocused ? 8 : 4)
             )
-            .glassEffect(.subtle, in: Capsule(style: .continuous))
+            .amenGlassEffect(in: Capsule(style: .continuous))
         }
         .padding(.horizontal, containerPadding)
         .padding(.vertical, containerPadding)
@@ -4331,7 +4353,7 @@ struct MinimalChurchHeader: View {
                 )
                 .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
         )
-        .glassEffect(.regular.tint(.white.opacity(0.06)), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 8)
@@ -4383,7 +4405,7 @@ struct MinimalFilterRow: View {
                         if showSavedOnly {
                             Capsule().fill(Color.accentColor)
                         } else {
-                            Capsule().fill(.clear).glassEffect(.subtle, in: Capsule())
+                            Capsule().fill(.clear).amenGlassEffect(in: Capsule())
                         }
                     }
                 }
@@ -4416,7 +4438,7 @@ struct MinimalFilterRow: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .glassEffect(.subtle, in: Capsule())
+                    .amenGlassEffect(in: Capsule())
                 }
                 
                 // Radius menu
@@ -4449,7 +4471,7 @@ struct MinimalFilterRow: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .glassEffect(.subtle, in: Capsule())
+                    .amenGlassEffect(in: Capsule())
                 }
                 
                 // Family mode toggle
@@ -4471,7 +4493,7 @@ struct MinimalFilterRow: View {
                         if familyModeEnabled {
                             Capsule().fill(Color.accentColor)
                         } else {
-                            Capsule().fill(.clear).glassEffect(.subtle, in: Capsule())
+                            Capsule().fill(.clear).amenGlassEffect(in: Capsule())
                         }
                     }
                 }
@@ -4506,7 +4528,7 @@ struct MinimalFilterRow: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .glassEffect(.subtle, in: Capsule())
+                    .amenGlassEffect(in: Capsule())
                 }
 
                 // Denomination filters with info buttons
@@ -4526,7 +4548,7 @@ struct MinimalFilterRow: View {
                                     if selectedDenomination == denomination {
                                         Capsule().fill(Color.accentColor)
                                     } else {
-                                        Capsule().fill(.clear).glassEffect(.subtle, in: Capsule())
+                                        Capsule().fill(.clear).amenGlassEffect(in: Capsule())
                                     }
                                 }
                         }
@@ -5001,7 +5023,7 @@ struct QuickFilterBar: View {
                                 )
                                 .shadow(color: Color.black.opacity(selectedFilter == filter ? 0.12 : 0.04), radius: selectedFilter == filter ? 12 : 8, y: selectedFilter == filter ? 6 : 3)
                         }
-                        .glassEffect(selectedFilter == filter ? .regular.tint(.white.opacity(0.08)) : .subtle, in: Capsule(style: .continuous))
+                        .amenGlassEffect(in: Capsule(style: .continuous))
                     }
                     .buttonStyle(FindChurchTactileButtonStyle())
                 }
@@ -5322,7 +5344,7 @@ struct EnhancedMinimalChurchCard: View {
             }
         }
         .findChurchGlassSurface(cornerRadius: FindChurchDesignTokens.cardCornerRadius, emphasized: isExpanded || isPlanned)
-        .glassEffect(GlassEffectStyle.regular.tint(.white.opacity(isExpanded ? 0.08 : 0.04)), in: RoundedRectangle(cornerRadius: FindChurchDesignTokens.cardCornerRadius, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: FindChurchDesignTokens.cardCornerRadius, style: .continuous))
         .scaleEffect(isExpanded ? 1.0 : (isDimmed ? 0.98 : 0.995))
         .opacity(isDimmed ? 0.74 : 1.0)
         .animation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7)), value: isExpanded)
@@ -6133,7 +6155,7 @@ struct AIRecommendationCard: View {
                                     .stroke(Color.white.opacity(0.65), lineWidth: 0.8)
                             )
                     }
-                    .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 
                 // Why recommended section
@@ -6182,7 +6204,7 @@ struct AIRecommendationCard: View {
                                                 .stroke(Color(red: 0.66, green: 0.2, blue: 0.62).opacity(0.14), lineWidth: 0.8)
                                         )
                                 }
-                                .glassEffect(.subtle, in: Capsule(style: .continuous))
+                                .amenGlassEffect(in: Capsule(style: .continuous))
                                 .lineLimit(1)
                                 .opacity(revealHighlights ? 1 : 0)
                                 .blur(radius: revealHighlights ? 0 : 2)

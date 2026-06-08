@@ -39,6 +39,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onObjectFinalized } from "firebase-functions/v2/storage";
 import * as admin from "firebase-admin";
 import { ImageAnnotatorClient, protos } from "@google-cloud/vision";
 
@@ -200,9 +201,8 @@ async function flagOriginatingDocument(filePath: string): Promise<void> {
 
 // ── Core enforcement ───────────────────────────────────────────────────────
 
-export const scanUploadedMedia = functions.storage
-    .object()
-    .onFinalize(async (object) => {
+export const scanUploadedMedia = onObjectFinalized(async (event) => {
+    const object = event.data;
         const filePath = object.name ?? "";
         const contentType = object.contentType ?? "";
         const bucket = object.bucket;

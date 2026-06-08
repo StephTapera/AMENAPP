@@ -211,7 +211,7 @@ private struct SacredFeedModePill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(mode.displayName)
                     .font(AMENFont.semiBold(13))
             }
@@ -247,7 +247,7 @@ private struct SacredModeDurationSheet: View {
 
             HStack(spacing: 12) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 22, weight: .light))
+                    .font(.systemScaled(22, weight: .light))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(mode.displayName + " Mode")
                         .font(AMENFont.semiBold(18))
@@ -312,7 +312,7 @@ struct AlgorithmStateBar: View {
             Button(action: onTap) {
                 HStack(spacing: 6) {
                     Image(systemName: "dial.medium")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.secondary)
 
                     Text(summary)
@@ -323,7 +323,7 @@ struct AlgorithmStateBar: View {
                     Spacer(minLength: 0)
 
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(.tertiary)
                         .onTapGesture { clearAll() }
                         .accessibilityLabel("Dismiss")

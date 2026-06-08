@@ -127,11 +127,11 @@ struct AmenGiftMembershipView: View {
             VStack(spacing: 6) {
                 Spacer().frame(height: 24)
                 Image(systemName: "gift.fill")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.systemScaled(24, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
                 Text("Gift a Membership to \(spaceName)")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                     .foregroundStyle(Color.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 48)
@@ -148,7 +148,7 @@ struct AmenGiftMembershipView: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.70))
                     .padding(9)
                     .background(
@@ -168,7 +168,7 @@ struct AmenGiftMembershipView: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionLabel("Recipient")
             TextField("Recipient's email or AMEN username", text: $recipient)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -251,7 +251,7 @@ struct AmenGiftMembershipView: View {
                 sectionLabel("Personal Note")
                 Spacer()
                 Text("\(personalMessage.count)/200")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(
                         personalMessage.count >= 200
                             ? Color.red.opacity(0.80)
@@ -260,7 +260,7 @@ struct AmenGiftMembershipView: View {
                     .accessibilityLabel("\(personalMessage.count) of 200 characters used")
             }
             TextField("Add a personal note... (optional)", text: $personalMessage, axis: .vertical)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white)
                 .lineLimit(3...5)
                 .onChange(of: personalMessage) { _, newValue in
@@ -289,27 +289,27 @@ struct AmenGiftMembershipView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("You pay")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.50))
                         .textCase(.uppercase)
                         .kerning(0.6)
                     Text(selectedTier != nil ? giftPriceString : "—")
-                        .font(.system(size: 28, weight: .black))
+                        .font(.systemScaled(28, weight: .black))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 Spacer()
                 if let tier = selectedTier {
                     VStack(alignment: .trailing, spacing: 4) {
                         Text("They receive")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.50))
                             .textCase(.uppercase)
                             .kerning(0.6)
                         Text(tier.name)
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.systemScaled(15, weight: .bold))
                             .foregroundStyle(Color.white)
                         Text("for \(selectedDuration.displayLabel)")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.white.opacity(0.55))
                     }
                 }
@@ -348,7 +348,7 @@ struct AmenGiftMembershipView: View {
                         .tint(Color(hex: "070607"))
                 } else {
                     Text(canGift ? "Gift Membership — \(giftPriceString)" : "Gift Membership")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(Color(hex: "070607"))
                 }
             }
@@ -371,7 +371,7 @@ struct AmenGiftMembershipView: View {
         .overlay(alignment: .bottom) {
             if let message = errorMessage {
                 Text(message)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.red.opacity(0.85))
                     .multilineTextAlignment(.center)
                     .padding(.top, 52)
@@ -384,7 +384,7 @@ struct AmenGiftMembershipView: View {
 
     private var disclaimerText: some View {
         Text("Gift purchases are non-refundable. Recipient will be notified by email.")
-            .font(.system(size: 12))
+            .font(.systemScaled(12))
             .foregroundStyle(Color.white.opacity(0.35))
             .multilineTextAlignment(.center)
             .padding(.top, errorMessage != nil ? 20 : 0)
@@ -395,14 +395,14 @@ struct AmenGiftMembershipView: View {
     private var successOverlay: some View {
         VStack(spacing: 20) {
             Image(systemName: "heart.fill")
-                .font(.system(size: 52, weight: .semibold))
+                .font(.systemScaled(52, weight: .semibold))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .accessibilityHidden(true)
             Text("Gift sent!")
-                .font(.system(size: 26, weight: .bold))
+                .font(.systemScaled(26, weight: .bold))
                 .foregroundStyle(Color.white)
             Text("Your gift has been sent to \(recipient.trimmingCharacters(in: .whitespaces)).")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color.white.opacity(0.60))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -464,7 +464,7 @@ struct AmenGiftMembershipView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(Color.white.opacity(0.50))
             .textCase(.uppercase)
             .kerning(0.6)
@@ -493,18 +493,18 @@ private struct GiftTierCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text(tier.name)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color.white)
                     Spacer()
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(Color(hex: "D9A441"))
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
                 Text(monthlyPriceString)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(isSelected ? Color(hex: "D9A441") : Color.white.opacity(0.55))
 
                 if !tier.features.isEmpty {
@@ -512,17 +512,17 @@ private struct GiftTierCard: View {
                         ForEach(tier.features.prefix(3), id: \.self) { feature in
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(.systemScaled(9, weight: .bold))
                                     .foregroundStyle(Color(hex: "D9A441"))
                                     .frame(width: 12)
                                 Text(feature)
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(Color.white.opacity(0.60))
                             }
                         }
                         if tier.features.count > 3 {
                             Text("+\(tier.features.count - 3) more")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(Color.white.opacity(0.35))
                         }
                     }
@@ -560,7 +560,7 @@ private struct DurationChip: View {
     var body: some View {
         Button(action: onSelect) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(isSelected ? Color(hex: "070607") : Color.white.opacity(0.70))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)

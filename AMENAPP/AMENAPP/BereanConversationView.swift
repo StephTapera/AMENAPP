@@ -96,7 +96,7 @@ struct BereanConversationView: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundColor(.black)
             }
 
@@ -120,7 +120,7 @@ struct BereanConversationView: View {
 
             Button { showJourney = true } label: {
                 Image(systemName: "map")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundColor(.secondary)
             }
         }
@@ -252,7 +252,7 @@ struct BereanConversationView: View {
                             .fill(viewModel.currentInput.trimmingCharacters(in: .whitespaces).isEmpty ? Color(.systemGray5) : Color.black)
                             .frame(width: 42, height: 42)
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundColor(viewModel.currentInput.trimmingCharacters(in: .whitespaces).isEmpty ? Color(.systemGray3) : .white)
                     }
                 }
@@ -261,7 +261,7 @@ struct BereanConversationView: View {
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
-            .background(Color.white)
+            .background(Color(.systemBackground))
         }
     }
 }
@@ -461,7 +461,7 @@ struct BereanLeadershipBanner: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "person.2.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundColor(Color(red: 0.18, green: 0.44, blue: 0.80))
                 .padding(.top, 2)
 
@@ -473,7 +473,7 @@ struct BereanLeadershipBanner: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.tertiary)
             }
         }
@@ -562,7 +562,7 @@ struct BereanConversationEmptyState: View {
                                 .multilineTextAlignment(.leading)
                             Spacer()
                             Image(systemName: "arrow.up")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundColor(.secondary)
                         }
                         .padding(.horizontal, 16)

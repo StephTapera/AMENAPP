@@ -40,7 +40,7 @@ struct HeyFeedSessionModeChips: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(mode.label)
                     .font(AMENFont.semiBold(13))
             }

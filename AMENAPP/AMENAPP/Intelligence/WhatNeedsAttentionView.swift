@@ -218,7 +218,7 @@ struct EmptyIntelligenceView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "hands.sparkles")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(.secondary)
 
             Text("Your community is quiet right now.")
@@ -291,7 +291,7 @@ struct IntelligenceErrorView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
 
             Text("Something Went Wrong")
@@ -343,7 +343,7 @@ struct OfflineIntelligenceView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         Image(systemName: "wifi.slash")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.secondary)
                             .padding(.top, 40)
 
@@ -402,7 +402,7 @@ struct SensitiveIntelligenceView: View {
         ScrollView {
             VStack(spacing: 24) {
                 Image(systemName: "heart.circle")
-                    .font(.system(size: 52))
+                    .font(.systemScaled(52))
                     .foregroundStyle(.secondary)
                     .padding(.top, 40)
 

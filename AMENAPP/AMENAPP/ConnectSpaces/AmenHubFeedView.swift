@@ -454,7 +454,7 @@ struct AmenHubFeedView: View {
             if vm.isCaughtUp {
                 Divider().padding(.horizontal, 40).opacity(0.3)
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(Color.accentColor.opacity(0.6))
                 Text("You're caught up")
                     .font(.headline)
@@ -498,7 +498,7 @@ struct AmenHubFeedView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "tray")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.tertiary)
             Text("Nothing here yet")
                 .font(.headline)
@@ -614,7 +614,7 @@ private struct ConnectHubItemRow: View {
         .overlay(alignment: .bottomTrailing) {
             if item.isCovenantCircle {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(Color.amenPurple)
                     .background(
                         Circle().fill(Color(uiColor: .systemBackground)).padding(-2)

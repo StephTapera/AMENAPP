@@ -66,7 +66,7 @@ struct QuietModeOnboardingView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "moon.stars.fill")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(.systemIndigo).opacity(0.85))
                     .accessibilityHidden(true)
                 Text("Church Focus")
@@ -208,7 +208,7 @@ private struct QuietModeOptionCard: View {
                     .fill(isSelected ? accentColor.opacity(0.15) : Color(.tertiarySystemFill))
                     .frame(width: 44, height: 44)
                 Image(systemName: preference.icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(isSelected ? accentColor : Color.secondary)
             }
             .accessibilityHidden(true)
@@ -239,7 +239,7 @@ private struct QuietModeOptionCard: View {
                         .frame(width: 22, height: 22)
                     if isSelected {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -248,7 +248,7 @@ private struct QuietModeOptionCard: View {
                 // Detail toggle
                 Button(action: onToggleDetail) {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(showingDetail ? 0 : 0))
                 }
@@ -316,7 +316,7 @@ struct QuietModeInlinePicker: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: pref.icon)
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .accessibilityHidden(true)
                             Text(pref.title)
                                 .font(.subheadline.weight(.medium))

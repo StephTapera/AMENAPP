@@ -673,6 +673,50 @@ final class AMENFeatureFlags: ObservableObject {
     /// Gates push-to-start for Prayer Request (iOS 17.2+).
     @Published private(set) var liveActivityPushToStartEnabled: Bool = true
 
+    // MARK: - Conversation OS (Spaces Intelligence)
+    /// Master switch for the Intelligent Conversation OS.
+    @Published private(set) var conversationOSEnabled: Bool = true
+    /// AI summary generation for spaces.
+    @Published private(set) var conversationSummariesEnabled: Bool = true
+    /// Catch-up recap banner and sheet.
+    @Published private(set) var catchUpRecapsEnabled: Bool = true
+    /// Semantic topic cluster extraction.
+    @Published private(set) var topicClusteringEnabled: Bool = true
+    /// Action item and decision extraction from threads.
+    @Published private(set) var actionExtractionEnabled: Bool = true
+    /// Org-level weekly memory persistence and query.
+    @Published private(set) var organizationalMemoryEnabled: Bool = true
+    /// Role-aware personalized summaries.
+    @Published private(set) var personalizedInsightsEnabled: Bool = true
+    /// Ambient top banner with catch-up / topic / action chips.
+    @Published private(set) var ambientConversationIntelligenceEnabled: Bool = true
+    /// Liquid Glass rendering for ConversationOS cards.
+    @Published private(set) var conversationOSLiquidGlassEnabled: Bool = true
+    /// Verbose debug telemetry for ConversationOS (staff/QA only).
+    @Published private(set) var conversationOSDebugTelemetryEnabled: Bool = true
+    /// Block AI access to sensitive spaces unless explicitly opted in.
+    @Published private(set) var conversationOSSensitiveSpaceRestrictionsEnabled: Bool = true
+
+    // MARK: - Master-Run Phase Gates
+    /// Phase 1: Find a Church surface (MapKit map, clustering, filter chips, bottom sheet).
+    @Published private(set) var findAChurchEnabled: Bool = true
+    /// Phase 2: Posts Liquid Glass migration — AmenGlassKit post card surfaces.
+    @Published private(set) var postsLiquidGlassEnabled: Bool = true
+    /// Phase 3: "Why this is in your feed" provenance disclosure sheet.
+    @Published private(set) var whySeeingThisEnabled: Bool = true
+    /// Phase 5: Selah Stories free composer (ephemeral formation stories).
+    @Published private(set) var selahStoriesEnabled: Bool = true
+    /// Phase 5: Selah Stories premium AI features (subscription-gated).
+    @Published private(set) var selahStoriesPremiumAIEnabled: Bool = true
+
+    // MARK: - Selah Enhancement
+    /// Enables SelahNote → Pinecone corpus indexing (indexSelahNote CF).
+    @Published private(set) var selahPersonalCorpusEnabled: Bool = true
+    /// Enables Berean Check against Scripture (runDiscernmentCheck CF).
+    @Published private(set) var selahDiscernmentEnabled: Bool = true
+    /// Enables sharing discernment checks to thread participants.
+    @Published private(set) var selahDiscernmentSharingEnabled: Bool = true
+
     private init() {
         applyUITestOverrides()
         Task { await fetchRemoteConfig() }
@@ -1221,6 +1265,10 @@ final class AMENFeatureFlags: ObservableObject {
             "media_liquid_glass_chrome_enabled": true as NSObject,
             "media_profile_liquid_white_flow_enabled": true as NSObject,
             "media_synthetic_detection_enabled": true as NSObject,
+            "immersive_photo_sessions_enabled": true as NSObject,
+            "immersive_video_sessions_enabled": true as NSObject,
+            "live_activity_prayer_request_enabled": true as NSObject,
+            "live_activity_push_to_start_enabled": true as NSObject,
 
             // Accessibility + Simple Mode
             "simple_mode_feature_enabled": true as NSObject,
@@ -1228,6 +1276,31 @@ final class AMENFeatureFlags: ObservableObject {
 
             // Mentorship
             "mentorship_enabled": true as NSObject,
+
+            // Conversation OS (Spaces Intelligence)
+            "conversation_os_enabled": true as NSObject,
+            "conversation_summaries_enabled": true as NSObject,
+            "catch_up_recaps_enabled": true as NSObject,
+            "topic_clustering_enabled": true as NSObject,
+            "action_extraction_enabled": true as NSObject,
+            "organizational_memory_enabled": true as NSObject,
+            "personalized_insights_enabled": true as NSObject,
+            "ambient_conversation_intelligence_enabled": true as NSObject,
+            "conversation_os_liquid_glass_enabled": true as NSObject,
+            "conversation_os_debug_telemetry_enabled": true as NSObject,
+            "conversation_os_sensitive_space_restrictions_enabled": true as NSObject,
+
+            // Master-Run Phase Gates
+            "find_a_church_enabled": true as NSObject,
+            "posts_liquid_glass_enabled": true as NSObject,
+            "why_seeing_this_enabled": true as NSObject,
+            "selah_stories_enabled": true as NSObject,
+            "selah_stories_premium_ai_enabled": true as NSObject,
+
+            // Selah Enhancement
+            "selah_personal_corpus_enabled": true as NSObject,
+            "selah_discernment_enabled": true as NSObject,
+            "selah_discernment_sharing_enabled": true as NSObject,
         ]
     }
 
@@ -1729,6 +1802,48 @@ final class AMENFeatureFlags: ObservableObject {
 
         // Music Attachment
         musicAttachmentEnabled = config.configValue(forKey: "music_attachment_enabled").boolValue
+
+        // Live Activities
+        liveActivityPrayerRequestEnabled = config["live_activity_prayer_request_enabled"].boolValue
+        liveActivityPushToStartEnabled   = config["live_activity_push_to_start_enabled"].boolValue
+
+        // Accessibility + Replay
+        simpleModeFeatureEnabled = config["simple_mode_feature_enabled"].boolValue
+        replayEnabled            = config["replay_enabled"].boolValue
+
+        // Community OS sub-flags
+        communityOSDiscussionEnabled         = config["community_os_discussion_enabled"].boolValue
+        communityOSPrayerOSEnabled           = config["community_os_prayer_os_enabled"].boolValue
+        communityOSActionPillEnabled         = config["community_os_action_pill_enabled"].boolValue
+        communityOSUniversalComposerEnabled  = config["community_os_universal_composer_enabled"].boolValue
+        communityOSChurchOSEnabled           = config["community_os_church_os_enabled"].boolValue
+        communityOSOrgOSEnabled              = config["community_os_org_os_enabled"].boolValue
+        communityOSOpportunityEnabled        = config["community_os_opportunity_enabled"].boolValue
+
+        // Conversation OS (Spaces Intelligence)
+        conversationOSEnabled                              = config["conversation_os_enabled"].boolValue
+        conversationSummariesEnabled                       = config["conversation_summaries_enabled"].boolValue
+        catchUpRecapsEnabled                               = config["catch_up_recaps_enabled"].boolValue
+        topicClusteringEnabled                             = config["topic_clustering_enabled"].boolValue
+        actionExtractionEnabled                            = config["action_extraction_enabled"].boolValue
+        organizationalMemoryEnabled                        = config["organizational_memory_enabled"].boolValue
+        personalizedInsightsEnabled                        = config["personalized_insights_enabled"].boolValue
+        ambientConversationIntelligenceEnabled             = config["ambient_conversation_intelligence_enabled"].boolValue
+        conversationOSLiquidGlassEnabled                   = config["conversation_os_liquid_glass_enabled"].boolValue
+        conversationOSDebugTelemetryEnabled                = config["conversation_os_debug_telemetry_enabled"].boolValue
+        conversationOSSensitiveSpaceRestrictionsEnabled    = config["conversation_os_sensitive_space_restrictions_enabled"].boolValue
+
+        // Master-Run Phase Gates
+        findAChurchEnabled             = config["find_a_church_enabled"].boolValue
+        postsLiquidGlassEnabled        = config["posts_liquid_glass_enabled"].boolValue
+        whySeeingThisEnabled           = config["why_seeing_this_enabled"].boolValue
+        selahStoriesEnabled            = config["selah_stories_enabled"].boolValue
+        selahStoriesPremiumAIEnabled   = config["selah_stories_premium_ai_enabled"].boolValue
+
+        // Selah Enhancement
+        selahPersonalCorpusEnabled      = config["selah_personal_corpus_enabled"].boolValue
+        selahDiscernmentEnabled         = config["selah_discernment_enabled"].boolValue
+        selahDiscernmentSharingEnabled  = config["selah_discernment_sharing_enabled"].boolValue
     }
 
     private func applyUITestOverrides() {

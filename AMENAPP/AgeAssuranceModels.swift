@@ -289,7 +289,14 @@ struct AgeGateConfig {
     let enableAIAgeDetection: Bool
     
     static let `default` = AgeGateConfig(
-        minimumAgeByCountry: ["US": 13, "EU": 13, "UK": 13, "KR": 14],
+        // GDPR-K (Article 8): EU member states require 16+ for consent to data processing
+        // unless a lower national minimum (min 13) is set. We default to 16 for all EU
+        // country codes. UK GDPR sets 13 with Age Appropriate Design Code guidance.
+        minimumAgeByCountry: ["US": 13, "EU": 16, "UK": 13, "KR": 14,
+                               "DE": 16, "FR": 15, "NL": 16, "BE": 13,
+                               "AT": 14, "LT": 14, "CZ": 15, "IT": 14,
+                               "SE": 13, "FI": 13, "DK": 13, "ES": 14,
+                               "PT": 13, "PL": 16, "HU": 16, "RO": 16],
         teenProtectionAge: 18,
         aiRiskThreshold: 0.6,
         maxVerificationAttempts: 3,

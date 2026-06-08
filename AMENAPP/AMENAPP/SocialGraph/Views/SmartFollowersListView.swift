@@ -41,7 +41,7 @@ struct SmartFollowersListView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -126,10 +126,10 @@ struct SmartFollowersListView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: emptyStateIcon)
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
             Text(emptyStateMessage)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -158,12 +158,12 @@ struct SmartFollowersListView: View {
     private func errorState(message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.orange)
             Text("Something went wrong")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Try again") {

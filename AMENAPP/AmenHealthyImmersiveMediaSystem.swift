@@ -437,7 +437,7 @@ struct MediaCaptionOverlay: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: settings.highContrastCaptions ? 19 : 17, weight: .semibold))
+            .font(.systemScaled(settings.highContrastCaptions ? 19 : 17, weight: .semibold))
             .multilineTextAlignment(.center)
             .foregroundStyle(settings.highContrastCaptions ? .white : .primary)
             .padding(.horizontal, 14)
@@ -575,7 +575,7 @@ struct AmenMediaCompletionReflectionView: View {
     var body: some View {
         VStack(spacing: 18) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 42, weight: .semibold))
+                .font(.systemScaled(42, weight: .semibold))
                 .foregroundStyle(.green)
                 .accessibilityHidden(true)
 
@@ -660,7 +660,7 @@ struct MediaSafetyGateView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "shield.lefthalf.filled")
-                .font(.system(size: 38, weight: .semibold))
+                .font(.systemScaled(38, weight: .semibold))
                 .foregroundStyle(.blue)
             Text(title).font(.title3.weight(.bold))
             Text(message).font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -672,7 +672,7 @@ struct MediaSafetyGateView: View {
             }
         }
         .padding(24)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .accessibilityElement(children: .contain)
     }
 }
@@ -815,7 +815,7 @@ struct SelahMediaPlayerView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "waveform.circle")
-                .font(.system(size: 56, weight: .light))
+                .font(.systemScaled(56, weight: .light))
                 .foregroundStyle(.blue)
             Text(title)
                 .font(.title2.weight(.bold))
@@ -833,7 +833,7 @@ struct SelahMediaPlayerView: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }
 

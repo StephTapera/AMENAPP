@@ -484,7 +484,7 @@ private struct PulseUnavailableStateView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40, weight: .semibold))
+                .font(.systemScaled(40, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(title)
                 .font(.headline)

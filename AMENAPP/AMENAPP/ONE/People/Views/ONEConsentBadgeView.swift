@@ -18,7 +18,7 @@ struct ONEConsentBadgeView: View {
     var body: some View {
         if !label.isEmpty {
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(ONE.Colors.privateIndigo.opacity(0.8))
                 .accessibilityLabel("Message consent: \(label)")
         }

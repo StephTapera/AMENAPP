@@ -101,7 +101,7 @@ struct AmenBeforeShareCheckView: View {
                 VStack(spacing: 20) {
                     // Title
                     Text("Before you share\u{2026}")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.systemScaled(22, weight: .bold))
                         .foregroundStyle(Color(.label))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 20)
@@ -123,7 +123,7 @@ struct AmenBeforeShareCheckView: View {
                             onEdit()
                         } label: {
                             Text("Edit my message")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -140,7 +140,7 @@ struct AmenBeforeShareCheckView: View {
                             onProceed()
                         } label: {
                             Text("Share anyway")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.systemScaled(15, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
@@ -172,7 +172,7 @@ struct AmenBeforeShareCheckView: View {
         HStack(alignment: .center, spacing: 14) {
             // Icon
             Image(systemName: row.systemImage)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(row.iconColor)
                 .frame(width: 32)
                 .accessibilityHidden(true)
@@ -180,12 +180,12 @@ struct AmenBeforeShareCheckView: View {
             // Text content
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(row.detail)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
 

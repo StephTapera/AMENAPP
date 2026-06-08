@@ -481,7 +481,8 @@ struct SermonVideoPlayerView: View {
     @Environment(\.dismiss) var dismiss
     let sermon: Sermon
     let youtubeID: String
-    
+    @State private var isSaved = false
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -531,9 +532,7 @@ struct SermonVideoPlayerView: View {
                         
                         // Action buttons
                         HStack(spacing: 12) {
-                            Button {
-                                // Share action
-                            } label: {
+                            ShareLink(item: "\(sermon.title) by \(sermon.speaker) — via Amen") {
                                 HStack(spacing: 8) {
                                     Image(systemName: "square.and.arrow.up")
                                     Text("Share")
@@ -549,11 +548,16 @@ struct SermonVideoPlayerView: View {
                             }
                             
                             Button {
-                                // Save action
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                isSaved.toggle()
+                                if isSaved {
+                                    let key = "saved_sermon_\(sermon.youtubeID ?? sermon.title)"
+                                    UserDefaults.standard.set(true, forKey: key)
+                                }
                             } label: {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "bookmark")
-                                    Text("Save")
+                                    Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                                    Text(isSaved ? "Saved" : "Save")
                                         .font(.custom("OpenSans-Bold", size: 15))
                                 }
                                 .foregroundStyle(.white)

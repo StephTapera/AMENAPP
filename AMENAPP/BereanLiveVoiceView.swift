@@ -128,7 +128,7 @@ struct BereanLiveVoiceView: View {
     private var modePill: some View {
         HStack(spacing: 6) {
             Image(systemName: selectedMode.systemIconName)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
             Text(selectedMode.displayName)
                 .font(.custom("OpenSans-SemiBold", size: 13))
         }
@@ -152,7 +152,7 @@ struct BereanLiveVoiceView: View {
                     .fill(Color.black)
                     .frame(width: 32, height: 32)
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.white)
             }
         }
@@ -300,11 +300,15 @@ struct BereanLiveVoiceView: View {
                 }
 
                 Button {
-                    // Pause: stop the current session; a dedicated pause
-                    // state will be wired in a future iteration.
-                    Task { await vm.stopSession() }
+                    Task {
+                        if vm.voiceState == .paused {
+                            await vm.resumeSession()
+                        } else {
+                            await vm.pauseSession()
+                        }
+                    }
                 } label: {
-                    Text("Pause")
+                    Text(vm.voiceState == .paused ? "Resume" : "Pause")
                         .font(.custom("OpenSans-SemiBold", size: 15))
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
@@ -318,6 +322,7 @@ struct BereanLiveVoiceView: View {
                                 )
                         )
                 }
+                .accessibilityLabel(vm.voiceState == .paused ? "Resume voice session" : "Pause voice session")
             }
         }
     }
@@ -353,14 +358,14 @@ struct BereanLiveVoiceView: View {
 
             VStack(spacing: 16) {
                 Image(systemName: "waveform.and.mic")
-                    .font(.system(size: 44, weight: .light))
+                    .font(.systemScaled(44, weight: .light))
                     .foregroundStyle(.secondary)
 
                 Text("Berean Live Voice")
                     .font(.custom("OpenSans-Bold", size: 20))
                     .foregroundStyle(.primary)
 
-                Text("Coming Soon")
+                Text("Live voice translation is launching soon. Join a prayer room now to pray in your own language.")
                     .font(.custom("OpenSans-Regular", size: 15))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 32)

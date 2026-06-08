@@ -273,7 +273,7 @@ struct AmenAttachmentMenuRow: View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 Image(systemName: item.action.systemImage)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(item.availability.isEnabled ? Color.accentColor : Color.secondary)
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(Color(.secondarySystemBackground)))

@@ -60,17 +60,17 @@ enum AmenLiquidGlass {
 
         var iconFont: Font {
             switch self {
-            case .small: return .system(size: 14, weight: .semibold)
-            case .medium: return .system(size: 16, weight: .semibold)
-            case .large: return .system(size: 18, weight: .semibold)
+            case .small: return .systemScaled(14, weight: .semibold)
+            case .medium: return .systemScaled(16, weight: .semibold)
+            case .large: return .systemScaled(18, weight: .semibold)
             }
         }
 
         var labelFont: Font {
             switch self {
-            case .small: return .system(size: 13, weight: .semibold)
-            case .medium: return .system(size: 15, weight: .semibold)
-            case .large: return .system(size: 17, weight: .semibold)
+            case .small: return .systemScaled(13, weight: .semibold)
+            case .medium: return .systemScaled(15, weight: .semibold)
+            case .large: return .systemScaled(17, weight: .semibold)
             }
         }
     }

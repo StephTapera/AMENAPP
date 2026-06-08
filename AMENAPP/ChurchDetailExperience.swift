@@ -718,7 +718,7 @@ struct ChurchDetailView: View {
 
                 if headerCompressionProgress > 0.55 {
                     Text(viewModel.displayName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.82))
                         .lineLimit(1)
                         .padding(.horizontal, 14)
@@ -785,7 +785,7 @@ struct ChurchDetailView: View {
 
             ChurchSectionCard(title: "About") {
                 Text(viewModel.aboutText)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.82))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -916,7 +916,7 @@ private struct ChurchHeroGlassHeader: View {
                         Spacer()
                         HStack {
                             Label(liveState.title ?? "Live now", systemImage: "dot.radiowaves.left.and.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(Color.black.opacity(0.8))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -939,7 +939,7 @@ private struct ChurchHeroIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.8))
                 .frame(width: 44, height: 44)
                 .adaptiveLiquidGlassHeaderSurface(progress: 0.55, cornerRadius: 22)
@@ -983,19 +983,19 @@ private struct ChurchIdentityGlassCard: View {
             VStack(spacing: 6) {
                 HStack(spacing: 6) {
                     Text(churchName)
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.systemScaled(30, weight: .bold))
                         .foregroundStyle(Color.black.opacity(0.92))
                         .multilineTextAlignment(.center)
 
                     if isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.blue)
                     }
                 }
 
                 Text(subtitle)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(Color.black.opacity(0.52))
                     .multilineTextAlignment(.center)
 
@@ -1007,7 +1007,7 @@ private struct ChurchIdentityGlassCard: View {
                         Text("Visited")
                     }
                 }
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.55))
             }
         }
@@ -1021,7 +1021,7 @@ private struct ChurchIdentityGlassCard: View {
         ZStack {
             Color(white: 0.9)
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 26, weight: .semibold))
+                .font(.systemScaled(26, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.68))
         }
     }
@@ -1076,12 +1076,12 @@ private struct ChurchPrimaryActionButton: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                 }
             }
             .foregroundStyle(isPrimary ? Color.white : Color.blue)
@@ -1114,23 +1114,23 @@ private struct ChurchSmartActionPanel: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: primaryAction.systemImage)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(primaryAction.tint)
                             .frame(width: 36, height: 36)
                             .background(primaryAction.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(primaryAction.title)
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.systemScaled(17, weight: .semibold))
                                 .foregroundStyle(Color.black.opacity(0.86))
                             Text(primaryAction.subtitle)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.black.opacity(0.55))
                         }
 
                         Spacer()
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color.black.opacity(0.45))
                     }
                     .padding(16)
@@ -1145,9 +1145,9 @@ private struct ChurchSmartActionPanel: View {
                         } label: {
                             VStack(spacing: 8) {
                                 Image(systemName: action.systemImage)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                 Text(action.title)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .lineLimit(1)
                             }
                             .foregroundStyle(Color.black.opacity(0.78))
@@ -1171,22 +1171,22 @@ private struct ChurchLiveStateCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     Image(systemName: liveState.state.symbolName)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(liveState.state == .live ? Color(red: 0.83, green: 0.24, blue: 0.2) : .blue)
                     Text(liveState.title ?? liveState.state.displayText)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.86))
                 }
 
                 if let description = liveState.description, !description.isEmpty {
                     Text(description)
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(Color.black.opacity(0.62))
                 }
 
                 if let nextServiceText {
                     Text("Next service: \(nextServiceText)")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.55))
                 }
             }
@@ -1202,25 +1202,25 @@ private struct ChurchFitScoreCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("\(snapshot.score)% aligned")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.systemScaled(24, weight: .bold))
                         .foregroundStyle(Color.black.opacity(0.88))
                     Text("Preference alignment")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.5))
                 }
 
                 Text("May fit your preferences based on saved churches, interests, and service context. This is not a rating of spiritual quality.")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.58))
 
                 ForEach(snapshot.fitBreakdown.prefix(3)) { item in
                     HStack {
                         Text(item.title)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.58))
                         Spacer()
                         Text(item.verdict)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(Color.black.opacity(0.84))
                     }
                 }
@@ -1237,10 +1237,10 @@ private struct ChurchQuickFactsRow: View {
             ForEach(facts) { fact in
                 VStack(spacing: 6) {
                     Text(fact.title)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.5))
                     Label(fact.value, systemImage: fact.systemImage)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.82))
                 }
                 .frame(maxWidth: .infinity)
@@ -1272,16 +1272,16 @@ private struct ChurchExperienceSummarySection: View {
         if let value, !value.isEmpty {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.55))
                     .frame(width: 18, alignment: .leading)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.52))
                     Text(value)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.82))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1299,7 +1299,7 @@ private struct ChurchPhotoPreviewGrid: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Photos")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.black.opacity(0.55))
                 Spacer()
             }
@@ -1320,7 +1320,7 @@ private struct ChurchPhotoPreviewGrid: View {
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
 
                         Text(item.type == "hero" ? "From the Church" : item.type.capitalized)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(Color.black.opacity(0.8))
                     }
                 }
@@ -1331,7 +1331,7 @@ private struct ChurchPhotoPreviewGrid: View {
                         .frame(height: 132)
                         .overlay(
                             Text("Church photos will appear here.")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(Color.black.opacity(0.45))
                                 .padding(20)
                         )
@@ -1348,23 +1348,23 @@ private struct ChurchGoodToKnowSection: View {
         ChurchSectionCard(title: "Good to Know") {
             if items.isEmpty {
                 Text("More visit notes have not been confirmed yet.")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.52))
             } else {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(items) { item in
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: item.systemImage)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color.black.opacity(0.55))
                                 .frame(width: 18, alignment: .leading)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.title)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(Color.black.opacity(0.84))
                                 Text(item.value)
-                                    .font(.system(size: 14, weight: .regular))
+                                    .font(.systemScaled(14, weight: .regular))
                                     .foregroundStyle(Color.black.opacity(0.58))
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -1401,7 +1401,7 @@ private struct ChurchFloatingActionBar: View {
     private func barButton(systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.82))
                 .frame(width: 44, height: 44)
         }
@@ -1435,11 +1435,11 @@ struct BereanChurchContextSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Ask Berean about this church")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.systemScaled(24, weight: .bold))
                         .foregroundStyle(Color.black.opacity(0.88))
 
                     Text("Berean answers using verified church profile data, live context, and visit guidance when available.")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(Color.black.opacity(0.58))
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -1448,7 +1448,7 @@ struct BereanChurchContextSheet: View {
                                 prompt = item
                             } label: {
                                 Text(item)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .foregroundStyle(Color.black.opacity(0.8))
                                     .multilineTextAlignment(.leading)
                                     .frame(maxWidth: .infinity, minHeight: 84, alignment: .topLeading)
@@ -1461,7 +1461,7 @@ struct BereanChurchContextSheet: View {
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Question")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color.black.opacity(0.5))
 
                         TextEditor(text: $prompt)
@@ -1480,7 +1480,7 @@ struct BereanChurchContextSheet: View {
                                         .tint(.white)
                                 }
                                 Text(isLoading ? "Thinking…" : "Ask Berean")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity, minHeight: 52)
@@ -1494,11 +1494,11 @@ struct BereanChurchContextSheet: View {
                         ChurchSectionCard(title: "Berean Response") {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text(response.content)
-                                    .font(.system(size: 15, weight: .regular))
+                                    .font(.systemScaled(15, weight: .regular))
                                     .foregroundStyle(Color.black.opacity(0.82))
 
                                 Text(response.isHighConfidence ? "High confidence" : "Use discernment")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(Color.black.opacity(0.48))
                             }
                         }
@@ -1561,7 +1561,7 @@ private struct ChurchSectionCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.5))
 
             content
@@ -1578,10 +1578,10 @@ private struct ChurchDetailRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.5))
             Text(value)
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(Color.black.opacity(0.84))
                 .fixedSize(horizontal: false, vertical: true)
         }

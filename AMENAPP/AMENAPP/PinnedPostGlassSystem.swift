@@ -508,10 +508,10 @@ struct PinnedPostGlassContainer<Content: View>: View {
                         toggleActionMenu()
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.68))
                             .frame(width: 38, height: 38)
-                            .glassEffect(.regular.tint(.white.opacity(0.16)), in: Circle())
+                            .amenGlassEffect(in: Circle())
                     }
                     .buttonStyle(.plain)
                     .padding(.top, 10)
@@ -601,11 +601,11 @@ struct PinnedPostGlassContainer<Content: View>: View {
                 dismissMediaOverlay()
             } label: {
                 Label("Close", systemImage: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.78))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
-                    .glassEffect(.regular.tint(.white.opacity(0.16)), in: Capsule())
+                    .amenGlassEffect(in: Capsule())
             }
             .buttonStyle(.plain)
             .padding(.top, 14)
@@ -661,7 +661,7 @@ struct PinnedPostHeader: View {
                 HStack(spacing: 6) {
                     ForEach(configuration.semanticTags.prefix(2), id: \.self) { tag in
                         Text(tag)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.72))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -691,12 +691,12 @@ struct PinnedPostHeader: View {
     private var headerPill: some View {
         HStack(spacing: 8) {
             Image(systemName: "pin.fill")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .frame(width: 12)
 
             if configuration.showText {
                 Text(configuration.label.title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .lineLimit(1)
                     .transition(.opacity.combined(with: .offset(x: reduceMotion ? 0 : 6)))
             }
@@ -766,7 +766,7 @@ struct PinnedPostMediaPreview: View {
             HStack(spacing: 8) {
                 if item.type == .video {
                     Label("Play", systemImage: "play.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.82))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
@@ -775,7 +775,7 @@ struct PinnedPostMediaPreview: View {
 
                     if let duration = item.duration {
                         Text(durationText(duration))
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.78))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
@@ -783,7 +783,7 @@ struct PinnedPostMediaPreview: View {
                     }
                 } else if items.count > 1 && index == items.count - 1 {
                     Text("\(items.count) media")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.78))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
@@ -849,7 +849,7 @@ struct PinnedPostActionBloomMenu: View {
                 action()
             } label: {
                 Label(title, systemImage: systemImage)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.8))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)

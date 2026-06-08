@@ -133,7 +133,7 @@ struct MeaningOverMetricsView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "leaf")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(Color.secondary)
             Text("No signals yet.")
                 .font(.headline)
@@ -195,7 +195,7 @@ struct WalkWithChristPathSuggestionSheet: View {
 
             VStack(spacing: 8) {
                 Image(systemName: "figure.walk")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(Color.secondary)
                 Text("A Walk suggested from your patterns")
                     .font(.headline.weight(.semibold))

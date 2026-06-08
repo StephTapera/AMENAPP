@@ -72,7 +72,7 @@ struct AmenSyncStudioView: View {
         HStack(spacing: 12) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .frame(width: 34, height: 34)
                     .background(
                         Circle()
@@ -84,7 +84,7 @@ struct AmenSyncStudioView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: intent.icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(intent.color)
                 Text(intent.displayName)
                     .font(.custom("OpenSans-Bold", size: 17))
@@ -100,7 +100,7 @@ struct AmenSyncStudioView: View {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text("\(vm.selectedPlatformCount) platforms")
                         .font(.custom("OpenSans-SemiBold", size: 12))
                 }
@@ -130,7 +130,7 @@ struct AmenSyncStudioView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                         Text(tab.label)
                             .font(.custom("OpenSans-SemiBold", size: 11))
                     }
@@ -193,7 +193,7 @@ struct AmenSyncStudioView: View {
                 ) {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                         Text("Add")
                             .font(.custom("OpenSans-SemiBold", size: 13))
                     }
@@ -224,7 +224,7 @@ struct AmenSyncStudioView: View {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.gray.opacity(0.07))
                             Image(systemName: icon)
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(.secondary)
                         }
                         .frame(height: 80)
@@ -259,7 +259,7 @@ struct AmenSyncStudioView: View {
                             ProgressView().scaleEffect(0.7)
                         } else {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                         }
                         Text("AI Suggestions")
                             .font(.custom("OpenSans-SemiBold", size: 12))
@@ -315,7 +315,7 @@ struct AmenSyncStudioView: View {
                         } label: {
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: "sparkle")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(.teal)
                                 Text(s.text)
                                     .font(.custom("OpenSans-Regular", size: 13))
@@ -344,7 +344,7 @@ struct AmenSyncStudioView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                 Text("Scripture (optional)")
                     .font(.custom("OpenSans-Bold", size: 15))
@@ -379,7 +379,7 @@ struct AmenSyncStudioView: View {
                             vm.tags.removeAll { $0 == tag }
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.systemScaled(9, weight: .bold))
                         }
                     }
                     .foregroundStyle(.secondary)
@@ -509,7 +509,7 @@ struct AmenSyncStudioView: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                             Text("Review & Publish")
                                 .font(.custom("OpenSans-Bold", size: 16))
                         }
@@ -528,7 +528,7 @@ struct AmenSyncStudioView: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                             Text("Prepare Everywhere")
                                 .font(.custom("OpenSans-Bold", size: 16))
                         }
@@ -579,7 +579,7 @@ struct CaptionLengthChip: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: platform.icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
             Text("\(captionLength)/\(platform.maxCaptionLength)")
                 .font(.custom("OpenSans-SemiBold", size: 10))
         }
@@ -608,7 +608,7 @@ struct SyncPlatformToggleRow: View {
                         .fill(platform.iconColor.opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: platform.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(platform.iconColor)
                 }
 
@@ -624,7 +624,7 @@ struct SyncPlatformToggleRow: View {
                 Spacer()
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(isSelected ? .teal : Color.secondary.opacity(0.4))
             }
             .padding(14)
@@ -666,7 +666,7 @@ struct VariantCaptionRow: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: variant.platform.icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(variant.platform.iconColor)
                 Text(variant.platform.displayName)
                     .font(.custom("OpenSans-Bold", size: 14))
@@ -691,7 +691,7 @@ struct VariantCaptionRow: View {
             if variant.aiCaption {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text("AI-generated · Tap Edit to modify")
                         .font(.custom("OpenSans-Regular", size: 11))
                 }
@@ -738,7 +738,7 @@ struct SyncAssetThumbnail: View {
                 } else {
                     Color.gray.opacity(0.1)
                     Image(systemName: asset.type == .video ? "video.fill" : "photo.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -747,7 +747,7 @@ struct SyncAssetThumbnail: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.white)
                     .background(Circle().fill(Color.black.opacity(0.6)))
             }
@@ -802,7 +802,7 @@ struct SyncModerationSheet: View {
                         .fill(Color.orange.opacity(0.1))
                         .frame(width: 80, height: 80)
                     Image(systemName: "exclamationmark.shield.fill")
-                        .font(.system(size: 36))
+                        .font(.systemScaled(36))
                         .foregroundStyle(.orange)
                 }
                 .padding(.top, 24)

@@ -28,7 +28,7 @@ struct AmenOrgDiscoveryView: View {
     // MARK: Feature flag
 
     @AppStorage("community_os_org_os_enabled")
-    private var featureEnabled: Bool = false
+    private var featureEnabled: Bool = true
 
     // MARK: State
 
@@ -119,10 +119,10 @@ struct AmenOrgDiscoveryView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
 
             TextField("Search churches, schools, nonprofits…", text: $searchText)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(Color(uiColor: .label))
                 .autocorrectionDisabled()
                 .accessibilityLabel("Search organizations")
@@ -177,9 +177,9 @@ struct AmenOrgDiscoveryView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text(label)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
             }
             .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
             .padding(.horizontal, 12)
@@ -221,7 +221,7 @@ struct AmenOrgDiscoveryView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.systemScaled(13, weight: .semibold))
             .foregroundStyle(Color(uiColor: .secondaryLabel))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 4)
@@ -251,7 +251,7 @@ struct AmenOrgDiscoveryView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: searchText.isEmpty ? "building.2" : "magnifyingglass")
-                .font(.system(size: 40, weight: .ultraLight))
+                .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
 
@@ -327,7 +327,7 @@ struct AmenOrgCard: View {
 
                     if org.verificationStatus == .verified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
                     }
@@ -421,7 +421,7 @@ struct AmenOrgCard: View {
         ZStack {
             Color(uiColor: .secondarySystemBackground)
             Image(systemName: org.type.systemImage)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }
     }

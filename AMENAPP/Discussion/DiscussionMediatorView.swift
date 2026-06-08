@@ -49,7 +49,7 @@ struct DiscussionMediatorView: View {
                     VStack(spacing: 14) {
                         ProgressView().tint(Color.accentColor)
                         Text("Finding common ground…")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.white.opacity(0.5))
                     }
                 } else if let r = result {
@@ -81,10 +81,10 @@ struct DiscussionMediatorView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Finding Common Ground")
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .foregroundStyle(Color.white)
             Text("This is a neutral summary to help the conversation move forward productively.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.55))
         }
     }
@@ -93,23 +93,23 @@ struct DiscussionMediatorView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(color)
                     .accessibilityHidden(true)
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(color)
             }
             if items.isEmpty {
                 Text("None identified")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.35))
             } else {
                 ForEach(items, id: \.self) { item in
                     HStack(alignment: .top, spacing: 8) {
                         Circle().fill(color.opacity(0.5)).frame(width: 5, height: 5).padding(.top, 5)
                         Text(item)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.white.opacity(0.8))
                     }
                 }

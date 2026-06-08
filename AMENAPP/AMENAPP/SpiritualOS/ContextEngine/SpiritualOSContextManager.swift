@@ -28,7 +28,7 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
     // MARK: Feature flag
     // Gated at AppStorage level — changes take effect on next launch/activate call.
 
-    @AppStorage("spiritualOS_context_engine_enabled") private var isEnabled: Bool = false
+    @AppStorage("spiritualOS_context_engine_enabled") private var isEnabled: Bool = true
 
     // MARK: Test church coordinate (placeholder until churchEnhancementFunctions CF is wired)
     // Real implementation will query the CF for church locations by user region.

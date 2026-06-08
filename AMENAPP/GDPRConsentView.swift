@@ -83,7 +83,7 @@ struct GDPRConsentView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(Color.white)
+                        .background(Color(.systemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .disabled(isGranting)

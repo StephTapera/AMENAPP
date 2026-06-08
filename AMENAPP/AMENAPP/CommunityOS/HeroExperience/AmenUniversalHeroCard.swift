@@ -7,6 +7,8 @@ private struct HeroCTAButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
+            .minimumScaleFactor(0.7)
+            .lineLimit(2)
             .foregroundStyle(.white)
             .padding(.horizontal, 20)
             .padding(.vertical, 11)
@@ -141,11 +143,13 @@ struct AmenUniversalHeroCard<ExpandedContent: View>: View {
                     Text(title)
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.white)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
                     Text(subtitle)
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.82))
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
                 }
                 Spacer(minLength: 8)
                 Button(ctaLabel, action: onCTA)
@@ -155,6 +159,16 @@ struct AmenUniversalHeroCard<ExpandedContent: View>: View {
             .padding(.bottom, 14)
         }
         .frame(height: heroHeight)
+        // Tapping the hero image collapses the card when expanded.
+        // This is the primary escape when the bottom chevron has scrolled out of the
+        // visible fold inside the outer page ScrollView.
+        .onTapGesture {
+            guard isExpanded else { return }
+            withAnimation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.78)) {
+                isExpanded = false
+            }
+        }
+        .accessibilityHint(isExpanded ? "Tap to collapse" : "")
     }
 
     @ViewBuilder
@@ -185,11 +199,44 @@ struct AmenUniversalHeroCard<ExpandedContent: View>: View {
     }
 
     // MARK: Expanded layer
+    //
+    // The expanded section is height-capped and internally scrollable so that an
+    // expanded card never inflates the hosting horizontal carousel row beyond
+    // a predictable size, preventing the outer page ScrollView from getting "stuck".
+
+    private let expandedMaxHeight: CGFloat = 420
 
     private var expandedLayer: some View {
         VStack(spacing: 0) {
             Divider().padding(.horizontal, 20)
-            expandedContent().padding(20)
+
+            // Close affordance — always visible at the top of the expanded section,
+            // so the user can dismiss without needing to find the chevron at the bottom.
+            HStack {
+                Spacer()
+                Button {
+                    withAnimation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.78)) {
+                        isExpanded = false
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Collapse details")
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 2)
+
+            // Cap height and make the detail area internally scrollable so a
+            // content-heavy card (e.g. Church with AI match reasons) does not push
+            // the enclosing horizontal carousel row to an unbounded height.
+            ScrollView(.vertical, showsIndicators: false) {
+                expandedContent().padding(20)
+            }
+            .frame(maxHeight: expandedMaxHeight)
         }
         .transition(
             reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top))
@@ -205,7 +252,7 @@ struct AmenUniversalHeroCard<ExpandedContent: View>: View {
             }
         } label: {
             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 36)

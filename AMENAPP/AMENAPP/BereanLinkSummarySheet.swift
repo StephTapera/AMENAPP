@@ -71,7 +71,7 @@ struct BereanLinkSummarySheet: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "link.badge.plus")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.secondary)
             Text("Couldn't summarize this link")
                 .font(.headline)
@@ -163,7 +163,7 @@ struct BereanLinkSummarySheet: View {
     private func sourceCard(_ analysis: BereanLinkAnalysis) -> some View {
         HStack(spacing: 12) {
             Image(systemName: contentTypeIcon(analysis.contentType))
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.secondary)
                 .frame(width: 36, height: 36)
                 .background(Color(.secondarySystemBackground), in: Circle())

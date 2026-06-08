@@ -71,7 +71,7 @@ struct AmenLifePlannerSectionView: View {
         HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Life Planner")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(Color.amenBlack)
                     .accessibilityAddTraits(.isHeader)
 
@@ -178,7 +178,7 @@ struct AmenLifePlannerSectionView: View {
                             .accessibilityHidden(true)
 
                         Text(note)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.amenSlate)
                             .fixedSize(horizontal: false, vertical: true)
                     }

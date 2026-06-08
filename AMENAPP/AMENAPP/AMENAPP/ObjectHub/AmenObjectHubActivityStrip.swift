@@ -46,12 +46,12 @@ private struct AmenActivityCard: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: card.iconName)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.primary)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(formattedCount(card.count)) \(card.label)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(card.period)
                     .font(.caption2)

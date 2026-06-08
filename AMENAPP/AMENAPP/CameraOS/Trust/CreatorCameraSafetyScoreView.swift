@@ -95,13 +95,13 @@ struct CreatorCameraSafetyScoreView: View {
     private var headerSection: some View {
         VStack(spacing: 6) {
             Text("Your Content Safety")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
 
             Text("Private reflection — only visible to you.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.white.opacity(0.55))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -116,11 +116,11 @@ struct CreatorCameraSafetyScoreView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(score.overallLabel)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.white)
 
                 Text("Overall safety reflection")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.white.opacity(0.55))
             }
 
@@ -191,11 +191,11 @@ struct CreatorCameraSafetyScoreView: View {
         VStack(spacing: 6) {
             HStack {
                 Text(label)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(.white)
                 Spacer()
                 Text("\(Int(value * 100))%")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.white.opacity(0.55))
             }
 
@@ -236,13 +236,13 @@ struct CreatorCameraSafetyScoreView: View {
                     "This score reflects safety patterns in your recent captures. " +
                     "It's a private reflection tool, not a grade. No one else sees it."
                 )
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.white.opacity(0.75))
                 .padding(.top, 10)
             },
             label: {
                 Text("What does this mean?")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.white)
             }
         )
@@ -256,7 +256,7 @@ struct CreatorCameraSafetyScoreView: View {
     private var doneButton: some View {
         Button(action: onDismiss) {
             Text("Done")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)

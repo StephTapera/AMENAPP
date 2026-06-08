@@ -144,7 +144,7 @@ struct BereanLiquidComposerView: View {
             HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 36, height: 36)
                 .background(
@@ -219,7 +219,7 @@ struct BereanLiquidComposerView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(action.color)
                     .frame(width: 24)
                 
@@ -334,7 +334,7 @@ struct BereanLiquidComposerView: View {
             HapticManager.impact(style: .medium)
         } label: {
             Image(systemName: "arrow.up.circle.fill")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(.blue)
         }
         .buttonStyle(PlainButtonStyle())
@@ -353,7 +353,7 @@ struct BereanLiquidComposerView: View {
             HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "mic.fill")
-                .font(.system(size: 20, weight: .medium))
+                .font(.systemScaled(20, weight: .medium))
                 .foregroundStyle(.gray)
                 .frame(width: 36, height: 36)
                 .background(
@@ -377,7 +377,7 @@ struct BereanLiquidComposerView: View {
 
                 
                 Image(systemName: "stop.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.red)
             }
         }
@@ -403,7 +403,7 @@ struct BereanLiquidComposerView: View {
     private func floatingStatusPill(_ type: BereanStatusPillType) -> some View {
         HStack(spacing: 8) {
             Image(systemName: type.icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.primary)
             
             Text(type.text)
@@ -496,5 +496,5 @@ private struct VoiceWaveformBar: View {
             onAction: { print("Action: \($0)") }
         )
     }
-    .background(Color.white)
+    .background(Color(.systemBackground))
 }

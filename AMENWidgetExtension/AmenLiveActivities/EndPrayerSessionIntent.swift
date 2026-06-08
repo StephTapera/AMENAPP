@@ -18,7 +18,7 @@ struct EndPrayerSessionIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         for activity in Activity<PrayerSessionAttributes>.activities {
-            await activity.end(dismissalPolicy: .immediate)
+            await activity.end(nil, dismissalPolicy: .immediate)
         }
         return .result()
     }

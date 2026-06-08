@@ -116,10 +116,10 @@ struct SelahTopicChip: View {
             HStack(spacing: 5) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                 }
                 Text(label)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
+                    .font(.systemScaled(12, weight: isSelected ? .semibold : .medium))
             }
             .foregroundStyle(isSelected ? Color.accentColor : .secondary)
             .padding(.horizontal, 12)
@@ -222,16 +222,16 @@ struct SelahMomentsInlineCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(Color.accentColor.opacity(0.75))
                     Text("SELAH MOMENTS")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .tracking(1.5)
                         .foregroundStyle(.secondary)
                 }
 
                 Text(headline)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -313,15 +313,15 @@ struct SelahVerseContextPeek: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color.accentColor)
                 Text(reference)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer(minLength: 0)
                 if let translation, !translation.isEmpty {
                     Text(translation)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .tracking(0.8)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 7)
@@ -332,14 +332,14 @@ struct SelahVerseContextPeek: View {
 
             if let snippet, !snippet.isEmpty {
                 Text(snippet)
-                    .font(.system(size: 14, design: .serif))
+                    .font(.systemScaled(14, design: .serif))
                     .foregroundStyle(.primary.opacity(0.85))
                     .lineSpacing(3)
                     .lineLimit(5)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("Tap below to open this passage in Selah.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
 
@@ -348,7 +348,7 @@ struct SelahVerseContextPeek: View {
                     onDismiss?()
                 } label: {
                     Text("Close")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -363,9 +363,9 @@ struct SelahVerseContextPeek: View {
                 } label: {
                     HStack(spacing: 5) {
                         Text("Open in Selah")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
@@ -459,10 +459,10 @@ struct SelahFloatingVerseActionToolbar: View {
         } label: {
             VStack(spacing: 1) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 Text(label)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.systemScaled(9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .frame(minWidth: 44)
@@ -497,18 +497,18 @@ struct SelahContinueReadingBanner: View {
                         .fill(Color.accentColor.opacity(0.12))
                         .frame(width: 32, height: 32)
                     Image(systemName: "book.pages")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -517,7 +517,7 @@ struct SelahContinueReadingBanner: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(12)

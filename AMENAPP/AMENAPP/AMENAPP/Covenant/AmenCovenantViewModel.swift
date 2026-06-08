@@ -169,7 +169,7 @@ final class AmenCovenantViewModel: ObservableObject {
     private func placeholderDestination(title: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "clock")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text(title)
                 .font(.title3.weight(.semibold))

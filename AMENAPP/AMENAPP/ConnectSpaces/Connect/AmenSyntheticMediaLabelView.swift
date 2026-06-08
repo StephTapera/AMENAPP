@@ -41,7 +41,7 @@ struct AmenSyntheticMediaLabelView: View {
     var body: some View {
         // Glass pill — amenPurple tint
         Text(labelString)
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .foregroundStyle(Color(hex: "#6E4BB5"))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)

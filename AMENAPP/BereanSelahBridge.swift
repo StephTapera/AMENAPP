@@ -221,7 +221,7 @@ struct BereanSaveToSelahSheet: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: type.icon)
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                     Text(type.displayName)
                                         .font(AMENFont.regular(13))
                                 }
@@ -260,7 +260,7 @@ struct BereanSaveToSelahSheet: View {
                 // Privacy note
                 HStack(spacing: 8) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundColor(.secondary)
                     Text("Saved privately to your Selah journal. Only you can see this.")
                         .font(AMENFont.regular(12))
@@ -288,7 +288,7 @@ struct BereanSaveToSelahSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Color.black, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Color(.label), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(isSaving)
@@ -301,7 +301,7 @@ struct BereanSaveToSelahSheet: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundColor(.black)
             Text("Saved to Selah")
                 .font(AMENFont.semiBold(20))

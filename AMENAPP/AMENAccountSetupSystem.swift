@@ -238,7 +238,7 @@ struct AccountSetupChecklistView: View {
                     .padding(.bottom, 24)
                 }
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -647,7 +647,7 @@ struct SetupChecklistRow_Previews: PreviewProvider {
             )
         }
         .padding(16)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .previewDisplayName("Checklist Rows")
     }
 }
@@ -656,7 +656,7 @@ struct SetupCompletionCard_Previews: PreviewProvider {
     static var previews: some View {
         SetupCompletionCard(accountType: .personal, onContinue: {})
             .padding(20)
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .previewDisplayName("Completion Card")
     }
 }
@@ -673,7 +673,7 @@ struct AccountSetupContinuationCard_Previews: PreviewProvider {
             onDismiss: {}
         )
         .padding(20)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .previewDisplayName("Continuation Card")
     }
 }
@@ -686,7 +686,7 @@ struct ComposerPresetChipRow_Previews: PreviewProvider {
             ComposerPresetChipRow(accountType: .business, onSelect: { _ in })
         }
         .padding(16)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .previewDisplayName("Preset Chip Rows")
     }
 }

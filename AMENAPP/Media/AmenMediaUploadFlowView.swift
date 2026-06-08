@@ -194,7 +194,7 @@ private struct TypeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Image(systemName: type.icon)
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .foregroundStyle(isSelected ? Color(red: 0.4, green: 0.9, blue: 0.7) : .white.opacity(0.8))
 
             Text(type.rawValue)
@@ -236,7 +236,7 @@ private struct MediaPickStep: View {
             ) {
                 VStack(spacing: 16) {
                     Image(systemName: "photo.badge.plus")
-                        .font(.system(size: 48, weight: .light))
+                        .font(.systemScaled(48, weight: .light))
                         .foregroundStyle(.white.opacity(0.6))
 
                     Text(items.isEmpty ? "Tap to choose from library" : "\(items.count) item\(items.count == 1 ? "" : "s") selected")
@@ -312,7 +312,7 @@ private struct CaptionAudienceStep: View {
                     ForEach(MediaAudience.allCases) { opt in
                         HStack(spacing: 12) {
                             Image(systemName: opt.icon)
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .frame(width: 22)
                                 .foregroundStyle(audience == opt ? Color(red: 0.4, green: 0.9, blue: 0.7) : .white.opacity(0.6))
                             Text(opt.rawValue)
@@ -363,7 +363,7 @@ private struct AIReviewStep: View {
                 // Header notice
                 HStack(spacing: 10) {
                     Image(systemName: "wand.and.sparkles")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                     Text("Draft — Review before publishing")
                         .font(.custom("OpenSans-SemiBold", size: 13))
                     Spacer()
@@ -475,7 +475,7 @@ private func approveButton(approved: Binding<Bool>) -> some View {
     } label: {
         HStack(spacing: 4) {
             Image(systemName: approved.wrappedValue ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
             Text(approved.wrappedValue ? "Approved" : "Approve")
                 .font(.custom("OpenSans-SemiBold", size: 12))
         }
@@ -488,7 +488,7 @@ private func approvalStatus(_ approved: Bool) -> some View {
     if approved {
         HStack(spacing: 4) {
             Image(systemName: "checkmark")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text("You approved this")
                 .font(.custom("OpenSans-Regular", size: 11))
         }
@@ -528,7 +528,7 @@ private struct PublishStep: View {
                 // Authenticity badge preview
                 VStack(spacing: 14) {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 48))
+                        .font(.systemScaled(48))
                         .foregroundStyle(Color(red: 0.4, green: 0.9, blue: 0.7))
 
                     Text("Authenticity Badge")

@@ -22,11 +22,10 @@
  *   getUnofficialCatalogLabel
  */
 
-const functions = require('firebase-functions/v1');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 
-const REGION = 'us-central1';
-const regionalFunctions = functions.region(REGION);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -169,16 +168,16 @@ exports.getUnofficialCatalogLabel = getUnofficialCatalogLabel;
  *   - No auto-bans. Flagging only — human admins decide next steps.
  *   - Reporter identity stored (context.auth.uid) for abuse prevention.
  */
-exports.reportImpersonation = regionalFunctions.https.onCall(async (data, context) => {
+exports.reportImpersonation = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const reporterId = context.auth.uid;
   const { targetCreatorId, reporterNote } = data || {};
 
   if (!targetCreatorId || typeof targetCreatorId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'targetCreatorId required');
+    throw new HttpsError('invalid-argument', 'targetCreatorId required');
   }
 
   // Sanitize reporterNote — max 1000 chars
@@ -188,7 +187,7 @@ exports.reportImpersonation = regionalFunctions.https.onCall(async (data, contex
 
   // Prevent self-reporting
   if (reporterId === targetCreatorId) {
-    throw new functions.https.HttpsError('invalid-argument', 'You cannot report yourself for impersonation');
+    throw new HttpsError('invalid-argument', 'You cannot report yourself for impersonation');
   }
 
   const firestore = admin.firestore();
@@ -248,7 +247,7 @@ exports.reportImpersonation = regionalFunctions.https.onCall(async (data, contex
       priority: 'high',
     });
 
-    functions.logger.warn('Impersonation auto-flag threshold reached', {
+    logger.warn('Impersonation auto-flag threshold reached', {
       targetCreatorId,
       reportCount: totalReportsSnap.size,
     });
@@ -270,24 +269,24 @@ exports.reportImpersonation = regionalFunctions.https.onCall(async (data, contex
  *
  * Called during profile creation/edit to surface potential impersonation attempts.
  */
-exports.checkCreatorProtection = regionalFunctions.https.onCall(async (data, context) => {
+exports.checkCreatorProtection = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const requestingUid = context.auth.uid;
   const { creatorId, displayName } = data || {};
 
   if (!creatorId || typeof creatorId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'creatorId required');
+    throw new HttpsError('invalid-argument', 'creatorId required');
   }
   if (!displayName || typeof displayName !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'displayName required');
+    throw new HttpsError('invalid-argument', 'displayName required');
   }
 
   // Security: only the creator themselves or an admin can call this
   if (requestingUid !== creatorId && !context.auth.token?.admin) {
-    throw new functions.https.HttpsError('permission-denied', 'You may only check protection for your own account');
+    throw new HttpsError('permission-denied', 'You may only check protection for your own account');
   }
 
   const firestore = admin.firestore();
@@ -347,9 +346,9 @@ exports.checkCreatorProtection = regionalFunctions.https.onCall(async (data, con
  * Input:  { orgId, newAdminId, confirmed }
  * Output: { transferred: boolean }
  */
-exports.transferOrgAdmin = regionalFunctions.https.onCall(async (data, context) => {
+exports.transferOrgAdmin = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const currentAdminUid = context.auth.uid;
@@ -357,20 +356,20 @@ exports.transferOrgAdmin = regionalFunctions.https.onCall(async (data, context) 
 
   // HUMAN GATE — must explicitly confirm
   if (confirmed !== true) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'failed-precondition',
       'Admin transfer requires explicit confirmation. Pass { confirmed: true } to proceed. This action cannot be undone.'
     );
   }
 
   if (!orgId || typeof orgId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'orgId required');
+    throw new HttpsError('invalid-argument', 'orgId required');
   }
   if (!newAdminId || typeof newAdminId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'newAdminId required');
+    throw new HttpsError('invalid-argument', 'newAdminId required');
   }
   if (newAdminId === currentAdminUid) {
-    throw new functions.https.HttpsError('invalid-argument', 'newAdminId must be different from the current admin');
+    throw new HttpsError('invalid-argument', 'newAdminId must be different from the current admin');
   }
 
   // Verify caller has org_admin claim for this org
@@ -382,7 +381,7 @@ exports.transferOrgAdmin = regionalFunctions.https.onCall(async (data, context) 
     (Array.isArray(callerOrgAdminOrgs) && callerOrgAdminOrgs.includes(orgId));
 
   if (!hasOrgAdminClaim) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'permission-denied',
       `You do not have org_admin rights for organization ${orgId}`
     );
@@ -394,7 +393,7 @@ exports.transferOrgAdmin = regionalFunctions.https.onCall(async (data, context) 
   const orgRef = firestore.collection('organizations').doc(orgId);
   const orgSnap = await orgRef.get();
   if (!orgSnap.exists) {
-    throw new functions.https.HttpsError('not-found', `Organization ${orgId} not found`);
+    throw new HttpsError('not-found', `Organization ${orgId} not found`);
   }
 
   // Verify new admin is a valid existing Firebase Auth user
@@ -402,7 +401,7 @@ exports.transferOrgAdmin = regionalFunctions.https.onCall(async (data, context) 
   try {
     newAdminRecord = await admin.auth().getUser(newAdminId);
   } catch (err) {
-    throw new functions.https.HttpsError('not-found', `User ${newAdminId} not found in Firebase Auth`);
+    throw new HttpsError('not-found', `User ${newAdminId} not found in Firebase Auth`);
   }
 
   const now = admin.firestore.FieldValue.serverTimestamp();
@@ -467,7 +466,7 @@ exports.transferOrgAdmin = regionalFunctions.https.onCall(async (data, context) 
     timestamp: now,
   });
 
-  functions.logger.info('Org admin transferred', {
+  logger.info('Org admin transferred', {
     orgId,
     from: currentAdminUid,
     to: newAdminId,

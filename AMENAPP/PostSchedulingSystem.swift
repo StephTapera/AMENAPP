@@ -1199,7 +1199,16 @@ struct ScheduledPostsHub: View {
                                         entry: entry,
                                         onReschedule: {},
                                         onDuplicate: {},
-                                        onCancel: { removeEntry(id: entry.id) }
+                                        onCancel: { removeEntry(id: entry.id) },
+                                        onRetry: {
+                                            // Move entry back to upcoming so the retry is reflected in the UI
+                                            if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
+                                                entries[idx].status = .upcoming
+                                            }
+                                        },
+                                        onEdit: {
+                                            // Surface edit sheet via notification; row already posts amenEditScheduledPost
+                                        }
                                     )
                                 }
                             }
@@ -1296,8 +1305,11 @@ struct ScheduledPostRow: View {
     var onReschedule: () -> Void
     var onDuplicate: () -> Void
     var onCancel: () -> Void
+    var onRetry: (() -> Void)? = nil
+    var onEdit: (() -> Void)? = nil
 
     @State private var showOverflow: Bool = false
+    @State private var isRetrying: Bool = false
 
     private var statusBadgeLabel: String {
         switch entry.status {
@@ -1384,9 +1396,19 @@ struct ScheduledPostRow: View {
                         .font(AMENFont.regular(12))
                         .foregroundColor(Color.red.opacity(0.65))
                     Button {
-                        // Retry action
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        guard !isRetrying else { return }
+                        isRetrying = true
+                        onRetry?()
+                        NotificationCenter.default.post(
+                            name: Notification.Name("amenRetryScheduledPost"),
+                            object: entry.id
+                        )
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            isRetrying = false
+                        }
                     } label: {
-                        Text("Retry publish")
+                        Text(isRetrying ? "Retrying…" : "Retry publish")
                             .font(AMENFont.semiBold(13))
                             .foregroundColor(.black)
                             .padding(.horizontal, 14)
@@ -1407,7 +1429,15 @@ struct ScheduledPostRow: View {
             // Overflow menu
             if showOverflow {
                 HStack(spacing: 8) {
-                    overflowButton(icon: "pencil", label: "Edit", action: {})
+                    overflowButton(icon: "pencil", label: "Edit", action: {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showOverflow = false
+                        onEdit?()
+                        NotificationCenter.default.post(
+                            name: Notification.Name("amenEditScheduledPost"),
+                            object: entry
+                        )
+                    })
                     overflowButton(icon: "calendar.badge.clock", label: "Reschedule", action: onReschedule)
                     overflowButton(icon: "doc.on.doc", label: "Duplicate", action: onDuplicate)
                     overflowButton(icon: "xmark.circle", label: "Cancel", action: onCancel)

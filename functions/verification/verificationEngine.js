@@ -22,15 +22,12 @@
  *   grantBadge, generateToken, hashCode
  */
 
-const functions = require('firebase-functions/v1');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const dns = require('dns').promises;
 const crypto = require('crypto');
 const https = require('https');
-
-const REGION = 'us-central1';
-const regionalFunctions = functions.region(REGION);
-const db = admin.firestore;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -205,9 +202,9 @@ async function grantBadge(firestore, creatorId, badgeType, claimId) {
  *   - Max 3 pending claims per user (rate limit)
  *   - Evidence validated per method
  */
-exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, context) => {
+exports.submitVerificationClaim = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const uid = context.auth.uid;
@@ -215,14 +212,14 @@ exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, co
 
   // Reject manual method from clients — HUMAN GATE
   if (method === 'manual') {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'permission-denied',
       'Manual verification requires human review. Contact support to initiate.'
     );
   }
 
   if (!VALID_METHODS.includes(method)) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'invalid-argument',
       `Invalid method. Allowed: ${VALID_METHODS.join(', ')}`
     );
@@ -231,7 +228,7 @@ exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, co
   // Validate badge type if provided
   const resolvedBadgeType = badgeType || METHOD_BADGE_MAP[method];
   if (!VALID_BADGE_TYPES.includes(resolvedBadgeType)) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'invalid-argument',
       `Invalid badgeType. Allowed: ${VALID_BADGE_TYPES.join(', ')}`
     );
@@ -247,7 +244,7 @@ exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, co
     .get();
 
   if (pendingSnap.size >= MAX_PENDING_CLAIMS) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'resource-exhausted',
       `You already have ${MAX_PENDING_CLAIMS} pending verification claims. Wait for existing claims to be processed.`
     );
@@ -261,7 +258,7 @@ exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, co
     case 'domain': {
       const { domainUrl } = evidence;
       if (!domainUrl || typeof domainUrl !== 'string') {
-        throw new functions.https.HttpsError('invalid-argument', 'domain method requires evidence.domainUrl');
+        throw new HttpsError('invalid-argument', 'domain method requires evidence.domainUrl');
       }
       // Generate DNS TXT challenge token
       const token = generateToken(24);
@@ -283,14 +280,14 @@ exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, co
     case 'social_oauth': {
       const { platform, claimedAccountId } = evidence;
       if (!platform || typeof platform !== 'string') {
-        throw new functions.https.HttpsError('invalid-argument', 'social_oauth method requires evidence.platform');
+        throw new HttpsError('invalid-argument', 'social_oauth method requires evidence.platform');
       }
       if (!claimedAccountId || typeof claimedAccountId !== 'string') {
-        throw new functions.https.HttpsError('invalid-argument', 'social_oauth method requires evidence.claimedAccountId');
+        throw new HttpsError('invalid-argument', 'social_oauth method requires evidence.claimedAccountId');
       }
       const allowedPlatforms = ['youtube', 'spotify', 'instagram', 'twitter'];
       if (!allowedPlatforms.includes(platform.toLowerCase())) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
           'invalid-argument',
           `Unsupported platform. Allowed: ${allowedPlatforms.join(', ')}`
         );
@@ -306,7 +303,7 @@ exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, co
     case 'email_domain': {
       const { email } = evidence;
       if (!email || typeof email !== 'string' || !email.includes('@')) {
-        throw new functions.https.HttpsError('invalid-argument', 'email_domain method requires a valid evidence.email');
+        throw new HttpsError('invalid-argument', 'email_domain method requires a valid evidence.email');
       }
       storedEvidence = {
         email: email.trim().toLowerCase(),
@@ -318,7 +315,7 @@ exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, co
     case 'org_admin': {
       const { orgId, taxId } = evidence;
       if (!orgId || typeof orgId !== 'string') {
-        throw new functions.https.HttpsError('invalid-argument', 'org_admin method requires evidence.orgId');
+        throw new HttpsError('invalid-argument', 'org_admin method requires evidence.orgId');
       }
       // taxId is optional but stored if provided (no plaintext secrets; tax IDs are org identifiers)
       storedEvidence = {
@@ -360,16 +357,16 @@ exports.submitVerificationClaim = regionalFunctions.https.onCall(async (data, co
  * Input:  { claimId }
  * Output: { verified: boolean }
  */
-exports.checkDomainVerification = regionalFunctions.https.onCall(async (data, context) => {
+exports.checkDomainVerification = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const uid = context.auth.uid;
   const { claimId } = data || {};
 
   if (!claimId || typeof claimId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'claimId required');
+    throw new HttpsError('invalid-argument', 'claimId required');
   }
 
   const firestore = admin.firestore();
@@ -377,17 +374,17 @@ exports.checkDomainVerification = regionalFunctions.https.onCall(async (data, co
   const claimSnap = await claimRef.get();
 
   if (!claimSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'Verification claim not found');
+    throw new HttpsError('not-found', 'Verification claim not found');
   }
 
   const claim = claimSnap.data();
 
   if (claim.creatorId !== uid) {
-    throw new functions.https.HttpsError('permission-denied', 'You do not own this claim');
+    throw new HttpsError('permission-denied', 'You do not own this claim');
   }
 
   if (claim.method !== 'domain') {
-    throw new functions.https.HttpsError('invalid-argument', 'This claim is not a domain verification claim');
+    throw new HttpsError('invalid-argument', 'This claim is not a domain verification claim');
   }
 
   if (claim.status === 'approved') {
@@ -408,7 +405,7 @@ exports.checkDomainVerification = regionalFunctions.https.onCall(async (data, co
     records = raw.map((arr) => arr.join(''));
   } catch (err) {
     // DNS lookup failure is not a fatal error — token simply not found yet
-    functions.logger.warn('DNS lookup failed for domain', { domainUrl, error: err.message });
+    logger.warn('DNS lookup failed for domain', { domainUrl, error: err.message });
     return { verified: false };
   }
 
@@ -436,16 +433,16 @@ exports.checkDomainVerification = regionalFunctions.https.onCall(async (data, co
  * Input:  { claimId, platform, accessToken }
  * Output: { verified: boolean }
  */
-exports.checkSocialOAuthVerification = regionalFunctions.https.onCall(async (data, context) => {
+exports.checkSocialOAuthVerification = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const uid = context.auth.uid;
   const { claimId, platform, accessToken } = data || {};
 
   if (!claimId || !platform || !accessToken) {
-    throw new functions.https.HttpsError('invalid-argument', 'claimId, platform, and accessToken required');
+    throw new HttpsError('invalid-argument', 'claimId, platform, and accessToken required');
   }
 
   // Never log the raw token
@@ -454,17 +451,17 @@ exports.checkSocialOAuthVerification = regionalFunctions.https.onCall(async (dat
   const claimSnap = await claimRef.get();
 
   if (!claimSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'Verification claim not found');
+    throw new HttpsError('not-found', 'Verification claim not found');
   }
 
   const claim = claimSnap.data();
 
   if (claim.creatorId !== uid) {
-    throw new functions.https.HttpsError('permission-denied', 'You do not own this claim');
+    throw new HttpsError('permission-denied', 'You do not own this claim');
   }
 
   if (claim.method !== 'social_oauth') {
-    throw new functions.https.HttpsError('invalid-argument', 'This claim is not a social OAuth claim');
+    throw new HttpsError('invalid-argument', 'This claim is not a social OAuth claim');
   }
 
   if (claim.status === 'approved') {
@@ -475,7 +472,7 @@ exports.checkSocialOAuthVerification = regionalFunctions.https.onCall(async (dat
   const claimedAccountId = claim.evidence.claimedAccountId;
 
   if (claimedPlatform !== platform.toLowerCase()) {
-    throw new functions.https.HttpsError('invalid-argument', 'Platform does not match claim');
+    throw new HttpsError('invalid-argument', 'Platform does not match claim');
   }
 
   let platformAccountId = null;
@@ -499,10 +496,10 @@ exports.checkSocialOAuthVerification = regionalFunctions.https.onCall(async (dat
       }
 
       default:
-        throw new functions.https.HttpsError('invalid-argument', `Unsupported platform: ${platform}`);
+        throw new HttpsError('invalid-argument', `Unsupported platform: ${platform}`);
     }
   } catch (err) {
-    functions.logger.warn('Social OAuth verification failed', {
+    logger.warn('Social OAuth verification failed', {
       platform,
       claimId,
       error: err.message,
@@ -535,16 +532,16 @@ exports.checkSocialOAuthVerification = regionalFunctions.https.onCall(async (dat
  * Note: Actual email delivery requires Firebase Extensions or SendGrid.
  *       This CF writes to emailQueue (picked up by the email delivery Extension).
  */
-exports.checkEmailDomainVerification = regionalFunctions.https.onCall(async (data, context) => {
+exports.checkEmailDomainVerification = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const uid = context.auth.uid;
   const { claimId } = data || {};
 
   if (!claimId || typeof claimId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'claimId required');
+    throw new HttpsError('invalid-argument', 'claimId required');
   }
 
   const firestore = admin.firestore();
@@ -552,17 +549,17 @@ exports.checkEmailDomainVerification = regionalFunctions.https.onCall(async (dat
   const claimSnap = await claimRef.get();
 
   if (!claimSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'Verification claim not found');
+    throw new HttpsError('not-found', 'Verification claim not found');
   }
 
   const claim = claimSnap.data();
 
   if (claim.creatorId !== uid) {
-    throw new functions.https.HttpsError('permission-denied', 'You do not own this claim');
+    throw new HttpsError('permission-denied', 'You do not own this claim');
   }
 
   if (claim.method !== 'email_domain') {
-    throw new functions.https.HttpsError('invalid-argument', 'This claim is not an email domain claim');
+    throw new HttpsError('invalid-argument', 'This claim is not an email domain claim');
   }
 
   if (claim.status === 'approved') {
@@ -571,7 +568,7 @@ exports.checkEmailDomainVerification = regionalFunctions.https.onCall(async (dat
 
   const email = claim.evidence.email;
   if (!email) {
-    throw new functions.https.HttpsError('internal', 'Claim is missing email address');
+    throw new HttpsError('internal', 'Claim is missing email address');
   }
 
   // Generate 6-digit OTP
@@ -599,7 +596,7 @@ exports.checkEmailDomainVerification = regionalFunctions.https.onCall(async (dat
     // Code is NOT included here — only in the user's email
   });
 
-  functions.logger.info('Verification email queued', { claimId, email });
+  logger.info('Verification email queued', { claimId, email });
 
   return { sent: true };
 });
@@ -614,16 +611,16 @@ exports.checkEmailDomainVerification = regionalFunctions.https.onCall(async (dat
  * Input:  { claimId, code }
  * Output: { verified: boolean }
  */
-exports.confirmEmailCode = regionalFunctions.https.onCall(async (data, context) => {
+exports.confirmEmailCode = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const uid = context.auth.uid;
   const { claimId, code } = data || {};
 
   if (!claimId || !code) {
-    throw new functions.https.HttpsError('invalid-argument', 'claimId and code required');
+    throw new HttpsError('invalid-argument', 'claimId and code required');
   }
 
   const firestore = admin.firestore();
@@ -631,17 +628,17 @@ exports.confirmEmailCode = regionalFunctions.https.onCall(async (data, context) 
   const claimSnap = await claimRef.get();
 
   if (!claimSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'Verification claim not found');
+    throw new HttpsError('not-found', 'Verification claim not found');
   }
 
   const claim = claimSnap.data();
 
   if (claim.creatorId !== uid) {
-    throw new functions.https.HttpsError('permission-denied', 'You do not own this claim');
+    throw new HttpsError('permission-denied', 'You do not own this claim');
   }
 
   if (claim.method !== 'email_domain') {
-    throw new functions.https.HttpsError('invalid-argument', 'This claim is not an email domain claim');
+    throw new HttpsError('invalid-argument', 'This claim is not an email domain claim');
   }
 
   if (claim.status === 'approved') {
@@ -651,14 +648,14 @@ exports.confirmEmailCode = regionalFunctions.https.onCall(async (data, context) 
   const { hashedCode, codeExpiresAt } = claim.evidence || {};
 
   if (!hashedCode) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'failed-precondition',
       'No verification code has been sent for this claim. Call checkEmailDomainVerification first.'
     );
   }
 
   if (Date.now() > codeExpiresAt) {
-    throw new functions.https.HttpsError('deadline-exceeded', 'Verification code has expired. Please request a new code.');
+    throw new HttpsError('deadline-exceeded', 'Verification code has expired. Please request a new code.');
   }
 
   const inputHash = hashCode(String(code));
@@ -688,18 +685,18 @@ exports.confirmEmailCode = regionalFunctions.https.onCall(async (data, context) 
  * Input:  { targetCreatorId, reason }
  * Output: { revoked: boolean }
  */
-exports.revokeBadge = regionalFunctions.https.onCall(async (data, context) => {
+exports.revokeBadge = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth?.token?.admin) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin privileges required to revoke badges');
+    throw new HttpsError('permission-denied', 'Admin privileges required to revoke badges');
   }
 
   const { targetCreatorId, reason } = data || {};
 
   if (!targetCreatorId || typeof targetCreatorId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'targetCreatorId required');
+    throw new HttpsError('invalid-argument', 'targetCreatorId required');
   }
   if (!reason || typeof reason !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'reason required');
+    throw new HttpsError('invalid-argument', 'reason required');
   }
 
   const firestore = admin.firestore();
@@ -769,9 +766,9 @@ exports.revokeBadge = regionalFunctions.https.onCall(async (data, context) => {
  * Input:  {} (uses context.auth.uid)
  * Output: { verified: boolean, badge: string|null, claims: VerificationClaim[] }
  */
-exports.getVerificationStatus = regionalFunctions.https.onCall(async (data, context) => {
+exports.getVerificationStatus = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
 
   const uid = context.auth.uid;

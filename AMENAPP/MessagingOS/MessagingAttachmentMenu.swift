@@ -95,7 +95,7 @@ private struct AttachmentItemButton: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.systemScaled(24, weight: .medium))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 52, height: 52)
                     .background(.ultraThinMaterial, in: Circle())

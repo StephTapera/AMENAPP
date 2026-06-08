@@ -92,9 +92,9 @@ struct ChurchNoteSelectionToolbar: View {
                             } label: {
                                 HStack(spacing: 3) {
                                     Image(systemName: type.icon)
-                                        .font(.system(size: 10))
+                                        .font(.systemScaled(10))
                                     Text(type.displayName)
-                                        .font(.system(size: 11, weight: .medium))
+                                        .font(.systemScaled(11, weight: .medium))
                                 }
                                 .foregroundStyle(.primary.opacity(0.65))
                                 .padding(.horizontal, 8)
@@ -131,7 +131,7 @@ struct ChurchNoteSelectionToolbar: View {
     private func toolbarButton(icon: String, isActive: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(isActive ? Color.primary : Color.secondary.opacity(0.7))
                 .frame(width: 36, height: 32)
                 .background(

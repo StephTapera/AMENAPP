@@ -118,12 +118,12 @@ struct AmenMinistryRoomAutoStatePanel: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
 
                 Text("Room State")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
 
                 Spacer()
@@ -135,7 +135,7 @@ struct AmenMinistryRoomAutoStatePanel: View {
                 }
 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.accentColor.opacity(0.7))
                     .animation(animationStyle, value: isExpanded)
             }
@@ -182,8 +182,6 @@ struct AmenMinistryRoomAutoStatePanel: View {
                     // Owners & Next Steps
                     ownerSection
 
-                    // Next Gathering (stub)
-                    nextGatheringSection
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -202,10 +200,10 @@ struct AmenMinistryRoomAutoStatePanel: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.tertiary)
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.tertiary)
                     .textCase(.uppercase)
                     .tracking(0.6)
@@ -215,7 +213,7 @@ struct AmenMinistryRoomAutoStatePanel: View {
 
             if items.isEmpty {
                 Text(emptyLabel)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.quaternary)
                     .italic()
             } else {
@@ -236,17 +234,17 @@ struct AmenMinistryRoomAutoStatePanel: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.title)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.primary)
 
                 if let owner = item.owner {
                     Text("Owner: \(owner.prefix(20))")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
                 if let due = item.due {
                     Text("Due: \(due.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -268,10 +266,10 @@ struct AmenMinistryRoomAutoStatePanel: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 5) {
                 Image(systemName: "person.badge.clock")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.tertiary)
                 Text("Owners & Next Steps")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.tertiary)
                     .textCase(.uppercase)
                     .tracking(0.6)
@@ -282,23 +280,23 @@ struct AmenMinistryRoomAutoStatePanel: View {
             let owned = viewModel.ownersAndNextSteps
             if owned.isEmpty {
                 Text("No owners assigned")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.quaternary)
                     .italic()
             } else {
                 ForEach(owned) { item in
                     HStack(spacing: 8) {
                         Image(systemName: "person.circle")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color(red: 0.431, green: 0.294, blue: 0.710))
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(item.title)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.primary)
                             if let owner = item.owner {
                                 Text(String(owner.prefix(20)))
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -310,33 +308,4 @@ struct AmenMinistryRoomAutoStatePanel: View {
         }
     }
 
-    // MARK: - Next Gathering (stub)
-
-    private var nextGatheringSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                Text("Next Gathering")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                    .textCase(.uppercase)
-                    .tracking(0.6)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Next Gathering")
-
-            HStack(spacing: 6) {
-                Image(systemName: "clock")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.accentColor)
-                    .accessibilityHidden(true)
-                Text("Sunday 9:00 AM")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.primary)
-            }
-            .accessibilityLabel("Sunday 9:00 AM")
-        }
-    }
 }

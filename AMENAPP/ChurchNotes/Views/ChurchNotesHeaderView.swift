@@ -14,9 +14,9 @@ struct ChurchNotesHeaderView: View {
             Spacer()
             VStack(spacing: 2) {
                 Text("Church Note")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                 Text(autosaveText)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             Spacer()

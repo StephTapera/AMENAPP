@@ -27,9 +27,9 @@ struct WitnessDraftAttachmentPreview: View {
             .overlay(alignment: .bottomLeading) {
                 HStack(spacing: 8) {
                     Image(systemName: attachment.mode == .dualPhoto ? "person.crop.rectangle.stack.fill" : (attachment.isVideo ? "video.fill" : "camera.fill"))
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                     Text(attachment.mode == .dualPhoto ? "Witness dual capture" : "Witness capture")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 12)
@@ -40,7 +40,7 @@ struct WitnessDraftAttachmentPreview: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundStyle(.primary)
                     .frame(width: 28, height: 28)
                     .background(.ultraThinMaterial, in: Circle())

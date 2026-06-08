@@ -294,7 +294,7 @@ struct BlessLaterSheet: View {
     private var deferredConfirmation: some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 40, weight: .light))
+                .font(.systemScaled(40, weight: .light))
                 .foregroundStyle(.primary)
 
             Text("Blessed for later")
@@ -323,7 +323,7 @@ private struct BlessLaterTimingRow: View {
         Button(action: action) {
             HStack(spacing: 16) {
                 Image(systemName: timing.icon)
-                    .font(.system(size: 18, weight: .regular))
+                    .font(.systemScaled(18, weight: .regular))
                     .foregroundStyle(isSelected ? .white : .primary)
                     .frame(width: 28)
 
@@ -340,7 +340,7 @@ private struct BlessLaterTimingRow: View {
 
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }
@@ -366,7 +366,7 @@ struct ReflectLaterDigestCard: View {
             Button(action: onOpen) {
                 HStack(spacing: 14) {
                     Image(systemName: "tray.2")
-                        .font(.system(size: 22, weight: .light))
+                        .font(.systemScaled(22, weight: .light))
                         .foregroundStyle(.primary)
 
                     VStack(alignment: .leading, spacing: 3) {

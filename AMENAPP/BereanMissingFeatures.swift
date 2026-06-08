@@ -104,7 +104,7 @@ struct BereanPlusMenu: View {
                         }
                     }
                     .padding()
-                    .background(Color.white)
+                    .background(Color(.systemBackground))
                     
                     Divider()
                     
@@ -185,11 +185,11 @@ struct BereanPlusMenu: View {
                                 }
                             }
                         }
-                        .background(Color.white)
+                        .background(Color(.systemBackground))
                     }
                     .frame(maxHeight: 400)
                 }
-                .background(Color.white)
+                .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 20, y: -5)
                 .padding(.horizontal, 20)

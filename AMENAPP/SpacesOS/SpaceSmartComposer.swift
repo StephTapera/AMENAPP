@@ -93,7 +93,7 @@ struct SpaceSmartComposer: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: type.icon)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                             Text(type.displayName)
                                 .font(.caption.weight(.semibold))
                         }

@@ -73,10 +73,10 @@ struct SpiritualJourneySelectionView: View {
         } label: {
             Text("Start Faith Wrapped")
                 .font(AMENFont.semiBold(15))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(.systemBackground))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.black, in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(.label), in: RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
     }

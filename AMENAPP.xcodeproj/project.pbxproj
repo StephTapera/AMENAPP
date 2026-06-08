@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		00C4730C32CAE06BBB1B2884 /* AmenPrivacyEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40888DE0F3166E3C41F5BB13 /* AmenPrivacyEngine.swift */; };
 		490A650D87249A4C04BE4ECA /* AmenPrivacyPresetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FF34A3C504D60530BC0DF94 /* AmenPrivacyPresetView.swift */; };
+		A1B2C3D4E5F60002AAAA0002 /* ResourcesContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60001AAAA0001 /* ResourcesContentView.swift */; };
 		C3BFEA2CA64C7985B1A8F32E /* AmenPrivacyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B99AD642F1F785E8EF3AA704 /* AmenPrivacyModels.swift */; };
 		C5CF83B80C9C10E255B415F1 /* AmenAudienceSimulatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E5A5A901487C57606EFBBB /* AmenAudienceSimulatorView.swift */; };
 		EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1202F2D114F004E694A /* GoogleSignIn */; };
@@ -146,6 +147,7 @@
 		996EF51D7C5C107721B2B55B /* AmenBroadcastComposerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenBroadcastComposerView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenBroadcastComposerView.swift; sourceTree = "<group>"; };
 		9987ADAF27FB1D8C54E83A47 /* AmenAutoClipBrowserView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenAutoClipBrowserView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/AIRecap/AmenAutoClipBrowserView.swift; sourceTree = "<group>"; };
 		9F09B9B4C6A873D6E7CE2304 /* AmenLiveCaptionsOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenLiveCaptionsOverlay.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Live/AmenLiveCaptionsOverlay.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60001AAAA0001 /* ResourcesContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ResourcesContentView.swift; path = ../../AMENAPP/AMENAPP/Resources/ResourcesContentView.swift; sourceTree = "<group>"; };
 		A2C11335A649489CA118C3F3 /* CreationDraftService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationDraftService.swift; sourceTree = "<group>"; };
 		A98E2E10C8202B4F312855BB /* AmenSpaceEventDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AmenSpaceEventDetailView.swift; path = ../../AMENAPP/AMENAPP/ConnectSpaces/Events/AmenSpaceEventDetailView.swift; sourceTree = "<group>"; };
 		AA86F52210834944B71B50CF /* LiquidGlassCreationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassCreationComponents.swift; sourceTree = "<group>"; };
@@ -1048,6 +1050,7 @@
 				40888DE0F3166E3C41F5BB13 /* AmenPrivacyEngine.swift */,
 				3FF34A3C504D60530BC0DF94 /* AmenPrivacyPresetView.swift */,
 				C2E5A5A901487C57606EFBBB /* AmenAudienceSimulatorView.swift */,
+				A1B2C3D4E5F60001AAAA0001 /* ResourcesContentView.swift */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -1383,6 +1386,7 @@
 				00C4730C32CAE06BBB1B2884 /* AmenPrivacyEngine.swift in Sources */,
 				490A650D87249A4C04BE4ECA /* AmenPrivacyPresetView.swift in Sources */,
 				C5CF83B80C9C10E255B415F1 /* AmenAudienceSimulatorView.swift in Sources */,
+				A1B2C3D4E5F60002AAAA0002 /* ResourcesContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1483,7 +1487,7 @@
 				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMENWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1514,7 +1518,7 @@
 				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMENWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1586,7 +1590,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -1644,7 +1648,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -1756,7 +1760,7 @@
 				DEVELOPMENT_TEAM = FGLL559H83;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AMENNotificationServiceExtension/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1783,7 +1787,7 @@
 				DEVELOPMENT_TEAM = FGLL559H83;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AMENNotificationServiceExtension/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

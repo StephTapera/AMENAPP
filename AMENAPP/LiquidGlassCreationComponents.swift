@@ -71,7 +71,7 @@ struct GlassCreationButton: View {
                     ProgressView().tint(style.foreground).scaleEffect(0.85)
                 } else if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 Text(label)
                     .font(.custom("OpenSans-SemiBold", size: 15))
@@ -104,7 +104,7 @@ struct GlassIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .frame(width: size, height: size)
                 .background(
                     RoundedRectangle(cornerRadius: cornerRadius)
@@ -132,7 +132,7 @@ struct CreationRefinementChipView: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: chip.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(chip.label)
                     .font(.custom("OpenSans-SemiBold", size: 13))
             }
@@ -160,7 +160,7 @@ struct SegmentKindPill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: kind.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text(kind.displayName)
                 .font(.custom("OpenSans-SemiBold", size: 11))
         }
@@ -205,7 +205,7 @@ struct ToneBadge: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: tone.icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             Text(tone.displayName)
                 .font(.custom("OpenSans-SemiBold", size: 11))
         }
@@ -261,7 +261,7 @@ struct CreationStudioHeader: View {
         HStack(spacing: 12) {
             Button(action: onBack) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
@@ -321,7 +321,7 @@ struct CreationEmptyState: View {
                     .fill(Color.gray.opacity(0.08))
                     .frame(width: 80, height: 80)
                 Image(systemName: icon)
-                    .font(.system(size: 32))
+                    .font(.systemScaled(32))
                     .foregroundStyle(.secondary)
             }
 
@@ -358,7 +358,7 @@ struct CreationSafetyBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: status == .approved ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(status.color)
 
             Text(status == .approved ? "Content approved for posting" : status.label)

@@ -110,7 +110,7 @@ struct BereanComposer: View {
                     .frame(width: 40, height: 40)
 
                 Image(systemName: "plus")
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.systemScaled(19, weight: .semibold))
                     .foregroundStyle(DesignTokens.textPrimary)
                     .rotationEffect(
                         state.isTrayOpen
@@ -188,7 +188,7 @@ struct BereanComposer: View {
             onMic()
         } label: {
             Image(systemName: "mic.fill")
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(DesignTokens.textSecondary)
                 .frame(width: 38, height: 38)
         }
@@ -208,7 +208,7 @@ struct BereanComposer: View {
                     .frame(width: 38, height: 38)
 
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color.white)
             }
         }

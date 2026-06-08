@@ -10,6 +10,11 @@ import FirebaseAuth
 
 struct PhoneVerificationView: View {
     @Environment(\.dismiss) var dismiss
+    /// Injected when presented from the auth landing — used to call
+    /// `verifyPhoneOTP(code:)` so the result propagates to the app's
+    /// auth state.  When absent (e.g. from Settings), the view falls
+    /// back to its own `PhoneVerificationViewModel`.
+    @EnvironmentObject private var authViewModel: AuthenticationViewModel
     @StateObject private var viewModel = PhoneVerificationViewModel()
     @State private var phoneNumber = ""
     @State private var otpCode = ""
@@ -24,7 +29,7 @@ struct PhoneVerificationView: View {
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "phone.badge.checkmark.fill")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.blue)
                         
                         Text("Verify Phone Number")
@@ -73,7 +78,11 @@ struct PhoneVerificationView: View {
                         // Send code button
                         Button {
                             Task {
-                                await viewModel.sendVerificationCode(phoneNumber: "+1" + phoneNumber)
+                                // Use AuthenticationViewModel so the verification ID is
+                                // stored in the shared auth state, enabling verifyPhoneOTP.
+                                await authViewModel.sendPhoneVerificationCode(phoneNumber: "+1" + phoneNumber)
+                                viewModel.codeSent = authViewModel.phoneVerificationId != nil
+                                startResendCountdown()
                             }
                         } label: {
                             ZStack {
@@ -81,7 +90,7 @@ struct PhoneVerificationView: View {
                                     .fill(Color.blue)
                                     .frame(height: 50)
                                 
-                                if viewModel.isSending {
+                                if viewModel.isSending || authViewModel.isSendingPhoneCode {
                                     ProgressView()
                                         .tint(.white)
                                 } else {
@@ -91,7 +100,7 @@ struct PhoneVerificationView: View {
                                 }
                             }
                         }
-                        .disabled(phoneNumber.isEmpty || viewModel.isSending)
+                        .disabled(phoneNumber.isEmpty || viewModel.isSending || authViewModel.isSendingPhoneCode)
                         .opacity(phoneNumber.isEmpty ? 0.5 : 1.0)
                         .padding(.horizontal, 20)
                     }
@@ -126,7 +135,9 @@ struct PhoneVerificationView: View {
                             if viewModel.canResend {
                                 Button {
                                     Task {
-                                        await viewModel.sendVerificationCode(phoneNumber: "+1" + phoneNumber)
+                                        await authViewModel.sendPhoneVerificationCode(phoneNumber: "+1" + phoneNumber)
+                                        viewModel.codeSent = authViewModel.phoneVerificationId != nil
+                                        startResendCountdown()
                                     }
                                 } label: {
                                     Text("Resend Code")
@@ -144,9 +155,13 @@ struct PhoneVerificationView: View {
                         // Verify button
                         Button {
                             Task {
-                                let success = await viewModel.verifyCode(code: otpCode)
-                                if success {
+                                do {
+                                    try await authViewModel.verifyPhoneOTP(code: otpCode)
                                     dismiss()
+                                } catch {
+                                    // Fall back to local view model if auth VM has no verification ID
+                                    let success = await viewModel.verifyCode(code: otpCode)
+                                    if success { dismiss() }
                                 }
                             }
                         } label: {
@@ -154,8 +169,8 @@ struct PhoneVerificationView: View {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.blue)
                                     .frame(height: 50)
-                                
-                                if viewModel.isVerifying {
+
+                                if viewModel.isVerifying || authViewModel.isLoading {
                                     ProgressView()
                                         .tint(.white)
                                 } else {
@@ -165,17 +180,17 @@ struct PhoneVerificationView: View {
                                 }
                             }
                         }
-                        .disabled(otpCode.count != 6 || viewModel.isVerifying)
+                        .disabled(otpCode.count != 6 || viewModel.isVerifying || authViewModel.isLoading)
                         .opacity(otpCode.count == 6 ? 1.0 : 0.5)
                         .padding(.horizontal, 20)
                     }
                     
-                    // Error message
-                    if let error = viewModel.errorMessage {
+                    // Error message (prefer authViewModel error, fall back to local)
+                    if let error = authViewModel.errorMessage ?? viewModel.errorMessage {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.red)
-                            
+
                             Text(error)
                                 .font(AMENFont.regular(14))
                                 .foregroundStyle(.red)
@@ -196,6 +211,16 @@ struct PhoneVerificationView: View {
                 isPhoneFocused = true
             }
         }
+    }
+
+    // MARK: - Helpers
+
+    /// Starts the local resend-countdown timer in `PhoneVerificationViewModel`
+    /// after a code has been dispatched via `AuthenticationViewModel`.
+    private func startResendCountdown() {
+        viewModel.canResend = false
+        viewModel.resendCountdown = 60
+        viewModel.triggerResendTimer()
     }
 }
 
@@ -265,14 +290,19 @@ class PhoneVerificationViewModel: ObservableObject {
     private func startResendTimer() {
         canResend = false
         resendCountdown = 60
-        
+        triggerResendTimer()
+    }
+
+    /// Public entry point so `PhoneVerificationView` can start the countdown
+    /// after dispatching a code via `AuthenticationViewModel`.
+    func triggerResendTimer() {
         resendTimer?.invalidate()
         resendTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
             guard let self = self else {
                 timer.invalidate()
                 return
             }
-            
+
             Task { @MainActor in
                 self.resendCountdown -= 1
                 if self.resendCountdown <= 0 {

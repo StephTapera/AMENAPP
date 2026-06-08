@@ -61,11 +61,11 @@ struct PostLifecycleBadge: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: stage.icon)
-                    .font(.system(size: compact ? 9 : 11, weight: .semibold))
+                    .font(.systemScaled(compact ? 9 : 11, weight: .semibold))
                     .foregroundStyle(stage.color)
                 if !compact || showTooltip {
                     Text(showTooltip ? stage.tooltip : stage.rawValue)
-                        .font(.system(size: compact ? 9 : 11, weight: .medium))
+                        .font(.systemScaled(compact ? 9 : 11, weight: .medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))

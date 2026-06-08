@@ -92,9 +92,7 @@ struct ReelComposerView: View {
                         .foregroundColor(.white.opacity(0.6))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showComingSoon = true
-                    } label: {
+                    ShareLink(item: quote) {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.up")
                             Text("Share")
@@ -103,11 +101,6 @@ struct ReelComposerView: View {
                         .foregroundColor(.cnGold)
                     }
                 }
-            }
-            .alert("Coming Soon", isPresented: $showComingSoon) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Reel export and sharing will be available in a future update.")
             }
         }
         .presentationBackground(.ultraThinMaterial)
@@ -139,7 +132,7 @@ struct ReelComposerView: View {
 
             // Emoji accent
             Text(style.emoji)
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .padding(18)
                 .shadow(color: .black.opacity(0.25), radius: 8)
 
@@ -357,7 +350,7 @@ enum ReelFontMood: Int, CaseIterable {
         switch self {
         case .serif:  return .custom("Georgia-BoldItalic", size: size)
         case .script: return .custom("SnellRoundhand-Bold", size: size + 2)
-        case .clean:  return .system(size: size, weight: .semibold, design: .rounded)
+        case .clean:  return .systemScaled(size, weight: .semibold, design: .rounded)
         }
     }
 }

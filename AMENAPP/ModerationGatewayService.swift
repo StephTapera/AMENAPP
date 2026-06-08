@@ -116,7 +116,10 @@ final class ModerationGatewayService {
         }
 
         do {
-            let result = try await functions.httpsCallable("checkContentSafety").call(params)
+            // Hard 8-second timeout: if the CF hasn't responded, fail closed.
+            let callable = functions.httpsCallable("checkContentSafety")
+            callable.timeoutInterval = 8
+            let result = try await callable.call(params)
             guard let data = result.data as? [String: Any] else {
                 return failClosed(reason: "Unexpected response format")
             }

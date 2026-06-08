@@ -28,14 +28,14 @@ struct CrisisSafetyPlanModule: View {
     private var emptyPlanState: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("You don't have a Safety Plan yet.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
 
             Button {
                 viewModel.isSafetyPlanSetupOpen = true
             } label: {
                 Label("Create My Safety Plan", systemImage: "plus.circle.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
@@ -47,7 +47,7 @@ struct CrisisSafetyPlanModule: View {
             .buttonStyle(.plain)
 
             Text("Built with Berean guidance. Stored privately on your device.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.tertiary)
         }
         .sheet(isPresented: $viewModel.isSafetyPlanSetupOpen) {
@@ -65,9 +65,9 @@ struct CrisisSafetyPlanModule: View {
             } label: {
                 HStack {
                     Image(systemName: viewModel.isSafetyPlanActivated ? "checkmark.shield.fill" : "shield.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text(viewModel.isSafetyPlanActivated ? "Plan Active" : "Activate My Safety Plan")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Spacer()
                 }
                 .foregroundStyle(.white)
@@ -112,7 +112,7 @@ struct CrisisSafetyPlanModule: View {
                 viewModel.isSafetyPlanSetupOpen = true
             } label: {
                 Label("Edit Plan", systemImage: "pencil")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -138,14 +138,14 @@ private struct SafetyPlanRow: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                     Text(title)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
@@ -168,7 +168,7 @@ private struct SafetyPlanRow: View {
                             Text("·")
                                 .foregroundStyle(.secondary)
                             Text(items[i])
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -266,7 +266,7 @@ struct SafetyPlanSetupSheet: View {
     private func planFieldEditor(_ placeholder: String, text: Binding<String>) -> some View {
         TextField(placeholder, text: text, axis: .vertical)
             .lineLimit(2...5)
-            .font(.system(size: 15))
+            .font(.systemScaled(15))
     }
 
     private func split(_ text: String) -> [String] {
@@ -320,14 +320,14 @@ struct CrisisTrustedContactModule: View {
     private var emptyContactState: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Add one safe person you can reach right now.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
 
             Button {
                 showAddContact = true
             } label: {
                 Label("Add a Trusted Person", systemImage: "person.badge.plus")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(red: 0.70, green: 0.42, blue: 0.05))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(13)
@@ -356,7 +356,7 @@ struct CrisisTrustedContactModule: View {
                 showAddContact = true
             } label: {
                 Label("Add Another", systemImage: "plus.circle")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -375,16 +375,16 @@ private struct CrisisTrustedContactRow: View {
         HStack(spacing: 12) {
             // Initials avatar
             Text(contact.name.prefix(1).uppercased())
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(Color(red: 0.70, green: 0.42, blue: 0.05).opacity(0.80)))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(contact.name)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                 Text(contact.relationship + (contact.isPastor ? " · Pastor" : ""))
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
 
@@ -392,7 +392,7 @@ private struct CrisisTrustedContactRow: View {
 
             Button(action: onReach) {
                 Text("Reach")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(red: 0.70, green: 0.42, blue: 0.05))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
@@ -483,15 +483,15 @@ struct TrustedContactMessageSheet: View {
                     // Contact info
                     HStack(spacing: 12) {
                         Text(contact.name.prefix(1).uppercased())
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 48, height: 48)
                             .background(Circle().fill(Color(red: 0.70, green: 0.42, blue: 0.05).opacity(0.80)))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(contact.name)
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.systemScaled(17, weight: .semibold))
                             Text(contact.relationship)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -499,11 +499,11 @@ struct TrustedContactMessageSheet: View {
                     // Editable message
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Your message (you can edit before sending)")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
 
                         TextEditor(text: $viewModel.pendingContactMessage)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .frame(minHeight: 100)
                             .padding(12)
                             .background(
@@ -513,7 +513,7 @@ struct TrustedContactMessageSheet: View {
                     }
 
                     Text("Only you can send this message. Nothing is sent automatically. Your pastor or contact will only hear from you if you choose.")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .lineSpacing(3)
 
@@ -525,7 +525,7 @@ struct TrustedContactMessageSheet: View {
                         dismiss()
                     } label: {
                         Text("Send Message via SMS")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 15)

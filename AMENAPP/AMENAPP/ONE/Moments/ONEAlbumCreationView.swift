@@ -99,15 +99,15 @@ struct ONEAlbumCreationView: View {
                         .foregroundStyle(ONE.Colors.privateIndigo)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(contract.audience.displayLabel)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.primary)
                         Text("\(contract.lifetime.displayLabel) · \(contract.permissions.saveAllowed ? "Saving allowed" : "No saving")")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -128,13 +128,13 @@ struct ONEAlbumCreationView: View {
             VStack(alignment: .leading, spacing: ONE.Spacing.lg) {
                 VStack(alignment: .leading, spacing: ONE.Spacing.sm) {
                     Text("Who can see this album?")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                     audienceChipRow
                 }
 
                 VStack(alignment: .leading, spacing: ONE.Spacing.sm) {
                     Text("Can members save photos?")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                     Toggle("Allow saving", isOn: Binding(
                         get: { contract.permissions.saveAllowed },
                         set: { contract.permissions.saveAllowed = $0 }
@@ -171,7 +171,7 @@ struct ONEAlbumCreationView: View {
                     )
                 } label: {
                     Text(scope.displayLabel)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(isSelected ? ONE.Colors.privateIndigo : .secondary)
                         .padding(.horizontal, ONE.Spacing.md)
                         .padding(.vertical, ONE.Spacing.sm)

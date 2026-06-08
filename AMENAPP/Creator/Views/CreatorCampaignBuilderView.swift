@@ -22,6 +22,6 @@ struct CreatorCampaignBuilderView: View {
             }
             .padding(20)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }

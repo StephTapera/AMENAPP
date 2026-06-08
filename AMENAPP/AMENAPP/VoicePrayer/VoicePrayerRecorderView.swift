@@ -181,7 +181,7 @@ struct VoicePrayerRecorderView: View {
             // Timer + limit indicator
             VStack(spacing: 6) {
                 Text(timerString)
-                    .font(.system(size: 48, weight: .thin, design: .monospaced))
+                    .font(.systemScaled(48, weight: .thin, design: .monospaced))
                     .foregroundStyle(Color(uiColor: .label))
                     .accessibilityLabel("Elapsed time \(timerString)")
                     .monospacedDigit()
@@ -276,7 +276,7 @@ struct VoicePrayerRecorderView: View {
                 AMENAnalyticsService.shared.track(.voiceCommentPreviewPlayed(postId: postId))
             } label: {
                 Image(systemName: engine.isPlayingPreview ? "stop.circle.fill" : "play.circle.fill")
-                    .font(.system(size: 36, weight: .medium))
+                    .font(.systemScaled(36, weight: .medium))
                     .foregroundStyle(Color(uiColor: .label))
             }
             .accessibilityLabel(engine.isPlayingPreview ? "Stop preview" : "Play preview")
@@ -301,7 +301,7 @@ struct VoicePrayerRecorderView: View {
             }
 
             Text(timerString)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .font(.systemScaled(13, weight: .medium, design: .monospaced))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
                 .monospacedDigit()
         }
@@ -432,7 +432,7 @@ struct VoicePrayerRecorderView: View {
     private func statusMessageView(icon: String, message: String) -> some View {
         VStack(spacing: 20) {
             Image(systemName: icon)
-                .font(.system(size: 44, weight: .light))
+                .font(.systemScaled(44, weight: .light))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
             Text(message)
                 .font(.systemScaled(15))
@@ -446,7 +446,7 @@ struct VoicePrayerRecorderView: View {
     private func errorView(message: String) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.circle.fill")
-                .font(.system(size: 44, weight: .light))
+                .font(.systemScaled(44, weight: .light))
                 .foregroundStyle(.red)
             Text(message)
                 .font(.systemScaled(15))

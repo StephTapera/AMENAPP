@@ -76,19 +76,19 @@ private struct MinistryRoomPrayerCard: View {
             // Title row
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "hands.sparkles")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let owner = item.owner {
                         Text(owner)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.white.opacity(0.55))
                     }
                 }
@@ -97,7 +97,7 @@ private struct MinistryRoomPrayerCard: View {
 
                 // Status badge
                 Text(statusLabel)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(statusColor)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
@@ -115,11 +115,11 @@ private struct MinistryRoomPrayerCard: View {
             // Gold private praying count — no public vanity metric
             HStack(spacing: 5) {
                 Image(systemName: "flame")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
                 Text("3 praying")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
             }
             .accessibilityLabel("3 people are praying for this request")
@@ -136,9 +136,9 @@ private struct MinistryRoomPrayerCard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                         Text("Mark as answered")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                     }
                     .foregroundStyle(Color(hex: "6E4BB5"))
                     .padding(.horizontal, 14)
@@ -176,7 +176,7 @@ private struct AmenPrayerEmptyState: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "candle")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(Color(hex: "D9A441").opacity(0.7))
                 .accessibilityHidden(true)
             Text("No prayer requests yet.\nShare one in Chat.")

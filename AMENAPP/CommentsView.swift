@@ -409,7 +409,7 @@ struct CommentsView: View {
                                 Circle()
                                     .fill(.ultraThinMaterial)
                                     .opacity(0.8)
-                                
+
                                 // Subtle gradient overlay
                                 Circle()
                                     .fill(
@@ -422,7 +422,7 @@ struct CommentsView: View {
                                             endPoint: .bottomTrailing
                                         )
                                     )
-                                
+
                                 // Border with gradient
                                 Circle()
                                     .strokeBorder(
@@ -440,6 +440,7 @@ struct CommentsView: View {
                         )
                         .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
                 }
+                .accessibilityLabel("Close comments")
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -793,6 +794,7 @@ struct CommentsView: View {
                                 .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.black.opacity(0.6))
                         }
+                        .accessibilityLabel("Cancel reply")
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -981,6 +983,7 @@ struct CommentsView: View {
                                             .font(.systemScaled(11, weight: .medium))
                                             .foregroundStyle(.secondary)
                                     }
+                                    .accessibilityLabel("Dismiss Berean suggestion")
                                 }
                                 // Divider between header and suggestion text
                                 Rectangle()
@@ -1055,6 +1058,7 @@ struct CommentsView: View {
                                         .background(Color(uiColor: .systemBackground), in: Circle())
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel("Remove attached photo")
                                 Spacer()
                             }
                             .transition(.scale(scale: 0.85).combined(with: .opacity))
@@ -1106,6 +1110,7 @@ struct CommentsView: View {
                                     .foregroundStyle(.black.opacity(0.7))
                                     .frame(width: 24, height: 24)
                             }
+                            .accessibilityLabel("Add emoji")
                             
                             // Photo button — opens picker with AI moderation gate
                             PhotosPicker(selection: $selectedPhotoItem,
@@ -1130,6 +1135,7 @@ struct CommentsView: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(commentPhotoData != nil ? "Change attached photo" : "Attach a photo")
                             .onChange(of: selectedPhotoItem) { _, newItem in
                                 guard let newItem else { return }
                                 isModeratingPhoto = true
@@ -2325,6 +2331,7 @@ private struct PostCommentRow: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel("View \(comment.authorName)'s profile")
     }
 
     private var commentInitialsAvatar: some View {
@@ -2444,6 +2451,7 @@ private struct PostCommentRow: View {
                     }
                 }
             }
+            .accessibilityLabel(hasAmened ? "Remove Amen from comment" : "Amen this comment")
 
             // Reply with count badge
             if !isReply {
@@ -2460,6 +2468,7 @@ private struct PostCommentRow: View {
                     }
                     .foregroundStyle(.black.opacity(0.6))
                 }
+                .accessibilityLabel("Reply to comment")
 
                 // Thread expand/collapse button
                 if replyCount > 0, let onToggleThread = onToggleThread {
@@ -2487,6 +2496,13 @@ private struct PostCommentRow: View {
                 }
             }
 
+            // Check against Scripture — Requires DiscernmentActionButton.swift in target (see SelahScripture/)
+            DiscernmentActionButton(
+                inputText: comment.content,
+                sourceType: "comment",
+                sourceRef: comment.id
+            )
+
             Spacer()
 
             // Options (delete if own comment)
@@ -2498,6 +2514,7 @@ private struct PostCommentRow: View {
                         .font(.systemScaled(12))
                         .foregroundStyle(.black.opacity(0.6))
                 }
+                .accessibilityLabel("Comment options")
                 .confirmationDialog("Comment Options", isPresented: $showOptions) {
                     Button("Delete Comment", role: .destructive) {
                         onDelete()

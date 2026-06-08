@@ -269,9 +269,7 @@ struct StudyPlanDisplay: View {
                 .foregroundStyle(Color(white: 0.5))
             
             HStack(spacing: 12) {
-                Button {
-                    // Share logic
-                } label: {
+                ShareLink(item: "I'm studying \(plan.title) on Amen — \(Int(plan.progress * 100))% complete!") {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
                         Text("Share")

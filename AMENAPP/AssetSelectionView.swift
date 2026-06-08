@@ -21,7 +21,7 @@ struct AssetPickerButton: View {
         ) {
             HStack(spacing: 10) {
                 Image(systemName: "photo.on.rectangle.angled")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                 Text("Add Media")
                     .font(.custom("OpenSans-SemiBold", size: 15))
                 if isLoading {
@@ -167,7 +167,7 @@ struct AssetGridView: View {
                         RoundedRectangle(cornerRadius: 14)
                             .fill(Color.gray.opacity(0.07))
                         Image(systemName: icon)
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundStyle(.secondary)
                     }
                     .frame(height: 80)
@@ -204,12 +204,12 @@ struct AssetThumbnailCard: View {
                                 img.resizable().scaledToFill()
                             } placeholder: {
                                 Image(systemName: asset.type == .video ? "video.fill" : "photo.fill")
-                                    .font(.system(size: 22))
+                                    .font(.systemScaled(22))
                                     .foregroundStyle(.secondary)
                             }
                         } else {
                             Image(systemName: asset.type == .video ? "video.fill" : "photo.fill")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -235,7 +235,7 @@ struct AssetThumbnailCard: View {
             // Remove button
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.white)
                     .background(Circle().fill(Color.black.opacity(0.6)))
             }

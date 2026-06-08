@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { tokens, VoicePersona, VoiceMode, VoiceSpeed } from '../../contracts';
+import { tokens, VoicePersona, VoiceMode, VoiceSpeed } from '../contracts';
 import { VoiceSettings as VoiceSettingsData, voiceService } from './voiceService';
 
 // ─────────────────────────────────────────────────────────────────────────────

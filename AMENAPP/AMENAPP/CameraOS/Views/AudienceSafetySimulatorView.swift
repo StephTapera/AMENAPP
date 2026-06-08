@@ -5,7 +5,7 @@
 //
 // Design: Liquid Glass on dark/black camera context.
 //   Pre-iOS 26: .ultraThinMaterial + strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
-//   iOS 26+:    .glassEffect() on controls
+//   iOS 26+:    .amenGlassEffect() on controls
 
 import SwiftUI
 
@@ -79,12 +79,12 @@ struct AudienceSafetySimulatorView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Audience Preview")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(.white)
                 .accessibilityAddTraits(.isHeader)
 
             Text("Tap an audience to see what they'd see")
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(.white.opacity(0.65))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -124,7 +124,7 @@ struct AudienceSafetySimulatorView: View {
             onDismiss()
         } label: {
             Text("Confirm Audience")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
@@ -142,7 +142,7 @@ struct AudienceSafetySimulatorView: View {
     private var dismissButton: some View {
         Button(action: onDismiss) {
             Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(dismissButtonBackground)
@@ -153,7 +153,7 @@ struct AudienceSafetySimulatorView: View {
     @ViewBuilder
     private var dismissButtonBackground: some View {
         if #available(iOS 26, *) {
-            Circle().glassEffect()
+            Circle().amenGlassEffect()
         } else {
             ZStack {
                 Circle().fill(.ultraThinMaterial)
@@ -309,7 +309,7 @@ private struct AudienceRow: View {
                         .frame(width: 40, height: 40)
 
                     Image(systemName: audience.systemIcon)
-                        .font(.system(size: 18, weight: .regular))
+                        .font(.systemScaled(18, weight: .regular))
                         .foregroundStyle(isSelected ? accentColor : .white)
                 }
                 .accessibilityHidden(true)
@@ -318,7 +318,7 @@ private struct AudienceRow: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Text(audience.displayName)
-                            .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                            .font(.systemScaled(15, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(.white)
 
                         Spacer()
@@ -326,7 +326,7 @@ private struct AudienceRow: View {
                         // Current audience indicator
                         if isCurrentAudience {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.systemScaled(12, weight: .bold))
                                 .foregroundStyle(accentColor)
                                 .accessibilityLabel("Currently selected audience")
                         }
@@ -364,9 +364,7 @@ private struct AudienceRow: View {
         if isSelected {
             if #available(iOS 26, *) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .glassEffect(
-                        .regular.tint(Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.15)),
-                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                     )
             } else {
                 ZStack {
@@ -381,7 +379,7 @@ private struct AudienceRow: View {
         } else {
             if #available(iOS 26, *) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .glassEffect()
+                    .amenGlassEffect()
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -427,7 +425,7 @@ private struct FlexibleChipRow: View {
             }
             if overflow > 0 {
                 Text("+\(overflow)")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
             }
             Spacer(minLength: 0)
@@ -452,7 +450,7 @@ private struct WarningChip: View {
 
     var body: some View {
         Text(warning.text)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.systemScaled(10, weight: .semibold))
             .foregroundStyle(.black)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -470,12 +468,12 @@ private struct ProtectedBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(Color(red: 0.3, green: 0.85, blue: 0.5))
                 .accessibilityHidden(true)
 
             Text("Protected")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(Color(red: 0.3, green: 0.85, blue: 0.5))
         }
         .padding(.horizontal, 8)

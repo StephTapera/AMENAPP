@@ -499,9 +499,9 @@ struct AmenBereanCaptureActionBar: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: meta.systemImage)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(meta.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color.white)
             .padding(.horizontal, 14)
@@ -530,9 +530,9 @@ struct AmenBereanCaptureActionBar: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "pencil.and.scribble")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text("Edit")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color.white.opacity(0.75))
             .padding(.horizontal, 14)

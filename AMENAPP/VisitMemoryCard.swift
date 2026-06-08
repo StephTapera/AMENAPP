@@ -47,7 +47,7 @@ struct VisitMemoryCard: View {
                     .foregroundStyle(.primary)
                 Spacer()
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 

@@ -95,22 +95,18 @@ struct ONEGlassDock: View {
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: zone.icon)
-                    .font(.system(size: isSelected ? 22 : 20, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(isSelected ? 22 : 20, weight: isSelected ? .semibold : .regular))
                     .frame(width: 44, height: 32)
                     .animation(selectionAnimation, value: isSelected)
 
                 Text(zone.label)
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(10, weight: isSelected ? .semibold : .regular))
             }
             .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
         }
-        .glassEffect(
-            isSelected
-                ? .regular.tint(ONE.Colors.glassWarm).interactive()
-                : .regular.interactive(),
-            in: RoundedRectangle(cornerRadius: ONE.Radius.pill)
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: ONE.Radius.pill)
         )
         .glassEffectID(zone.id, in: dockNamespace)
         .accessibilityLabel(zone.label)
@@ -126,7 +122,7 @@ struct ONEPeopleZonePlaceholder: View {
     var body: some View {
         VStack(spacing: ONE.Spacing.md) {
             Image(systemName: "person.2.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(Color.accentColor.opacity(0.5))
             Text("People")
                 .font(.title2.weight(.semibold))
@@ -148,7 +144,7 @@ struct ONEMomentsZonePlaceholder: View {
     var body: some View {
         VStack(spacing: ONE.Spacing.md) {
             Image(systemName: "camera.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(Color.accentColor.opacity(0.5))
             Text("Moments")
                 .font(.title2.weight(.semibold))
@@ -170,7 +166,7 @@ struct ONEWorldZonePlaceholder: View {
     var body: some View {
         VStack(spacing: ONE.Spacing.md) {
             Image(systemName: "globe")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(Color.accentColor.opacity(0.5))
             Text("World")
                 .font(.title2.weight(.semibold))

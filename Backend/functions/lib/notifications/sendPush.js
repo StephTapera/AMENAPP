@@ -5,6 +5,13 @@
  * FCM push dispatch with APNs-compatible payload construction.
  * Handles multi-device delivery, invalid token cleanup,
  * privacy-aware content, and collapse key management.
+ *
+ * Rate limiting: checkAndIncrementBulkSendRateLimit is called before
+ * each FCM multicast dispatch, keyed by the actorId stored on the
+ * notification document. This caps FCM sends to
+ * BULK_SEND_LIMIT_PER_MINUTE (100) per actor per minute, preventing
+ * spam storms if a buggy client or bad actor triggers mass fan-out.
+ * See notifications/rateLimits.ts for the counter implementation.
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -44,6 +51,7 @@ exports.sendPushNotification = sendPushNotification;
 const admin = __importStar(require("firebase-admin"));
 const types_1 = require("./types");
 const helpers_1 = require("./helpers");
+const rateLimits_1 = require("./rateLimits");
 const db = admin.firestore();
 // ─── Send Push ──────────────────────────────────────────────────────
 /**
@@ -68,6 +76,18 @@ async function sendPushNotification(notificationDoc, notificationId, precomputed
             invalidTokensCleaned: 0,
         };
     }
+    // ── Bulk-send rate limit ─────────────────────────────────────────
+    // Key on actorId so that a single social actor (or a bug replaying
+    // events) cannot generate more than BULK_SEND_LIMIT_PER_MINUTE FCM
+    // dispatches per minute. Falls back to the recipient userId when
+    // actorId is null (e.g. system-generated notifications).
+    //
+    // When the limit is exceeded this throws HttpsError('resource-exhausted').
+    // processCandidate wraps its call in try/catch so the error is logged
+    // and the notification doc is left un-pushed (will be retried by
+    // retryFailedPush within 30 min, by which time the rate window resets).
+    const rateLimitActor = notificationDoc.actorId ?? notificationDoc.userId;
+    await (0, rateLimits_1.checkAndIncrementBulkSendRateLimit)(rateLimitActor);
     // Load user preferences for privacy level
     const prefs = await (0, helpers_1.getUserPreferences)(notificationDoc.userId);
     const type = notificationDoc.type;

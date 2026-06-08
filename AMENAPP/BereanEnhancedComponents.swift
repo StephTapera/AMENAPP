@@ -46,7 +46,7 @@ private struct SuggestionPill: View {
     var body: some View {
         Button(action: action) {
             Text(text)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundColor(AmenColor.titleText)
                 .lineLimit(1)
                 .padding(.horizontal, 14)
@@ -123,9 +123,9 @@ private struct ResponseActionChip: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
             }
             .foregroundColor(AmenColor.mutedText)
             .padding(.horizontal, 10)
@@ -153,12 +153,12 @@ struct BereanStreamingText: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
             Text(displayedText)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundColor(AmenColor.bereanBubbleText)
             
             if !isComplete {
                 Text("▌")
-                    .font(.system(size: 15, weight: .light))
+                    .font(.systemScaled(15, weight: .light))
                     .foregroundColor(AmenColor.accent)
                     .opacity(cursorVisible ? 1 : 0.2)
             }
@@ -234,7 +234,7 @@ private struct ToolbarButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundColor(AmenColor.titleText)
                 .frame(width: 32, height: 32)
         }
@@ -290,9 +290,9 @@ private struct BereanModeButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(mode.label)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
             }
             .foregroundColor(isSelected ? AmenColor.titleText : AmenColor.mutedText)
             .padding(.horizontal, 14)
@@ -331,14 +331,14 @@ struct BereanLiquidLoadingState: View {
                     .frame(width: 40, height: 40)
                 
                 Image(systemName: "sparkles")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(AmenColor.accent)
                     .rotationEffect(.degrees(phase * 360))
             }
             
             VStack(alignment: .leading, spacing: 3) {
                 Text("Berean is thinking...")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(AmenColor.titleText)
                 
                 HStack(spacing: 4) {
@@ -388,24 +388,24 @@ struct BereanScriptureReferenceCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(AmenColor.accent)
                 
                 Text(reference)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(AmenColor.accent)
                 
                 Spacer()
                 
                 Button(action: onOpen) {
                     Image(systemName: "arrow.up.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundColor(AmenColor.accent)
                 }
             }
             
             Text(verse)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(AmenColor.bodyText)
                 .lineSpacing(4)
                 .italic()
@@ -445,18 +445,18 @@ struct BereanDailyTrainingPromptCard: View {
                     .frame(width: 44, height: 44)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundColor(AmenColor.accent)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Today's Challenge")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundColor(AmenColor.mutedText)
                     .textCase(.uppercase)
                 
                 Text(prompt)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundColor(AmenColor.titleText)
                     .lineLimit(2)
             }
@@ -465,7 +465,7 @@ struct BereanDailyTrainingPromptCard: View {
             
             Button(action: onComplete) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundColor(AmenColor.accent)
             }
             .buttonStyle(GlassPressStyle())
@@ -518,12 +518,12 @@ struct BereanLongPressContextMenu: View {
                 Button(action: action.action) {
                     HStack(spacing: 12) {
                         Image(systemName: action.icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundColor(AmenColor.titleText)
                             .frame(width: 20)
                         
                         Text(action.label)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundColor(AmenColor.titleText)
                         
                         Spacer()

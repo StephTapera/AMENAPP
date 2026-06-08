@@ -49,24 +49,24 @@ struct ONEMomentFormatPickerView: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(format.provenanceColor.opacity(0.16))
                     Image(systemName: format.provenanceIcon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(format.provenanceColor)
                 }
                 .frame(width: 44, height: 44)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(format.displayName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(format.formatSubtitle)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Text(defaultContract(for: format).audience.displayLabel)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(format.provenanceColor)
                     .padding(.horizontal, ONE.Spacing.sm)
                     .padding(.vertical, 3)
@@ -74,7 +74,7 @@ struct ONEMomentFormatPickerView: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(format.provenanceColor)
                 }
             }
@@ -95,18 +95,18 @@ struct ONEMomentFormatPickerView: View {
     private var privacyPreview: some View {
         HStack(spacing: ONE.Spacing.sm) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(ONE.Colors.privateIndigo)
             Text(contract.audience.displayLabel)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("·").foregroundStyle(.tertiary)
             Text(contract.lifetime.displayLabel)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Use This") { dismiss() }
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, ONE.Spacing.md)
                 .padding(.vertical, ONE.Spacing.sm)

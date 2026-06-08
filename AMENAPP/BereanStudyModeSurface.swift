@@ -76,10 +76,10 @@ struct BereanStudyModeSurface: View {
     private var header: some View {
         HStack(spacing: 8) {
             Image(systemName: "graduationcap.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.7))
             Text(stateTitle)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.8))
             Spacer()
             if state == .reasoning {
@@ -90,7 +90,7 @@ struct BereanStudyModeSurface: View {
                     .transition(.opacity)
             }
             Text(stateSubtitle)
-                .font(.system(size: 12, weight: .regular))
+                .font(.systemScaled(12, weight: .regular))
                 .foregroundStyle(Color.black.opacity(0.5))
                 .animation(BereanAnimationCoordinator.fade, value: stateSubtitle)
         }
@@ -133,15 +133,15 @@ struct BereanStudyModeSurface: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: node.category.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(color(for: node.state))
                     .animation(BereanAnimationCoordinator.microFade, value: node.state)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(node.category.title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.85))
                     Text(label(for: node.state))
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.systemScaled(11, weight: .regular))
                         .foregroundStyle(Color.black.opacity(0.45))
                         .animation(BereanAnimationCoordinator.microFade, value: node.state)
                 }
@@ -198,9 +198,9 @@ struct BereanStudyModeSurface: View {
     private func categoryPill(_ node: BereanReasoningNode) -> some View {
         HStack(spacing: 6) {
             Image(systemName: node.category.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text(node.category.title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
         }
         .foregroundStyle(Color.black.opacity(0.7))
         .padding(.horizontal, 10)

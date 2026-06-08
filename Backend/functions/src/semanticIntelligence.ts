@@ -16,6 +16,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 
@@ -27,7 +28,7 @@ const db = admin.firestore();
 
 function requireAuth(context: functions.https.CallableContext): string {
     if (!context.auth) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "unauthenticated",
             "Must be signed in to use intelligence features."
         );
@@ -37,7 +38,7 @@ function requireAuth(context: functions.https.CallableContext): string {
 
 function requireAppCheckGuard(context: functions.https.CallableContext): void {
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -62,7 +63,7 @@ async function checkRateLimit(uid: string): Promise<void> {
     const snap = await ref.get();
     const count = snap.exists ? (snap.data()?.count ?? 0) : 0;
     if (count >= 30) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "resource-exhausted",
             "Definition rate limit reached. Try again in an hour."
         );
@@ -77,7 +78,9 @@ async function checkRateLimit(uid: string): Promise<void> {
 // 1. defineSemanticTerm
 // ---------------------------------------------------------------------------
 
-export const defineSemanticTerm = functions.https.onCall(async (data, context) => {
+export const defineSemanticTerm = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     requireAppCheckGuard(context);
     const uid = requireAuth(context);
     await checkRateLimit(uid);
@@ -93,7 +96,7 @@ export const defineSemanticTerm = functions.https.onCall(async (data, context) =
     const userLocale    = sanitizeString(data.userLocale, 10) || "en_US";
 
     if (!term) {
-        throw new functions.https.HttpsError("invalid-argument", "term is required.");
+        throw new HttpsError("invalid-argument", "term is required.");
     }
 
     const cacheKey = definitionCacheKey(term, depth);
@@ -216,7 +219,7 @@ export const defineSemanticTerm = functions.https.onCall(async (data, context) =
     } catch (err) {
         functions.logger.error("defineSemanticTerm AI error", { term, err });
         await logAnalyticsEvent("semantic_definition_failed", uid, { term, sourceType });
-        throw new functions.https.HttpsError("internal", "Could not generate definition.");
+        throw new HttpsError("internal", "Could not generate definition.");
     }
 
     const generatedAt = admin.firestore.Timestamp.now();
@@ -251,7 +254,9 @@ export const defineSemanticTerm = functions.https.onCall(async (data, context) =
 // 2. detectSmartActions
 // ---------------------------------------------------------------------------
 
-export const detectSmartActions = functions.https.onCall(async (data, context) => {
+export const detectSmartActions = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     requireAppCheckGuard(context);
     const uid = requireAuth(context);
 
@@ -362,7 +367,9 @@ export const detectSmartActions = functions.https.onCall(async (data, context) =
 // 3. createKnowledgeThread
 // ---------------------------------------------------------------------------
 
-export const createKnowledgeThread = functions.https.onCall(async (data, context) => {
+export const createKnowledgeThread = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     requireAppCheckGuard(context);
     const uid = requireAuth(context);
 
@@ -376,7 +383,7 @@ export const createKnowledgeThread = functions.https.onCall(async (data, context
     const userNote     = data.userNote ? sanitizeString(data.userNote, 500) : null;
 
     if (!term || !definitionId) {
-        throw new functions.https.HttpsError("invalid-argument", "term and definitionId are required.");
+        throw new HttpsError("invalid-argument", "term and definitionId are required.");
     }
 
     const now = admin.firestore.FieldValue.serverTimestamp();
@@ -410,7 +417,9 @@ export const createKnowledgeThread = functions.https.onCall(async (data, context
 // 4. saveSemanticInsight
 // ---------------------------------------------------------------------------
 
-export const saveSemanticInsight = functions.https.onCall(async (data, context) => {
+export const saveSemanticInsight = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     requireAppCheckGuard(context);
     const uid = requireAuth(context);
 
@@ -421,7 +430,7 @@ export const saveSemanticInsight = functions.https.onCall(async (data, context) 
     const userNote     = data.userNote ? sanitizeString(data.userNote, 500) : null;
 
     if (!definitionId || !term) {
-        throw new functions.https.HttpsError("invalid-argument", "definitionId and term are required.");
+        throw new HttpsError("invalid-argument", "definitionId and term are required.");
     }
 
     // Deduplicate: check if this definition is already saved
@@ -469,7 +478,9 @@ export const saveSemanticInsight = functions.https.onCall(async (data, context) 
 // 5. logPresenceSignal
 // ---------------------------------------------------------------------------
 
-export const logPresenceSignal = functions.https.onCall(async (data, context) => {
+export const logPresenceSignal = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     requireAppCheckGuard(context);
     const uid = requireAuth(context);
 

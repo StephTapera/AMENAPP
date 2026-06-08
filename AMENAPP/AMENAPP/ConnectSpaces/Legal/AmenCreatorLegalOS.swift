@@ -44,7 +44,7 @@ struct AmenCreatorLegalOS: View {
                     Button("Done") {
                         onDismiss()
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityLabel("Done reading \(documentType.displayTitle)")
                 }
@@ -57,11 +57,11 @@ struct AmenCreatorLegalOS: View {
     private var headerBar: some View {
         VStack(spacing: 2) {
             Text("Version \(documentType.version)")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.45))
                 .kerning(0.6)
             Text("Effective \(documentType.effectiveDate)")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color.white.opacity(0.35))
         }
         .padding(.vertical, 10)
@@ -118,7 +118,7 @@ struct AmenCreatorLegalOS: View {
             communityStandardsBody(fullText: fullText)
         } else {
             Text(fullText)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.82))
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
@@ -140,14 +140,14 @@ struct AmenCreatorLegalOS: View {
                             .frame(width: 3)
                             .accessibilityHidden(true)
                         Text(paragraph)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color(hex: "D9A441").opacity(0.90))
                             .lineSpacing(6)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } else {
                     Text(paragraph)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color.white.opacity(0.82))
                         .lineSpacing(6)
                         .fixedSize(horizontal: false, vertical: true)
@@ -167,7 +167,7 @@ struct AmenCreatorLegalOS: View {
                 agreementToggleRow
                 if let error = submissionError {
                     Text(error)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.red.opacity(0.85))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 4)
@@ -196,7 +196,7 @@ struct AmenCreatorLegalOS: View {
             .accessibilityHint(hasScrolledToBottom ? "" : "Scroll to the bottom to enable")
 
             Text("I have read and agree to the \(documentType.displayTitle)")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(hasScrolledToBottom ? Color.white.opacity(0.80) : Color.white.opacity(0.35))
                 .fixedSize(horizontal: false, vertical: true)
                 .animation(reduceMotion ? nil : .easeOut(duration: LiquidGlassTokens.motionFast), value: hasScrolledToBottom)
@@ -219,7 +219,7 @@ struct AmenCreatorLegalOS: View {
                         .tint(Color(hex: "070607"))
                 } else {
                     Text("Accept and Continue")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color(hex: "070607"))
                 }
             }
@@ -289,7 +289,7 @@ private struct AmenCheckToggleStyle: ToggleStyle {
 
                 if configuration.isOn {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .black))
+                        .font(.systemScaled(11, weight: .black))
                         .foregroundStyle(Color(hex: "070607"))
                 }
             }

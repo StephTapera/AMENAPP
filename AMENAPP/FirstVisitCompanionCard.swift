@@ -14,7 +14,7 @@ struct ChurchMetadataRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
 
@@ -76,7 +76,7 @@ struct FirstVisitCompanionCard: View {
                 // Header
                 HStack(spacing: 8) {
                     Image(systemName: "map.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.secondary)
                     Text("First Visit Guide")
                         .font(AMENFont.bold(15))

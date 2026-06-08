@@ -118,7 +118,7 @@ struct ContentApprovalSheet: View {
     private var originPill: some View {
         HStack(spacing: 10) {
             Image(systemName: card.sourceType.icon)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.purple)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -193,7 +193,7 @@ struct ContentApprovalSheet: View {
                         .fill(Color.purple.opacity(0.12))
                         .frame(width: 36, height: 36)
                     Image(systemName: suggestion.action.icon)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.purple)
                 }
 
@@ -264,7 +264,7 @@ struct ContentApprovalSheet: View {
                         .fill(iconColor(action, outcome: outcome).opacity(0.12))
                         .frame(width: 36, height: 36)
                     Image(systemName: action.icon)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(iconColor(action, outcome: outcome))
                 }
 

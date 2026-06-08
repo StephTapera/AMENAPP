@@ -150,7 +150,7 @@ struct ChurchLogoOverlay: View {
             }
         }
         .frame(width: 44, height: 44)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white, lineWidth: 1.5))
         .shadow(color: .black.opacity(0.15), radius: 4, y: 2)

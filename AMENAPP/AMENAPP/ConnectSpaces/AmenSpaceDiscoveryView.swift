@@ -160,7 +160,7 @@ private struct SpaceDiscoveryInterestChipPill: View {
     var body: some View {
         Button(action: onTap) {
             Text(chip.label)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color(hex: "D9A441") : Color.white.opacity(0.80))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -200,9 +200,9 @@ private struct TypeFilterChip: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(filter.label)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(12, weight: isSelected ? .semibold : .regular))
             }
             .foregroundStyle(
                 isSelected
@@ -278,7 +278,7 @@ private struct DiscoverySpaceCard: View {
                     .frame(width: 48, height: 48)
 
                 Image(systemName: typeIcon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(accentColor)
             }
 
@@ -288,13 +288,13 @@ private struct DiscoverySpaceCard: View {
                 // Name + verified
                 HStack(spacing: 6) {
                     Text(space.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
 
                     if space.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.systemScaled(12, weight: .bold))
                             .foregroundStyle(Color(hex: "D9A441"))
                             .accessibilityLabel("Verified")
                     }
@@ -302,7 +302,7 @@ private struct DiscoverySpaceCard: View {
 
                 // Tagline
                 Text(space.tagline)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(Color.white.opacity(0.60))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -311,9 +311,9 @@ private struct DiscoverySpaceCard: View {
                 HStack(spacing: 8) {
                     HStack(spacing: 3) {
                         Image(systemName: typeIcon)
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                         Text(typeLabel)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                     }
                     .foregroundStyle(accentColor.opacity(0.80))
                     .padding(.horizontal, 7)
@@ -323,9 +323,6 @@ private struct DiscoverySpaceCard: View {
                             .fill(accentColor.opacity(0.10))
                     }
 
-                    Text(memberCountCaption)
-                        .font(.system(size: 10, weight: .regular))
-                        .foregroundStyle(Color.white.opacity(0.30))
                 }
             }
 
@@ -334,10 +331,10 @@ private struct DiscoverySpaceCard: View {
             // Learn more chevron
             HStack(spacing: 3) {
                 Text("Learn More")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.45))
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.30))
             }
         }
@@ -373,17 +370,17 @@ private struct ComingSoonProximityCard: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: "location.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color(hex: "245B8F"))
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Communities Near You")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
 
                 Text("Coming Soon — location-based discovery is on the way.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(Color.white.opacity(0.50))
                     .lineLimit(2)
             }
@@ -534,7 +531,7 @@ struct AmenSpaceDiscoveryView: View {
     @ViewBuilder
     private func sectionLabel(_ text: String, accent: Color) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .kerning(1.1)
             .foregroundStyle(accent)
             .padding(.horizontal, 14)
@@ -556,16 +553,16 @@ struct AmenSpaceDiscoveryView: View {
     private func emptyStateView() -> some View {
         VStack(spacing: 14) {
             Image(systemName: "globe.americas")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(Color.white.opacity(0.35))
 
             Text("No communities matched your interests.")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.70))
                 .multilineTextAlignment(.center)
 
             Text("Try adjusting your filters.")
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(Color.white.opacity(0.45))
         }
         .frame(maxWidth: .infinity)
@@ -581,11 +578,11 @@ struct AmenSpaceDiscoveryView: View {
     private func idlePromptView() -> some View {
         VStack(spacing: 12) {
             Image(systemName: "magnifyingglass.circle")
-                .font(.system(size: 34, weight: .light))
+                .font(.systemScaled(34, weight: .light))
                 .foregroundStyle(Color.white.opacity(0.25))
 
             Text("Select an interest or community type above to find your people.")
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(Color.white.opacity(0.40))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -601,15 +598,15 @@ struct AmenSpaceDiscoveryView: View {
     private func errorStateView(message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 28, weight: .light))
+                .font(.systemScaled(28, weight: .light))
                 .foregroundStyle(Color.white.opacity(0.40))
 
             Text("Couldn't load communities right now.")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.65))
 
             Text(message)
-                .font(.system(size: 12, weight: .regular))
+                .font(.systemScaled(12, weight: .regular))
                 .foregroundStyle(Color.white.opacity(0.35))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)

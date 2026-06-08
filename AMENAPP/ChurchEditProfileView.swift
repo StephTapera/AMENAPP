@@ -116,19 +116,19 @@ struct ChurchEditProfileView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 20)
             }
-            .background(Color.white.ignoresSafeArea())
+            .background(Color(.systemBackground).ignoresSafeArea())
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
                         .font(AMENFont.regular(15))
-                        .foregroundColor(.black.opacity(0.7))
+                        .foregroundStyle(.primary.opacity(0.7))
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { handleSave() }
                         .font(AMENFont.semiBold(15))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.primary)
                 }
             }
         }
@@ -196,7 +196,7 @@ struct ChurchEditProfileView: View {
                 if serviceTimes.isEmpty {
                     Text("No service times added yet.")
                         .font(AMENFont.regular(14))
-                        .foregroundColor(.black.opacity(0.4))
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 10)
                 } else {
@@ -222,7 +222,7 @@ struct ChurchEditProfileView: View {
                 } label: {
                     Label("Add Service Time", systemImage: "plus.circle")
                         .font(AMENFont.semiBold(14))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.primary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 8)
@@ -235,7 +235,7 @@ struct ChurchEditProfileView: View {
                 verificationStatusBadge(churchVerificationStatus)
                 Text(verificationStatusDescription(churchVerificationStatus))
                     .font(AMENFont.regular(13))
-                    .foregroundColor(.black.opacity(0.55))
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
             }
@@ -285,7 +285,7 @@ struct ChurchEditProfileView: View {
                 if businessLinks.isEmpty {
                     Text("No links added yet.")
                         .font(AMENFont.regular(14))
-                        .foregroundColor(.black.opacity(0.4))
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 10)
                 } else {
@@ -293,10 +293,10 @@ struct ChurchEditProfileView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "link")
                                 .font(.systemScaled(13))
-                                .foregroundColor(.black.opacity(0.4))
+                                .foregroundStyle(.secondary)
                             Text(link)
                                 .font(AMENFont.regular(15))
-                                .foregroundColor(.black)
+                                .foregroundStyle(.primary)
                                 .lineLimit(1)
                             Spacer()
                             Button {
@@ -304,7 +304,7 @@ struct ChurchEditProfileView: View {
                             } label: {
                                 Image(systemName: "minus.circle.fill")
                                     .font(.systemScaled(18))
-                                    .foregroundColor(.black.opacity(0.3))
+                                    .foregroundStyle(.tertiary)
                             }
                         }
                         .padding(.vertical, 10)
@@ -329,7 +329,7 @@ struct ChurchEditProfileView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.systemScaled(20))
-                            .foregroundColor(.black)
+                            .foregroundStyle(.primary)
                     }
                 }
                 .padding(.vertical, 8)
@@ -342,13 +342,13 @@ struct ChurchEditProfileView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Enable Analytics")
                         .font(AMENFont.semiBold(15))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.primary)
                     Text("View insights about your audience and content performance.")
                         .font(AMENFont.regular(12))
-                        .foregroundColor(.black.opacity(0.5))
+                        .foregroundStyle(.secondary)
                 }
             }
-            .tint(.black)
+            .tint(.primary)
             .padding(.vertical, 4)
         }
     }
@@ -392,7 +392,7 @@ struct ChurchEditProfileView: View {
             if text.wrappedValue.isEmpty {
                 Text(placeholder)
                     .font(.systemScaled(15))
-                    .foregroundColor(.black.opacity(0.3))
+                    .foregroundStyle(.tertiary)
                     .padding(.top, 8)
             }
             TextEditor(text: text)
@@ -418,20 +418,20 @@ struct ChurchEditProfileView: View {
                     .frame(width: 52, height: 52)
                 Image(systemName: icon)
                     .font(.systemScaled(22))
-                    .foregroundColor(.black.opacity(0.35))
+                    .foregroundStyle(.tertiary)
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(label)
                     .font(AMENFont.semiBold(15))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
                 Text(subtitle)
                     .font(AMENFont.regular(12))
-                    .foregroundColor(.black.opacity(0.4))
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.systemScaled(13, weight: .semibold))
-                .foregroundColor(.black.opacity(0.25))
+                .foregroundStyle(.quaternary)
         }
         .padding(.vertical, 6)
     }
@@ -442,17 +442,17 @@ struct ChurchEditProfileView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(time.dayOfWeek)
                     .font(AMENFont.semiBold(14))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
                 HStack(spacing: 6) {
                     Text(time.startTime)
                         .font(AMENFont.regular(13))
-                        .foregroundColor(.black.opacity(0.6))
+                        .foregroundStyle(.secondary)
                     if let label = time.label, !label.isEmpty {
                         Text("·")
-                            .foregroundColor(.black.opacity(0.3))
+                            .foregroundStyle(.tertiary)
                         Text(label)
                             .font(AMENFont.regular(13))
-                            .foregroundColor(.black.opacity(0.6))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -462,7 +462,7 @@ struct ChurchEditProfileView: View {
             } label: {
                 Image(systemName: "minus.circle.fill")
                     .font(.systemScaled(18))
-                    .foregroundColor(.black.opacity(0.3))
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(.vertical, 8)
@@ -495,7 +495,7 @@ struct ChurchEditProfileView: View {
                     }
                 }
                 .font(AMENFont.regular(13))
-                .foregroundColor(.black.opacity(0.5))
+                .foregroundStyle(.secondary)
                 Spacer()
                 Button("Add") {
                     let trimDay  = newServiceDay.trimmingCharacters(in: .whitespaces)
@@ -515,7 +515,7 @@ struct ChurchEditProfileView: View {
                     }
                 }
                 .font(AMENFont.semiBold(13))
-                .foregroundColor(.black)
+                .foregroundStyle(.primary)
             }
         }
         .padding(.vertical, 8)
@@ -529,7 +529,7 @@ struct ChurchEditProfileView: View {
                 .foregroundColor(verificationColor(status))
             Text(verificationLabel(status))
                 .font(AMENFont.semiBold(12))
-                .foregroundColor(.black.opacity(0.75))
+                .foregroundStyle(.primary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)

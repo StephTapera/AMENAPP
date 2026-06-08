@@ -59,7 +59,7 @@ struct AmenMinistryRoomHeaderView: View {
             HStack(alignment: .center, spacing: 10) {
                 // Room name — matte, large title
                 Text(space.name)
-                    .font(.system(size: 20, weight: .bold, design: .default))
+                    .font(.systemScaled(20, weight: .bold, design: .default))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .accessibilityAddTraits(.isHeader)
@@ -73,10 +73,10 @@ struct AmenMinistryRoomHeaderView: View {
             // Member count — no public engagement metrics
             HStack(spacing: 4) {
                 Image(systemName: "person.2")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text("\(space.memberIds.count) member\(space.memberIds.count == 1 ? "" : "s")")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -99,10 +99,10 @@ struct AmenMinistryRoomHeaderView: View {
             } label: {
                 HStack(spacing: 3) {
                     Text(descriptionExpanded ? "Less" : "About this room")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(space.type.badgeColor)
                     Image(systemName: descriptionExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(space.type.badgeColor)
                 }
             }
@@ -116,9 +116,9 @@ struct AmenMinistryRoomHeaderView: View {
     private var roomTypeBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: space.type.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text(space.type.displayName)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
         }
         .foregroundStyle(space.type.badgeColor)
         .padding(.horizontal, 9)
@@ -139,21 +139,21 @@ struct AmenMinistryRoomHeaderView: View {
     private var descriptionArea: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Room Details")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.tertiary)
                 .textCase(.uppercase)
 
             Text("Created \(space.createdAt.formatted(date: .abbreviated, time: .omitted))")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
 
             if space.careSensitivity {
                 HStack(spacing: 5) {
                     Image(systemName: "heart.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.accentColor)
                     Text("Care-sensitive space")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)

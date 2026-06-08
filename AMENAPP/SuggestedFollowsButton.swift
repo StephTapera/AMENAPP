@@ -32,7 +32,7 @@ struct SuggestedFollowsButton: View {
                     )
 
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
             }
             .frame(width: 44, height: 44)

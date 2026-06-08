@@ -226,7 +226,7 @@ private struct AmenConnectSectionGrid: View {
             AmenConnectCard {
                 VStack(alignment: .leading, spacing: 12) {
                     Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 44, height: 44)
                         .background(Circle().fill(Color(.systemGray6)))

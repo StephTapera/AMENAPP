@@ -90,12 +90,20 @@ class StudioPaymentService: ObservableObject {
 
     /// Create a payment intent for a studio purchase (service, product, commission).
     /// Returns client secret for Stripe SDK payment sheet.
+    /// Pre-flight: verifies the creator's Stripe Connect account is `.active` before
+    /// creating the intent. Throws `.creatorAccountNotReady` if onboarding is incomplete.
     func createPaymentIntent(
         creatorId: String,
         amount: Int, // in cents
         currency: String = "usd",
         description: String
     ) async throws -> String {
+        // Pre-flight: confirm creator account is active before creating a charge.
+        await refreshAccountStatus()
+        guard accountStatus == .active else {
+            throw PaymentError.creatorAccountNotReady
+        }
+
         isLoading = true
         defer { isLoading = false }
 
@@ -140,13 +148,15 @@ class StudioPaymentService: ObservableObject {
         case invalidResponse
         case payoutFailed(String)
         case accountNotActive
+        case creatorAccountNotReady
 
         var errorDescription: String? {
             switch self {
-            case .notAuthenticated: return "Sign in required."
-            case .invalidResponse: return "Invalid payment response."
-            case .payoutFailed(let msg): return "Payout failed: \(msg)"
-            case .accountNotActive: return "Complete your payout setup first."
+            case .notAuthenticated:         return "Sign in required."
+            case .invalidResponse:          return "Invalid payment response."
+            case .payoutFailed(let msg):    return "Payout failed: \(msg)"
+            case .accountNotActive:         return "Complete your payout setup first."
+            case .creatorAccountNotReady:   return "This creator hasn't finished setting up payments. Please try again later."
             }
         }
     }

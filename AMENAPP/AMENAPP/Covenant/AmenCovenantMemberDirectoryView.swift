@@ -46,7 +46,7 @@ struct AmenCovenantMemberDirectoryView: View {
     private var hiddenState: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.2.slash")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.tertiary)
             Text("Member Directory Hidden")
                 .font(.headline)
@@ -125,7 +125,7 @@ struct AmenCovenantMemberDirectoryView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.2")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.tertiary)
             Text("No members found")
                 .font(.subheadline)
@@ -153,7 +153,7 @@ private struct MemberRow: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     Text(String(membership.userId.prefix(2)).uppercased())
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                         .foregroundStyle(.purple)
                 )
 
@@ -184,7 +184,7 @@ private struct MemberRow: View {
             }
         }()
         return Text(label)
-            .font(.system(size: 9, weight: .bold))
+            .font(.systemScaled(9, weight: .bold))
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

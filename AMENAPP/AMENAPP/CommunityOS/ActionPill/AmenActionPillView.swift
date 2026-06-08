@@ -230,7 +230,7 @@ struct AmenActionPillView: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 15, weight: .regular))
+                .font(.systemScaled(15, weight: .regular))
                 .foregroundStyle(pillForeground)
                 .frame(width: 44, height: 44)
         }
@@ -249,7 +249,7 @@ struct AmenActionPillView: View {
             }
         } label: {
             Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(pillForeground.opacity(0.6))
                 .frame(width: 40, height: 44)
         }
@@ -262,7 +262,7 @@ struct AmenActionPillView: View {
     @ViewBuilder
     private func iconImage(_ action: PillAction, weight: Font.Weight) -> some View {
         Image(systemName: actionSystemImage(action))
-            .font(.system(size: 17, weight: weight))
+            .font(.systemScaled(17, weight: weight))
             .foregroundStyle(pillForeground)
     }
 

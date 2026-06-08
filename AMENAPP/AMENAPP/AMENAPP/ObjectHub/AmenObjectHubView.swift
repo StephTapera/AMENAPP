@@ -175,7 +175,7 @@ struct AmenObjectHubView: View {
                 dismiss()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
                     .background {
@@ -201,7 +201,7 @@ struct AmenObjectHubView: View {
                     shareHub()
                 } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 36, height: 36)
                         .background {
@@ -224,7 +224,7 @@ struct AmenObjectHubView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 36, height: 36)
                         .background {
@@ -257,9 +257,9 @@ struct AmenObjectHubView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: hasJoined ? "checkmark" : "plus")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                 Text(hasJoined ? "Joined" : "Join")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
@@ -307,7 +307,7 @@ struct AmenObjectHubView: View {
     private func statItem(label: String, value: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.systemScaled(18, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
             Text(label)
                 .font(.caption)
@@ -559,7 +559,7 @@ struct AmenObjectHubErrorState: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text(error.errorDescription ?? "Something went wrong")
                 .font(.body)
@@ -579,7 +579,7 @@ struct AmenObjectHubEmptyState: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "circle.dotted")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             Text("No hub found for this content yet.")
                 .font(.body)

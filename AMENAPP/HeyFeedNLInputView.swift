@@ -122,7 +122,7 @@ struct HeyFeedNLInputView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                     }
                     .buttonStyle(.plain)
                 }
@@ -177,10 +177,10 @@ struct HeyFeedNLInputView: View {
                             ProgressView().scaleEffect(0.8)
                         } else if showSuccess {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                         } else {
                             Image(systemName: "arrow.up.circle.fill")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                         }
                         Text(showSuccess ? "Applied" : "Apply to feed")
                             .font(AMENFont.semiBold(14))
@@ -205,7 +205,7 @@ struct HeyFeedNLInputView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "wand.and.stars")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text("Interpreted as")
                     .font(AMENFont.semiBold(12))
@@ -229,7 +229,7 @@ struct HeyFeedNLInputView: View {
                             Image(systemName: intent.action == .increase ? "arrow.up" :
                                   intent.action == .decrease ? "arrow.down" :
                                   intent.action == .mute ? "eye.slash" : "arrow.2.circlepath")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                                 .foregroundStyle(intent.action == .increase ? .green :
                                                  intent.action == .decrease ? .orange :
                                                  intent.action == .mute ? .red : .secondary)
@@ -360,7 +360,7 @@ struct HeyFeedNLInputView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.counterclockwise")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("Reset feed tuning")
                     .font(AMENFont.regular(14))
             }
@@ -429,7 +429,7 @@ private struct HeyFeedNLCapsuleRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: iconForAction(preference.action))
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(colorForAction(preference.action))
                 .frame(width: 20)
 
@@ -446,7 +446,7 @@ private struct HeyFeedNLCapsuleRow: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(5)
             }

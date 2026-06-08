@@ -160,9 +160,9 @@ struct AmenEditorialCard: View {
     private var collectionBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: collectionType.icon)
-                .font(.system(size: 9, weight: .medium))
+                .font(.systemScaled(9, weight: .medium))
             Text(collectionType.rawValue)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
         }
         .foregroundStyle(collectionType.accentColor)
         .padding(.horizontal, 7)
@@ -173,7 +173,7 @@ struct AmenEditorialCard: View {
     private var saveButton: some View {
         Button(action: onSave) {
             Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(isSaved ? collectionType.accentColor : .secondary)
         }
         .accessibilityLabel(isSaved ? "Remove from library" : "Save to library")
@@ -253,9 +253,9 @@ struct AmenHeroEditorialBanner: View {
     private var collectionTypeBadge: some View {
         HStack(spacing: 5) {
             Image(systemName: collectionType.icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
             Text(collectionType.rawValue.uppercased())
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
                 .tracking(0.5)
         }
         .foregroundStyle(.white)

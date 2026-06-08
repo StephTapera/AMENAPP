@@ -272,7 +272,7 @@ private struct AmenTemplateLibraryCard: View {
                         .fill(template.tintColor.opacity(0.12))
                         .frame(width: 44, height: 44)
                     Image(systemName: template.icon)
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(template.tintColor)
                 }
 

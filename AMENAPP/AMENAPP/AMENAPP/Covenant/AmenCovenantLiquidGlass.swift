@@ -150,7 +150,7 @@ struct CovenantRoomRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: room.type.icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(isAccessible ? Color.primary : Color.secondary)
                 .frame(width: 28, height: 28)
                 .background(
@@ -166,7 +166,7 @@ struct CovenantRoomRow: View {
 
                     if room.isLocked && !isAccessible {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -214,7 +214,7 @@ struct CovenantDigestCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "newspaper.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.orange)
                     Text(summaryTitle)
                         .font(.subheadline.weight(.semibold))
@@ -255,7 +255,7 @@ struct CovenantDigestCard: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.orange)
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                             .foregroundStyle(.orange)
                     }
                 }
@@ -274,7 +274,7 @@ struct CovenantModerationBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: iconName)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(tintColor)
 
             VStack(alignment: .leading, spacing: 2) {

@@ -155,11 +155,13 @@ final class CreatePostDraftStore {
 
     private init() {
         let schema = Schema([LocalPostDraft.self])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
-            fatalError("CreatePostDraftStore: failed to initialize ModelContainer: \(error)")
+            // Persistent store unavailable — fall back to in-memory so the app stays alive.
+            let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            container = try! ModelContainer(for: schema, configurations: fallback)
         }
     }
 

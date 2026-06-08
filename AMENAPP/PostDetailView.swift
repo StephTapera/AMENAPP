@@ -58,6 +58,7 @@ struct PostDetailView: View {
     @State private var isInsightCardPressed = false
     @State private var isSubmittingComment = false  // debounce: prevent double-submit
     @State private var isPostExpanded = true         // Default expanded in detail view
+    @State private var musicCardMode: MusicCardMode = .expanded
     @State private var replyingToUsername: String? = nil  // Set when Reply is tapped
     @State private var rateLimitMessage: String? = nil   // Auto-dismissing rate limit notice
     @State private var rateLimitDismissTask: Task<Void, Never>? = nil
@@ -246,6 +247,13 @@ struct PostDetailView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 16)
+
+                    // ── Music attachment card ────────────────────────────────
+                    if let music = post.music {
+                        MusicCardContainer(track: music, displayMode: $musicCardMode)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                    }
 
                     Divider()
 
@@ -499,6 +507,10 @@ struct PostDetailView: View {
             if post.category == .testimonies {
                 witnessService.stopWitnessing()
                 strengthService.stopListening()
+            }
+            if let music = post.music,
+               AudioPlaybackManager.shared.currentTrackID == music.id {
+                AudioPlaybackManager.shared.pause()
             }
         }
         // commentsWithReplies is now a computed property derived from @Published

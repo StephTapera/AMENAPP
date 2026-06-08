@@ -62,7 +62,7 @@ struct GreetingSettingsView: View {
                 // Live preview
                 HStack(spacing: 12) {
                     Image(systemName: greetingIconForType(greetingService.currentGreeting.type))
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(.black.opacity(0.7))
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -170,7 +170,7 @@ struct GreetingSettingsView: View {
                             .foregroundStyle(.secondary)
                         
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     }
                 }

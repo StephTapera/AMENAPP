@@ -150,7 +150,7 @@ struct AmenCreatorVerificationView: View {
     private var successView: some View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.blue)
             Text("Request Submitted")
                 .font(.title3.weight(.semibold))
@@ -194,7 +194,7 @@ private struct VerificationTypeCard: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: typeIcon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(typeColor)
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(typeColor.opacity(0.1)))

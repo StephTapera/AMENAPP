@@ -148,7 +148,7 @@ struct ReportContentSheet: View {
         let isSelected = selectedReason == row.reason
         return HStack(alignment: .top, spacing: 12) {
             Image(systemName: row.icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                 .frame(width: 22)
                 .accessibilityHidden(true)
@@ -163,7 +163,7 @@ struct ReportContentSheet: View {
             }
             Spacer(minLength: 0)
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
                 .accessibilityHidden(true)
         }

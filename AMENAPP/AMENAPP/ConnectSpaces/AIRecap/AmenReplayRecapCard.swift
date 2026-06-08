@@ -52,7 +52,7 @@ private struct ScriptureChip: View {
             // Hard rule: noScriptureWithoutProvenance — never render ref below threshold
             if ref.confidence < 0.8 {
                 Text("Verifying…")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.45))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -63,7 +63,7 @@ private struct ScriptureChip: View {
                     .amenShimmer()
             } else {
                 Text(ref.reference)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -85,14 +85,14 @@ private struct RecapPendingReviewView: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "clock.badge.checkmark")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(Color(hex: "6E4BB5").opacity(0.8))
                 .accessibilityHidden(true)
             Text("This recap is being reviewed")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("AI-generated content passes through a review process before it appears here.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -156,24 +156,24 @@ struct AmenReplayRecapCard: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(recap.sourceTitle)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 HStack(spacing: 8) {
                     Text(Self.dateFormatter.string(from: recap.generatedAt))
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                     Text("·")
                         .foregroundStyle(.tertiary)
                     Text(durationLabel)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 8)
             // Chrome pill — glass per design rule
             Text("AI Recap")
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(.systemScaled(10, weight: .semibold, design: .monospaced))
                 .textCase(.uppercase)
                 .kerning(0.5)
                 .foregroundStyle(Color(hex: "6E4BB5"))
@@ -223,13 +223,13 @@ struct AmenReplayRecapCard: View {
             ForEach(Array(recap.keyPoints.enumerated()), id: \.offset) { index, point in
                 HStack(alignment: .top, spacing: 10) {
                     Text("\(index + 1)")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.systemScaled(11, weight: .bold, design: .monospaced))
                         .foregroundStyle(Color(hex: "6E4BB5"))
                         .frame(width: 18, alignment: .trailing)
                         .padding(.top, 1)
                         .accessibilityHidden(true)
                     Text(point)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -265,7 +265,7 @@ struct AmenReplayRecapCard: View {
                         .padding(.top, 1)
                         .accessibilityHidden(true)
                     Text(item)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -287,7 +287,7 @@ struct AmenReplayRecapCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
                     .accessibilityHidden(true)
                 Text(excerpt)
-                    .font(.system(size: 14, weight: .light).italic())
+                    .font(.systemScaled(14, weight: .light).italic())
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 12)
@@ -303,10 +303,10 @@ struct AmenReplayRecapCard: View {
             HStack {
                 Spacer()
                 Text("View Full Transcript")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(hex: "6E4BB5"))
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(hex: "6E4BB5"))
                 Spacer()
             }
@@ -328,7 +328,7 @@ struct AmenReplayRecapCard: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.systemScaled(11, weight: .semibold))
             .textCase(.uppercase)
             .kerning(0.6)
             .foregroundStyle(.tertiary)

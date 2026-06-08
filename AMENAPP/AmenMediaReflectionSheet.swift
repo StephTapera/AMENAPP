@@ -227,7 +227,7 @@ struct AmenMediaReflectionSheet: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: option.icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .accessibilityHidden(true)
                 Text(option.label)
                     .font(.subheadline.weight(.medium))

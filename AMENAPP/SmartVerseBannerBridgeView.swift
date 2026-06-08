@@ -40,7 +40,7 @@ private struct InlineVersePill: View {
         if let verse = verseService.todayVerse {
             HStack(spacing: 8) {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
 
                 Text(verse.reference)

@@ -43,7 +43,7 @@ struct BereanSourceRowView: View {
                 .fill(Color.secondary.opacity(0.12))
                 .frame(width: 36, height: 36)
             Image(systemName: source.sourceType.systemIcon)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.secondary)
         }
         .accessibilityHidden(true)
@@ -53,14 +53,14 @@ struct BereanSourceRowView: View {
         VStack(alignment: .leading, spacing: 3) {
             // Title
             Text(source.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
 
             // Author
             if let author = source.author {
                 Text(author)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -76,7 +76,7 @@ struct BereanSourceRowView: View {
             // Conflict warning
             if !source.conflictsWithSourceIds.isEmpty {
                 Label("conflicts with other sources", systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.red)
                     .padding(.top, 2)
             }

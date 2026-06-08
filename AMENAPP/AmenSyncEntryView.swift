@@ -42,7 +42,7 @@ struct AmenSyncEntryView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .frame(width: 32, height: 32)
                             .background(
                                 Circle()
@@ -58,7 +58,7 @@ struct AmenSyncEntryView: View {
                         showDrafts = true
                     } label: {
                         Image(systemName: "doc.text.fill")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -91,7 +91,7 @@ struct AmenSyncEntryView: View {
                         .fill(Color.teal.opacity(0.12))
                         .frame(width: 48, height: 48)
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.teal)
                 }
 
@@ -144,7 +144,7 @@ struct AmenSyncEntryView: View {
                             .fill(Color.black)
                             .frame(width: 44, height: 44)
                         Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.white)
                     }
 
@@ -162,7 +162,7 @@ struct AmenSyncEntryView: View {
                         ProgressView().scaleEffect(0.8)
                     } else {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -189,7 +189,7 @@ struct AmenSyncEntryView: View {
                             .fill(Color.gray.opacity(0.1))
                             .frame(width: 44, height: 44)
                         Image(systemName: "text.quote")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.secondary)
                     }
 
@@ -204,7 +204,7 @@ struct AmenSyncEntryView: View {
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
                 .padding(16)
@@ -303,7 +303,7 @@ struct IntentCard: View {
         Button(action: onTap) {
             HStack(spacing: 10) {
                 Image(systemName: intent.icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(isSelected ? intent.color : .secondary)
                     .frame(width: 24)
 
@@ -315,7 +315,7 @@ struct IntentCard: View {
 
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(intent.color)
                 }
             }
@@ -350,7 +350,7 @@ struct PlatformBadgeItem: View {
                     .fill(platform.iconColor.opacity(0.1))
                     .frame(width: 44, height: 44)
                 Image(systemName: platform.icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(platform.iconColor)
             }
 

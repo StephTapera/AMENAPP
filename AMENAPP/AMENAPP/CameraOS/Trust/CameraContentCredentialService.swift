@@ -142,9 +142,9 @@ struct CredentialBadgeView: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: credential.currentLabel.systemIcon)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
             Text(badgeText)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 8)

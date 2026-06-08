@@ -18,6 +18,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -31,10 +32,7 @@ const db = admin.firestore();
  * Processes users in pages of 200 to avoid memory exhaustion.
  * Skips users whose count is already accurate (no write if no drift).
  */
-export const badgeReconciliation = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const badgeReconciliation = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[badgeReconciliation] Starting daily badge reconciliation");
 
         let processed = 0;
@@ -105,10 +103,7 @@ export const badgeReconciliation = functions.pubsub
  * Recounts actual follow edges and corrects followersCount/followingCount
  * on user documents. Runs weekly as follow count drift is low-urgency.
  */
-export const followCountReconciliation = functions.pubsub
-    .schedule("every 168 hours") // weekly
-    .timeZone("UTC")
-    .onRun(async () => {
+export const followCountReconciliation = onSchedule({ schedule: "every 168 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[followCountReconciliation] Starting weekly follow count reconciliation");
 
         let processed = 0;
@@ -176,10 +171,7 @@ export const followCountReconciliation = functions.pubsub
  * Recounts actual comments for posts where commentCount may have drifted.
  * Only processes posts created/updated in the last 14 days to bound the query.
  */
-export const commentCountReconciliation = functions.pubsub
-    .schedule("every 168 hours") // weekly
-    .timeZone("UTC")
-    .onRun(async () => {
+export const commentCountReconciliation = onSchedule({ schedule: "every 168 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[commentCountReconciliation] Starting weekly comment count reconciliation");
 
         const fourteenDaysAgo = admin.firestore.Timestamp.fromMillis(
@@ -225,10 +217,7 @@ export const commentCountReconciliation = functions.pubsub
  * Deletes conversation documents that have zero participants remaining.
  * This happens after account deletion removes the last participant.
  */
-export const staleConversationCleanup = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const staleConversationCleanup = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[staleConversationCleanup] Starting");
 
         const snap = await db.collection("conversations")
@@ -256,10 +245,7 @@ export const staleConversationCleanup = functions.pubsub
  * Purges expired rateLimitCounters documents. The rate limit window is typically
  * 1 hour; documents older than 2 hours are safe to delete.
  */
-export const rateLimitWindowCleanup = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const rateLimitWindowCleanup = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[rateLimitWindowCleanup] Starting");
 
         const twoHoursAgo = admin.firestore.Timestamp.fromMillis(
@@ -294,10 +280,7 @@ export const rateLimitWindowCleanup = functions.pubsub
  * Removes FCM device tokens that were marked invalid more than 30 days ago.
  * Uses a collection group query across all users' `deviceTokens` subcollections.
  */
-export const staleTokenPruning = functions.pubsub
-    .schedule("every 168 hours") // weekly
-    .timeZone("UTC")
-    .onRun(async () => {
+export const staleTokenPruning = onSchedule({ schedule: "every 168 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[staleTokenPruning] Starting weekly token pruning");
 
         const thirtyDaysAgo = admin.firestore.Timestamp.fromMillis(
@@ -332,10 +315,7 @@ export const staleTokenPruning = functions.pubsub
 /**
  * Purges delivered or failed quiet-hours digest queue entries older than 3 days.
  */
-export const fcmQueueCleanup = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const fcmQueueCleanup = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[fcmQueueCleanup] Starting");
 
         const threeDaysAgo = admin.firestore.Timestamp.fromMillis(
@@ -370,10 +350,7 @@ export const fcmQueueCleanup = functions.pubsub
 /**
  * Deletes post drafts older than 90 days from the creationDrafts collection.
  */
-export const expiredDraftCleanup = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const expiredDraftCleanup = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[expiredDraftCleanup] Starting");
 
         const ninetyDaysAgo = admin.firestore.Timestamp.fromMillis(
@@ -408,10 +385,7 @@ export const expiredDraftCleanup = functions.pubsub
  * documents older than 1 hour are safe to delete.
  * Item-3 FIX: Prevents unbounded growth of the otpRequests collection.
  */
-export const otpRequestsCleanup = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const otpRequestsCleanup = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[otpRequestsCleanup] Starting");
 
         const oneHourAgo = admin.firestore.Timestamp.fromMillis(
@@ -444,10 +418,7 @@ export const otpRequestsCleanup = functions.pubsub
  * Deletes pending follow requests older than 30 days.
  * Uses a collection group query across all users' `followRequests` subcollections.
  */
-export const staleFollowRequestCleanup = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const staleFollowRequestCleanup = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[staleFollowRequestCleanup] Starting");
 
         const thirtyDaysAgo = admin.firestore.Timestamp.fromMillis(
@@ -483,10 +454,7 @@ export const staleFollowRequestCleanup = functions.pubsub
  * Section-13 FIX: Re-enables username changes for users whose 30-day cooldown has expired.
  * Pairs with the trackUsernameChange Firestore trigger in usernameChangeTracking.ts.
  */
-export const usernameChangeCooldownRelease = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const usernameChangeCooldownRelease = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[usernameChangeCooldownRelease] Starting");
 
         const now = admin.firestore.Timestamp.now();
@@ -539,10 +507,7 @@ export const usernameChangeCooldownRelease = functions.pubsub
  * and fires one Firestore read per unique uploadGroupId (cached per run).
  * For large buckets this should still complete within the 9-minute CF timeout.
  */
-export const orphanedMediaCleanup = functions.pubsub
-    .schedule("every 24 hours")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const orphanedMediaCleanup = onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
         functions.logger.info("[orphanedMediaCleanup] Starting");
 
         const cutoff = Date.now() - 48 * 60 * 60 * 1000; // 48 hours ago

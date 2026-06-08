@@ -113,9 +113,9 @@ struct SelahAISettingsCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Use AI features in Selah")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Berean Context, Reflection Rewriting, Scripture Companion.")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -128,13 +128,13 @@ struct SelahAISettingsCard: View {
             }
             if let explanation = gate.state.humanExplanation {
                 Text(explanation)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 6) {
                 SelahAIGeneratedBadge(compact: true)
                 Text("Every AI response is labeled and grounded.")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
             }
         }

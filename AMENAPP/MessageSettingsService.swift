@@ -189,6 +189,11 @@ class MessageSettingsService: ObservableObject {
     // MARK: - Permission Checks
     
     func canUserSendMessageRequest(from senderId: String, to recipientId: String) async throws -> Bool {
+        // COPPA: minors may not initiate direct messages
+        if try await checkIfMinor(userId: senderId) {
+            throw FirebaseMessagingError.minorCannotInitiateDM
+        }
+
         // Get recipient's settings
         let recipientSettings = try await getSettings(for: recipientId)
         

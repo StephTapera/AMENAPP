@@ -349,7 +349,7 @@ struct ChurchNotesSessionView: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .accessibilityHidden(true)
                 Text(label)
                     .font(.caption2)

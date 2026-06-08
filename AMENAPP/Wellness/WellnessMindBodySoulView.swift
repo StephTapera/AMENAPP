@@ -125,7 +125,7 @@ struct WellnessHeroBanner: View {
                 HStack {
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.90))
                             .frame(width: 44, height: 44)
                             .background(.ultraThinMaterial)

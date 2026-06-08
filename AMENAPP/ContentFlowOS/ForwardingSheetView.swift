@@ -126,7 +126,7 @@ private struct ForwardActionRow: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(action.isDestructiveAdjacent ? Color.orange : Color.accentColor)
                     .frame(width: 28)
                 Text(action.displayName)

@@ -66,7 +66,7 @@ struct ContactDiscoveryView: View {
     private var permissionPrompt: some View {
         VStack(spacing: 24) {
             Image(systemName: "person.2.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.tint)
             VStack(spacing: 8) {
                 Text("Find Friends on AMEN")

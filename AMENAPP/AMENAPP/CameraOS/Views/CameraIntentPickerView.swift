@@ -5,7 +5,7 @@
 //
 // Design: Liquid Glass on dark/black camera context.
 //   Pre-iOS 26: .ultraThinMaterial + strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
-//   iOS 26+:    .glassEffect() on controls, neutral close button uses white.opacity(0.18) fill
+//   iOS 26+:    .amenGlassEffect() on controls, neutral close button uses white.opacity(0.18) fill
 
 import SwiftUI
 
@@ -169,7 +169,7 @@ struct CameraIntentPickerView: View {
 
     @ViewBuilder
     private var dismissButtonBackground: some View {
-        // Neutral white circle — avoids .glassEffect() picking up
+        // Neutral white circle — avoids .amenGlassEffect() picking up
         // an environment blue tint that clashes with the dark overlay.
         Circle()
             .fill(Color.white.opacity(0.18))
@@ -277,11 +277,7 @@ private struct CameraIntentTile: View {
     private var tileBackground: some View {
         if #available(iOS 26, *) {
             Color.clear
-                .glassEffect(
-                    isSelected
-                        ? .regular.tint(Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.18))
-                        : .regular,
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                 )
         } else {
             ZStack {

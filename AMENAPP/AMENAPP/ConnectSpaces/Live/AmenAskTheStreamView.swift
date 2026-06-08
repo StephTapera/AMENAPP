@@ -86,12 +86,12 @@ struct AmenAskTheStreamView: View {
     private var searchBarSection: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(Color.white.opacity(0.45))
                 .accessibilityHidden(true)
 
             TextField("Ask anything about this stream…", text: $query)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.white)
                 .tint(Color(hex: "D9A441"))
                 .submitLabel(.search)
@@ -104,7 +104,7 @@ struct AmenAskTheStreamView: View {
                     submitQuery()
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 26))
+                        .font(.systemScaled(26))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 .buttonStyle(.plain)
@@ -138,15 +138,15 @@ struct AmenAskTheStreamView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "magnifyingglass.circle")
-                .font(.system(size: 56, weight: .ultraLight))
+                .font(.systemScaled(56, weight: .ultraLight))
                 .foregroundStyle(Color.white.opacity(0.2))
                 .accessibilityHidden(true)
             Text("Ask anything about this stream")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Text("Your question will be answered from the stream's transcript.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.35))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -164,7 +164,7 @@ struct AmenAskTheStreamView: View {
                 .tint(Color(hex: "D9A441"))
                 .scaleEffect(1.2)
             Text("Searching the transcript…")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -177,11 +177,11 @@ struct AmenAskTheStreamView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(Color.red.opacity(0.65))
                 .accessibilityHidden(true)
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.red.opacity(0.75))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -189,7 +189,7 @@ struct AmenAskTheStreamView: View {
                 submitQuery()
             } label: {
                 Text("Try Again")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -215,11 +215,11 @@ struct AmenAskTheStreamView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .accessibilityHidden(true)
                     Text("Answer")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .kerning(0.5)
@@ -229,17 +229,17 @@ struct AmenAskTheStreamView: View {
                 .accessibilityLabel("Answer")
 
                 Text(result.answer)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.white.opacity(0.9))
                     .fixedSize(horizontal: false, vertical: true)
 
                 if result.confidence < 0.6 {
                     HStack(spacing: 5) {
                         Image(systemName: "info.circle")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .accessibilityHidden(true)
                         Text("Low confidence — this answer may be incomplete.")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                     }
                     .foregroundStyle(Color.yellow.opacity(0.65))
                     .accessibilityLabel("Low confidence answer — may be incomplete")
@@ -260,11 +260,11 @@ struct AmenAskTheStreamView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 6) {
                         Image(systemName: "text.quote")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color.white.opacity(0.4))
                             .accessibilityHidden(true)
                         Text("From the transcript")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .textCase(.uppercase)
                             .kerning(0.5)
@@ -274,17 +274,17 @@ struct AmenAskTheStreamView: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\u{201C}\(quote)\u{201D}")
-                            .font(.system(size: 13).italic())
+                            .font(.systemScaled(13).italic())
                             .foregroundStyle(.white.opacity(0.75))
                             .fixedSize(horizontal: false, vertical: true)
 
                         if let ts = result.sourceTimestamp, !ts.isEmpty {
                             HStack(spacing: 4) {
                                 Image(systemName: "clock")
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                     .accessibilityHidden(true)
                                 Text(ts)
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                             }
                             .foregroundStyle(Color(hex: "D9A441").opacity(0.75))
                             .accessibilityLabel("Timestamp: \(ts)")
@@ -308,7 +308,7 @@ struct AmenAskTheStreamView: View {
             if !result.scriptureRefs.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Scripture References")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .kerning(0.5)
@@ -318,7 +318,7 @@ struct AmenAskTheStreamView: View {
                         HStack(spacing: 8) {
                             ForEach(result.scriptureRefs, id: \.self) { ref in
                                 Text(ref)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .foregroundStyle(Color(hex: "D9A441"))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
@@ -351,7 +351,7 @@ struct AmenAskTheStreamView: View {
         if !suggestedQuestions.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Suggested Questions")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(0.5)
@@ -370,7 +370,7 @@ struct AmenAskTheStreamView: View {
                                 submitQuery()
                             } label: {
                                 Text(suggestion)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.white.opacity(0.8))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)

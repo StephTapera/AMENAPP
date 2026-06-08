@@ -57,19 +57,19 @@ struct GivingJournalView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(entry.destinationName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                 Spacer()
                 if let date = entry.createdAt {
                     Text(date, style: .date)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                 }
             }
 
             if !entry.note.isEmpty {
                 Text(entry.note)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .lineSpacing(2)
                     .lineLimit(4)
@@ -77,7 +77,7 @@ struct GivingJournalView: View {
 
             if let scripture = entry.scriptureRef, !scripture.isEmpty {
                 Label(scripture, systemImage: "book.closed.fill")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color.accentColor)
             }
 
@@ -85,7 +85,7 @@ struct GivingJournalView: View {
                 HStack(spacing: 6) {
                     ForEach(entry.privateTags.prefix(3), id: \.self) { tag in
                         Text(tag)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -102,13 +102,13 @@ struct GivingJournalView: View {
     private var emptyView: some View {
         VStack(spacing: 14) {
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
             Text("Your giving journal")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
             Text("A private record of why you gave. Dates, notes, scripture — visible only to you.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
@@ -117,7 +117,7 @@ struct GivingJournalView: View {
                 showComposer = true
             } label: {
                 Text("Add first entry")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textInverse)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 11)
@@ -135,29 +135,29 @@ struct GivingJournalView: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(spacing: 8) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     Text("Private. Not visible to anyone.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Organization / cause")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     TextField("Who did you give to?", text: .constant(""))
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .padding(12)
                         .background(AmenTheme.Colors.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Why did you give?")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     TextEditor(text: $newNote)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .frame(minHeight: 100)
                         .padding(10)
                         .background(AmenTheme.Colors.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -165,10 +165,10 @@ struct GivingJournalView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Scripture (optional)")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     TextField("e.g. Matthew 6:3", text: $newScripture)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .padding(12)
                         .background(AmenTheme.Colors.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
@@ -195,7 +195,7 @@ struct GivingJournalView: View {
                     newScripture = ""
                 } label: {
                     Text("Save to journal")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textInverse)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)

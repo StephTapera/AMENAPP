@@ -33,19 +33,19 @@ private struct AmenFileRow: View {
                     .fill(Color(hex: "245B8F").opacity(0.15))
                     .frame(width: 40, height: 40)
                 Image(systemName: file.icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(Color(hex: "245B8F"))
             }
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.name)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color.white)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(file.size)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.45))
             }
 
@@ -119,12 +119,12 @@ struct AmenMinistryRoomFilesTab: View {
     private var glassHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: "folder.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .accessibilityHidden(true)
 
             Text("Files")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color.white)
 
             Spacer()
@@ -145,7 +145,7 @@ struct AmenMinistryRoomFilesTab: View {
                 }
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.systemScaled(15, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.45))
                     .frame(width: 32, height: 32)
                     .background(
@@ -177,7 +177,7 @@ struct AmenMinistryRoomFilesTab: View {
 
     private var uploadToast: some View {
         Text("Upload coming soon")
-            .font(.system(size: 14, weight: .semibold))
+            .font(.systemScaled(14, weight: .semibold))
             .foregroundStyle(Color.white)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)

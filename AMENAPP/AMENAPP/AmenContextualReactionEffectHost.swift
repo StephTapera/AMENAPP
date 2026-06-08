@@ -41,7 +41,7 @@ private struct AmenContextualReactionChip: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(.black.opacity(0.84))
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
@@ -94,7 +94,7 @@ private struct PrayerGlowEffect: View {
 
             if reduceMotion {
                 Text("Prayer")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.55))
             } else {
                 HStack(spacing: 8) {

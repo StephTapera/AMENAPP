@@ -95,7 +95,7 @@ struct AmenCovenantPostRouteDetailView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "bubble.left.and.text.bubble.right.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.purple)
                 Text("Discuss or Share")
                     .font(.subheadline.weight(.medium))

@@ -19,6 +19,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -28,14 +29,14 @@ const storage = admin.storage();
 
 function requireAuth(context: functions.https.CallableContext): string {
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
+        throw new HttpsError("unauthenticated", "Must be signed in.");
     }
     return context.auth.uid;
 }
 
 function requireAppCheck(context: functions.https.CallableContext): void {
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -44,7 +45,7 @@ function requireAppCheck(context: functions.https.CallableContext): void {
 
 function requireString(value: unknown, fieldName: string): string {
     if (typeof value !== "string" || value.trim() === "") {
-        throw new functions.https.HttpsError("invalid-argument", `${fieldName} must be a non-empty string.`);
+        throw new HttpsError("invalid-argument", `${fieldName} must be a non-empty string.`);
     }
     return value.trim();
 }
@@ -52,7 +53,7 @@ function requireString(value: unknown, fieldName: string): string {
 function requireStringEnum<T extends string>(value: unknown, allowed: T[], fieldName: string): T {
     const s = requireString(value, fieldName) as T;
     if (!allowed.includes(s)) {
-        throw new functions.https.HttpsError("invalid-argument", `${fieldName} must be one of: ${allowed.join(", ")}`);
+        throw new HttpsError("invalid-argument", `${fieldName} must be one of: ${allowed.join(", ")}`);
     }
     return s;
 }
@@ -83,10 +84,10 @@ async function enforceRateLimit(uid: string, type: "prayer" | "testimony" | "rep
 
         const lim = LIMITS[type];
         if (recent.length >= lim.daily) {
-            throw new functions.https.HttpsError("resource-exhausted", `Daily limit for ${type} voice comments reached.`);
+            throw new HttpsError("resource-exhausted", `Daily limit for ${type} voice comments reached.`);
         }
         if (inLastHour.length >= lim.hourly) {
-            throw new functions.https.HttpsError("resource-exhausted", `Hourly limit for ${type} voice comments reached.`);
+            throw new HttpsError("resource-exhausted", `Hourly limit for ${type} voice comments reached.`);
         }
 
         recent.push(now);
@@ -102,7 +103,7 @@ async function assertVoiceCommentsEnabled(type: "prayer" | "testimony"): Promise
     const flags = flagDoc.data()!;
     const key = type === "prayer" ? "voicePrayerCommentsEnabled" : "voiceTestimonyCommentsEnabled";
     if (flags[key] === false) {
-        throw new functions.https.HttpsError("failed-precondition", "Voice comments are not enabled at this time.");
+        throw new HttpsError("failed-precondition", "Voice comments are not enabled at this time.");
     }
 }
 
@@ -321,7 +322,9 @@ async function transcribeStoragePath(storagePath: string): Promise<{ text: strin
 
 // ─── createVoicePrayerUploadSession ──────────────────────────────────────────
 
-export const createVoicePrayerUploadSession = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const createVoicePrayerUploadSession = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -332,7 +335,7 @@ export const createVoicePrayerUploadSession = functions.runWith({ enforceAppChec
     // Max duration: prayer = 90 000 ms, testimony = 180 000 ms
     const maxMs = type === "prayer" ? 90_000 : 180_000;
     if (durationMs > maxMs) {
-        throw new functions.https.HttpsError("invalid-argument", `Duration exceeds maximum for ${type} (${maxMs / 1000}s).`);
+        throw new HttpsError("invalid-argument", `Duration exceeds maximum for ${type} (${maxMs / 1000}s).`);
     }
 
     await assertVoiceCommentsEnabled(type);
@@ -385,7 +388,9 @@ export const createVoicePrayerUploadSession = functions.runWith({ enforceAppChec
 
 // ─── finalizeVoicePrayerComment ───────────────────────────────────────────────
 
-export const finalizeVoicePrayerComment = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const finalizeVoicePrayerComment = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -403,16 +408,16 @@ export const finalizeVoicePrayerComment = functions.runWith({ enforceAppCheck: t
     // Max file size check
     const maxMs = type === "prayer" ? 90_000 : 180_000;
     if (durationMs > maxMs) {
-        throw new functions.https.HttpsError("invalid-argument", "Duration exceeds maximum.");
+        throw new HttpsError("invalid-argument", "Duration exceeds maximum.");
     }
 
     // Verify ownership
     const docRef = db.collection("posts").doc(postId).collection("voiceComments").doc(voiceCommentId);
     const snap   = await docRef.get();
-    if (!snap.exists) throw new functions.https.HttpsError("not-found", "Voice comment not found.");
+    if (!snap.exists) throw new HttpsError("not-found", "Voice comment not found.");
     const existing = snap.data()!;
-    if (existing.authorUid !== uid) throw new functions.https.HttpsError("permission-denied", "Not authorized.");
-    if (existing.status !== "processing") throw new functions.https.HttpsError("failed-precondition", "Comment already finalized.");
+    if (existing.authorUid !== uid) throw new HttpsError("permission-denied", "Not authorized.");
+    if (existing.status !== "processing") throw new HttpsError("failed-precondition", "Comment already finalized.");
 
     const now = admin.firestore.FieldValue.serverTimestamp();
 
@@ -489,7 +494,9 @@ export const finalizeVoicePrayerComment = functions.runWith({ enforceAppCheck: t
 
 // ─── deleteVoicePrayerComment ─────────────────────────────────────────────────
 
-export const deleteVoicePrayerComment = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const deleteVoicePrayerComment = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -498,7 +505,7 @@ export const deleteVoicePrayerComment = functions.runWith({ enforceAppCheck: tru
 
     const docRef = db.collection("posts").doc(postId).collection("voiceComments").doc(voiceCommentId);
     const snap   = await docRef.get();
-    if (!snap.exists) throw new functions.https.HttpsError("not-found", "Voice comment not found.");
+    if (!snap.exists) throw new HttpsError("not-found", "Voice comment not found.");
 
     const doc = snap.data()!;
 
@@ -508,7 +515,7 @@ export const deleteVoicePrayerComment = functions.runWith({ enforceAppCheck: tru
     const isAdmin  = adminDoc.exists;
 
     if (!isAuthor && !isAdmin) {
-        throw new functions.https.HttpsError("permission-denied", "Only the author or an admin can delete this.");
+        throw new HttpsError("permission-denied", "Only the author or an admin can delete this.");
     }
 
     // Delete Storage file
@@ -539,7 +546,9 @@ export const deleteVoicePrayerComment = functions.runWith({ enforceAppCheck: tru
 
 const REPORT_THRESHOLD_HIDE = 5;
 
-export const reportVoicePrayerComment = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const reportVoicePrayerComment = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -584,7 +593,9 @@ export const reportVoicePrayerComment = functions.runWith({ enforceAppCheck: tru
 const ALLOWED_REACTIONS = ["prayed", "amen", "encourage"] as const;
 type Reaction = typeof ALLOWED_REACTIONS[number];
 
-export const reactToVoicePrayerComment = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const reactToVoicePrayerComment = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -599,7 +610,7 @@ export const reactToVoicePrayerComment = functions.runWith({ enforceAppCheck: tr
     // Verify comment is published
     const snap = await docRef.get();
     if (!snap.exists || snap.data()?.status !== "published") {
-        throw new functions.https.HttpsError("not-found", "Voice comment not available.");
+        throw new HttpsError("not-found", "Voice comment not available.");
     }
 
     const existingReact = await reactDocRef.get();
@@ -629,7 +640,9 @@ export const reactToVoicePrayerComment = functions.runWith({ enforceAppCheck: tr
 // Returns a short-lived signed URL (15 minutes) so clients never access Storage
 // paths directly (no public read).
 
-export const getVoicePrayerPlaybackURL = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const getVoicePrayerPlaybackURL = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -638,7 +651,7 @@ export const getVoicePrayerPlaybackURL = functions.runWith({ enforceAppCheck: tr
     // Validate path structure: must be voice_comments/{uid}/{postId}/{filename}
     const pathRegex = /^voice_comments\/[^/]+\/[^/]+\/[^/]+\.m4a$/;
     if (!pathRegex.test(storagePath)) {
-        throw new functions.https.HttpsError("invalid-argument", "Invalid storage path.");
+        throw new HttpsError("invalid-argument", "Invalid storage path.");
     }
 
     // Verify the comment is published and caller has access
@@ -648,16 +661,16 @@ export const getVoicePrayerPlaybackURL = functions.runWith({ enforceAppCheck: tr
     const commentId = fileName.replace(".m4a", "");
 
     const snap = await db.collection("posts").doc(postId).collection("voiceComments").doc(commentId).get();
-    if (!snap.exists) throw new functions.https.HttpsError("not-found", "Comment not found.");
+    if (!snap.exists) throw new HttpsError("not-found", "Comment not found.");
 
     const doc = snap.data()!;
     if (doc.status !== "published") {
-        throw new functions.https.HttpsError("permission-denied", "Comment not available.");
+        throw new HttpsError("permission-denied", "Comment not available.");
     }
 
     // Visibility check: private → author only
     if (doc.visibility === "private" && doc.authorUid !== uid) {
-        throw new functions.https.HttpsError("permission-denied", "Access denied.");
+        throw new HttpsError("permission-denied", "Access denied.");
     }
 
     const [url] = await storage.bucket().file(storagePath).getSignedUrl({

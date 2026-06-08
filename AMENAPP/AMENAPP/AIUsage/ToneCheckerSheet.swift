@@ -184,7 +184,7 @@ struct ToneCheckerSheet: View {
             ForEach(concerns, id: \.self) { concern in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "circle.fill")
-                        .font(.system(size: 5))
+                        .font(.systemScaled(5))
                         .foregroundStyle(Color.secondary)
                         .padding(.top, 6)
                     Text(concern)

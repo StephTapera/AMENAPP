@@ -1,4 +1,5 @@
 import * as functions from "firebase-functions";
+import { onDocumentCreated, onDocumentDeleted } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -16,26 +17,22 @@ async function incrementPostCounter(postId: string, field: string, delta: 1 | -1
     });
 }
 
-export const onPostCommentCreatedUpdateCount = functions.firestore
-    .document("posts/{postId}/comments/{commentId}")
-    .onCreate(async (_snap, context) => {
+export const onPostCommentCreatedUpdateCount = onDocumentCreated("posts/{postId}/comments/{commentId}", async (event) => {
+    const context = { params: event.params };
         await incrementPostCounter(context.params.postId, "commentCount", 1);
     });
 
-export const onPostCommentDeletedUpdateCount = functions.firestore
-    .document("posts/{postId}/comments/{commentId}")
-    .onDelete(async (_snap, context) => {
+export const onPostCommentDeletedUpdateCount = onDocumentDeleted("posts/{postId}/comments/{commentId}", async (event) => {
+    const context = { params: event.params };
         await incrementPostCounter(context.params.postId, "commentCount", -1);
     });
 
-export const onPostRepostCreatedUpdateCount = functions.firestore
-    .document("posts/{postId}/reposts/{repostId}")
-    .onCreate(async (_snap, context) => {
+export const onPostRepostCreatedUpdateCount = onDocumentCreated("posts/{postId}/reposts/{repostId}", async (event) => {
+    const context = { params: event.params };
         await incrementPostCounter(context.params.postId, "repostCount", 1);
     });
 
-export const onPostRepostDeletedUpdateCount = functions.firestore
-    .document("posts/{postId}/reposts/{repostId}")
-    .onDelete(async (_snap, context) => {
+export const onPostRepostDeletedUpdateCount = onDocumentDeleted("posts/{postId}/reposts/{repostId}", async (event) => {
+    const context = { params: event.params };
         await incrementPostCounter(context.params.postId, "repostCount", -1);
     });

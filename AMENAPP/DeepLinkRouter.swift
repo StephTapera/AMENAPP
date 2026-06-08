@@ -3,25 +3,18 @@ import Foundation
 import Combine
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NAV-02 KNOWN ISSUE — DUAL-SCHEME ROUTER DIVERGENCE
+// NAV-02 RESOLVED — Both schemes now handle an identical set of routes.
 //
-// The app currently has TWO independent deep-link parsers running in parallel:
-//   • DeepLinkRouter          — handles the "amen://"    custom URL scheme
-//   • NotificationDeepLinkRouter — handles the "amenapp://" custom URL scheme
+// DeepLinkRouter.parse()    — accepts amen://   (DeepLinkRoute enum)
+// NotificationDeepLinkRouter.handleURL() — accepts amen:// AND amenapp://
+//                                          (NavigationDestination enum)
 //
-// This creates a maintenance risk: any new route added to one file MUST be
-// mirrored in the other, or the two schemes will silently fall out of sync.
+// Both parsers cover: post, user/profile, church, conversation/messages,
+// category, search, settings, comment, chat, group/join, notifications,
+// messages, prayer, church-note, intelligence.
 //
-// ROUTES PRESENT HERE BUT MISSING FROM NotificationDeepLinkRouter (amenapp://):
-//   • amen://church/{id}          — no amenapp://church counterpart
-//   • amen://category/{name}      — no amenapp://category counterpart
-//   • amen://search?q={query}     — no amenapp://search counterpart
-//   • amen://settings[/{section}] — no amenapp://settings counterpart
-//   • amen://comment?...          — no amenapp://comment counterpart
-//   • amen://chat?...             — no amenapp://chat counterpart
-//
-// Phase 1: Merge both parsers into a single UnifiedDeepLinkRouter that
-// accepts both schemes and delegates to one shared destination model.
+// Future work: merge into a single UnifiedDeepLinkRouter that shares one
+// destination model (Phase 2).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Central routing system for deep links and in-app navigation
@@ -52,6 +45,18 @@ class DeepLinkRouter: ObservableObject {
         case comment(postId: String, commentId: String?, prefill: String?)
         /// Deep link from Reply Assist island: open DM thread with pre-filled reply text.
         case chat(threadId: String, prefill: String?)
+        /// Group join link (token-authenticated invite).
+        case groupJoin(token: String)
+        /// Navigate directly to the Notifications tab.
+        case notifications
+        /// Navigate directly to the Messages tab.
+        case messages
+        /// Open a specific prayer request.
+        case prayer(prayerId: String)
+        /// Open a specific church note.
+        case churchNote(noteId: String)
+        /// Open the intelligence/Berean brief card.
+        case intelligence(cardId: String?)
     }
     
     enum DeepLinkDestination: Hashable {
@@ -128,6 +133,34 @@ class DeepLinkRouter: ObservableObject {
             guard !threadId.isEmpty else { return nil }
             return .chat(threadId: threadId, prefill: prefill)
 
+        case "group":
+            // amen://group/join?token=...
+            guard pathComponents.first == "join",
+                  let token = queryItems?.first(where: { $0.name == "token" })?.value,
+                  !token.isEmpty else { return nil }
+            return .groupJoin(token: token)
+
+        case "notifications":
+            return .notifications
+
+        case "messages":
+            return .messages
+
+        case "prayer":
+            guard let prayerId = pathComponents.first else { return nil }
+            return .prayer(prayerId: prayerId)
+
+        case "church-note":
+            guard let noteId = pathComponents.first else { return nil }
+            return .churchNote(noteId: noteId)
+
+        case "intelligence":
+            // amen://intelligence or amen://intelligence/card/{cardId}
+            let cardId = pathComponents.count >= 2 && pathComponents[0] == "card"
+                ? pathComponents[1]
+                : pathComponents.first
+            return .intelligence(cardId: cardId)
+
         default:
             return nil
         }
@@ -177,6 +210,16 @@ class DeepLinkRouter: ObservableObject {
         case .chat:
             // Open the DM thread directly
             selectedTab = 3
+        case .groupJoin:
+            selectedTab = 3  // Messages tab (group join flow lives there)
+        case .notifications:
+            selectedTab = 2  // Notifications tab
+        case .messages:
+            selectedTab = 3  // Messages tab
+        case .prayer, .churchNote:
+            selectedTab = 3  // Resources tab (index 3)
+        case .intelligence:
+            selectedTab = 7  // Intelligence Brief tab
         }
         // End the reply activity since user opened the destination
         LiveActivityManager.shared.endReplyActivity(reason: .userOpened)
@@ -249,6 +292,31 @@ class DeepLinkRouter: ObservableObject {
             var items = [URLQueryItem(name: "threadId", value: threadId)]
             if let prefill { items.append(URLQueryItem(name: "prefill", value: prefill)) }
             components.queryItems = items
+
+        case .groupJoin(let token):
+            components.host = "group"
+            components.path = "/join"
+            components.queryItems = [URLQueryItem(name: "token", value: token)]
+
+        case .notifications:
+            components.host = "notifications"
+
+        case .messages:
+            components.host = "messages"
+
+        case .prayer(let prayerId):
+            components.host = "prayer"
+            components.path = "/\(prayerId)"
+
+        case .churchNote(let noteId):
+            components.host = "church-note"
+            components.path = "/\(noteId)"
+
+        case .intelligence(let cardId):
+            components.host = "intelligence"
+            if let cardId {
+                components.path = "/card/\(cardId)"
+            }
         }
 
         return components.url
@@ -311,14 +379,18 @@ extension DeepLinkRouter.DeepLinkRoute {
             return .profileBrowse
         case .church:
             return .findChurch        // church deep links are allowed
-        case .conversation, .chat:
+        case .conversation, .chat, .messages, .groupJoin:
             return .messages
-        case .notification:
+        case .notification, .notifications:
             return .notifications
         case .search:
             return .search
         case .settings:
             return .settings          // always allowed
+        case .prayer, .churchNote:
+            return .feed              // prayer/church notes live in the resources feed
+        case .intelligence:
+            return .feed
         }
     }
 
@@ -335,6 +407,12 @@ extension DeepLinkRouter.DeepLinkRoute {
         case .settings(let s):           return "settings/\(s ?? "root")"
         case .comment(let pid, _, _):    return "comment/\(pid)"
         case .chat(let tid, _):          return "chat/\(tid)"
+        case .groupJoin(let t):          return "group/join/\(t.prefix(8))..."
+        case .notifications:             return "notifications"
+        case .messages:                  return "messages"
+        case .prayer(let id):            return "prayer/\(id)"
+        case .churchNote(let id):        return "church-note/\(id)"
+        case .intelligence(let id):      return "intelligence/\(id ?? "root")"
         }
     }
 }

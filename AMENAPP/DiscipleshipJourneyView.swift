@@ -48,7 +48,7 @@ struct DiscipleshipJourneyView: View {
     private var featureUnavailableView: some View {
         VStack(spacing: 16) {
             Image(systemName: "map")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
 
             Text("Journey Coming Soon")
@@ -156,7 +156,7 @@ struct DiscipleshipJourneyView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "book.and.wrench")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.secondary)
 
             Text("Your Journey Begins Here")
@@ -182,7 +182,7 @@ private struct FollowUpPromptRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "arrow.counterclockwise.circle.fill")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(Color(red: 0.18, green: 0.44, blue: 0.80))
 
             VStack(alignment: .leading, spacing: 4) {
@@ -201,7 +201,7 @@ private struct FollowUpPromptRow: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.tertiary)
             }
         }
@@ -225,7 +225,7 @@ private struct DiscipleshipEventRow: View {
                 .frame(width: 36, height: 36)
                 .overlay(
                     Image(systemName: event.eventType.icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color(red: 0.22, green: 0.62, blue: 0.28))
                 )
 

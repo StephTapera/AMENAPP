@@ -268,12 +268,12 @@ struct AmenCreatorEarningsDashboard: View {
             // Total Earned
             VStack(alignment: .leading, spacing: 4) {
                 Text("Total Earned")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.50))
                     .textCase(.uppercase)
                     .kerning(0.6)
                 Text(centsToString(vm.summary?.totalLifetimeCents ?? 0))
-                    .font(.system(size: 40, weight: .black))
+                    .font(.systemScaled(40, weight: .black))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityLabel("Total earned: \(centsToString(vm.summary?.totalLifetimeCents ?? 0))")
             }
@@ -302,15 +302,15 @@ struct AmenCreatorEarningsDashboard: View {
             // Pending Payout
             HStack(spacing: 10) {
                 Image(systemName: "banknote")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Pending Payout")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.50))
                     Text(centsToString(vm.summary?.pendingPayoutCents ?? 0))
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .foregroundStyle(Color.white)
                 }
                 .accessibilityElement(children: .combine)
@@ -321,11 +321,11 @@ struct AmenCreatorEarningsDashboard: View {
             if let nextDate = vm.summary?.nextPayoutDate {
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.35))
                         .accessibilityHidden(true)
                     Text("Next payout: \(nextDate.formatted(.dateTime.month(.wide).day().year()))")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.50))
                         .accessibilityLabel("Next payout date: \(nextDate.formatted(.dateTime.month(.wide).day().year()))")
                 }
@@ -338,12 +338,12 @@ struct AmenCreatorEarningsDashboard: View {
     private func statCell(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.45))
                 .textCase(.uppercase)
                 .kerning(0.5)
             Text(value)
-                .font(.system(size: 18, weight: .bold))
+                .font(.systemScaled(18, weight: .bold))
                 .foregroundStyle(Color.white)
         }
         .accessibilityElement(children: .combine)
@@ -383,11 +383,11 @@ struct AmenCreatorEarningsDashboard: View {
                 // Total
                 HStack {
                     Text("Total this month")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                         .foregroundStyle(Color(hex: "D9A441"))
                     Spacer()
                     Text(centsToString(vm.summary?.thisMonthCents ?? 0))
-                        .font(.system(size: 14, weight: .black))
+                        .font(.systemScaled(14, weight: .black))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 .padding(.horizontal, 16)
@@ -403,17 +403,17 @@ struct AmenCreatorEarningsDashboard: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white)
                 if let detail {
                     Text(detail)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.white.opacity(0.40))
                 }
             }
             Spacer()
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.80))
         }
         .padding(.horizontal, 16)
@@ -431,7 +431,7 @@ struct AmenCreatorEarningsDashboard: View {
             VStack(alignment: .leading, spacing: 12) {
                 if vm.splits.isEmpty {
                     Text("No co-host splits configured.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.45))
                         .padding(.horizontal, 4)
                 } else {
@@ -443,7 +443,7 @@ struct AmenCreatorEarningsDashboard: View {
 
                 if vm.splitsExceed100 {
                     Label("Splits exceed 100%. Please adjust percentages.", systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.orange.opacity(0.90))
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityLabel("Warning: splits exceed 100 percent. Please adjust percentages.")
@@ -453,9 +453,9 @@ struct AmenCreatorEarningsDashboard: View {
                 Button(action: vm.addSplit) {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                         Text("Add Co-host Split")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                     }
                     .foregroundStyle(Color(hex: "D9A441"))
                     .frame(maxWidth: .infinity)
@@ -482,7 +482,7 @@ struct AmenCreatorEarningsDashboard: View {
                                     .tint(Color(hex: "070607"))
                             } else {
                                 Text(vm.splitsSaved ? "Splits Saved" : "Save Splits")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.systemScaled(14, weight: .bold))
                                     .foregroundStyle(Color(hex: "070607"))
                             }
                         }
@@ -504,7 +504,7 @@ struct AmenCreatorEarningsDashboard: View {
 
                 if let splitsErr = vm.splitsError {
                     Text(splitsErr)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.red.opacity(0.85))
                         .accessibilityLabel("Error: \(splitsErr)")
                 }
@@ -524,10 +524,10 @@ struct AmenCreatorEarningsDashboard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Estimated 1099 Earnings (YTD)")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.white.opacity(0.70))
                         Text(centsToString(vm.ytdEarningsCents))
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.systemScaled(22, weight: .bold))
                             .foregroundStyle(Color.white)
                     }
                     .accessibilityElement(children: .combine)
@@ -546,10 +546,10 @@ struct AmenCreatorEarningsDashboard: View {
                         } else {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.down.doc.fill")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                                     .accessibilityHidden(true)
                                 Text("Download Earnings Report (CSV)")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                             }
                             .foregroundStyle(Color(hex: "070607"))
                         }
@@ -566,7 +566,7 @@ struct AmenCreatorEarningsDashboard: View {
                 .accessibilityLabel("Download earnings report as CSV")
 
                 Text("AMEN provides earnings data for your records. Consult a tax professional for filing guidance.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.white.opacity(0.35))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -589,19 +589,19 @@ struct AmenCreatorEarningsDashboard: View {
                         )
                         .frame(width: 38, height: 38)
                     Image(systemName: "building.columns.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color(hex: "245B8F"))
                 }
                 .accessibilityHidden(true)
 
                 Text("Manage Payout Account")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color.white)
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.35))
                     .accessibilityHidden(true)
             }
@@ -636,11 +636,11 @@ struct AmenCreatorEarningsDashboard: View {
     private func errorState(message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(Color.white.opacity(0.35))
                 .accessibilityHidden(true)
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.55))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -648,7 +648,7 @@ struct AmenCreatorEarningsDashboard: View {
                 Task { await vm.load(spaceId: spaceId, hostUserId: hostUserId) }
             }) {
                 Text("Try Again")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(hex: "070607"))
                     .padding(.horizontal, 24)
                     .padding(.vertical, 11)
@@ -682,7 +682,7 @@ struct AmenCreatorEarningsDashboard: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 13, weight: .bold))
+            .font(.systemScaled(13, weight: .bold))
             .foregroundStyle(Color.white.opacity(0.55))
             .textCase(.uppercase)
             .kerning(0.7)
@@ -707,11 +707,11 @@ private struct SplitRow: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(split.displayName.isEmpty ? "Co-host" : split.displayName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.white)
                 if !split.userId.isEmpty {
                     Text(split.userId)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.white.opacity(0.40))
                         .lineLimit(1)
                 }
@@ -719,7 +719,7 @@ private struct SplitRow: View {
             Spacer()
             HStack(spacing: 4) {
                 TextField("0", value: $split.percentage, format: .number)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.white)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
@@ -732,7 +732,7 @@ private struct SplitRow: View {
                     )
                     .accessibilityLabel("Split percentage for \(split.displayName)")
                 Text("%")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.45))
             }
         }

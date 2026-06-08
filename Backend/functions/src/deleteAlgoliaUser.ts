@@ -13,6 +13,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -88,13 +89,15 @@ async function algoliaDeleteByFilter(
 
 // ── Cloud Function ────────────────────────────────────────────────────────────
 
-export const deleteAlgoliaUser = functions.https.onCall(async (data, context) => {
+export const deleteAlgoliaUser = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
+        throw new HttpsError("unauthenticated", "Must be signed in.");
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -104,13 +107,13 @@ export const deleteAlgoliaUser = functions.https.onCall(async (data, context) =>
     const requestedUid = typeof data?.userId === "string" ? data.userId.trim() : "";
 
     if (!requestedUid) {
-        throw new functions.https.HttpsError("invalid-argument", "userId is required.");
+        throw new HttpsError("invalid-argument", "userId is required.");
     }
 
     // Only the account owner or an admin may delete Algolia records.
     const isAdmin = context.auth.token.admin === true;
     if (callerUid !== requestedUid && !isAdmin) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "permission-denied",
             "You can only delete your own Algolia records."
         );
@@ -122,7 +125,7 @@ export const deleteAlgoliaUser = functions.https.onCall(async (data, context) =>
     if (userSnap.exists && callerUid !== requestedUid) {
         // Only admins can delete another user's records while their doc still exists
         if (!isAdmin) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "permission-denied",
                 "User document still exists and caller is not admin."
             );

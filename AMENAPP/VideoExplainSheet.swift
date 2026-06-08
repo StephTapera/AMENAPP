@@ -97,7 +97,7 @@ struct VideoExplainSheet: View {
                         .fill(Color.black)
                         .frame(width: 34, height: 34)
                     Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white)
                 }
                 .accessibilityHidden(true)
@@ -125,7 +125,7 @@ struct VideoExplainSheet: View {
                         .frame(width: 32, height: 32)
 
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.6))
                 }
             }
@@ -294,7 +294,7 @@ struct VideoExplainSheet: View {
         VStack(spacing: 20) {
             VStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 32, weight: .light))
+                    .font(.systemScaled(32, weight: .light))
                     .foregroundStyle(Color.black.opacity(0.30))
                     .accessibilityHidden(true)
 
@@ -329,7 +329,7 @@ struct VideoExplainSheet: View {
     private func unavailableContent(icon: String, title: String, message: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(Color.black.opacity(0.25))
                 .accessibilityHidden(true)
 

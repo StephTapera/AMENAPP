@@ -20,7 +20,7 @@ struct FeedConflictResolutionSheet: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 24))
+                        .font(.systemScaled(24))
                         .foregroundStyle(.secondary)
                     Text("We noticed a conflict")
                         .font(.title3.bold())

@@ -3,6 +3,7 @@
 // Smart Space Dashboard with collapsible sections and role-aware actions.
 
 import SwiftUI
+import FirebaseFunctions
 
 struct SpaceDashboardView: View {
     let spaceId: String
@@ -222,6 +223,14 @@ private struct PrayerRequestRow: View {
 
 private struct EventRow: View {
     let event: SpaceEvent
+    @State private var hasRsvped: Bool
+    @State private var rsvpInFlight: Bool = false
+
+    init(event: SpaceEvent) {
+        self.event = event
+        _hasRsvped = State(initialValue: event.hasRsvped)
+    }
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
@@ -231,13 +240,29 @@ private struct EventRow: View {
             }
             Spacer()
             Button {
+                guard !rsvpInFlight else { return }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                // Optimistic toggle
+                hasRsvped.toggle()
+                rsvpInFlight = true
+                Task {
+                    do {
+                        try await Functions.functions(region: "us-central1")
+                            .httpsCallable("rsvpToSpaceEvent")
+                            .call(["eventId": event.id, "rsvp": hasRsvped])
+                    } catch {
+                        // Revert on failure
+                        await MainActor.run { hasRsvped.toggle() }
+                    }
+                    await MainActor.run { rsvpInFlight = false }
+                }
             } label: {
-                Text(event.hasRsvped ? "Going ✓" : "RSVP")
+                Text(rsvpInFlight ? "…" : (hasRsvped ? "Going ✓" : "RSVP"))
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 12)
                     .frame(height: 30)
-                    .foregroundStyle(event.hasRsvped ? Color.accentColor : .white)
-                    .background(event.hasRsvped ? Color.accentColor.opacity(0.15) : Color.accentColor, in: Capsule())
+                    .foregroundStyle(hasRsvped ? Color.accentColor : .white)
+                    .background(hasRsvped ? Color.accentColor.opacity(0.15) : Color.accentColor, in: Capsule())
             }
             .buttonStyle(.plain)
         }

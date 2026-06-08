@@ -48,10 +48,10 @@ private enum BUI {
 
     // Typography
     static let displayFont  = Font.custom("Georgia", size: 34).weight(.light)
-    static let headlineFont = Font.system(size: 17, weight: .semibold)
-    static let bodyFont     = Font.system(size: 15, weight: .regular)
-    static let captionFont  = Font.system(size: 12, weight: .medium)
-    static let chipFont     = Font.system(size: 13, weight: .medium)
+    static let headlineFont = Font.systemScaled(17, weight: .semibold)
+    static let bodyFont     = Font.systemScaled(15, weight: .regular)
+    static let captionFont  = Font.systemScaled(12, weight: .medium)
+    static let chipFont     = Font.systemScaled(13, weight: .medium)
 
     // Geometry
     static let cardRadius: CGFloat   = 20
@@ -147,6 +147,7 @@ struct BereanOnboardingFlow: View {
     @State private var currentStep = 0
     @State private var showAppendedText = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -156,6 +157,21 @@ struct BereanOnboardingFlow: View {
             atmosphericOrbs
 
             VStack(spacing: 0) {
+                // ── Close button ──────────────────────────────────────────────
+                HStack {
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(BUI.inkFaint)
+                    }
+                    .accessibilityLabel("Close Berean onboarding")
+                    .padding(.trailing, BUI.hPad)
+                    .padding(.top, 16)
+                }
+
                 Spacer()
 
                 // ── Text area ──────────────────────────────────────────────────
@@ -284,8 +300,10 @@ struct BereanOnboardingFlow: View {
             withAnimation(reduceMotion ? .none : BUI.bounce()) {
                 currentStep += 1
             }
+        } else {
+            // step 3 = final — dismiss the fullScreenCover
+            dismiss()
         }
-        // step 3 = final — parent dismisses
     }
 
     // MARK: Atmospheric orbs (matching BereanOnboardingView exactly)
@@ -360,10 +378,12 @@ private struct BereanOnboardingCTA: View {
                 }
                 Text(label)
                     .font(.systemScaled(16, weight: .semibold))
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
             }
             .foregroundStyle(isFinal ? BUI.cardWhite : BUI.ink)
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .frame(minHeight: 52)
             .background(
                 isFinal
                 ? AnyShapeStyle(BUI.coral)

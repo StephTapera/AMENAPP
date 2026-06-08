@@ -106,7 +106,7 @@ struct BereanVoiceInputSheet: View {
     private var idleState: some View {
         VStack(spacing: 16) {
             Image(systemName: "mic.circle")
-                .font(.system(size: 56, weight: .light))
+                .font(.systemScaled(56, weight: .light))
                 .foregroundStyle(.secondary)
             Text("Tap to start recording")
                 .font(.headline)
@@ -125,11 +125,11 @@ struct BereanVoiceInputSheet: View {
     private var recordingState: some View {
         VStack(spacing: 20) {
             Image(systemName: "mic.fill")
-                .font(.system(size: 56, weight: .regular))
+                .font(.systemScaled(56, weight: .regular))
                 .foregroundStyle(.red)
                 .symbolEffect(.pulse, isActive: voiceVM.isRecording)
             Text(formattedElapsed)
-                .font(.system(size: 32, weight: .semibold, design: .rounded))
+                .font(.systemScaled(32, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .accessibilityLabel("Recording, \(Int(elapsed)) seconds")
             Text("Listening…")
@@ -233,7 +233,7 @@ struct BereanVoiceInputSheet: View {
     private var consentBanner: some View {
         VStack(alignment: .leading, spacing: 16) {
             Image(systemName: "mic.badge.plus")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color.accentColor)
             Text("Voice input uses your microphone")
                 .font(.headline)
@@ -261,7 +261,7 @@ struct BereanVoiceInputSheet: View {
     private func errorState(_ error: WhisperError) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.orange)
             Text(error.errorDescription ?? "Voice input failed.")
                 .font(.headline)

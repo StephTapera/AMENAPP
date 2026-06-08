@@ -32,7 +32,7 @@ struct BereanAssistantEmptyState: View {
 
                 // Caption
                 Text("Ask anything about your faith journey")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundColor(Color(.tertiaryLabel))
                     .multilineTextAlignment(.center)
                     .padding(.top, DesignTokens.spacingM)

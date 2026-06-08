@@ -109,7 +109,7 @@ struct AmenChurchPassportView: View {
     private var passportHeader: some View {
         HStack(spacing: 14) {
             Image(systemName: "book.pages.fill")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(Color.accentColor)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -134,7 +134,7 @@ struct AmenChurchPassportView: View {
                     Task { await togglePrivacy(current: passport.isPrivate) }
                 } label: {
                     Image(systemName: passport.isPrivate ? "lock.fill" : "lock.open")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(Color(uiColor: .secondaryLabel))
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(Color(uiColor: .secondarySystemBackground)))
@@ -192,7 +192,7 @@ struct AmenChurchPassportView: View {
     private var emptyPassport: some View {
         VStack(spacing: 14) {
             Image(systemName: "building.columns")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
             Text("No visits yet")
                 .font(.headline)
@@ -273,7 +273,7 @@ private struct PassportStampCard: View {
 
                 if isHomeChurch {
                     Image(systemName: "house.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(4)
                         .background(Circle().fill(Color.accentColor))
@@ -295,7 +295,7 @@ private struct PassportStampCard: View {
 
             if stamp.isPrivate {
                 Label("Private", systemImage: "lock.fill")
-                    .font(.system(size: 9))
+                    .font(.systemScaled(9))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             }
         }
@@ -317,7 +317,7 @@ private struct PassportStampCard: View {
         Color(uiColor: .secondarySystemBackground)
             .overlay(
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             )
     }

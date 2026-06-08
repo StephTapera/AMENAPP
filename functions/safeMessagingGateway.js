@@ -985,7 +985,7 @@ function getUserFacingExplanation(category, action) {
     return explanations[category]?.[action] || 'Your message is being reviewed to ensure it meets our community standards.';
 }
 
-// Export for testing
+// Export classifiers for testing + main gateway callable
 module.exports = {
     detectHarassment,
     detectSexualSolicitation,
@@ -995,5 +995,6 @@ module.exports = {
     detectHateSpeech,
     detectSelfHarm,
     getTrustScore,
-    getVulnerabilityScore
+    getVulnerabilityScore,
+    safeMessageGateway: exports.safeMessageGateway
 };

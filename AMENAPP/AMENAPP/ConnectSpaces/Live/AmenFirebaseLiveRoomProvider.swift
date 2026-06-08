@@ -239,10 +239,8 @@ private struct LocalCapturePreview: UIViewRepresentable {
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer {
-            guard let pl = layer as? AVCaptureVideoPreviewLayer else {
-                fatalError("PreviewView: layer is not AVCaptureVideoPreviewLayer — layerClass override broken")
-            }
-            return pl
+            // layerClass override guarantees this cast succeeds
+            layer as! AVCaptureVideoPreviewLayer
         }
     }
 }
@@ -262,15 +260,15 @@ private struct ParticipantPlaceholderView: View {
                             .fill(Color(hex: "6E4BB5").opacity(0.35))
                             .frame(width: 64, height: 64)
                         Text(initials(from: participant.displayName))
-                            .font(.system(size: 24, weight: .semibold))
+                            .font(.systemScaled(24, weight: .semibold))
                             .foregroundStyle(.white)
                     }
                     Text(participant.displayName)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.white.opacity(0.85))
                     if participant.isMuted {
                         Image(systemName: "mic.slash.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.white.opacity(0.50))
                     }
                 }

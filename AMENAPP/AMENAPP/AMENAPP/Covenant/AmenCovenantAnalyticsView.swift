@@ -182,7 +182,7 @@ struct AmenCovenantAnalyticsView: View {
     private func activityStatCard(value: String, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(color)
             Text(value)
                 .font(.title3.bold())
@@ -321,7 +321,7 @@ struct AmenCovenantAnalyticsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text("Analytics are aggregated. No individual data is exposed.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -345,7 +345,7 @@ struct AmenCovenantAnalyticsView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "chart.xyaxis.line")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.tertiary)
             Text("No Analytics Yet")
                 .font(.title3.bold())

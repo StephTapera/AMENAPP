@@ -24,7 +24,7 @@ struct UnderstandPillButton: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "lightbulb.min")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text("Understand")
                     .font(AMENFont.semiBold(12))
             }

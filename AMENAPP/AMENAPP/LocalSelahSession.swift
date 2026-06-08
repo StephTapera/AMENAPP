@@ -134,11 +134,12 @@ final class SelahLocalStore {
 
     private init() {
         let schema = Schema([LocalSelahSession.self, LocalSelahSection.self])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
-            fatalError("SelahLocalStore: failed to initialize ModelContainer: \(error)")
+            let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            container = try! ModelContainer(for: schema, configurations: fallback)
         }
     }
 

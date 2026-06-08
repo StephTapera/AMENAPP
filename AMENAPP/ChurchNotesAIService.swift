@@ -609,7 +609,7 @@ struct ChurchNoteAIAssistantView: View {
             VStack(spacing: 16) {
                 Text("What would you like help with?")
                     .font(.systemScaled(20, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .padding(.top, 24)
                 
                 VStack(spacing: 12) {
@@ -699,9 +699,9 @@ struct ChurchNoteAIAssistantView: View {
                 
                 Text(text)
                     .font(.systemScaled(16))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .padding(20)
-                    .background(Color.white)
+                    .background(Color(.secondarySystemBackground))
                     .cornerRadius(12)
                     .padding(.horizontal, 20)
             }

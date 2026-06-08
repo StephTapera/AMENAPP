@@ -217,7 +217,7 @@ struct OpportunityHubView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "briefcase")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color(uiColor: .quaternaryLabel))
             Text("No opportunities found")
                 .font(.headline)
@@ -286,7 +286,11 @@ struct OpportunityHubView: View {
             }
             await MainActor.run { opportunities = loaded }
         } catch {
-            // Opportunities load failure is non-fatal; empty state shown
+            print("⚠️ [OpportunityHubView] loadOpportunities failed: \(error)")
+            await MainActor.run {
+                alertMessage = "Couldn't load opportunities. Please try again."
+                showAlert = true
+            }
         }
     }
 

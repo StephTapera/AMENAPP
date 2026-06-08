@@ -1,18 +1,19 @@
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 
 function requireAuth(context: functions.https.CallableContext) {
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new HttpsError("unauthenticated", "Auth required");
     }
     return context.auth.uid;
 }
 
 function requireAppCheck(context: functions.https.CallableContext) {
     if (!context.app) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -22,23 +23,23 @@ function requireAppCheck(context: functions.https.CallableContext) {
 async function verifyPostAuthor(uid: string, postId: string): Promise<void> {
     const postDoc = await db.collection("posts").doc(postId).get();
     if (!postDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Content not found.");
+        throw new HttpsError("not-found", "Content not found.");
     }
     if (postDoc.get("authorId") !== uid) {
-        throw new functions.https.HttpsError("permission-denied", "Only the content author may perform this action.");
+        throw new HttpsError("permission-denied", "Only the content author may perform this action.");
     }
 }
 
 async function verifyPostAccessible(uid: string, postId: string): Promise<admin.firestore.DocumentData> {
     const postDoc = await db.collection("posts").doc(postId).get();
     if (!postDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Content not found.");
+        throw new HttpsError("not-found", "Content not found.");
     }
     const data = postDoc.data()!;
     const visibility = String(data["visibility"] ?? "everyone");
     const authorId = String(data["authorId"] ?? "");
     if (authorId !== uid && visibility !== "everyone") {
-        throw new functions.https.HttpsError("permission-denied", "Content not accessible.");
+        throw new HttpsError("permission-denied", "Content not accessible.");
     }
     return data;
 }
@@ -116,7 +117,9 @@ export function summarizeSilentReactions(reactionTypes: string[]): { summaryText
     };
 }
 
-export const updatePresenceState = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const updatePresenceState = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -128,7 +131,7 @@ export const updatePresenceState = functions.runWith({ enforceAppCheck: true }).
     const allowedVisibility = ["private_only", "everyone"];
 
     if (!allowedStates.includes(selectedState) || !allowedVisibility.includes(visibility)) {
-        throw new functions.https.HttpsError("invalid-argument", "Invalid presence state.");
+        throw new HttpsError("invalid-argument", "Invalid presence state.");
     }
 
     await db.collection("presence_states").doc(uid).set({
@@ -141,7 +144,9 @@ export const updatePresenceState = functions.runWith({ enforceAppCheck: true }).
     return { ok: true };
 });
 
-export const addSilentReaction = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const addSilentReaction = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -152,17 +157,17 @@ export const addSilentReaction = functions.runWith({ enforceAppCheck: true }).ht
     const allowedSourceTypes = ["post", "comment"];
 
     if (!sourceId || !allowedSourceTypes.includes(sourceType) || !allowedReactions.includes(reactionType)) {
-        throw new functions.https.HttpsError("invalid-argument", "Invalid silent reaction payload.");
+        throw new HttpsError("invalid-argument", "Invalid silent reaction payload.");
     }
 
     // Verify the source post exists and caller is not the author (no self-reactions)
     if (sourceType === "post") {
         const postDoc = await db.collection("posts").doc(sourceId).get();
         if (!postDoc.exists) {
-            throw new functions.https.HttpsError("not-found", "Content not found.");
+            throw new HttpsError("not-found", "Content not found.");
         }
         if (postDoc.get("authorId") === uid) {
-            throw new functions.https.HttpsError("permission-denied", "Cannot react to your own content.");
+            throw new HttpsError("permission-denied", "Cannot react to your own content.");
         }
     }
 
@@ -179,14 +184,16 @@ export const addSilentReaction = functions.runWith({ enforceAppCheck: true }).ht
     return { ok: true, reactionId };
 });
 
-export const getSilentReactionSummary = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const getSilentReactionSummary = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
     const sourceId = asSafeString(data?.sourceId, 120);
     const sourceType = asSafeString(data?.sourceType, 32);
     if (!sourceId || !sourceType) {
-        throw new functions.https.HttpsError("invalid-argument", "Invalid reaction summary request.");
+        throw new HttpsError("invalid-argument", "Invalid reaction summary request.");
     }
 
     // Only the content author may see aggregate reaction summaries.
@@ -208,14 +215,16 @@ export const getSilentReactionSummary = functions.runWith({ enforceAppCheck: tru
     return summary;
 });
 
-export const checkComposeIntent = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const checkComposeIntent = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
     const text = asSafeString(data?.text, 1000);
     const sourceSurface = asSafeString(data?.sourceSurface, 64);
     if (!text || !sourceSurface) {
-        throw new functions.https.HttpsError("invalid-argument", "Text and source surface are required.");
+        throw new HttpsError("invalid-argument", "Text and source surface are required.");
     }
 
     const result = buildComposeIntent(text);
@@ -235,7 +244,10 @@ export const checkComposeIntent = functions.runWith({ enforceAppCheck: true }).h
     return result;
 });
 
-export const getSpiritualPriorityInbox = functions.runWith({ enforceAppCheck: true }).https.onCall(async (_data, context) => {
+export const getSpiritualPriorityInbox = onCall(async (request) => {
+    const _data = request.data as any;
+    const data = _data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
@@ -278,13 +290,15 @@ export const getSpiritualPriorityInbox = functions.runWith({ enforceAppCheck: tr
     return { items: items.slice(0, 20) };
 });
 
-export const evaluateThreadLifecycle = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const evaluateThreadLifecycle = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
     const threadId = asSafeString(data?.threadId, 120);
     if (!threadId) {
-        throw new functions.https.HttpsError("invalid-argument", "threadId is required.");
+        throw new HttpsError("invalid-argument", "threadId is required.");
     }
 
     // Compute lifecycle from actual thread posts — no pre-computed collection required.
@@ -295,12 +309,12 @@ export const evaluateThreadLifecycle = functions.runWith({ enforceAppCheck: true
         .get();
 
     if (threadSnap.empty) {
-        throw new functions.https.HttpsError("not-found", "Thread not found.");
+        throw new HttpsError("not-found", "Thread not found.");
     }
 
     const firstDoc = threadSnap.docs[0];
     if (firstDoc.get("authorId") !== uid) {
-        throw new functions.https.HttpsError("permission-denied", "Thread not accessible.");
+        throw new HttpsError("permission-denied", "Thread not accessible.");
     }
 
     const hasAnswered = threadSnap.docs.some(d => d.get("prayerStatus") === "answered" || d.get("isAnsweredPrayer"));
@@ -322,13 +336,15 @@ export const evaluateThreadLifecycle = functions.runWith({ enforceAppCheck: true
     };
 });
 
-export const getContextualMemoryLayer = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const getContextualMemoryLayer = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
     const sourceId = asSafeString(data?.sourceId, 120);
     if (!sourceId) {
-        throw new functions.https.HttpsError("invalid-argument", "sourceId is required.");
+        throw new HttpsError("invalid-argument", "sourceId is required.");
     }
 
     // Verify the post exists and caller can access it before returning any related data.
@@ -353,13 +369,15 @@ export const getContextualMemoryLayer = functions.runWith({ enforceAppCheck: tru
     return { scriptureRefs, relatedPostIds, relatedPrayerIds, savedNoteIds: [], bereanInsightIds: [] };
 });
 
-export const summonThreads = functions.runWith({ enforceAppCheck: true }).https.onCall(async (data, context) => {
+export const summonThreads = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
 
     const query = asSafeString(data?.query, 240).toLowerCase();
     if (!query) {
-        throw new functions.https.HttpsError("invalid-argument", "query is required.");
+        throw new HttpsError("invalid-argument", "query is required.");
     }
 
     // Search actual user posts — prayers, reflections, and threads — for natural-language queries.

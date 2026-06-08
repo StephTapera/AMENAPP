@@ -119,9 +119,7 @@ struct PrayerTimerView: View {
                         }
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .glassEffect(
-                            Glass.regular.tint(currentPhase.color.opacity(0.18)),
-                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                         )
                         .padding(.horizontal)
                         

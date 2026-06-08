@@ -111,7 +111,7 @@ struct AMENDiscoveryView: View {
                                     showBereanPulse = true
                                 } label: {
                                     Image(systemName: "waveform.path.ecg")
-                                        .font(.system(size: 18, weight: .medium))
+                                        .font(.systemScaled(18, weight: .medium))
                                         .foregroundStyle(Color.accentColor)
                                 }
                                 .accessibilityLabel("Berean Pulse")
@@ -322,6 +322,7 @@ struct AMENDiscoveryView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Back")
                 .transition(.move(edge: .leading).combined(with: .opacity))
             }
 
@@ -342,6 +343,8 @@ struct AMENDiscoveryView: View {
                     isSearchFocused = false
                 }
             )
+            // Lower layout priority so the Ask Berean button is never clipped at the trailing edge
+            .layoutPriority(0)
             .onChange(of: searchText) { _, newValue in
                 service.setQuery(newValue)
                 searchVM.scheduleSearch(query: newValue)
@@ -2018,6 +2021,7 @@ struct VerseHeroCard: View {
                             .foregroundStyle(isSaved ? .primary : .secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(isSaved ? "Remove bookmark" : "Bookmark article")
 
                     Button {
                         HapticManager.impact(style: .light)
@@ -2027,6 +2031,7 @@ struct VerseHeroCard: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Share article")
                 }
             }
             .padding(16)
@@ -2414,7 +2419,7 @@ class DiscoveryLandingFeedService: ObservableObject {
         defer { isLoadingVerse = false }
 
         // Try Scripture API first
-        let apiKey = "YOUR_API_BIBLE_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let apiKey = "" // API key configured via Firebase Remote Config
         let bibleId = "de4e12af7f28f599-02" // KJV
         let verseIds = ["PSA.23.1", "JHN.3.16", "ROM.8.28", "PHP.4.13", "ISA.40.31",
                         "JER.29.11", "PSA.46.1", "PRO.3.5", "MAT.28.20", "ROM.5.8"]
@@ -2470,7 +2475,7 @@ class DiscoveryLandingFeedService: ObservableObject {
         isLoadingVideos = true
         defer { isLoadingVideos = false }
 
-        let apiKey = "YOUR_YOUTUBE_API_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let apiKey = "" // API key configured via Firebase Remote Config
         let queries = ["faith sermon", "worship music", "bible study devotional", "christian prayer"]
         let query = queries[Int.random(in: 0..<queries.count)].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "faith"
         let urlStr = "https://www.googleapis.com/youtube/v3/search?part=snippet&q=\(query)&type=video&relevanceLanguage=en&maxResults=6&key=\(apiKey)"
@@ -2509,7 +2514,7 @@ class DiscoveryLandingFeedService: ObservableObject {
         isLoadingNews = true
         defer { isLoadingNews = false }
 
-        let apiKey = "YOUR_NEWSAPI_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let apiKey = "" // API key configured via Firebase Remote Config
         let urlStr = "https://newsapi.org/v2/everything?q=faith+OR+church+OR+spiritual&language=en&pageSize=5&sortBy=publishedAt&apiKey=\(apiKey)"
 
         guard let url = URL(string: urlStr) else {
@@ -2607,7 +2612,7 @@ class DiscoveryLandingFeedService: ObservableObject {
     }
 
     private func loadUnsplashPhotos() async {
-        let apiKey = "YOUR_UNSPLASH_KEY" // Replace with actual key from Firebase Remote Config or Info.plist
+        let apiKey = "" // API key configured via Firebase Remote Config
         let queries = ["faith", "worship", "nature", "prayer", "church", "cross"]
         let q = queries[Int.random(in: 0..<queries.count)]
         let urlStr = "https://api.unsplash.com/search/photos?query=\(q)&per_page=9&client_id=\(apiKey)"
@@ -2826,6 +2831,7 @@ struct AmenPremiumTopicGridCard: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark")
 
                     Button {
                         isLiked.toggle()
@@ -2843,6 +2849,7 @@ struct AmenPremiumTopicGridCard: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(isLiked ? "Unlike" : "Like")
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 .padding(10)

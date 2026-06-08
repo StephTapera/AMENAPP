@@ -76,8 +76,7 @@ struct MessageActionCluster: View {
                 .padding(12)
         }
         .shadow(color: .black.opacity(0.18), radius: 20, y: 6)
-        .glassEffect(reduceTransparency ? .subtle : .regular,
-                     in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .scaleEffect(appeared ? 1 : 0.92)
         .opacity(appeared ? 1 : 0)
         .onAppear {
@@ -108,7 +107,7 @@ struct MessageActionCluster: View {
         } label: {
             VStack(spacing: 5) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.systemScaled(20, weight: .regular))
                     .foregroundStyle(action.isDestructive ? Color.red : Color.primary)
                     .frame(width: 44, height: 44)
                     // Reduce-transparency fallback: solid system fill — no glass layered on glass.
@@ -122,14 +121,10 @@ struct MessageActionCluster: View {
                     }
                     // Glass circle for each icon — child elements inside the outer glass card,
                     // not overlapping glass layers.
-                    .glassEffect(
-                        reduceTransparency
-                            ? .subtle       // identity-equivalent; background block above handles fill
-                            : (action.isDestructive ? .subtle.tint(.red) : .regular),
-                        in: Circle()
+                    .amenGlassEffect(in: Circle()
                     )
                 Text(action.rawValue)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(action.isDestructive ? Color.red : Color.secondary)
                     .lineLimit(1)
             }

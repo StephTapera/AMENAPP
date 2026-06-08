@@ -77,7 +77,7 @@ struct AmenAIHostAssistantPanel: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
 
@@ -90,7 +90,7 @@ struct AmenAIHostAssistantPanel: View {
                 }
 
                 Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.5))
                     .accessibilityHidden(true)
             }
@@ -119,16 +119,16 @@ struct AmenAIHostAssistantPanel: View {
 
             if qCount == 0 && pCount == 0 && hCount == 0 {
                 Text("No signals yet")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.55))
             } else {
                 signalChip(count: qCount, label: "question", plural: "questions")
                 if pCount > 0 {
-                    Text("•").foregroundStyle(Color.white.opacity(0.3)).font(.system(size: 10))
+                    Text("•").foregroundStyle(Color.white.opacity(0.3)).font(.systemScaled(10))
                     signalChip(count: pCount, label: "prayer request", plural: "prayer requests")
                 }
                 if hCount > 0 {
-                    Text("•").foregroundStyle(Color.white.opacity(0.3)).font(.system(size: 10))
+                    Text("•").foregroundStyle(Color.white.opacity(0.3)).font(.systemScaled(10))
                     signalChip(count: hCount, label: "raised hand", plural: "raised hands")
                 }
             }
@@ -139,7 +139,7 @@ struct AmenAIHostAssistantPanel: View {
     private func signalChip(count: Int, label: String, plural: String) -> some View {
         if count > 0 {
             Text("\(count) \(count == 1 ? label : plural)")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }
@@ -222,11 +222,11 @@ struct AmenAIHostAssistantPanel: View {
     private func aiSuggestionBanner(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "sparkles")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(hex: "070607"))
                 .accessibilityHidden(true)
             Text(text)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(Color(hex: "070607"))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -261,11 +261,11 @@ struct AmenAIHostAssistantPanel: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     Image(systemName: icon)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(accentColor)
                         .accessibilityHidden(true)
                     Text(title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .kerning(0.5)
@@ -297,11 +297,11 @@ struct AmenAIHostAssistantPanel: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     Image(systemName: "hand.raised.fill")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .accessibilityHidden(true)
                     Text("Raised Hands")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .kerning(0.5)
@@ -318,10 +318,10 @@ struct AmenAIHostAssistantPanel: View {
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(signal.authorName)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.systemScaled(14, weight: .semibold))
                                     .foregroundStyle(.white)
                                 Text("\(signal.ageMinutes)m ago")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(.secondary)
                             }
 
@@ -332,7 +332,7 @@ struct AmenAIHostAssistantPanel: View {
                                 UIPasteboard.general.string = signal.authorName
                             } label: {
                                 Text("Call On")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .foregroundStyle(Color(hex: "D9A441"))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -370,7 +370,7 @@ struct AmenAIHostAssistantPanel: View {
     @ViewBuilder
     private func countBadge(_ count: Int, color: Color) -> some View {
         Text("\(count)")
-            .font(.system(size: 10, weight: .bold))
+            .font(.systemScaled(10, weight: .bold))
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -386,7 +386,7 @@ struct AmenAIHostAssistantPanel: View {
                 .fill(color.opacity(0.2))
                 .frame(width: 34, height: 34)
             Text(initials(for: name))
-                .font(.system(size: 12, weight: .bold))
+                .font(.systemScaled(12, weight: .bold))
                 .foregroundStyle(color)
         }
         .accessibilityHidden(true)
@@ -466,7 +466,7 @@ private struct SignalRow: View {
                     .fill(accentColor.opacity(0.2))
                     .frame(width: 34, height: 34)
                 Text(initials(for: signal.authorName))
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundStyle(accentColor)
             }
             .accessibilityHidden(true)
@@ -474,14 +474,14 @@ private struct SignalRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(signal.authorName)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.7))
                     Text("• \(signal.ageMinutes)m ago")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
                 Text(signal.text)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.white.opacity(0.88))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -490,7 +490,7 @@ private struct SignalRow: View {
 
             Button(action: onAction) {
                 Text(actionLabel)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(accentColor)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)

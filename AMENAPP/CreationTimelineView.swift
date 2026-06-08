@@ -107,7 +107,7 @@ struct TimelineSegmentRow: View {
                         .frame(width: 52, height: 52)
 
                     Image(systemName: segment.kind.icon)
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(segment.kind.color)
                 }
 
@@ -139,7 +139,7 @@ struct TimelineSegmentRow: View {
                 // AI lock indicator
                 if segment.lockedByAI {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -283,7 +283,7 @@ struct HorizontalTimelineScroll: View {
                     } label: {
                         VStack(spacing: 6) {
                             Image(systemName: "plus")
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                             Text("Add")
                                 .font(.custom("OpenSans-SemiBold", size: 11))
                         }
@@ -325,7 +325,7 @@ struct HorizontalSegmentCard: View {
                         )
 
                     Image(systemName: segment.kind.icon)
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(segment.kind.color)
                 }
 

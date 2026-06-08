@@ -149,7 +149,7 @@ struct ScriptureDetailRoute: View {
             } else {
                 // Verse text
                 Text(verseText.isEmpty ? context.attachment.previewText : verseText)
-                    .font(.system(size: 20, design: .serif))
+                    .font(.systemScaled(20, design: .serif))
                     .foregroundStyle(Color.primary.opacity(0.9))
                     .lineSpacing(8)
                     .textSelection(.enabled)
@@ -173,7 +173,7 @@ struct ScriptureDetailRoute: View {
                             .foregroundStyle(Color.primary.opacity(0.6))
                         
                         Text(verse.text)
-                            .font(.system(size: 15, design: .serif))
+                            .font(.systemScaled(15, design: .serif))
                             .foregroundStyle(Color.primary.opacity(0.6))
                             .lineSpacing(4)
                     }
@@ -288,7 +288,7 @@ struct ScriptureDetailRoute: View {
                                 .foregroundStyle(Color.primary.opacity(0.5))
                             
                             Text(verse.text)
-                                .font(.system(size: 15, design: .serif))
+                                .font(.systemScaled(15, design: .serif))
                                 .foregroundStyle(
                                     verse.reference.displayString == context.attachment.canonicalReference
                                     ? Color.primary

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 // MARK: - LiveCoCreationView
 
@@ -19,6 +20,13 @@ struct LiveCoCreationView: View {
     @State private var showAISuggestionSheet = false
     @State private var showEndConfirm        = false
     @State private var showSummary           = false
+
+    // Formatting toolbar state
+    @State private var isBold          = false
+    @State private var isItalic        = false
+    @State private var showPhotoPicker = false
+    @State private var showEmojiPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
 
     private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
     private let amenDark   = Color(red: 0.06, green: 0.06, blue: 0.09)
@@ -42,7 +50,7 @@ struct LiveCoCreationView: View {
                 topBar
 
                 // ── Canvas ────────────────────────────────────────────
-                CoCreationCanvasView(vm: vm)
+                CoCreationCanvasView(vm: vm, isBold: isBold, isItalic: isItalic)
                     .padding(.horizontal, 16)
                     .padding(.top, 10)
 
@@ -71,6 +79,26 @@ struct LiveCoCreationView: View {
         }
         .fullScreenCover(isPresented: $showSummary) {
             CoCreationSummaryView(session: session, vm: vm)
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem)
+        .sheet(isPresented: $showEmojiPicker) {
+            NavigationStack {
+                VStack(spacing: 16) {
+                    Text("Emoji picker coming soon")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 32)
+                    Spacer()
+                }
+                .navigationTitle("Emoji")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { showEmojiPicker = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
         }
         .onAppear {
             vm.startCanvasListener(sessionId: session.id ?? "")
@@ -156,20 +184,30 @@ struct LiveCoCreationView: View {
                 .opacity(0.2)
 
             // Bold
-            toolbarButton(icon: "bold", label: "Bold", tint: .white.opacity(0.7)) {}
+            toolbarButton(icon: "bold", label: "Bold",
+                          tint: isBold ? Color.white : .white.opacity(0.7)) {
+                withAnimation(.easeInOut(duration: 0.15)) { isBold.toggle() }
+            }
 
             // Italic
-            toolbarButton(icon: "italic", label: "Italic", tint: .white.opacity(0.7)) {}
+            toolbarButton(icon: "italic", label: "Italic",
+                          tint: isItalic ? Color.white : .white.opacity(0.7)) {
+                withAnimation(.easeInOut(duration: 0.15)) { isItalic.toggle() }
+            }
 
             Divider()
                 .frame(height: 28)
                 .opacity(0.2)
 
             // Photo
-            toolbarButton(icon: "photo", label: "Photo", tint: .white.opacity(0.7)) {}
+            toolbarButton(icon: "photo", label: "Photo", tint: .white.opacity(0.7)) {
+                showPhotoPicker = true
+            }
 
             // Emoji
-            toolbarButton(icon: "face.smiling", label: "React", tint: .white.opacity(0.7)) {}
+            toolbarButton(icon: "face.smiling", label: "React", tint: .white.opacity(0.7)) {
+                showEmojiPicker = true
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 10)

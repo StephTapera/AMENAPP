@@ -109,9 +109,7 @@ struct GlassExpandableCard<Header: View, Detail: View>: View {
         }
         .padding(16)
         // Liquid Glass background — morphs shape on expand/collapse
-        .glassEffect(
-            Glass.regular,
-            in: RoundedRectangle(cornerRadius: isExpanded ? cornerRadius + 4 : cornerRadius,
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: isExpanded ? cornerRadius + 4 : cornerRadius,
                                  style: .continuous)
         )
         .glassEffectID(glassId, in: namespace)

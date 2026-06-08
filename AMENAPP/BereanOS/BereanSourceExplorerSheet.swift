@@ -42,7 +42,7 @@ struct BereanSourceExplorerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
             }
         }
@@ -57,7 +57,7 @@ struct BereanSourceExplorerSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             // Answer excerpt
             Text(answerExcerpt)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .italic()
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -96,7 +96,7 @@ struct BereanSourceExplorerSheet: View {
                 } label: {
                     VStack(spacing: 4) {
                         Text(tab.title)
-                            .font(.system(size: 14, weight: selectedTab == tab ? .semibold : .regular))
+                            .font(.systemScaled(14, weight: selectedTab == tab ? .semibold : .regular))
                             .foregroundStyle(selectedTab == tab ? .primary : .secondary)
                         Rectangle()
                             .fill(selectedTab == tab ? Color.accentColor : Color.clear)
@@ -169,7 +169,7 @@ struct BereanSourceExplorerSheet: View {
     private var conflictSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Conflicting Sources", systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.red)
                 .padding(.top, 16)
                 .padding(.horizontal, 16)
@@ -208,10 +208,10 @@ struct BereanSourceExplorerSheet: View {
     private func conflictSourceLabel(_ source: BereanSourceEntry) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Label(source.sourceType.displayName, systemImage: source.sourceType.systemIcon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(.red)
             Text(source.title)
-                .font(.system(size: 12, weight: .regular))
+                .font(.systemScaled(12, weight: .regular))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
         }
@@ -222,7 +222,7 @@ struct BereanSourceExplorerSheet: View {
 
     private func confidenceBadge(icon: String, text: String, color: Color = .secondary) -> some View {
         Label(text, systemImage: icon)
-            .font(.system(size: 11, weight: .medium))
+            .font(.systemScaled(11, weight: .medium))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -233,7 +233,7 @@ struct BereanSourceExplorerSheet: View {
     private func emptyState(icon: String, message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(.secondary)
             Text(message)
                 .font(.subheadline)

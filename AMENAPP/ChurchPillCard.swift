@@ -57,7 +57,7 @@ struct ChurchPill: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -152,7 +152,7 @@ struct ChurchEntityCard: View {
                 }
             }
             .padding(16)
-            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
     }

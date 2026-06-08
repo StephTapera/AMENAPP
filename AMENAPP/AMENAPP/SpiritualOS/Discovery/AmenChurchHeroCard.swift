@@ -440,7 +440,7 @@ extension AmenChurchHeroData {
                     ChurchHeroService(time: "9:00 AM"),
                     ChurchHeroService(time: "11:00 AM")
                 ],
-                pastor: "John Smith",
+                pastor: nil,
                 atmosphere: ["Family", "Worship", "Bible Teaching", "Young Adults"],
                 aiSummary: "Contemporary worship, strong kids ministry, active young adult community, casual dress environment.",
                 aiMatchReasons: [

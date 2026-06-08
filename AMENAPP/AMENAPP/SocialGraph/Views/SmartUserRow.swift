@@ -75,7 +75,7 @@ struct SmartUserRow: View {
         ZStack {
             Circle().fill(Color.secondary.opacity(0.15))
             Text(viewModel.displayName.prefix(1).uppercased())
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundColor(.secondary)
         }
     }
@@ -86,19 +86,19 @@ struct SmartUserRow: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 Text(viewModel.displayName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 if viewModel.isMutual {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
 
             Text("@\(viewModel.username)")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
@@ -112,17 +112,17 @@ struct SmartUserRow: View {
     private var activityLine: some View {
         HStack(spacing: 4) {
             Image(systemName: viewModel.activityState.activityType.systemImage)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(accentColor.opacity(viewModel.copy.accentColor.opacity))
 
             Text(viewModel.copy.headline)
-                .font(.system(size: 12, weight: viewModel.activityState.hasUnseen ? .semibold : .regular))
+                .font(.systemScaled(12, weight: viewModel.activityState.hasUnseen ? .semibold : .regular))
                 .foregroundStyle(accentColor.opacity(viewModel.copy.accentColor.opacity))
                 .lineLimit(1)
 
             if let badge = viewModel.copy.badgeLabel {
                 Text(badge)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 1.5)
@@ -161,7 +161,7 @@ private struct FollowButtonCompact: View {
     var body: some View {
         Button(action: action) {
             Text(isFollowing ? "Following" : "Follow")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(isFollowing ? .primary : .white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)

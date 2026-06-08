@@ -164,7 +164,7 @@ struct ScriptureImmersionView: View {
             if let period = scene.datePeriod {
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     Text(period)
                         .font(AMENFont.regular(12))
@@ -175,7 +175,7 @@ struct ScriptureImmersionView: View {
             if let geo = scene.geographicalContext {
                 HStack(spacing: 6) {
                     Image(systemName: "map")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     Text(geo)
                         .font(AMENFont.regular(12))
@@ -263,7 +263,7 @@ struct ScriptureImmersionView: View {
     private var unavailableCard: some View {
         VStack(spacing: 16) {
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.secondary)
 
             Text("Immersion study not available for this passage yet.")
@@ -288,7 +288,7 @@ private struct ImmersionSectionTab: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: section.icon)
-                    .font(.system(size: 16, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(16, weight: isSelected ? .semibold : .regular))
 
                 Text(section.rawValue)
                     .font(AMENFont.semiBold(13))
@@ -370,7 +370,7 @@ private struct InterpretiveDebateNote: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.orange)
 
                     Text("Interpretive Debate Noted")
@@ -380,7 +380,7 @@ private struct InterpretiveDebateNote: View {
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -461,7 +461,7 @@ private struct ApplicationPathRow: View {
             } label: {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: path.relational ? "person.2" : "person")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.green)
                         .frame(width: 20)
 
@@ -475,7 +475,7 @@ private struct ApplicationPathRow: View {
 
                     if path.actionStep != nil {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }

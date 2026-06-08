@@ -121,7 +121,7 @@ struct AmenCovenantSearchView: View {
                             ForEach(searchService.recentQueries, id: \.self) { q in
                                 HStack(spacing: 12) {
                                     Image(systemName: "clock")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.secondary)
                                         .frame(width: 28)
                                     Button { query = q } label: {
@@ -177,7 +177,7 @@ struct AmenCovenantSearchView: View {
     private var emptyState: some View {
         VStack(spacing: 14) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.tertiary)
             Text("No results found")
                 .font(.headline)
@@ -224,7 +224,7 @@ private struct CovenantSearchResultRow: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: result.scope.icon)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.purple)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Color.purple.opacity(0.1)))
@@ -236,7 +236,7 @@ private struct CovenantSearchResultRow: View {
                             .foregroundStyle(.primary)
                         if result.isLocked {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                         }
                     }

@@ -26,6 +26,9 @@ class WellnessGuardianService: ObservableObject {
     @Published var weeklyUsageMinutes = 0
     
     private var breakCheckTimer: Timer?
+    /// Stored handle for the auto-dismiss task so it can be cancelled when the
+    /// reminder is dismissed early (e.g. user taps "Continue Anyway") and in deinit.
+    private var autoDismissTask: Task<Void, Never>?
 
     // Tracks when the last reminder was dismissed so we don't re-fire immediately
     private var lastReminderDismissedAt: Date? = nil
@@ -59,6 +62,11 @@ class WellnessGuardianService: ObservableObject {
     private init() {
         // PERF: Don't call loadTodaysUsage() here — auth is not yet resolved
         // at init time. Usage is loaded lazily on first trackSessionStart() call.
+    }
+
+    deinit {
+        breakCheckTimer?.invalidate()
+        autoDismissTask?.cancel()
     }
 
     private var db: Firestore? {
@@ -175,10 +183,10 @@ class WellnessGuardianService: ObservableObject {
             shouldShowBreakReminder = true
         }
         
-        // Auto-dismiss after 10 seconds.
-        // PERF: Use Task instead of DispatchQueue.main.asyncAfter — consistent with
-        // @MainActor and avoids a retain cycle through the dispatch closure capture.
-        Task { @MainActor [weak self] in
+        // Auto-dismiss after 10 seconds. Cancel any previous pending dismiss first,
+        // then store the new task so it can be cancelled on early dismissal or in deinit.
+        autoDismissTask?.cancel()
+        autoDismissTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(10))
             self?.dismissBreakReminder()
         }
@@ -188,6 +196,9 @@ class WellnessGuardianService: ObservableObject {
     
     func dismissBreakReminder() {
         lastReminderDismissedAt = Date()
+        // Cancel the pending auto-dismiss task so it doesn't fire after explicit dismissal.
+        autoDismissTask?.cancel()
+        autoDismissTask = nil
         withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
             shouldShowBreakReminder = false
         }

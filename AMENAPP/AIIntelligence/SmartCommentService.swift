@@ -134,8 +134,9 @@ final class SmartCommentService: ObservableObject {
 
         // Decode response
         guard let raw = result.data as? [String: Any] else {
-            // Fallback: allow publish when response is unreadable (server-side guards already ran).
-            return SmartCommentResult(action: .publish, nudgeMessage: nil, rewriteSuggestion: nil, provider: nil)
+            // Fail-closed: an unreadable response means the safety gate is uncertain.
+            // Block rather than silently allow — the user can retry.
+            throw SmartCommentError.networkError("Safety service returned an unexpected response. Please try again.")
         }
 
         let data = try JSONSerialization.data(withJSONObject: raw)
@@ -154,7 +155,7 @@ final class SmartCommentService: ObservableObject {
     /// Returns `true` if action == .publish, `false` if nudge/block (caller should show sheet).
     func canPublishImmediately(commentText: String, postContext: String? = nil) async -> Bool {
         guard let result = try? await reviewComment(commentText: commentText, postContext: postContext) else {
-            return true // Fail open for network errors — server guards already ran on publish path
+            return false // Fail closed — block until safety service can verify
         }
         return result.canPublish
     }

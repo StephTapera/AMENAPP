@@ -6,7 +6,7 @@ struct BereanPulseEmptyStateView: View {
     var body: some View {
         VStack(spacing: 18) {
             Image(systemName: "sparkles.rectangle.stack")
-                .font(.system(size: 32, weight: .semibold))
+                .font(.systemScaled(32, weight: .semibold))
                 .foregroundStyle(.primary.opacity(0.62))
                 .accessibilityHidden(true)
 

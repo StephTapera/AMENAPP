@@ -249,7 +249,7 @@ struct FollowKnowledgeView: View {
     private var emptyFollowedState: some View {
         HStack(spacing: 12) {
             Image(systemName: "bookmark")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.secondary)
             Text("Follow topics to see relevant works")
                 .font(.subheadline)
@@ -315,11 +315,11 @@ private struct FollowedTopicChip: View {
         HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(topic.topicName)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 if topic.recentWorkCount > 0 {
                     Text("\(topic.recentWorkCount) new")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -333,7 +333,7 @@ private struct FollowedTopicChip: View {
                         .frame(width: 16, height: 16)
                 } else {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -360,7 +360,7 @@ private struct DiscoverTopicCell: View {
         Button(action: onTap) {
             HStack {
                 Text(topic.topicName)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(topic.isFollowed ? Color(uiColor: .label) : .primary)
                     .lineLimit(1)
                 Spacer()
@@ -371,11 +371,11 @@ private struct DiscoverTopicCell: View {
                             .frame(width: 14, height: 14)
                     } else if topic.isFollowed {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.blue)
                     } else {
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -409,10 +409,10 @@ private struct KnowledgeSectionHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.system(size: 20, weight: .bold))
+                .font(.systemScaled(20, weight: .bold))
                 .foregroundStyle(.primary)
             Text(subtitle)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 20)
@@ -467,7 +467,7 @@ struct FollowTopicFeedView: View {
                         HStack(spacing: 8) {
                             ForEach(followedTopicNames, id: \.self) { name in
                                 Text(name)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
                                     .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
@@ -510,7 +510,7 @@ struct FollowTopicFeedView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "bookmark.slash")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
             Text("Follow topics to see their latest works here")
                 .font(.headline)
@@ -528,7 +528,7 @@ struct FollowTopicFeedView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
             Text("Could not load feed")
                 .font(.headline)
@@ -619,27 +619,27 @@ private struct TopicFeedWorkRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(work.title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
 
                 HStack(spacing: 6) {
                     Text(work.type.capitalized)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
 
                     Text(work.creatorName)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
 
                 if !work.topics.isEmpty {
                     Text(work.topics.prefix(2).joined(separator: " · "))
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
@@ -649,7 +649,7 @@ private struct TopicFeedWorkRow: View {
 
             if let date = work.publishedAt {
                 Text(Self.dateFormatter.string(from: date))
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
                     .fixedSize()
             }
@@ -661,7 +661,7 @@ private struct TopicFeedWorkRow: View {
 
     private var coverPlaceholder: some View {
         Image(systemName: "doc.text")
-            .font(.system(size: 22))
+            .font(.systemScaled(22))
             .foregroundStyle(.secondary)
             .frame(width: 52, height: 52)
             .background(Color(uiColor: .secondarySystemBackground))

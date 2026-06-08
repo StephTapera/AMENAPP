@@ -160,7 +160,7 @@ struct BereanPulseCurateSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
                     .background(Color.black.opacity(0.05), in: Circle())

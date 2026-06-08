@@ -170,7 +170,7 @@ struct ThreadedCommentsView: View {
                 onSubmit: submitComment
             )
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .task {
             await loadComments()
         }
@@ -614,7 +614,7 @@ struct CommentInputBar: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(Color(.systemBackground))
         }
     }
 }

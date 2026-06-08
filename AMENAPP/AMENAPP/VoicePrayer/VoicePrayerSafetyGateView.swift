@@ -35,7 +35,7 @@ struct VoicePrayerSafetyGateView: View {
                             .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.thinMaterial))
                             .frame(width: 72, height: 72)
                         Image(systemName: "waveform.and.mic")
-                            .font(.system(size: 30, weight: .medium))
+                            .font(.systemScaled(30, weight: .medium))
                             .foregroundStyle(Color(uiColor: .label))
                     }
                     .scaleEffect(appeared ? 1.0 : 0.7)

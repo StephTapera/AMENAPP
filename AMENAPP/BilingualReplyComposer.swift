@@ -40,12 +40,12 @@ struct BilingualReplyComposer: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "globe")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                         Text("Preview in \(SupportedLanguage.displayName(for: postAuthorLanguage))")
                             .font(AMENFont.semiBold(11))
                         Spacer()
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                     }
                     .foregroundStyle(.blue.opacity(0.8))
                     .padding(.horizontal, 10)
@@ -130,7 +130,7 @@ struct BilingualReplyComposer: View {
         // Reverse translation: user's language → post author's language
         // Uses AppleTranslationBridge directly since TranslationService always
         // translates TO the user's language, but here we need the opposite direction.
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18, *) {
             do {
                 let translated = try await AppleTranslationBridge.shared.translate(
                     text: input,

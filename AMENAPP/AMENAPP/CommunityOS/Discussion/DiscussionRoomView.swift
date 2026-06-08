@@ -10,39 +10,6 @@
 
 import SwiftUI
 
-// MARK: - DiscussionCommentRow (stub)
-
-/// Placeholder row for a discussion comment.
-/// Replace with the full CommentRow from DiscussionThreadView once the models are unified.
-private struct DiscussionCommentRow: View {
-    let index: Int
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Circle()
-                .fill(Color(uiColor: .tertiarySystemFill))
-                .frame(width: 32, height: 32)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Participant \(index)")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(uiColor: .label))
-
-                Text("This is a placeholder comment row for the discussion room. Real comments will be loaded from Firestore.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color(uiColor: .secondaryLabel))
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Comment from Participant \(index)")
-    }
-}
-
 // MARK: - DiscussionRoomView
 
 /// Full discussion room view with provenance banner, room type chip, thread list, and composer.
@@ -54,6 +21,7 @@ struct DiscussionRoomView: View {
     @State private var commentText = ""
     @State private var isLocked: Bool
     @State private var showFollowUpPrompt = false
+    @State private var showBerean = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -134,6 +102,9 @@ struct DiscussionRoomView: View {
             }
         }
         .animation(reduceMotion ? .none : .easeInOut(duration: 0.2), value: showFollowUpPrompt)
+        .sheet(isPresented: $showBerean) {
+            BereanVoiceAssistantView()
+        }
     }
 
     // MARK: - Provenance Section
@@ -156,9 +127,9 @@ struct DiscussionRoomView: View {
     private var roomTypeChip: some View {
         HStack(spacing: 5) {
             Image(systemName: room.discussionType.systemImage)
-                .font(.system(size: 11, weight: .regular))
+                .font(.systemScaled(11, weight: .regular))
             Text(room.discussionType.displayName)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
         }
         .foregroundStyle(Color.accentColor)
         .padding(.horizontal, 10)
@@ -202,7 +173,7 @@ struct DiscussionRoomView: View {
     private var lockedBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
             Text("This discussion is locked. No new messages can be posted.")
                 .font(.footnote)
@@ -220,16 +191,9 @@ struct DiscussionRoomView: View {
 
     @ViewBuilder
     private var threadContent: some View {
-        if room.threadCount == 0 {
-            emptyState
-        } else {
-            // Placeholder rows — replace with real Firestore-backed list when wired
-            ForEach(0..<min(room.threadCount, 5), id: \.self) { index in
-                DiscussionCommentRow(index: index + 1)
-                Divider()
-                    .padding(.leading, 58)
-            }
-        }
+        // Live Firestore comment loading not yet wired — always show empty state
+        // until DiscussionRoomService.listenComments() is connected here.
+        emptyState
     }
 
     // MARK: - Empty State
@@ -237,7 +201,7 @@ struct DiscussionRoomView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 32, weight: .ultraLight))
+                .font(.systemScaled(32, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Be the first to start the conversation.")
@@ -256,13 +220,14 @@ struct DiscussionRoomView: View {
 
     private var askBereanButton: some View {
         Button {
-            // Berean integration hook — connects to BereanOSHubView / Berean callable
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            showBerean = true
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "sparkle")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text("Ask Berean")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color.accentColor)
         }
@@ -275,7 +240,7 @@ struct DiscussionRoomView: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 TextField(composerPlaceholder, text: $commentText, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(uiColor: .label))
                     .tint(Color.accentColor)
                     .lineLimit(1...5)
@@ -324,7 +289,7 @@ struct DiscussionRoomView: View {
             commentText = ""
         } label: {
             Image(systemName: "arrow.up.circle.fill")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(
                     commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         ? Color(uiColor: .tertiaryLabel)
@@ -341,7 +306,7 @@ struct DiscussionRoomView: View {
     private var featureUnavailableView: some View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 40, weight: .ultraLight))
+                .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Discussion rooms are coming soon.")

@@ -85,6 +85,17 @@ private let SABBATH_SEASON_DATA: [SabbathLiturgicalSeason: SabbathSeasonData] = 
     ),
 ]
 
+// MARK: - Safe season data accessor
+
+private func sabbathSeasonData(for season: SabbathLiturgicalSeason) -> SabbathSeasonData {
+    if let data = SABBATH_SEASON_DATA[season] { return data }
+    return SABBATH_SEASON_DATA[.ordinaryTime] ?? SabbathSeasonData(
+        dominantTheme: "growth, discipleship, and faithful living",
+        suggestedScriptures: ["Micah 6:8"],
+        colorSignifier: "green"
+    )
+}
+
 // MARK: - Easter calculation (Anonymous Gregorian Algorithm — Meeus/Jones/Butcher)
 
 /// Returns Easter Sunday for the given year (Gregorian calendar).
@@ -155,7 +166,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
 
     // Easter season: Easter Sunday through the day before Pentecost (49 days after)
     if daysAfterEaster >= 0 && daysAfterEaster < 49 {
-        let data = SABBATH_SEASON_DATA[.easter]!
+        let data = sabbathSeasonData(for: .easter)
         let weekNum = daysAfterEaster / 7 + 1
         return SabbathLiturgicalContext(
             season: .easter,
@@ -168,7 +179,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
 
     // Pentecost Sunday (49 days after Easter)
     if daysAfterEaster == 49 {
-        let data = SABBATH_SEASON_DATA[.pentecost]!
+        let data = sabbathSeasonData(for: .pentecost)
         return SabbathLiturgicalContext(
             season: .pentecost,
             weekNumber: nil,
@@ -180,7 +191,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
 
     // Holy Week: Palm Sunday (7 days before Easter) through Holy Saturday (1 day before)
     if daysToEaster >= 1 && daysToEaster <= 7 {
-        let data = SABBATH_SEASON_DATA[.holyWeek]!
+        let data = sabbathSeasonData(for: .holyWeek)
         return SabbathLiturgicalContext(
             season: .holyWeek,
             weekNumber: nil,
@@ -192,7 +203,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
 
     // Lent: Ash Wednesday (46 days before Easter) through Holy Saturday
     if daysToEaster >= 2 && daysToEaster <= 46 {
-        let data = SABBATH_SEASON_DATA[.lent]!
+        let data = sabbathSeasonData(for: .lent)
         let daysIntoLent = 46 - daysToEaster
         let weekNum = daysIntoLent / 7 + 1
         return SabbathLiturgicalContext(
@@ -211,7 +222,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
     // Christmas: Dec 25 – Jan 5
     let isChristmasSeason = (month == 12 && day >= 25) || (month == 1 && day <= 5)
     if isChristmasSeason {
-        let data = SABBATH_SEASON_DATA[.christmas]!
+        let data = sabbathSeasonData(for: .christmas)
         return SabbathLiturgicalContext(
             season: .christmas,
             weekNumber: nil,
@@ -227,7 +238,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
     let adventStart = sabbathFirstSundayOfAdvent(year: year)
 
     if d >= adventStart && d <= adventEnd {
-        let data = SABBATH_SEASON_DATA[.advent]!
+        let data = sabbathSeasonData(for: .advent)
         let daysSinceAdvent = sabbathDaysBetween(adventStart, d)
         let weekNum = min(daysSinceAdvent / 7 + 1, 4)
         return SabbathLiturgicalContext(
@@ -241,7 +252,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
 
     // Epiphany: Jan 6 through Ash Wednesday eve (handled above by Lent check)
     if month == 1 && day >= 6 {
-        let data = SABBATH_SEASON_DATA[.epiphany]!
+        let data = sabbathSeasonData(for: .epiphany)
         return SabbathLiturgicalContext(
             season: .epiphany,
             weekNumber: nil,
@@ -252,7 +263,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
     }
 
     if month == 2 && daysToEaster > 46 {
-        let data = SABBATH_SEASON_DATA[.epiphany]!
+        let data = sabbathSeasonData(for: .epiphany)
         return SabbathLiturgicalContext(
             season: .epiphany,
             weekNumber: nil,
@@ -263,7 +274,7 @@ func getSabbathLiturgicalContext(for date: Date = Date()) -> SabbathLiturgicalCo
     }
 
     // Ordinary Time: everything else
-    let data = SABBATH_SEASON_DATA[.ordinaryTime]!
+    let data = sabbathSeasonData(for: .ordinaryTime)
     return SabbathLiturgicalContext(
         season: .ordinaryTime,
         weekNumber: nil,

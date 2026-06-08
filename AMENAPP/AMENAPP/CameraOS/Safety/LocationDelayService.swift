@@ -5,7 +5,7 @@
 //
 // Design: Liquid Glass on dark/black camera context.
 //   Pre-iOS 26: .ultraThinMaterial + strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
-//   iOS 26+:    .glassEffect() on controls
+//   iOS 26+:    .amenGlassEffect() on controls
 
 import Foundation
 import CoreLocation
@@ -138,7 +138,7 @@ struct LocationDelayPickerView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Title
             Text("When should this post go live?")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.65))
                 .padding(.horizontal, 4)
                 .accessibilityAddTraits(.isHeader)
@@ -165,7 +165,7 @@ struct LocationDelayPickerView: View {
             // Travel safety note — only visible when afterTrip is selected
             if selectedDelay == .afterTrip {
                 Text("Travel safety: share after you arrive home")
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.systemScaled(10, weight: .regular))
                     .foregroundStyle(.white.opacity(0.45))
                     .padding(.horizontal, 4)
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -188,7 +188,7 @@ private struct DelayPill: View {
     var body: some View {
         Button(action: onTap) {
             Text(option.displayName)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? .black : .white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -209,7 +209,7 @@ private struct DelayPill: View {
         } else {
             // Glass pill for unselected state
             if #available(iOS 26, *) {
-                Capsule().glassEffect()
+                Capsule().amenGlassEffect()
             } else {
                 ZStack {
                     Capsule().fill(.ultraThinMaterial)

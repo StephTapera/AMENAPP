@@ -563,7 +563,10 @@ struct HelpTopicDetailView: View {
                             .font(AMENFont.semiBold(16))
 
                         Button {
-                            // Open support email
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            if let url = URL(string: "mailto:support@amenapp.com") {
+                                UIApplication.shared.open(url)
+                            }
                         } label: {
                             HStack {
                                 Image(systemName: "envelope.fill")

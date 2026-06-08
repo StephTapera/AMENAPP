@@ -30,7 +30,7 @@ private struct LivePulseDot: View {
                     .frame(width: 7, height: 7)
             }
             Text("LIVE")
-                .font(.system(size: 10, weight: .black))
+                .font(.systemScaled(10, weight: .black))
                 .kerning(0.8)
                 .foregroundStyle(Color.red)
         }
@@ -58,9 +58,9 @@ private struct HeroCTAButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
@@ -88,9 +88,9 @@ private struct SpaceTypeBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: spaceType.systemIcon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text(spaceType.displayName)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
         }
         .foregroundStyle(Color.white.opacity(0.75))
         .padding(.horizontal, 9)
@@ -253,7 +253,7 @@ struct AmenCreatorSpaceHeroView: View {
                     // Row 1: space name + LIVE dot
                     HStack(alignment: .center, spacing: 10) {
                         Text(spaceName)
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.systemScaled(24, weight: .bold))
                             .foregroundStyle(.white)
                             .lineLimit(2)
                             .minimumScaleFactor(0.78)
@@ -272,9 +272,9 @@ struct AmenCreatorSpaceHeroView: View {
                         if isVerified {
                             HStack(spacing: 4) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.systemScaled(11, weight: .bold))
                                 Text("Verified")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                             }
                             .foregroundStyle(Color(hex: "D9A441"))
                             .padding(.horizontal, 8)
@@ -294,17 +294,12 @@ struct AmenCreatorSpaceHeroView: View {
                     // Row 3: tagline
                     if !tagline.isEmpty {
                         Text(tagline)
-                            .font(.system(size: 13, weight: .regular))
+                            .font(.systemScaled(13, weight: .regular))
                             .foregroundStyle(Color.white.opacity(0.65))
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    // Row 4: member count — intentionally small/muted (privacy-first)
-                    Text(memberCountText)
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(Color.white.opacity(0.38))
-                        .accessibilityLabel(memberCountText)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)

@@ -1,4 +1,5 @@
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 
@@ -264,15 +265,16 @@ function diversify(candidates: ScoredCandidate[], limit: number): ScoredCandidat
 
 // ─── 1. getSuggestedAccountsRail ─────────────────────────────────────
 
-export const getSuggestedAccountsRail = functions.https.onCall(
-    async (data: SuggestedAccountsRequest, context) => {
+export const getSuggestedAccountsRail = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
-            throw new functions.https.HttpsError("unauthenticated", "Auth required");
+            throw new HttpsError("unauthenticated", "Auth required");
         }
 
         // 5.1 FIX: App Check enforcement.
         if (context.app == undefined) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "failed-precondition",
                 "The function must be called from an App Check verified app."
             );
@@ -528,15 +530,16 @@ export const getSuggestedAccountsRail = functions.https.onCall(
 
 // ─── 2. logSuggestionFeedback ────────────────────────────────────────
 
-export const logSuggestionFeedback = functions.https.onCall(
-    async (data: SuggestionFeedbackRequest, context) => {
+export const logSuggestionFeedback = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
-            throw new functions.https.HttpsError("unauthenticated", "Auth required");
+            throw new HttpsError("unauthenticated", "Auth required");
         }
 
         // 5.1 FIX: App Check enforcement.
         if (context.app == undefined) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "failed-precondition",
                 "The function must be called from an App Check verified app."
             );
@@ -546,7 +549,7 @@ export const logSuggestionFeedback = functions.https.onCall(
         const { targetUserId, action, surface, position } = data;
 
         if (!targetUserId || !action || !surface) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "invalid-argument",
                 "targetUserId, action, and surface are required"
             );
@@ -554,7 +557,7 @@ export const logSuggestionFeedback = functions.https.onCall(
 
         const validActions = ["dismiss", "follow", "ignore", "hide_rail", "show_fewer"];
         if (!validActions.includes(action)) {
-            throw new functions.https.HttpsError("invalid-argument", `Invalid action: ${action}`);
+            throw new HttpsError("invalid-argument", `Invalid action: ${action}`);
         }
 
         const feedbackRef = db.collection("users").doc(uid)

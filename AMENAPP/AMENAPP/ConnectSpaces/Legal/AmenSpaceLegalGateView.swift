@@ -96,23 +96,23 @@ struct AmenSpaceLegalGateView: View {
                         )
                         .frame(width: 48, height: 48)
                     Image(systemName: "sparkles")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(spaceName)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .foregroundStyle(Color.white)
                     Text(tierName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(formattedPrice)
-                        .font(.system(size: 20, weight: .black))
+                        .font(.systemScaled(20, weight: .black))
                         .foregroundStyle(Color.white)
                 }
             }
@@ -122,11 +122,11 @@ struct AmenSpaceLegalGateView: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "person.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.white.opacity(0.45))
                     .accessibilityHidden(true)
                 Text("Hosted by \(hostDisplayName)")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.55))
             }
         }
@@ -148,7 +148,7 @@ struct AmenSpaceLegalGateView: View {
     private var checklistSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Please review and acknowledge the following")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.45))
                 .kerning(0.5)
                 .padding(.bottom, 4)
@@ -181,13 +181,13 @@ struct AmenSpaceLegalGateView: View {
     private var billingNote: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "info.circle")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.35))
                 .padding(.top, 1)
                 .accessibilityHidden(true)
 
             Text("By confirming, you authorize AMEN to charge your selected payment method on a recurring basis. Cancel anytime in Settings.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.40))
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -206,7 +206,7 @@ struct AmenSpaceLegalGateView: View {
             VStack(spacing: 12) {
                 if let error = confirmationError {
                     Text(error)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.red.opacity(0.85))
                         .multilineTextAlignment(.center)
                 }
@@ -235,7 +235,7 @@ struct AmenSpaceLegalGateView: View {
                         .tint(Color(hex: "070607"))
                 } else {
                     Text("Confirm Membership")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color(hex: "070607"))
                 }
             }
@@ -256,7 +256,7 @@ struct AmenSpaceLegalGateView: View {
     private var declineButton: some View {
         Button(action: onDeclined) {
             Text("Decline")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.50))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
@@ -374,7 +374,7 @@ private struct LegalCheckRow: View {
 
                     if isAcknowledged {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .black))
+                            .font(.systemScaled(11, weight: .black))
                             .foregroundStyle(Color(hex: "070607"))
                             .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
                     }
@@ -386,7 +386,7 @@ private struct LegalCheckRow: View {
 
             // Label (matte)
             Text(label)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -394,7 +394,7 @@ private struct LegalCheckRow: View {
             // Read button
             Button(action: onReadTap) {
                 Text("Read")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -438,12 +438,12 @@ private struct SpaceRulesSheet: View {
                 // Minimal header (matte)
                 HStack {
                     Text("Creator's Space Rules")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(Color.white)
                     Spacer()
                     Button(action: onDone) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.70))
                             .padding(9)
                             .background(
@@ -476,7 +476,7 @@ private struct SpaceRulesSheet: View {
                     Divider().opacity(0.18)
                     Button(action: onDone) {
                         Text("I've Read the Space Rules")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.systemScaled(15, weight: .bold))
                             .foregroundStyle(Color(hex: "070607"))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -504,16 +504,16 @@ private struct SpaceRulesSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
                 Text("Community Standards Commitment")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                     .foregroundStyle(Color.white)
             }
 
             Text("This creator has agreed to uphold AMEN's Community Standards. Additional space-specific rules may be posted in the Space.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.80))
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
@@ -521,7 +521,7 @@ private struct SpaceRulesSheet: View {
             Divider().opacity(0.18)
 
             Text("What this means for you")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.55))
 
             let points = [
@@ -534,13 +534,13 @@ private struct SpaceRulesSheet: View {
             ForEach(Array(points.enumerated()), id: \.offset) { _, point in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .frame(width: 14)
                         .offset(y: 3)
                         .accessibilityHidden(true)
                     Text(point)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.72))
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)

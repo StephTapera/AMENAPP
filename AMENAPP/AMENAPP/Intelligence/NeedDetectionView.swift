@@ -91,7 +91,7 @@ struct NeedDetectionView: View {
     private var emptyView: some View {
         VStack(spacing: 24) {
             Image(systemName: "heart.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(Color(red: 0.2, green: 0.6, blue: 0.4))
                 .accessibilityHidden(true)
 
@@ -135,7 +135,7 @@ struct NeedDetectionView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 

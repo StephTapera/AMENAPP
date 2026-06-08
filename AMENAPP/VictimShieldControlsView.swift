@@ -38,7 +38,7 @@ struct VictimShieldControlsView: View {
                             Spacer()
                             if feedControls.state.activeMode == mode {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.systemScaled(13, weight: .bold))
                                     .foregroundStyle(Color.accentColor)
                             }
                         }
@@ -87,7 +87,7 @@ struct VictimShieldControlsView: View {
                             .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -135,7 +135,7 @@ struct VictimShieldControlsView: View {
                     .fill(shieldColor.opacity(0.12))
                     .frame(width: 56, height: 56)
                 Image(systemName: shieldIcon)
-                    .font(.system(size: 26))
+                    .font(.systemScaled(26))
                     .foregroundStyle(shieldColor)
             }
 

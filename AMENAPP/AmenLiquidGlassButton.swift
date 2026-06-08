@@ -61,16 +61,16 @@ struct AmenLiquidGlassButton: View {
         if let label {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: size * 0.38, weight: .medium))
+                    .font(.systemScaled(size * 0.38, weight: .medium))
                 Text(label)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         } else {
             Image(systemName: icon)
-                .font(.system(size: size * 0.42, weight: .medium))
+                .font(.systemScaled(size * 0.42, weight: .medium))
                 .foregroundStyle(.primary)
                 .frame(width: size, height: size)
         }

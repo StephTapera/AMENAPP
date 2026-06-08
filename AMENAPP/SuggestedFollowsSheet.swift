@@ -128,7 +128,7 @@ struct SuggestedFollowsSheet: View {
                     Text("See more suggestions")
                         .font(.systemScaled(14, weight: .medium))
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                 }
             }
             .foregroundStyle(.secondary)
@@ -151,7 +151,7 @@ struct SuggestedFollowsSheet: View {
         HStack(spacing: 10) {
             Image(systemName: burstCoordinator.frictionState == .cooldown
                   ? "hourglass" : "heart.text.clipboard")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(burstCoordinator.frictionState == .cooldown ? .orange : .blue)
 
             Text(message)
@@ -190,7 +190,7 @@ struct SuggestedFollowsSheet: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.2.slash")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.tertiary)
             Text("No suggestions right now")
                 .font(.systemScaled(16, weight: .semibold))

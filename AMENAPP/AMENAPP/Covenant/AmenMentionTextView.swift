@@ -63,7 +63,7 @@ final class MentionLabel: UILabel {
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap(_:))))
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { super.init(coder: coder) }
 
     func setBody(_ text: String, uiFont: UIFont, mentions: [MentionEntity]) {
         let attributed = NSMutableAttributedString(
@@ -144,7 +144,7 @@ struct AmenMentionSuggestionRow: View {
                             .fill(typeColor.opacity(0.15))
                             .overlay(
                                 Image(systemName: typeIcon)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(typeColor)
                             )
                     }

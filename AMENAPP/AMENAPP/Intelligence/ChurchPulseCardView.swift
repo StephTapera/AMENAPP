@@ -49,7 +49,7 @@ struct ChurchPulseCardView: View {
     private var headerRow: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 24))
+                .font(.systemScaled(24))
                 .foregroundStyle(.secondary)
                 .frame(width: 36, height: 36)
                 .background(Circle().fill(Color(.systemGray6)))
@@ -90,7 +90,7 @@ struct ChurchPulseCardView: View {
             ForEach(card.summary.prefix(3), id: \.self) { signal in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "circle.fill")
-                        .font(.system(size: 5))
+                        .font(.systemScaled(5))
                         .foregroundStyle(.secondary)
                         .padding(.top, 6)
                         .accessibilityHidden(true)

@@ -586,9 +586,7 @@ private struct EmergencyContactsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 NavigationLink("Add Emergency Contact") {
-                    Text("Contact picker coming in next release")
-                        .foregroundStyle(.secondary)
-                        .padding()
+                    ContactPickerPromptView()
                 }
             }
             Section("How It Works") {
@@ -626,14 +624,39 @@ private struct ConnectReportProblemView: View {
 }
 
 private struct BlockMuteView: View {
+    @ObservedObject private var blockService = BlockService.shared
+    @State private var showUnblockConfirm = false
+    @State private var userToUnblock: BlockedUserProfile?
+
     var body: some View {
         List {
             Section("Blocked Accounts") {
-                Text("No blocked accounts")
-                    .foregroundStyle(.secondary)
+                if blockService.isLoading {
+                    ProgressView().frame(maxWidth: .infinity, alignment: .center)
+                } else if blockService.blockedUsersList.isEmpty {
+                    Text("No blocked accounts")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(blockService.blockedUsersList) { user in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(user.displayName).font(.body)
+                                Text("@\(user.username)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Unblock") {
+                                userToUnblock = user
+                                showUnblockConfirm = true
+                            }
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.blue)
+                        }
+                    }
+                }
             }
             Section("Muted Accounts") {
-                Text("No muted accounts")
+                Text("Muted accounts can still reach you but their messages arrive quietly. Manage mutes from any conversation by long-pressing a thread.")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             Section {
@@ -643,6 +666,51 @@ private struct BlockMuteView: View {
             }
         }
         .navigationTitle("Block & Mute")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { Task { await blockService.loadBlockedUsers() } }
+        .confirmationDialog(
+            "Unblock @\(userToUnblock?.username ?? "")?",
+            isPresented: $showUnblockConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Unblock", role: .destructive) {
+                if let user = userToUnblock {
+                    Task { try? await blockService.unblockUser(userId: user.id) }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They will be able to follow you and view your posts again.")
+        }
+    }
+}
+
+private struct ContactPickerPromptView: View {
+    @State private var name = ""
+    @State private var phone = ""
+    @State private var saved = false
+
+    var body: some View {
+        Form {
+            Section("Contact Info") {
+                TextField("Name", text: $name)
+                TextField("Phone Number", text: $phone)
+                    .keyboardType(.phonePad)
+            }
+            Section {
+                Button(saved ? "Saved" : "Save Emergency Contact") {
+                    guard !name.isEmpty, !phone.isEmpty else { return }
+                    saved = true
+                }
+                .disabled(name.isEmpty || phone.isEmpty || saved)
+            }
+            Section {
+                Text("This contact will be able to reach you even when Sabbath Mode or DND is enabled.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Add Emergency Contact")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

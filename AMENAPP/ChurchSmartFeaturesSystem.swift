@@ -545,7 +545,7 @@ struct VisitTogetherView: View {
                 .foregroundStyle(Color.white)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 10)
-                .background(Color.black, in: Capsule())
+                .background(Color(.label), in: Capsule())
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .padding(.top, 12)
                 .padding(.horizontal, 20)
@@ -682,7 +682,7 @@ struct ChurchInviteComposer: View {
                         .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(sent ? Color(white: 0.55) : Color.black, in: Capsule())
+                        .background(sent ? Color(.tertiaryLabel) : Color(.label), in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .disabled(sent)
@@ -778,7 +778,7 @@ struct OpenTablePostComposer: View {
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(posted ? Color(white: 0.55) : Color.black, in: Capsule())
+                            .background(posted ? Color(.tertiaryLabel) : Color(.label), in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .disabled(postText.isEmpty || posted)
@@ -822,7 +822,7 @@ struct ChurchVisitCard: View {
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(Color.black, in: Capsule())
+                        .background(Color(.label), in: Capsule())
 
                     Text(church.name)
                         .font(AMENFont.bold(20))
@@ -857,7 +857,7 @@ struct ChurchVisitCard: View {
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 9)
-                        .background(Color.black, in: Capsule())
+                        .background(Color(.label), in: Capsule())
                 }
                 .buttonStyle(.plain)
 

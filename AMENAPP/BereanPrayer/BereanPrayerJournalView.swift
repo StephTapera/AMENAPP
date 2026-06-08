@@ -192,7 +192,7 @@ struct BereanPrayerJournalView: View {
             Spacer()
 
             Image(systemName: "hands.clap")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color.accentColor.opacity(0.5))
                 .accessibilityHidden(true)
 

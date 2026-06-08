@@ -128,17 +128,17 @@ struct BereanVoiceSessionView: View {
                 switch engine.state {
                 case .idle:
                     Image(systemName: "mic.fill")
-                        .font(.system(size: 32, weight: .medium))
+                        .font(.systemScaled(32, weight: .medium))
                 case .listening:
                     Image(systemName: "waveform")
-                        .font(.system(size: 30, weight: .medium))
+                        .font(.systemScaled(30, weight: .medium))
                 case .processing:
                     ProgressView()
                         .tint(.white)
                         .scaleEffect(1.4)
                 case .error:
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 28, weight: .medium))
+                        .font(.systemScaled(28, weight: .medium))
                 }
             }
             .foregroundColor(.white)
@@ -153,7 +153,7 @@ struct BereanVoiceSessionView: View {
         VStack(spacing: 14) {
             // Status label
             Text(engine.statusLabel)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundColor(.white.opacity(0.70))
                 .contentTransition(.opacity)
                 .animation(.easeInOut(duration: 0.22), value: engine.statusLabel)
@@ -161,7 +161,7 @@ struct BereanVoiceSessionView: View {
             // Live transcript — appears as words come in
             if !engine.transcript.isEmpty {
                 Text(engine.transcript)
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.systemScaled(20, weight: .regular))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .lineSpacing(5)
@@ -178,7 +178,7 @@ struct BereanVoiceSessionView: View {
                     }
                 } label: {
                     Text("Open Settings")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(Color(red: 0.48, green: 0.72, blue: 1.00))
                         .underline()
                 }
@@ -199,7 +199,7 @@ struct BereanVoiceSessionView: View {
                 isPresented = false
             } label: {
                 Text("Cancel")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(.white.opacity(0.80))
                     .padding(.horizontal, 22)
                     .padding(.vertical, 13)
@@ -221,7 +221,7 @@ struct BereanVoiceSessionView: View {
                     isPresented = false
                 } label: {
                     Text("Done")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 22)
                         .padding(.vertical, 13)

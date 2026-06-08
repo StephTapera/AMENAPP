@@ -162,7 +162,7 @@ struct GlassIconOrb: View {
                 }
             
             Image(systemName: icon)
-                .font(.system(size: iconSize, weight: .medium))
+                .font(.systemScaled(iconSize, weight: .medium))
                 .foregroundStyle(VerseGlassTokens.accentPrimary)
         }
         .frame(width: size, height: size)

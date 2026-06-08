@@ -76,7 +76,7 @@ struct ONEContextGateView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: ONE.Spacing.xs) {
             Text("ONE asks you to engage with content before commenting.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
     }
@@ -132,20 +132,20 @@ struct ONEContextGateView: View {
     ) -> some View {
         HStack(spacing: ONE.Spacing.md) {
             Image(systemName: passed ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(passed ? ONE.Colors.repairGreen : Color.secondary)
                 .animation(ONE.Motion.adaptive(reduceMotion: reduceMotion), value: passed)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
             }
 
             Spacer()
 
             Button(actionLabel) { action() }
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(actionDisabled ? .secondary : Color.accentColor)
                 .disabled(actionDisabled)
         }
@@ -163,13 +163,13 @@ struct ONEContextGateView: View {
     private var videoWatchRow: some View {
         HStack(spacing: ONE.Spacing.md) {
             Image(systemName: localStatus.watchPassed ? "checkmark.circle.fill" : "play.circle")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(localStatus.watchPassed ? ONE.Colors.repairGreen : .secondary)
                 .animation(ONE.Motion.adaptive(reduceMotion: reduceMotion), value: localStatus.watchPassed)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Watched 30% of video")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -190,11 +190,11 @@ struct ONEContextGateView: View {
 
             if localStatus.watchPassed {
                 Text("Done ✓")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             } else {
                 Button("Watch →") { startWatchSim() }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color.accentColor)
                     .disabled(isWatching)
             }
@@ -229,10 +229,10 @@ struct ONEContextGateView: View {
     private var commentSection: some View {
         VStack(alignment: .leading, spacing: ONE.Spacing.sm) {
             Text("Add your comment")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
             TextEditor(text: $commentText)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .frame(minHeight: 80)
                 .padding(ONE.Spacing.sm)
                 .background(
@@ -244,7 +244,7 @@ struct ONEContextGateView: View {
                 onDismiss()
                 dismiss()
             }
-            .font(.system(size: 15, weight: .semibold))
+            .font(.systemScaled(15, weight: .semibold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, ONE.Spacing.sm)
@@ -271,11 +271,11 @@ struct ONEContextGateView: View {
             } label: {
                 HStack {
                     Text("Why does this matter?")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Image(systemName: showWhyExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -285,7 +285,7 @@ struct ONEContextGateView: View {
 
             if showWhyExpanded {
                 Text("Reactions without engagement degrade public conversation. ONE believes a comment carries more weight — and is kinder — when you've actually spent time with what you're responding to.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .transition(.opacity)
@@ -301,13 +301,13 @@ struct ONEContextGateView: View {
                 let cls = item.provenance.displayClassification
                 HStack(spacing: ONE.Spacing.md) {
                     Image(systemName: cls.icon)
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(Color.accentColor)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(cls.displayLabel)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                         Text(cls.accessibilityLabel)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -326,7 +326,7 @@ struct ONEContextGateView: View {
                     }
                     showProvenanceDetail = false
                 }
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, ONE.Spacing.sm)
@@ -348,7 +348,7 @@ struct ONEContextGateView: View {
     private var confidenceRow: some View {
         HStack {
             Text("Confidence")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Spacer()
             GeometryReader { geo in
@@ -362,7 +362,7 @@ struct ONEContextGateView: View {
             }
             .frame(width: 80, height: 6)
             Text(String(format: "%.0f%%", item.provenance.confidence * 100))
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .monospacedDigit()
         }
     }
@@ -370,11 +370,11 @@ struct ONEContextGateView: View {
     private func labelRow(_ title: String, value: String) -> some View {
         HStack {
             Text(title)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.primary)
         }
     }

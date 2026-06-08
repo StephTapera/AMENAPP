@@ -1,13 +1,15 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
-export const enforceCreatorEntitlement = functions.https.onCall(async (data, context) => {
+export const enforceCreatorEntitlement = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new HttpsError("unauthenticated", "Auth required");
     }
     // 5.1 FIX: App Check enforcement.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 
     const ownerID = context.auth.uid;

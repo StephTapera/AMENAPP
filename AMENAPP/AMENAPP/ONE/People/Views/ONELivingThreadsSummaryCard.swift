@@ -47,15 +47,15 @@ struct ONELivingThreadsSummaryCard: View {
         Button { isExpanded.toggle() } label: {
             HStack(spacing: ONE.Spacing.sm) {
                 Image(systemName: "iphone.gen3")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(ONE.Colors.witnessGold)
 
                 Text("Living Threads")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text("On-device")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(ONE.Colors.privateIndigo)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
@@ -64,7 +64,7 @@ struct ONELivingThreadsSummaryCard: View {
                 Spacer()
 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
         }
@@ -108,7 +108,7 @@ struct ONELivingThreadsSummaryCard: View {
     private func listSection(_ title: String, icon: String, tint: Color, items: [String]) -> some View {
         VStack(alignment: .leading, spacing: ONE.Spacing.xs) {
             Label(title, systemImage: icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(tint)
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 itemRow(item)
@@ -119,15 +119,15 @@ struct ONELivingThreadsSummaryCard: View {
     private var tasksSection: some View {
         VStack(alignment: .leading, spacing: ONE.Spacing.xs) {
             Label("Tasks", systemImage: "checklist")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(ONE.Colors.decayAmber)
             ForEach(summary.tasks) { task in
                 HStack(alignment: .top, spacing: ONE.Spacing.xs) {
                     Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(task.isComplete ? ONE.Colors.repairGreen : .secondary)
                     Text(task.description)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(task.isComplete ? .secondary : .primary)
                         .strikethrough(task.isComplete)
                         .fixedSize(horizontal: false, vertical: true)
@@ -145,7 +145,7 @@ struct ONELivingThreadsSummaryCard: View {
     private var datesSection: some View {
         VStack(alignment: .leading, spacing: ONE.Spacing.xs) {
             Label("Dates", systemImage: "calendar")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(ONE.Colors.ephemeralRed)
             ForEach(Array(summary.importantDates.enumerated()), id: \.offset) { _, d in
                 itemRow(d.label)
@@ -157,9 +157,9 @@ struct ONELivingThreadsSummaryCard: View {
 
     private func itemRow(_ text: String) -> some View {
         HStack(alignment: .top, spacing: ONE.Spacing.xs) {
-            Text("·").font(.system(size: 12)).foregroundStyle(.tertiary)
+            Text("·").font(.systemScaled(12)).foregroundStyle(.tertiary)
             Text(text)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
@@ -170,7 +170,7 @@ struct ONELivingThreadsSummaryCard: View {
     private func shareBtn(_ text: String, action: @escaping (String) -> Void) -> some View {
         Button { action(text) } label: {
             Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.tertiary)
         }
         .buttonStyle(.plain)
@@ -179,9 +179,9 @@ struct ONELivingThreadsSummaryCard: View {
 
     private var privacyNote: some View {
         HStack(spacing: 4) {
-            Image(systemName: "lock.fill").font(.system(size: 9))
+            Image(systemName: "lock.fill").font(.systemScaled(9))
             Text("These notes stay on your device until you choose to share them.")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
         }
         .foregroundStyle(.tertiary)
         .padding(.top, ONE.Spacing.xs)

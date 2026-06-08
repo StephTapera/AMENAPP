@@ -27,6 +27,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -130,17 +131,19 @@ async function isRateLimited(reporterId: string): Promise<boolean> {
  *
  * Output: { reportId: string }
  */
-export const submitReport = functions.https.onCall(async (data, context) => {
+export const submitReport = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     // ── Auth check ─────────────────────────────────────────────────────────
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in to submit a report");
+        throw new HttpsError("unauthenticated", "Must be signed in to submit a report");
     }
 
     // ── App Check enforcement (5.1 FIX) ────────────────────────────────────
     // Rejects calls from clients that cannot produce a valid App Check token.
     // Prevents scripted abuse with a stolen Firebase Auth token alone.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -151,16 +154,16 @@ export const submitReport = functions.https.onCall(async (data, context) => {
     // ── Input validation ───────────────────────────────────────────────────
     const reportedUserId: string = (data.reportedUserId ?? "").trim();
     if (!reportedUserId) {
-        throw new functions.https.HttpsError("invalid-argument", "reportedUserId is required");
+        throw new HttpsError("invalid-argument", "reportedUserId is required");
     }
 
     if (reportedUserId === reporterId) {
-        throw new functions.https.HttpsError("invalid-argument", "Cannot report yourself");
+        throw new HttpsError("invalid-argument", "Cannot report yourself");
     }
 
     const reason: string = (data.reason ?? "").trim();
     if (!VALID_REASONS.has(reason)) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             `reason '${reason}' is not a valid report reason`
         );
@@ -181,12 +184,12 @@ export const submitReport = functions.https.onCall(async (data, context) => {
     // ── Validate reported user exists ──────────────────────────────────────
     const reportedUserDoc = await db.collection("users").doc(reportedUserId).get();
     if (!reportedUserDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Reported user not found");
+        throw new HttpsError("not-found", "Reported user not found");
     }
 
     // ── Rate limiting ──────────────────────────────────────────────────────
     if (await isRateLimited(reporterId)) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "resource-exhausted",
             "You have submitted too many reports recently. Please try again later."
         );

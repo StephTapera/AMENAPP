@@ -129,7 +129,7 @@ struct AmenReportContentSheet: View {
     private var thankYouState: some View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.green)
             Text("Report Submitted")
                 .font(.title3.weight(.semibold))
@@ -185,7 +185,7 @@ private struct CovenantReportReasonRow: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isSelected ? Color.red : Color.secondary)
 
                 Text(reason.displayName)

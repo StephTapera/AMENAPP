@@ -75,13 +75,13 @@ struct PresenceIndicatorView: View {
             greenDot
         case .text:
             Text("Active now")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundColor(Color.green)
         case .dotAndText:
             HStack(spacing: 4) {
                 greenDot
                 Text("Active now")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundColor(.black.opacity(0.5))
             }
         }
@@ -102,7 +102,7 @@ struct PresenceIndicatorView: View {
                     .frame(width: 8, height: 8)
             case .text:
                 Text("Active \(relativeTimeString(interval))")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundColor(.black.opacity(0.4))
             case .dotAndText:
                 HStack(spacing: 4) {
@@ -110,7 +110,7 @@ struct PresenceIndicatorView: View {
                         .fill(Color.gray.opacity(0.4))
                         .frame(width: 8, height: 8)
                     Text("Active \(relativeTimeString(interval))")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundColor(.black.opacity(0.4))
                 }
             }

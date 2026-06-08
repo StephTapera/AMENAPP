@@ -28,11 +28,11 @@ struct CatalogWorkTypeTabBar: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(tab.displayName)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Text("\(tab.count)")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                     .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
             }
             .padding(.horizontal, 12)

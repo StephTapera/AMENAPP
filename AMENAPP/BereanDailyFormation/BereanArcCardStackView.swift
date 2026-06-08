@@ -60,10 +60,10 @@ private struct BereanArcMiniCard: View {
                 // Type label row
                 HStack(spacing: 6) {
                     Image(systemName: card.icon)
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.accentColor)
                     Text(card.typeLabel.uppercased())
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                         .tracking(1.5)
                     Spacer()
@@ -93,7 +93,7 @@ private struct BereanArcMiniCard: View {
                 onWhyTapped?()
             } label: {
                 Image(systemName: "info.circle")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.40))
             }
             .buttonStyle(.plain)
@@ -112,10 +112,10 @@ struct BereanVerseChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "book.closed")
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
                 .foregroundStyle(Color.accentColor)
             Text("\(reference) · \(translation)")
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 8).padding(.vertical, 3)

@@ -78,7 +78,7 @@ struct AmenCovenantRevenueView: View {
                 .foregroundStyle(.secondary)
 
             Text(formatCurrency(a.monthlyRecurringRevenue))
-                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .font(.systemScaled(40, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
 
             Divider()
@@ -111,7 +111,7 @@ struct AmenCovenantRevenueView: View {
     private func metricCard(label: String, value: String, icon: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(color)
             Text(value)
                 .font(.title2.weight(.bold))
@@ -248,7 +248,7 @@ struct AmenCovenantRevenueView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.tertiary)
             Text("Data Appears After Activity Begins")
                 .font(.headline)

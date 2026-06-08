@@ -31,6 +31,7 @@ struct AmenMinorExperienceView: View {
 
     @State private var guardianLinked: Bool = false
     @State private var isCheckingGuardian: Bool = true
+    @State private var showSafetyGuide = false
 
     // MARK: - Computed
 
@@ -74,7 +75,7 @@ struct AmenMinorExperienceView: View {
 
             // Shield icon
             Image(systemName: "person.badge.shield.checkmark")
-                .font(.system(size: 60, weight: .thin))
+                .font(.systemScaled(60, weight: .thin))
                 .foregroundStyle(Color.secondary)
                 .accessibilityHidden(true)
                 .padding(.bottom, 4)
@@ -110,7 +111,8 @@ struct AmenMinorExperienceView: View {
 
             // Learn more link
             Button {
-                // Opens the in-app minor safety guide (navigation handled by parent)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showSafetyGuide = true
             } label: {
                 Text("Learn about account settings")
                     .font(.footnote)
@@ -118,6 +120,37 @@ struct AmenMinorExperienceView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Learn about account settings for under-18 accounts")
+            .sheet(isPresented: $showSafetyGuide) {
+                NavigationStack {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            ForEach([
+                                "Only connect with people you know",
+                                "Never share personal information",
+                                "Tell a trusted adult if something feels wrong",
+                                "Use block and report freely"
+                            ], id: \.self) { tip in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Color.accentColor)
+                                        .accessibilityHidden(true)
+                                    Text(tip)
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                        }
+                        .padding(24)
+                    }
+                    .navigationTitle("Safety Guide")
+                    .navigationBarTitleDisplayMode(.large)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showSafetyGuide = false }
+                        }
+                    }
+                }
+            }
 
             Spacer()
         }
@@ -178,7 +211,7 @@ struct AmenMinorExperienceBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "person.badge.shield.checkmark")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(Color.secondary)
                 .accessibilityHidden(true)
 

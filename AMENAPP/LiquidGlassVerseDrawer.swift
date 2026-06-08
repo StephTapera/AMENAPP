@@ -238,7 +238,7 @@ struct LiquidGlassVerseMiniDrawerView: View {
     private var miniHeader: some View {
         HStack {
             Text("Attach a Verse")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(.primary)
             
             Spacer()
@@ -255,13 +255,16 @@ struct LiquidGlassVerseMiniDrawerView: View {
                         .frame(width: 28, height: 28)
                         .overlay(Circle().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5))
                         .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-                    
+
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
             }
             .buttonStyle(SubtlePressStyle())
+            .accessibilityLabel("Close")
         }
     }
     
@@ -270,11 +273,11 @@ struct LiquidGlassVerseMiniDrawerView: View {
     private var searchCapsule: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: searchFocused ? .semibold : .regular))
+                .font(.systemScaled(15, weight: searchFocused ? .semibold : .regular))
                 .foregroundStyle(searchFocused ? Color.black.opacity(0.75) : Color.black.opacity(0.35))
             
             TextField("John 3:16 · peace · David · Christmas", text: $searchService.searchQuery)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.primary)
                 .focused($searchFocused)
                 .autocorrectionDisabled()
@@ -289,7 +292,7 @@ struct LiquidGlassVerseMiniDrawerView: View {
                     searchService.results = []
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.tertiary)
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -324,7 +327,7 @@ struct LiquidGlassVerseMiniDrawerView: View {
                         searchService.search()
                     } label: {
                         Text(suggestion)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
@@ -368,10 +371,10 @@ struct LiquidGlassVerseMiniDrawerView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Text("See \(searchService.results.count - 4) more results")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(.secondary)
                             Image(systemName: "arrow.down.circle")
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -414,10 +417,10 @@ struct LiquidGlassVerseMiniDrawerView: View {
     private var emptyPrompt: some View {
         VStack(spacing: 12) {
             Image(systemName: "book.closed")
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(.tertiary)
             Text("Search by reference, topic, or person")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
         }
@@ -429,13 +432,13 @@ struct LiquidGlassVerseMiniDrawerView: View {
     private var noResults: some View {
         VStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 28, weight: .light))
+                .font(.systemScaled(28, weight: .light))
                 .foregroundStyle(.tertiary)
             Text("No verses found")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.secondary)
             Text("Try a different search")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 30)
@@ -452,9 +455,9 @@ struct LiquidGlassVerseMiniDrawerView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                         Text("Expand")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                     }
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 18)
@@ -483,9 +486,9 @@ struct LiquidGlassVerseMiniDrawerView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                     Text("Attach")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 .foregroundStyle(selectedVerse != nil ? Color.white : Color.black.opacity(0.35))
                 .padding(.horizontal, 22)
@@ -540,12 +543,12 @@ struct LiquidGlassVerseResultCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Reference
                 Text(verse.reference.displayString)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(isSelected ? Color.black.opacity(0.85) : Color.black.opacity(0.65))
 
                 // Text (truncated to 2 lines in mini view)
                 Text(verse.text)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .lineSpacing(2)
@@ -695,10 +698,10 @@ struct LiquidGlassVerseFullDrawerView: View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Attach a Verse")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.systemScaled(24, weight: .bold))
                     .foregroundStyle(.primary)
                 Text("Search across all scripture")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
             
@@ -716,13 +719,16 @@ struct LiquidGlassVerseFullDrawerView: View {
                         .frame(width: 32, height: 32)
                         .overlay(Circle().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5))
                         .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
-                    
+
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
             }
             .buttonStyle(SubtlePressStyle())
+            .accessibilityLabel("Close")
         }
     }
     
@@ -731,11 +737,11 @@ struct LiquidGlassVerseFullDrawerView: View {
     private var searchCapsule: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: searchFocused ? .semibold : .regular))
+                .font(.systemScaled(16, weight: searchFocused ? .semibold : .regular))
                 .foregroundStyle(searchFocused ? Color.black.opacity(0.75) : Color.black.opacity(0.35))
             
             TextField("Search reference, topic, person, or ask a question...", text: $searchService.searchQuery)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.primary)
                 .focused($searchFocused)
                 .autocorrectionDisabled()
@@ -750,7 +756,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                     searchService.results = []
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.tertiary)
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -789,7 +795,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                         }
                     } label: {
                         Text(translation.rawValue)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(
                                 searchService.selectedTranslation == translation
                                 ? Color.white
@@ -848,7 +854,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                         }
                     } label: {
                         Text(filter.rawValue)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(foregroundColor)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
@@ -894,7 +900,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                         searchService.search()
                     } label: {
                         Text(suggestion)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
@@ -953,7 +959,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                 }
             }
             Text("Searching scriptures...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.tertiary)
         }
     }
@@ -967,17 +973,17 @@ struct LiquidGlassVerseFullDrawerView: View {
                     .fill(Color.black.opacity(0.04))
                     .frame(width: 80, height: 80)
                 Image(systemName: "book.closed")
-                    .font(.system(size: 36, weight: .light))
+                    .font(.systemScaled(36, weight: .light))
                     .foregroundStyle(.tertiary)
             }
             .padding(.top, 40)
             
             VStack(spacing: 8) {
                 Text("Search for a verse")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.systemScaled(17, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text("Try a reference, topic, person, or question")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
             }
@@ -993,17 +999,17 @@ struct LiquidGlassVerseFullDrawerView: View {
                     .fill(Color.black.opacity(0.04))
                     .frame(width: 72, height: 72)
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 32, weight: .light))
+                    .font(.systemScaled(32, weight: .light))
                     .foregroundStyle(.tertiary)
             }
             .padding(.top, 40)
             
             VStack(spacing: 8) {
                 Text("No verses found")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.systemScaled(17, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text("Try a different search or filter")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.tertiary)
             }
         }
@@ -1016,15 +1022,15 @@ struct LiquidGlassVerseFullDrawerView: View {
             // Verse preview
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.secondary)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selectedVerse?.reference.displayString ?? "")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(selectedVerse?.text ?? "")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -1041,7 +1047,7 @@ struct LiquidGlassVerseFullDrawerView: View {
                 }
             } label: {
                 Text("Attach")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -1081,14 +1087,14 @@ struct FullLiquidGlassVerseResultCard: View {
                 // Reference with selection indicator
                 HStack {
                     Text(verse.reference.displayString)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(isSelected ? Color.black.opacity(0.85) : Color.black.opacity(0.65))
                     
                     Spacer()
                     
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.secondary)
                             .transition(.scale.combined(with: .opacity))
                     }
@@ -1096,14 +1102,14 @@ struct FullLiquidGlassVerseResultCard: View {
                 
                 // Full text (no truncation in full view)
                 Text(verse.text)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.secondary)
                     .lineSpacing(3)
                     .multilineTextAlignment(.leading)
                 
                 // Translation
                 Text(verse.translation)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

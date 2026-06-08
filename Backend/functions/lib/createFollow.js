@@ -64,22 +64,25 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createUnfollow = exports.createFollow = void 0;
 const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
-exports.createFollow = functions.https.onCall(async (data, context) => {
+exports.createFollow = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in to follow a user.");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to follow a user.");
     }
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     const followerId = context.auth.uid;
     const followingId = data?.followingId;
     if (typeof followingId !== "string" || followingId.trim() === "") {
-        throw new functions.https.HttpsError("invalid-argument", "followingId must be a non-empty string.");
+        throw new https_1.HttpsError("invalid-argument", "followingId must be a non-empty string.");
     }
     if (followerId === followingId) {
-        throw new functions.https.HttpsError("invalid-argument", "Cannot follow yourself.");
+        throw new https_1.HttpsError("invalid-argument", "Cannot follow yourself.");
     }
     const now = admin.firestore.FieldValue.serverTimestamp();
     const indexId = `${followerId}_${followingId}`;
@@ -117,17 +120,19 @@ exports.createFollow = functions.https.onCall(async (data, context) => {
     return { success: true };
 });
 // ─── createUnfollow ───────────────────────────────────────────────────────────
-exports.createUnfollow = functions.https.onCall(async (data, context) => {
+exports.createUnfollow = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in to unfollow a user.");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to unfollow a user.");
     }
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     const followerId = context.auth.uid;
     const followingId = data?.followingId;
     if (typeof followingId !== "string" || followingId.trim() === "") {
-        throw new functions.https.HttpsError("invalid-argument", "followingId must be a non-empty string.");
+        throw new https_1.HttpsError("invalid-argument", "followingId must be a non-empty string.");
     }
     const indexId = `${followerId}_${followingId}`;
     const now = admin.firestore.FieldValue.serverTimestamp();

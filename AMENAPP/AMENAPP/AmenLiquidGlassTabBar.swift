@@ -128,12 +128,12 @@ struct AmenLiquidGlassTabBar: View {
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: iconName(for: tab, isSelected: isSelected))
-                    .font(.system(size: iconSize, weight: .bold))
+                    .font(.systemScaled(iconSize, weight: .bold))
                     .symbolRenderingMode(.monochrome)
                     .frame(height: 22)
 
                 Text(tab)
-                    .font(.system(size: labelSize, weight: .semibold, design: .default))
+                    .font(.systemScaled(labelSize, weight: .semibold, design: .default))
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }

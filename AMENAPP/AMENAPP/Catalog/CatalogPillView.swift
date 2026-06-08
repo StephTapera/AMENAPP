@@ -48,19 +48,19 @@ struct CatalogPillView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "books.vertical")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 Text(pillSummary)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 Spacer()
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .glassEffect(.regular.tint(.clear), in: Capsule())
+            .amenGlassEffect(in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -78,9 +78,9 @@ struct CatalogPillView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "books.vertical")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                 Text(creatorName)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                 Spacer()
                 Button {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
@@ -88,7 +88,7 @@ struct CatalogPillView: View {
                     }
                 } label: {
                     Image(systemName: "chevron.up")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -114,14 +114,14 @@ struct CatalogPillView: View {
             } label: {
                 HStack {
                     Text("See all →")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                     Spacer()
                 }
                 .foregroundStyle(.primary)
             }
         }
         .padding(16)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func compactCoverThumb(work: CatalogWork) -> some View {
@@ -131,11 +131,11 @@ struct CatalogPillView: View {
                     .fill(.secondary.opacity(0.1))
                     .frame(width: 56, height: 56)
                 Image(systemName: work.type.icon)
-                    .font(.system(size: 20, weight: .light))
+                    .font(.systemScaled(20, weight: .light))
                     .foregroundStyle(.secondary)
             }
             Text(work.title)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .lineLimit(1)
                 .frame(width: 56)
         }

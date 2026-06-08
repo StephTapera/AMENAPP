@@ -147,7 +147,7 @@ struct ContactPrivateNotesView: View {
                             tags.removeAll { $0 == tag }
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)

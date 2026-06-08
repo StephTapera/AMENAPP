@@ -107,7 +107,7 @@ struct BereanStudyHomeView: View {
                 showScriptureSearch = true
             } label: {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundColor(.secondary)
             }
 
@@ -117,7 +117,7 @@ struct BereanStudyHomeView: View {
                 showNewConversation = true
             } label: {
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 17))
+                    .font(.systemScaled(17))
                     .foregroundColor(.black)
             }
         }
@@ -148,7 +148,7 @@ struct BereanStudyHomeView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(tab.rawValue)
                     .font(AMENFont.semiBold(13))
             }
@@ -274,7 +274,7 @@ private struct BereanStudyTab: View {
                             if !searchText.isEmpty { onStudyPassage(searchText) }
                         } label: {
                             Image(systemName: "arrow.right.circle.fill")
-                                .font(.system(size: 28))
+                                .font(.systemScaled(28))
                                 .foregroundColor(.black)
                         }
                     }
@@ -353,7 +353,7 @@ private struct BereanReflectTab: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "sparkles")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.secondary)
                 .padding(.top, 60)
 
@@ -435,7 +435,7 @@ private struct BereanLeaderOptionRow: View {
                     .fill(color.opacity(0.10))
                     .frame(width: 42, height: 42)
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(color)
             }
 
@@ -451,7 +451,7 @@ private struct BereanLeaderOptionRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundColor(Color(.tertiaryLabel))
         }
         .padding(14)

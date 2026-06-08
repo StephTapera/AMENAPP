@@ -174,7 +174,7 @@ struct SongCommunityCardView: View {
                         .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
-                .glassEffect(.regular.tint(.white.opacity(0.12)).interactive(), in: Capsule())
+                .amenGlassEffect(in: Capsule())
                 .accessibilityHint("Start a Prayer Jam listening session with others")
                 .animation(AppAnimation.stateChange, value: worshipModeManager.state)
             }

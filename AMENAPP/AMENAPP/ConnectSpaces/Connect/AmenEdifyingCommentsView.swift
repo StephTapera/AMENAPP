@@ -188,7 +188,7 @@ struct AmenEdifyingCommentsView: View {
         .padding(.vertical, 12)
         .background(
             Color(.systemBackground)
-                .glassEffect(in: .rect(cornerRadius: 0))
+                .amenGlassEffect(in: .rect(cornerRadius: 0))
         )
     }
 
@@ -288,7 +288,7 @@ struct AmenEdifyingCommentsView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            .glassEffect(in: .rect(cornerRadius: 12))
+            .amenGlassEffect(in: .rect(cornerRadius: 12))
             .frame(height: 44)
 
             // Text field (matte)
@@ -454,7 +454,7 @@ struct AmenCommentTypeBadgeView: View {
             Capsule(style: .continuous)
                 .strokeBorder(info.tint.opacity(0.3), lineWidth: 0.5)
         )
-        .glassEffect(in: .capsule)
+        .amenGlassEffect(in: .capsule)
         .accessibilityLabel(info.label)
     }
 }

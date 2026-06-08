@@ -49,12 +49,12 @@ struct AmenInlineDefinitionPopover: View {
     private var header: some View {
         HStack {
             Text(term)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.primary)
             Spacer()
             Button(action: onDismiss) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -80,7 +80,7 @@ struct AmenInlineDefinitionPopover: View {
             ProgressView()
                 .scaleEffect(0.8)
             Text("Looking up \u{201C}\(term)\u{201D}…")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -90,10 +90,10 @@ struct AmenInlineDefinitionPopover: View {
     private func errorView(_ message: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.orange)
             Text("Couldn't load definition")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
         }
         .accessibilityLabel("Could not load definition. \(message)")
@@ -103,7 +103,7 @@ struct AmenInlineDefinitionPopover: View {
         VStack(alignment: .leading, spacing: 10) {
             // Compact definition — always shown
             Text(def.compactDefinition)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -111,11 +111,11 @@ struct AmenInlineDefinitionPopover: View {
             if showExpanded, let biblical = def.biblicalContext {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Biblical Context")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                     Text(biblical)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.primary.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -135,7 +135,7 @@ struct AmenInlineDefinitionPopover: View {
                     }
                 } label: {
                     Text(showExpanded ? "Show less" : "Show biblical context")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.blue)
                 }
                 .buttonStyle(.plain)
@@ -152,7 +152,7 @@ struct AmenInlineDefinitionPopover: View {
                         onShowVerseContext?(ref)
                     } label: {
                         Text(ref)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.blue)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -188,9 +188,9 @@ struct AmenInlineDefinitionPopover: View {
         }) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 10)

@@ -55,7 +55,7 @@ struct GlassChurchSearchField: View {
             }
         }
         .padding()
-        .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -88,7 +88,7 @@ struct GlassFilterPill: View {
                 } else {
                     Capsule()
                         .fill(.clear)
-                        .glassEffect(.subtle, in: Capsule())
+                        .amenGlassEffect(in: Capsule())
                 }
             }
         }
@@ -120,7 +120,7 @@ struct GlassFilterMenuPill<MenuContent: View>: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .glassEffect(.subtle, in: Capsule())
+            .amenGlassEffect(in: Capsule())
         }
     }
 }
@@ -175,9 +175,7 @@ struct GlassAIRecommendationModule<Content: View>: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(FindChurchDesignTokens.cardPadding)
-                .glassEffect(
-                    GlassEffectStyle.regular.tint(.purple.opacity(0.05)),
-                    in: RoundedRectangle(cornerRadius: FindChurchDesignTokens.cardCornerRadius, style: .continuous)
+                .amenGlassEffect(in: RoundedRectangle(cornerRadius: FindChurchDesignTokens.cardCornerRadius, style: .continuous)
                 )
             }
             .buttonStyle(.plain)
@@ -332,9 +330,7 @@ struct CompressedChurchHeader: View {
             }
             .padding(.horizontal, isCompressed ? 12 : 16)
             .padding(.vertical, isCompressed ? 8 : 12)
-            .glassEffect(
-                isCompressed ? .prominent : .subtle,
-                in: RoundedRectangle(cornerRadius: isCompressed ? 10 : 14, style: .continuous)
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: isCompressed ? 10 : 14, style: .continuous)
             )
         }
         .padding(.horizontal, FindChurchDesignTokens.headerHorizontalPadding)

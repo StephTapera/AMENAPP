@@ -19,7 +19,7 @@ import UIKit
 
 /// Drop-in replacement for .font(.systemScaled(X)) that respects Dynamic Type.
 ///
-/// SwiftUI's `.system(size:)` uses a fixed point size — it does NOT scale when
+/// SwiftUI's `.systemScaled()` uses a fixed point size — it does NOT scale when
 /// the user increases their text size in Settings → Accessibility → Larger Text.
 /// This extension wraps the call with a scaled metric so every size responds
 /// to the user's Dynamic Type preference.
@@ -27,7 +27,7 @@ import UIKit
 ///   Before:  .font(.systemScaled(14))
 ///   After:   .font(.systemScaled(size: 14))
 extension Font {
-    static func systemScaled(
+    public static func systemScaled(
         _ size: CGFloat,
         weight: Font.Weight = .regular,
         design: Font.Design = .default

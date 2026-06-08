@@ -66,7 +66,7 @@ struct AmenUpgradePromptView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "star.circle")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 6) {

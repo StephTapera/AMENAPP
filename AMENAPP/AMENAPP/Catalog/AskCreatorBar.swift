@@ -19,7 +19,7 @@ struct AskCreatorBar: View {
             }
         }
         .padding(14)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: - Query Field
@@ -27,10 +27,10 @@ struct AskCreatorBar: View {
     private var queryField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.secondary)
             TextField("Ask this creator anything...", text: $query)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .submitLabel(.send)
                 .focused($fieldFocused)
                 .onSubmit {
@@ -41,7 +41,7 @@ struct AskCreatorBar: View {
                     Task { await onSubmit() }
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.primary)
                 }
                 .disabled(isLoading)
@@ -62,7 +62,7 @@ struct AskCreatorBar: View {
             ProgressView()
                 .scaleEffect(0.8)
             Text("Finding answer...")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
         }
     }
@@ -76,7 +76,7 @@ struct AskCreatorBar: View {
                 modeBadge(result: result)
                 Spacer()
                 Text(String(format: "%.0f%% confidence", result.confidence * 100))
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
             }
 
@@ -84,13 +84,13 @@ struct AskCreatorBar: View {
                 refusedBanner
             } else {
                 Text(result.answer)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.primary)
 
                 if !result.citations.isEmpty {
                     Divider()
                     Text("Sources")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                     ForEach(result.citations) { citation in
                         citationRow(citation: citation)
@@ -108,7 +108,7 @@ struct AskCreatorBar: View {
                 .fill(color)
                 .frame(width: 6, height: 6)
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(color)
         }
         .padding(.horizontal, 8)
@@ -119,10 +119,10 @@ struct AskCreatorBar: View {
     private var refusedBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.orange)
             Text("This question couldn't be answered from this creator's catalog.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.orange)
         }
         .padding(10)
@@ -135,12 +135,12 @@ struct AskCreatorBar: View {
     private func citationRow(citation: CatalogCitation) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(citation.snippet)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
             if let url = URL(string: citation.sourceUrl) {
                 Link("Open Work", destination: url)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.primary)
             }
         }

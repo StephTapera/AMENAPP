@@ -45,7 +45,7 @@ private struct ChurchNoteTemplateCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
                 Image(systemName: template.icon)
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .foregroundStyle(.primary)
 
                 Text(template.rawValue)
@@ -152,7 +152,7 @@ struct ChurchNotesQuickStartView: View {
                 .padding(.bottom, 24)
             }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
     }

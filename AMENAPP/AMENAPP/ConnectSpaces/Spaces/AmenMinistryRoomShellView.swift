@@ -109,7 +109,7 @@ struct AmenMinistryRoomShellView: View {
                     showHealthDashboard = true
                 } label: {
                     Image(systemName: "chart.bar.xaxis")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .frame(width: 36, height: 36)
                         .background(.ultraThinMaterial, in: Circle())
@@ -159,9 +159,9 @@ struct AmenMinistryRoomShellView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(tab.rawValue)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(isActive ? Color.white : Color.white.opacity(0.55))
             .padding(.horizontal, 14)
@@ -221,7 +221,7 @@ struct AmenMinistryRoomPlaceholderTabView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(Color(red: 0.851, green: 0.643, blue: 0.255).opacity(0.7))
             Text(label)
                 .font(.headline)

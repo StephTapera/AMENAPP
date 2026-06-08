@@ -171,10 +171,10 @@ struct AmenLiveRoomShellView: View {
                 // Audio-only placeholder
                 VStack(spacing: 16) {
                     Image(systemName: "waveform")
-                        .font(.system(size: 52, weight: .ultraLight))
+                        .font(.systemScaled(52, weight: .ultraLight))
                         .foregroundStyle(Color(hex: "D9A441").opacity(0.6))
                     Text("Audio Only")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -188,15 +188,15 @@ struct AmenLiveRoomShellView: View {
         HStack(spacing: 6) {
             liveDot
             Text("LIVE")
-                .font(.system(size: 11, weight: .bold))
+                .font(.systemScaled(11, weight: .bold))
                 .kerning(0.8)
             Text("•")
-                .font(.system(size: 8))
+                .font(.systemScaled(8))
                 .foregroundStyle(.white.opacity(0.5))
             Text("\(room.viewerCount)")
-                .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                .font(.systemScaled(11, weight: .semibold).monospacedDigit())
             Image(systemName: "eye.fill")
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 12)
@@ -288,7 +288,7 @@ struct AmenLiveRoomShellView: View {
                 showAskStream = true
             } label: {
                 Image(systemName: "magnifyingglass.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(Color.white.opacity(0.85))
             }
             .accessibilityLabel("Ask AI about this stream")
@@ -301,9 +301,9 @@ struct AmenLiveRoomShellView: View {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: isHost ? "xmark.circle.fill" : "arrow.right.circle.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text(isHost ? "End" : "Leave")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.systemScaled(13, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
@@ -337,7 +337,7 @@ struct AmenLiveRoomShellView: View {
     private func controlButton(icon: String, tint: Color, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
                 .background {

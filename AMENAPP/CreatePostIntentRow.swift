@@ -138,7 +138,7 @@ struct CreatePostIntentRow: View {
     private func selectedStateRow(_ intent: PostIntent) -> some View {
         HStack(spacing: 8) {
             Image(systemName: intent.composerIcon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Text(intent.confirmationLabel)
@@ -154,7 +154,7 @@ struct CreatePostIntentRow: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(5)
                     .background(Circle().fill(Color(.systemGray5)))
@@ -184,7 +184,7 @@ private struct IntentPill: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: intent.composerIcon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(intent.composerDisplayName)
                     .font(AMENFont.semiBold(12))
             }

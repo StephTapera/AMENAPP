@@ -127,9 +127,7 @@ struct TestimonyCategoryDetailView: View {
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        // Share category
-                    } label: {
+                    ShareLink(item: "Check out \(category.title) testimonies on AMEN") {
                         Image(systemName: "square.and.arrow.up")
                             .font(.systemScaled(18))
                             .foregroundStyle(.primary)

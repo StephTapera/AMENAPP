@@ -7,7 +7,7 @@ struct BereanPulseErrorStateView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 30, weight: .semibold))
+                .font(.systemScaled(30, weight: .semibold))
                 .foregroundStyle(.primary.opacity(0.65))
                 .accessibilityHidden(true)
 

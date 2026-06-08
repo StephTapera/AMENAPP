@@ -843,6 +843,14 @@ exports.bereanChatProxy = onCall(
         throw new HttpsError("unauthenticated", "Authentication required.");
       }
 
+      // C-01 SECURITY: Reject any attempt to supply a custom system prompt.
+      // Callers must use bereanMode (a string enum) to select a pre-approved
+      // hardcoded prompt. Any systemPrompt field in the request is a sign of
+      // tampering — reject immediately before touching any other data.
+      if (request.data.systemPrompt || request.data.system_prompt) {
+        throw new HttpsError('invalid-argument', 'System prompt override not permitted');
+      }
+
       // COPPA guard — reject if caller is flagged as minor
       const callerUid = request.auth?.uid;
       if (!callerUid) throw new HttpsError('unauthenticated', 'Auth required');

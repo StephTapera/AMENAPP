@@ -93,7 +93,7 @@ struct SelahSessionShapingCard: View {
                         .fill(reason.accentColor.opacity(0.12))
                         .frame(width: 40, height: 40)
                     Image(systemName: reason.icon)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(reason.accentColor)
                 }
 
@@ -114,7 +114,7 @@ struct SelahSessionShapingCard: View {
                     }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(.tertiary)
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(Color(.tertiarySystemBackground)))
@@ -215,17 +215,17 @@ struct SelahFeedHealthBanner: View {
         if dismissed { EmptyView() } else {
             HStack(spacing: 8) {
                 Image(systemName: state.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(state.color)
                 Text(state.label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.primary)
                 Spacer()
                 Button {
                     withAnimation(.easeOut(duration: 0.18)) { dismissed = true }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
             }

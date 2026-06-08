@@ -107,8 +107,8 @@ extension FirebaseManager {
  Task {
      try await FirebaseManager.shared.updateUserProfileForSearch(
          userId: currentUser.uid,
-         displayName: "John Smith",
-         username: "johnsmith"
+         displayName: currentUser.displayName ?? "",
+         username: currentUser.username ?? ""
      )
  }
  

@@ -16,14 +16,14 @@ struct CatalogEntitlementGateView: View {
 
             VStack(spacing: 16) {
                 Image(systemName: feature.icon)
-                    .font(.system(size: 44, weight: .ultraLight))
+                    .font(.systemScaled(44, weight: .ultraLight))
                     .foregroundStyle(.primary)
 
                 VStack(spacing: 6) {
                     Text(feature.displayName)
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.systemScaled(22, weight: .bold))
                     Text(feature.unlockDescription)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
@@ -32,14 +32,14 @@ struct CatalogEntitlementGateView: View {
                 benefitsList
             }
             .padding(28)
-            .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .padding(.horizontal, 24)
 
             upgradeButton
 
             if let error = errorMessage {
                 Text(error)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -56,11 +56,11 @@ struct CatalogEntitlementGateView: View {
             ForEach(feature.benefits, id: \.self) { benefit in
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 16)
                     Text(benefit)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.primary)
                 }
             }
@@ -81,10 +81,10 @@ struct CatalogEntitlementGateView: View {
                         .tint(.white)
                 } else {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                 }
                 Text(isLoadingCheckout ? "Opening..." : "Upgrade to \(feature.planName)")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)

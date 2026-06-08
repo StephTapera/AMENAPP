@@ -70,7 +70,7 @@ struct PresenceLayer: View {
     private var capsule: some View {
         HStack(spacing: 6) {
             Image(systemName: "person.2.wave.2.fill")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text(label)

@@ -54,7 +54,7 @@ struct CaughtUpCard: View {
             VStack(spacing: 8) {
                 MaskedSlideUpText(
                     "You're All Caught Up",
-                    font: .system(size: 20, weight: .bold),
+                    font: .systemScaled(20, weight: .bold),
                     color: Color(.label),
                     delay: 0.12
                 )

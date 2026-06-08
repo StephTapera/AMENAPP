@@ -95,7 +95,7 @@ struct ChurchNotesPhotoOCRCaptureView: View {
         } else {
             VStack(spacing: 16) {
                 Image(systemName: "doc.text.viewfinder")
-                    .font(.system(size: 72))
+                    .font(.systemScaled(72))
                     .foregroundStyle(Color.accentColor.opacity(0.6))
                     .padding(.top, 40)
                     .accessibilityHidden(true)

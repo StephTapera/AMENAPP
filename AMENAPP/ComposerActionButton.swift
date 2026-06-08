@@ -45,7 +45,7 @@ struct ComposerActionButton: View {
             action()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: iconSize, weight: .medium))
+                .font(.systemScaled(iconSize, weight: .medium))
                 .foregroundStyle(iconColor)
                 .frame(width: size, height: size)
                 .background(
@@ -98,7 +98,7 @@ struct ComposerScaledActionButton: View {
             action()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: iconSz, weight: .medium))
+                .font(.systemScaled(iconSz, weight: .medium))
                 .foregroundStyle(iconColor)
                 .frame(width: size, height: size)
                 .background(

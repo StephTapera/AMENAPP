@@ -65,7 +65,7 @@ struct LiveNotesSidebar: View {
                         withAnimation(reduceMotion ? nil : .spring(response: 0.25)) { mode = m }
                     } label: {
                         VStack(spacing: 2) {
-                            Image(systemName: m.icon).font(.system(size: 16))
+                            Image(systemName: m.icon).font(.systemScaled(16))
                             Text(m.label).font(.caption2)
                         }
                         .frame(maxWidth: .infinity)
@@ -114,7 +114,8 @@ struct LiveNotesSidebar: View {
                 }
             Divider().opacity(0.3)
             Button {
-                // Save note stub — real impl writes to ChurchNotes
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                // TODO: implement save note to ChurchNotes
             } label: {
                 Label("Save Note", systemImage: "note.text.badge.plus")
                     .font(.caption.weight(.semibold))
@@ -193,7 +194,7 @@ struct LiveNotesSidebar: View {
                     questionText = ""
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(questionText.isEmpty ? .secondary : Color.accentColor)
                 }
                 .buttonStyle(.plain)
@@ -236,7 +237,7 @@ struct LiveNotesSidebar: View {
                         reactionCounts[emoji, default: 0] += 1
                     } label: {
                         VStack(spacing: 4) {
-                            Text(emoji).font(.system(size: 28))
+                            Text(emoji).font(.systemScaled(28))
                                 .scaleEffect(myReaction == emoji && !reduceMotion ? 1.3 : 1.0)
                                 .animation(reduceMotion ? nil : .spring(response: 0.25), value: myReaction)
                             Text("\(reactionCounts[emoji] ?? 0)")

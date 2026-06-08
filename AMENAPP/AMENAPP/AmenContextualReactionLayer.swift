@@ -18,7 +18,7 @@ struct AmenContextualReactionLayer: View {
                             onSelect?(result)
                         } label: {
                             Label(result.title, systemImage: symbol(for: result))
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.black.opacity(0.78))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)

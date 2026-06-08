@@ -269,7 +269,7 @@ struct PostVisitReflectionView: View {
     ) -> some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
 
@@ -324,7 +324,7 @@ struct PostVisitReflectionView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.black)
+                    .background(Color(.label))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .disabled(vm.isSaving)
@@ -358,7 +358,7 @@ struct PostVisitReflectionView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 
     // MARK: - Success State
@@ -372,7 +372,7 @@ struct PostVisitReflectionView: View {
                     .fill(Color.green.opacity(0.12))
                     .frame(width: 80, height: 80)
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44, weight: .medium))
+                    .font(.systemScaled(44, weight: .medium))
                     .foregroundStyle(.green)
             }
 
@@ -392,10 +392,10 @@ struct PostVisitReflectionView: View {
                 dismiss()
             }
             .font(AMENFont.semiBold(16))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color(.systemBackground))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(Color.black)
+            .background(Color(.label))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .padding(.horizontal, 20)
             .padding(.bottom, 24)

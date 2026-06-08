@@ -22,7 +22,7 @@ struct ThreadLanguageSummaryView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "globe")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
 
                         Text("Multilingual thread")
@@ -32,7 +32,7 @@ struct ThreadLanguageSummaryView: View {
                         Spacer()
 
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(.tertiary)
                     }
                 }

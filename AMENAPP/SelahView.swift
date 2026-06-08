@@ -347,6 +347,13 @@ struct SelahView: View {
 
     @StateObject private var churchNotesService = ChurchNotesService()
     @ObservedObject private var selahService = SelahService.shared
+    @ObservedObject private var verseService = DailyVerseGenkitService.shared
+
+    // Scripture reader sheet — opened from SelahVOTDCard "Read Chapter" pill
+    @State private var showScriptureReader = false
+    @State private var scriptureReaderRef: SelahScriptureReference?
+    private let scriptureProvider: any SelahBibleTranslationProvider = SelahLocalPublicDomainBibleProvider()
+    @StateObject private var scripturePrefs = SelahScriptureReaderPreferencesStore()
 
     enum SelahTab: String, CaseIterable, Identifiable {
         case read       = "Read"
@@ -446,6 +453,17 @@ struct SelahView: View {
                 .presentationDragIndicator(.visible)
             }
         }
+        // Scripture reader — opened when user taps "Read Chapter" on SelahVOTDCard
+        .sheet(isPresented: $showScriptureReader) {
+            if let ref = scriptureReaderRef {
+                SelahScriptureReaderView(
+                    initialReference: ref,
+                    provider: scriptureProvider,
+                    preferencesStore: scripturePrefs
+                )
+                .presentationDragIndicator(.visible)
+            }
+        }
     }
 
     // MARK: - Top Bar (Liquid Glass)
@@ -479,6 +497,7 @@ struct SelahView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close Selah")
                 Spacer()
             }
 
@@ -574,6 +593,8 @@ struct SelahView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(tab.rawValue)
+                    .accessibilityAddTraits(selectedTab == tab ? [.isSelected] : [])
                     .id(tab)
                 }
             }
@@ -641,7 +662,7 @@ struct SelahView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "book.fill")
-                .font(.system(size: 40, weight: .light))
+                .font(.systemScaled(40, weight: .light))
                 .foregroundStyle(.secondary.opacity(0.4))
             Text("No verses to explore")
                 .font(.systemScaled(18, weight: .semibold))
@@ -674,6 +695,23 @@ struct SelahView: View {
                     .padding(.horizontal, 24)
                     .padding(.top, 28)
                     .padding(.bottom, 20)
+
+                // Verse of the Day card — formation-first; no vanity counters
+                if let verse = verseService.todayVerse {
+                    SelahVOTDCard(
+                        verseRef: verse.reference,
+                        verseText: verse.text,
+                        heroImageURL: nil,
+                        onReadChapter: { ref in
+                            if let parsed = SelahScriptureReferenceParser.parse(ref) {
+                                scriptureReaderRef = parsed
+                                showScriptureReader = true
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
 
                 // Active workflow (if any)
                 SelahActiveWorkflowsView { action in
@@ -1132,6 +1170,7 @@ struct SelahSectionView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("\(section.kind.rawValue), \(isExpanded ? "expanded" : "collapsed")")
 
             // Section body
             if isExpanded {

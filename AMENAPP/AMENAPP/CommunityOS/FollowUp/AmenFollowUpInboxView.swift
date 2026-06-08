@@ -131,7 +131,7 @@ struct AmenFollowUpRow: View {
 
             // Monochrome type icon — no colour to avoid urgency signalling.
             Image(systemName: item.itemType.systemImage)
-                .font(.system(size: 18, weight: .regular))
+                .font(.systemScaled(18, weight: .regular))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
                 .frame(width: 24)
                 .accessibilityHidden(true)
@@ -172,7 +172,7 @@ struct AmenFollowUpRow: View {
                 if item.userNote != nil {
                     Button(action: onEditNote) {
                         Image(systemName: "note.text")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color(uiColor: .secondaryLabel))
                     }
                     .buttonStyle(.plain)
@@ -182,7 +182,7 @@ struct AmenFollowUpRow: View {
                 // Resolve / Done checkmark
                 Button(action: onResolve) {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundStyle(Color(uiColor: .systemGreen))
                 }
                 .buttonStyle(.plain)
@@ -191,7 +191,7 @@ struct AmenFollowUpRow: View {
                 // Snooze (moon)
                 Button(action: onSnooze) {
                     Image(systemName: "moon.zzz")
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundStyle(Color(uiColor: .secondaryLabel))
                 }
                 .buttonStyle(.plain)

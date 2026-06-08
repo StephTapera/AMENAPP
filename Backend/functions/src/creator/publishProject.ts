@@ -1,13 +1,15 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
-export const publishProject = functions.https.onCall(async (data, context) => {
+export const publishProject = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new HttpsError("unauthenticated", "Auth required");
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -17,7 +19,7 @@ export const publishProject = functions.https.onCall(async (data, context) => {
     const projectID = String(data?.projectID ?? "");
 
     if (!projectID) {
-        throw new functions.https.HttpsError("invalid-argument", "Missing projectID");
+        throw new HttpsError("invalid-argument", "Missing projectID");
     }
 
     const projectRef = admin.firestore()

@@ -189,6 +189,8 @@ private struct SermonCard: View {
 private struct SermonDetailSheet: View {
     let sermon: ChurchSermonEntry
     @Environment(\.dismiss) private var dismiss
+    @State private var showBerean = false
+    @State private var bereanPrompt = ""
 
     var body: some View {
         NavigationStack {
@@ -303,7 +305,10 @@ private struct SermonDetailSheet: View {
 
                     // Ask Berean
                     Button {
-                        // Navigate to Berean with sermon context
+                        let refs = sermon.scriptureReferences.joined(separator: ", ")
+                        let summaryPart = sermon.summary.map { " Summary: \($0)" } ?? ""
+                        bereanPrompt = "I just listened to \u{201C}\(sermon.title)\u{201D} by \(sermon.preacherName).\(summaryPart) Scripture references: \(refs.isEmpty ? "not specified" : refs). Help me study this sermon more deeply — what are the key theological themes, and how can I apply this to my life?"
+                        showBerean = true
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "sparkles")
@@ -328,6 +333,82 @@ private struct SermonDetailSheet: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
                         .fontWeight(.medium)
+                }
+            }
+            .sheet(isPresented: $showBerean) {
+                SermonBereanSheet(prompt: bereanPrompt)
+            }
+        }
+    }
+}
+
+// MARK: - Berean study sheet for sermon context
+
+private struct SermonBereanSheet: View {
+    let prompt: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var copied = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "sparkles")
+                            .font(.title2)
+                            .foregroundStyle(Color.accentColor)
+                        Text("Berean Study Prompt")
+                            .font(.title3.weight(.semibold))
+                    }
+                    .padding(.top, 8)
+
+                    Text(prompt)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color(.secondarySystemBackground))
+                        )
+
+                    Button {
+                        UIPasteboard.general.string = prompt
+                        copied = true
+                    } label: {
+                        Label(copied ? "Copied!" : "Copy Prompt", systemImage: copied ? "checkmark" : "doc.on.doc")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(Color(.secondarySystemBackground))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .onChange(of: copied) { _, newValue in
+                        if newValue {
+                            Task {
+                                try? await Task.sleep(for: .seconds(2))
+                                copied = false
+                            }
+                        }
+                    }
+
+                    Text("Open Berean from the home tab, then paste this prompt to begin your study.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 40)
+            }
+            .navigationTitle("Ask Berean")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
                 }
             }
         }

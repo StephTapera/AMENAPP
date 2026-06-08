@@ -136,7 +136,7 @@ struct GroupedNotification: Identifiable {
             var searchStart = attr.startIndex
             while searchStart < attr.endIndex,
                   let range = attr[searchStart...].range(of: name) {
-                attr[range].font = .system(size: 15, weight: .semibold)
+                attr[range].font = .systemScaled(15, weight: .semibold)
                 searchStart = range.upperBound
             }
         }

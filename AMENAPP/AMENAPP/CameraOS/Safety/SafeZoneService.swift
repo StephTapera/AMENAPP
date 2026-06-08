@@ -5,7 +5,7 @@
 //
 // Design: Liquid Glass on dark/black camera context.
 //   Pre-iOS 26: .ultraThinMaterial + strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
-//   iOS 26+:    .glassEffect() on controls
+//   iOS 26+:    .amenGlassEffect() on controls
 
 import Foundation
 import CoreLocation
@@ -151,7 +151,7 @@ struct SafeZoneManagerView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "mappin.slash")
-                .font(.system(size: 44, weight: .light))
+                .font(.systemScaled(44, weight: .light))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
@@ -254,7 +254,7 @@ private struct SafeZoneRow: View {
                     .frame(width: 40, height: 40)
 
                 Image(systemName: "mappin.circle.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(zone.isActive ? accentColor : .secondary)
             }
             .accessibilityHidden(true)
@@ -262,7 +262,7 @@ private struct SafeZoneRow: View {
             // Zone info
             VStack(alignment: .leading, spacing: 3) {
                 Text(zone.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 HStack(spacing: 8) {

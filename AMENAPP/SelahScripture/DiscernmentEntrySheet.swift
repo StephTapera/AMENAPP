@@ -153,7 +153,7 @@ struct DiscernmentEntrySheet: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
-        .background(Color(hex: "#F5F5F6"))
+        .background(Color(.tertiarySystemBackground))
         .cornerRadius(16)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Text being checked: \(inputText.prefix(100))")

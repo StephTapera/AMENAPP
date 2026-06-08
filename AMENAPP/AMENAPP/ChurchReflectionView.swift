@@ -430,7 +430,7 @@ struct ChurchReflectionView: View {
     private var midweekReminderCard: some View {
         HStack(spacing: 12) {
             Image(systemName: "bell")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
@@ -517,7 +517,7 @@ struct ChurchReflectionView: View {
         VStack(spacing: 24) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.primary)
                 .accessibilityHidden(true)
             VStack(spacing: 8) {
@@ -555,7 +555,7 @@ private struct ReflectionCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 Text(question)
@@ -579,7 +579,7 @@ private struct AddActionItemRow: View {
     var body: some View {
         HStack {
             Image(systemName: "plus.circle")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             TextField("Add an action step", text: $text)

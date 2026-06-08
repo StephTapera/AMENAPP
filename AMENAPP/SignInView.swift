@@ -1298,17 +1298,26 @@ struct SignInView: View {
             dlog("   Description: \(error.localizedDescription)")
             
             Task { @MainActor in
-                // Don't show error for user cancellation
-                if errorCode == 1001 { // ASAuthorizationError.canceled
+                // 1001 / 1002 = user cancelled — show nothing
+                if errorCode == 1001 || errorCode == 1002 {
                     dlog("ℹ️ User cancelled Apple Sign-In")
                     return
                 }
-                
+
                 // Clear nonce on failure
                 currentNonce = nil
                 nonceGeneratedAt = nil
-                
-                viewModel.errorMessage = "Apple Sign-In failed: \(error.localizedDescription)"
+
+                switch errorCode {
+                case 1000:
+                    viewModel.errorMessage = "Apple authentication is unavailable right now. Please try another sign-in method."
+                case 1003:
+                    viewModel.errorMessage = "Apple authentication is already in progress. Please wait a moment."
+                case 1004:
+                    viewModel.errorMessage = "Apple authentication failed. Please try again."
+                default:
+                    viewModel.errorMessage = "Unable to sign in with Apple. Please try another method."
+                }
                 viewModel.showError = true
             }
         }
@@ -1870,6 +1879,7 @@ struct PasswordResetSheet: View {
                 cooldownTimer = nil
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     /// Kicks off a 60-second countdown. Marks isSending = false after the first tick
@@ -1994,6 +2004,7 @@ struct PasswordlessSignInSheet: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 }
 

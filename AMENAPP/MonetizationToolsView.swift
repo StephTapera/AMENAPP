@@ -17,6 +17,8 @@ struct MonetizationToolsView: View {
     @State private var subscriptionPriceInput = ""
     @State private var expandedSection: String? = nil
     @State private var showAddGoodSheet        = false
+    @State private var showAddBenefit          = false
+    @State private var newBenefit              = ""
 
     private let amenPink   = Color(red: 0.94, green: 0.28, blue: 0.64)
     private let amenGreen  = Color(red: 0.20, green: 0.75, blue: 0.45)
@@ -78,6 +80,60 @@ struct MonetizationToolsView: View {
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showAddGoodSheet) {
             AddDigitalGoodSheet(vm: vm)
+        }
+        .sheet(isPresented: $showAddBenefit) {
+            NavigationStack {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Add Subscriber Benefit")
+                        .font(AMENFont.bold(20))
+                        .foregroundStyle(.white)
+                        .padding(.top, 8)
+
+                    TextField("e.g. Exclusive devotional content", text: $newBenefit)
+                        .font(AMENFont.regular(16))
+                        .foregroundStyle(.white)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.white.opacity(0.08))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                )
+                        )
+
+                    Button {
+                        let trimmed = newBenefit.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty {
+                            vm.profile.subscriptionBenefits.append(trimmed)
+                        }
+                        showAddBenefit = false
+                    } label: {
+                        Text("Save Benefit")
+                            .font(AMENFont.semiBold(16))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color.accentColor)
+                            )
+                    }
+                    .disabled(newBenefit.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .background(amenDark.ignoresSafeArea())
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { showAddBenefit = false }
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+                .preferredColorScheme(.dark)
+            }
         }
         .onAppear {
             if let price = vm.profile.subscriptionPrice, price > 0 {
@@ -161,7 +217,9 @@ struct MonetizationToolsView: View {
                         .foregroundStyle(.white.opacity(0.6))
                     Spacer()
                     Button {
-                        // Add benefit placeholder
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        newBenefit = ""
+                        showAddBenefit = true
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.systemScaled(18))

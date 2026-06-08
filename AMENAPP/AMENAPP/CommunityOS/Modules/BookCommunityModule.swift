@@ -263,7 +263,7 @@ struct BookCommunityHubView: View {
                 .foregroundStyle(Color(.label))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .glassEffect(.regular.tint(.white.opacity(0.10)).interactive(), in: Capsule())
+                .amenGlassEffect(in: Capsule())
                 .accessibilityHint("Create a new reading plan for this book")
             }
 
@@ -321,7 +321,7 @@ private struct CreateReadingPlanSheet: View {
                         Task { await createPlan() }
                     }
                     .disabled(isSaving)
-                    .glassEffect(.regular.tint(.white.opacity(0.10)).interactive(), in: Capsule())
+                    .amenGlassEffect(in: Capsule())
                 }
             }
             .navigationTitle("New Reading Plan")

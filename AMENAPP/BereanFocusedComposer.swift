@@ -60,7 +60,7 @@ struct BereanFocusedComposer: View {
                 HStack(spacing: 10) {
                     // Expand text field
                     TextField("", text: $inputText, axis: .vertical)
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.systemScaled(16, weight: .regular))
                         .foregroundStyle(.primary)
                         .lineLimit(adaptiveLineLimit)
                         .focused($isFocused)
@@ -68,7 +68,7 @@ struct BereanFocusedComposer: View {
                         .overlay(alignment: .leading) {
                             if inputText.isEmpty {
                                 Text("Ask Berean...")
-                                    .font(.system(size: 16, weight: .regular))
+                                    .font(.systemScaled(16, weight: .regular))
                                     .foregroundColor(.black.opacity(0.3))
                                     .allowsHitTesting(false)
                             }
@@ -94,7 +94,7 @@ struct BereanFocusedComposer: View {
                             .frame(width: 32, height: 32)
                             .overlay(
                                 Image(systemName: isThinking ? "stop.fill" : "arrow.up")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.systemScaled(14, weight: .bold))
                                     .foregroundColor(.white)
                             )
                     }

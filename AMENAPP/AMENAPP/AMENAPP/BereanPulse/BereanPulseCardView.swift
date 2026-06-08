@@ -40,12 +40,12 @@ struct BereanPulseCardView: View {
             actionRow
         }
         .padding(18)
-        .background(Color.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.75)
+                .strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.75)
         )
-        .shadow(color: .black.opacity(0.07), radius: 18, y: 8)
+        .shadow(color: Color(.label).opacity(0.07), radius: 18, y: 8)
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onTapGesture(perform: onExpand)
         .accessibilityElement(children: .contain)
@@ -66,7 +66,7 @@ struct BereanPulseCardView: View {
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
-                .background(Color.black.opacity(0.05), in: Capsule(style: .continuous))
+                .background(Color(.tertiarySystemFill), in: Capsule(style: .continuous))
                 .accessibilityElement(children: .combine)
 
             Text("\(Int(card.matchScore * 100))% match")
@@ -74,7 +74,7 @@ struct BereanPulseCardView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
-                .background(Color.black.opacity(0.04), in: Capsule(style: .continuous))
+                .background(Color(.quaternarySystemFill), in: Capsule(style: .continuous))
 
             if card.privacyLevel != .low {
                 Label(card.privacyLevel.rawValue.capitalized, systemImage: "lock.shield")
@@ -82,7 +82,7 @@ struct BereanPulseCardView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
-                    .background(Color.black.opacity(0.04), in: Capsule(style: .continuous))
+                    .background(Color(.quaternarySystemFill), in: Capsule(style: .continuous))
                     .accessibilityElement(children: .combine)
             }
 
@@ -92,7 +92,7 @@ struct BereanPulseCardView: View {
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.secondary)
                 .frame(width: 32, height: 32)
-                .background(Color.black.opacity(0.04), in: Circle())
+                .background(Color(.quaternarySystemFill), in: Circle())
                 .accessibilityHidden(true)
         }
     }
@@ -130,7 +130,7 @@ struct BereanPulseCardView: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 8)
                             .frame(minHeight: 44)
-                            .background(Color.black.opacity(0.04), in: Capsule(style: .continuous))
+                            .background(Color(.quaternarySystemFill), in: Capsule(style: .continuous))
                             .accessibilityLabel(Text("Source signal: \(signal.title)"))
                     }
                 }
@@ -143,7 +143,7 @@ struct BereanPulseCardView: View {
         let status = permissionManager.status(for: source)
         return HStack(alignment: .top, spacing: 10) {
             Image(systemName: status == .granted ? "checkmark.shield" : "lock")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
@@ -157,10 +157,10 @@ struct BereanPulseCardView: View {
             }
         }
         .padding(12)
-        .background(Color.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color(.quaternarySystemFill), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.75)
+                .strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.75)
         )
         .accessibilityElement(children: .combine)
     }
@@ -204,11 +204,11 @@ struct BereanPulseCardView: View {
     private func feedbackButton(systemName: String, label: String, action: @escaping () -> Void, isSelected: Bool) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .font(.systemScaled(15, weight: .semibold))
+                .foregroundStyle(isSelected ? Color(.systemBackground) : Color.primary)
                 .frame(width: 44, height: 44)
-                .background(isSelected ? Color.primary : Color.white.opacity(0.76), in: Circle())
-                .overlay(Circle().strokeBorder(Color.black.opacity(isSelected ? 0.0 : 0.08), lineWidth: 0.75))
+                .background(isSelected ? Color.primary : Color(.secondarySystemBackground), in: Circle())
+                .overlay(Circle().strokeBorder(Color(.separator).opacity(isSelected ? 0.0 : 0.4), lineWidth: 0.75))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))

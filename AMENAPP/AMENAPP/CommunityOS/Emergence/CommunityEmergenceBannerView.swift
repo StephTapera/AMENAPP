@@ -77,7 +77,7 @@ struct CommunityEmergenceBannerView: View {
                     .fill(Color(.secondarySystemBackground))
                     .frame(width: 44, height: 44)
                 Image(systemName: node.contentKind.systemImage)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundColor(Color(.label))
                     .accessibilityHidden(true)
             }
@@ -118,7 +118,7 @@ struct CommunityEmergenceBannerView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                 }
-                .glassEffect()
+                .amenGlassEffect()
                 .padding(.top, 6)
                 .accessibilityLabel("Join \(node.name)")
                 .accessibilityHint("Joins this community and closes this notification")
@@ -129,7 +129,7 @@ struct CommunityEmergenceBannerView: View {
             // Dismiss button
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(Color(.secondaryLabel))
                     .padding(8)
                     .background(Color(.tertiarySystemBackground), in: Circle())
@@ -182,7 +182,7 @@ private struct CommunityCardView: View {
                         .fill(Color(.secondarySystemBackground))
                         .frame(width: 48, height: 48)
                     Image(systemName: node.contentKind.systemImage)
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.systemScaled(22, weight: .medium))
                         .foregroundColor(Color(.label))
                         .accessibilityHidden(true)
                 }
@@ -245,7 +245,7 @@ private struct CommunityCardView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
             }
-            .glassEffect()
+            .amenGlassEffect()
             .accessibilityLabel("Join \(node.name)")
         }
         .padding(16)
@@ -273,10 +273,10 @@ private struct CommunityCardView: View {
     private func layerChip(_ layer: CommunityLayer) -> some View {
         HStack(spacing: 3) {
             Image(systemName: layer.systemImage)
-                .font(.system(size: 9, weight: .medium))
+                .font(.systemScaled(9, weight: .medium))
                 .accessibilityHidden(true)
             Text(layer.displayName)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
         }
         .foregroundColor(Color(.secondaryLabel))
         .padding(.horizontal, 8)
@@ -343,7 +343,7 @@ struct GrowingCommunitiesView: View {
                     .fill(Color(.secondarySystemBackground))
                     .frame(width: 120, height: 120)
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundColor(Color(.tertiaryLabel))
                     .accessibilityHidden(true)
             }

@@ -41,6 +41,7 @@ struct AmenChurchHubView: View {
     @State private var safariURL: URL? = nil
     @State private var showShare: Bool = false
     @State private var pulseOpacity: Double = 1.0
+    @State private var showPrayerWall: Bool = false
 
     // MARK: Environment
 
@@ -75,6 +76,9 @@ struct AmenChurchHubView: View {
                 ChurchHubSafariView(url: url)
                     .ignoresSafeArea()
             }
+        }
+        .sheet(isPresented: $showPrayerWall) {
+            PrayerWallView()
         }
     }
 
@@ -166,13 +170,13 @@ struct AmenChurchHubView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Text(church.name)
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.systemScaled(30, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
 
                 if church.verifiedMinistry {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                         .accessibilityLabel("Verified ministry")
                 }
@@ -180,12 +184,12 @@ struct AmenChurchHubView: View {
 
             if let denomination = church.denomination {
                 Text(denomination)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color.white.opacity(0.72))
             }
 
             Text(church.location)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.55))
         }
 
@@ -226,7 +230,7 @@ struct AmenChurchHubView: View {
     private func heroPill(label: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(label, systemImage: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(tint)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -254,7 +258,7 @@ struct AmenChurchHubView: View {
     private var backButton: some View {
         Button(action: onDismiss) {
             Image(systemName: "chevron.left")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background {
@@ -276,7 +280,7 @@ struct AmenChurchHubView: View {
             showShare = true
         } label: {
             Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background {
@@ -413,17 +417,17 @@ struct AmenChurchHubView: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Live Now")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(.white)
                         Text("\(viewModel.liveViewerCount) watching")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.white.opacity(0.80))
                     }
 
                     Spacer()
 
                     Label("Watch Live", systemImage: "play.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -457,7 +461,7 @@ struct AmenChurchHubView: View {
             }
 
             Text("LIVE")
-                .font(.system(size: 12, weight: .black))
+                .font(.systemScaled(12, weight: .black))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
@@ -584,10 +588,11 @@ struct AmenChurchHubView: View {
                 .padding(.horizontal, 16)
 
                 Button {
-                    // Prayer wall deep-link — routed through existing prayer infrastructure
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showPrayerWall = true
                 } label: {
                     Text("View All Prayers \u{2192}")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(Color.amenBlue)
                 }
                 .padding(.horizontal, 16)
@@ -698,7 +703,7 @@ struct AmenChurchHubView: View {
                             ZStack {
                                 Color(.secondarySystemBackground)
                                 Image(systemName: "building.columns.fill")
-                                    .font(.system(size: 22))
+                                    .font(.systemScaled(22))
                                     .foregroundStyle(Color(.secondaryLabel))
                             }
                         }
@@ -708,17 +713,17 @@ struct AmenChurchHubView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("New to \(church.name)?")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(Color(.label))
                         Text("Start here \u{2192}")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.amenBlue)
                     }
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .padding(16)
@@ -778,10 +783,10 @@ struct AmenChurchHubView: View {
     private func statCell(value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(Color(.label))
             Text(label)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color(.secondaryLabel))
                 .multilineTextAlignment(.center)
         }
@@ -793,14 +798,14 @@ struct AmenChurchHubView: View {
     private func sectionHeader(title: String, seeAllAction: (() -> Void)?) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color(.label))
 
             Spacer()
 
             if let action = seeAllAction {
                 Button("See All", action: action)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.amenBlue)
                     .accessibilityLabel("See all \(title)")
             }
@@ -863,7 +868,7 @@ private struct SermonFeaturedCard: View {
                             Color(.secondarySystemBackground)
                                 .overlay(
                                     Image(systemName: "play.rectangle.fill")
-                                        .font(.system(size: 36))
+                                        .font(.systemScaled(36))
                                         .foregroundStyle(Color(.tertiaryLabel))
                                 )
                         }
@@ -871,7 +876,7 @@ private struct SermonFeaturedCard: View {
                         Color(.secondarySystemBackground)
                             .overlay(
                                 Image(systemName: "play.rectangle.fill")
-                                    .font(.system(size: 36))
+                                    .font(.systemScaled(36))
                                     .foregroundStyle(Color(.tertiaryLabel))
                             )
                     }
@@ -889,16 +894,16 @@ private struct SermonFeaturedCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if let series = sermon.series {
                         Text(series.uppercased())
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .kerning(0.8)
                             .foregroundStyle(Color.accentColor)
                     }
                     Text(sermon.title)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(2)
                     Text(sermon.speakerName)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.72))
                 }
                 .padding(14)
@@ -939,7 +944,7 @@ private struct SermonSmallCard: View {
                             Color(.secondarySystemBackground)
                                 .overlay(
                                     Image(systemName: "play.rectangle")
-                                        .font(.system(size: 18))
+                                        .font(.systemScaled(18))
                                         .foregroundStyle(Color(.tertiaryLabel))
                                 )
                         }
@@ -949,7 +954,7 @@ private struct SermonSmallCard: View {
 
                     // Duration badge
                     Text(durationLabel)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -958,7 +963,7 @@ private struct SermonSmallCard: View {
                 }
 
                 Text(sermon.title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color(.label))
                     .lineLimit(2)
                     .frame(width: 160, alignment: .leading)
@@ -1009,10 +1014,10 @@ private struct ChurchEventCard: View {
                 // Date badge (top-leading corner)
                 VStack(spacing: 0) {
                     Text(dayString)
-                        .font(.system(size: 14, weight: .black))
+                        .font(.systemScaled(14, weight: .black))
                         .foregroundStyle(Color(.label))
                     Text(monthString.uppercased())
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.systemScaled(9, weight: .bold))
                         .foregroundStyle(Color(.secondaryLabel))
                 }
                 .padding(.horizontal, 8)
@@ -1032,12 +1037,12 @@ private struct ChurchEventCard: View {
                     .overlay(alignment: .bottomLeading) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.title)
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.systemScaled(12, weight: .bold))
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
                             if event.attendeeCount > 0 {
                                 Text("\(event.attendeeCount) going")
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                     .foregroundStyle(Color.white.opacity(0.75))
                             }
                         }
@@ -1078,7 +1083,7 @@ private struct ChurchSmallGroupCard: View {
                         Color(.secondarySystemBackground)
                         .overlay(
                             Image(systemName: "person.3.fill")
-                                .font(.system(size: 22))
+                                .font(.systemScaled(22))
                                 .foregroundStyle(Color(.tertiaryLabel))
                         )
                     }
@@ -1086,7 +1091,7 @@ private struct ChurchSmallGroupCard: View {
                     Color(.secondarySystemBackground)
                     .overlay(
                         Image(systemName: "person.3.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundStyle(Color(.tertiaryLabel))
                     )
                 }
@@ -1096,17 +1101,17 @@ private struct ChurchSmallGroupCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(group.name)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundStyle(Color(.label))
                     .lineLimit(1)
 
                 Text(group.meetingSchedule)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(Color(.secondaryLabel))
                     .lineLimit(1)
 
                 Text("Join")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color.amenBlue)
             }
             .padding(.horizontal, 10)
@@ -1132,22 +1137,22 @@ private struct PrayerPreviewCard: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(prayer.text)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color(.label))
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
 
                 HStack(spacing: 4) {
                     Image(systemName: "hands.sparkles")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.accentColor)
                     Text("\(prayer.prayerCount) \(prayer.prayerCount == 1 ? "prayer" : "prayers")")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(.secondaryLabel))
 
                     if prayer.anonymous {
                         Text("· Anonymous")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color(.tertiaryLabel))
                     }
                 }
@@ -1159,7 +1164,7 @@ private struct PrayerPreviewCard: View {
                 withAnimation(.amenSpringBouncy) { hasPrayed = true }
             } label: {
                 Text(hasPrayed ? "Prayed" : "Pray")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(hasPrayed ? Color(.secondaryLabel) : Color.amenBlue)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
@@ -1206,7 +1211,7 @@ private struct MinisterCircleCard: View {
                             .fill(Color(.secondarySystemBackground))
                             .overlay(
                                 Image(systemName: "person.fill")
-                                    .font(.system(size: 28))
+                                    .font(.systemScaled(28))
                                     .foregroundStyle(Color(.secondaryLabel))
                             )
                     }
@@ -1215,7 +1220,7 @@ private struct MinisterCircleCard: View {
                         .fill(Color(.secondarySystemBackground))
                         .overlay(
                             Image(systemName: "person.fill")
-                                .font(.system(size: 28))
+                                .font(.systemScaled(28))
                                 .foregroundStyle(Color(.secondaryLabel))
                         )
                 }
@@ -1229,13 +1234,13 @@ private struct MinisterCircleCard: View {
 
             VStack(spacing: 2) {
                 Text(minister.name)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(.label))
                     .lineLimit(1)
                     .frame(maxWidth: 90)
 
                 Text(minister.role)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(Color(.secondaryLabel))
                     .lineLimit(1)
                     .frame(maxWidth: 90)
@@ -1262,7 +1267,7 @@ private struct VolunteerCard: View {
                         Color(.secondarySystemBackground)
                             .overlay(
                                 Image(systemName: "hands.clap.fill")
-                                    .font(.system(size: 24))
+                                    .font(.systemScaled(24))
                                     .foregroundStyle(Color.accentColor.opacity(0.6))
                             )
                     }
@@ -1270,7 +1275,7 @@ private struct VolunteerCard: View {
                     Color(.secondarySystemBackground)
                         .overlay(
                             Image(systemName: "hands.clap.fill")
-                                .font(.system(size: 24))
+                                .font(.systemScaled(24))
                                 .foregroundStyle(Color.accentColor.opacity(0.6))
                         )
                 }
@@ -1282,33 +1287,33 @@ private struct VolunteerCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(opportunity.title)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(Color(.label))
                     .lineLimit(2)
 
                 Text(opportunity.ministry)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.amenPurple)
 
                 HStack(spacing: 4) {
                     Image(systemName: "person.badge.clock.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color(.tertiaryLabel))
                     Text(opportunity.commitment)
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color(.secondaryLabel))
                 }
 
                 if opportunity.spotsRemaining > 0 {
                     Text("\(opportunity.spotsRemaining) spot\(opportunity.spotsRemaining == 1 ? "" : "s") left")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color(.label))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(Capsule().fill(Color.accentColor.opacity(0.15)))
                 } else {
                     Text("Full")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color(.secondaryLabel))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -1357,7 +1362,7 @@ private struct HighlightCard: View {
                     endPoint: .bottom
                 )
                 Text(highlight.caption)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(.white)
                     .lineLimit(2)
                     .padding(.horizontal, 8)

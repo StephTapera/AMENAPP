@@ -91,7 +91,7 @@ struct AmenCovenantDigestView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.secondary)
             }
             .accessibilityLabel("Dismiss")
@@ -104,7 +104,7 @@ struct AmenCovenantDigestView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.orange)
                 Text("Berean AI")
                     .font(.caption.weight(.semibold))
@@ -171,7 +171,7 @@ struct AmenCovenantDigestView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(spacing: 12) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.purple)
                             .frame(width: 28)
                         Text(item)
@@ -197,7 +197,7 @@ struct AmenCovenantDigestView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                     HStack(spacing: 12) {
                         Image(systemName: "calendar")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(Color.orange)
                             .frame(width: 28)
                         Text(item)
@@ -236,7 +236,7 @@ struct AmenCovenantDigestView: View {
     private func roomPill(_ room: CovenantRoom) -> some View {
         HStack(spacing: 7) {
             Image(systemName: room.type.icon)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.purple)
             Text(room.name)
                 .font(.subheadline.weight(.medium))
@@ -267,7 +267,7 @@ struct AmenCovenantDigestView: View {
     private var emptyDigestCard: some View {
         VStack(spacing: 20) {
             Image(systemName: "newspaper")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.tertiary)
             Text("No digest yet")
                 .font(.title3.weight(.semibold))
@@ -382,7 +382,7 @@ struct AmenCovenantDigestView: View {
     private func sectionHeader(title: String, icon: String) -> some View {
         HStack(spacing: 7) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.purple)
             Text(title)
                 .font(.headline)

@@ -113,16 +113,16 @@ struct ONEEphemeralGroupFlowView: View {
         return Button { selectedDuration = dur } label: {
             HStack(spacing: ONE.Spacing.md) {
                 Image(systemName: dur.icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(selected ? ONE.Colors.ephemeralRed : .secondary)
                     .frame(width: 28)
                 Text(dur.rawValue)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.primary)
                 Spacer()
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(ONE.Colors.ephemeralRed)
                 }
             }
@@ -171,22 +171,22 @@ struct ONEEphemeralGroupFlowView: View {
         return Button { selectedAction = action } label: {
             HStack(alignment: .top, spacing: ONE.Spacing.md) {
                 Image(systemName: action.flowIcon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(selected ? action.flowTint : .secondary)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(action.flowLabel)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.primary)
                     Text(action.flowSubtitle)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(action.flowTint)
                 }
             }
@@ -238,11 +238,11 @@ struct ONEEphemeralGroupFlowView: View {
     private func stepHeader(icon: String, title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: ONE.Spacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(ONE.Colors.ephemeralRed)
-            Text(title).font(.system(size: 20, weight: .bold))
+            Text(title).font(.systemScaled(20, weight: .bold))
             Text(subtitle)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -251,12 +251,12 @@ struct ONEEphemeralGroupFlowView: View {
     private func summaryRow(_ icon: String, _ label: String, _ value: String) -> some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
-            Text(label).font(.system(size: 14)).foregroundStyle(.secondary)
+            Text(label).font(.systemScaled(14)).foregroundStyle(.secondary)
             Spacer()
-            Text(value).font(.system(size: 14, weight: .medium)).foregroundStyle(.primary)
+            Text(value).font(.systemScaled(14, weight: .medium)).foregroundStyle(.primary)
         }
         .padding(.vertical, ONE.Spacing.sm)
         .padding(.horizontal, ONE.Spacing.md)
@@ -269,7 +269,7 @@ struct ONEEphemeralGroupFlowView: View {
     private func primaryButton(_ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, ONE.Spacing.sm)
         }
@@ -280,7 +280,7 @@ struct ONEEphemeralGroupFlowView: View {
     private func backButton(action: @escaping () -> Void) -> some View {
         Button(action: { withAnimation(ONE.Motion.adaptive(reduceMotion: reduceMotion)) { action() } }) {
             Text("Back")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .padding(.vertical, ONE.Spacing.sm)
                 .frame(maxWidth: .infinity)
         }

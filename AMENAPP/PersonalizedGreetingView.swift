@@ -210,7 +210,7 @@ struct CompactGreetingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .opacity(appeared ? 1.0 : 0.0)
         .offset(y: appeared ? 0 : -8)
         .animation(

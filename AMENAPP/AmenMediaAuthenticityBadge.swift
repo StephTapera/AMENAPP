@@ -30,10 +30,10 @@ struct AmenMediaAuthenticityBadge: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: label.systemIcon)
-                    .font(.system(size: compact ? 10 : 12, weight: .semibold))
+                    .font(.systemScaled(compact ? 10 : 12, weight: .semibold))
                     .accessibilityHidden(true)
                 Text(label.shortBadgeTitle)
-                    .font(.system(size: compact ? 11 : 12, weight: .semibold))
+                    .font(.systemScaled(compact ? 11 : 12, weight: .semibold))
                     .lineLimit(1)
             }
             .foregroundStyle(badgeForeground)

@@ -18,7 +18,7 @@ struct GlassSelectablePill: View {
     var body: some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(isSelected ? Color(uiColor: .systemBackground) : AmenTheme.Colors.textSecondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -99,11 +99,11 @@ struct VerifiedBadgeChip: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: badge.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(badge.color)
                 .accessibilityHidden(true)
             Text(badge.rawValue)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(badge.color)
         }
         .padding(.horizontal, 10)
@@ -133,7 +133,7 @@ struct VerifiedBadgeGroup: View {
                 }
                 if badges.count > maxVisible {
                     Text("+\(badges.count - maxVisible)")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
@@ -156,11 +156,11 @@ struct TransparencyMetricRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                     .accessibilityHidden(true)
                 Text(label.uppercased())
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .tracking(1.8)
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
@@ -168,23 +168,23 @@ struct TransparencyMetricRow: View {
             switch confidence {
             case .high, .medium:
                 Text(value)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                 if let source {
                     Text(source)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                 }
             case .low:
                 Text(value)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                 Text("Limited source data")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             case .unverified:
                 Text("Verification in progress")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                     .italic()
             }
@@ -203,7 +203,7 @@ struct WhyShownSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Why AMEN is showing this")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textPrimary)
                         .padding(.top, 4)
 
@@ -212,11 +212,11 @@ struct WhyShownSheet: View {
                             ForEach(explanation.tokens, id: \.key) { token in
                                 HStack(spacing: 12) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(AmenTheme.Colors.statusSuccess)
                                         .accessibilityHidden(true)
                                     Text(token.label)
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(AmenTheme.Colors.textPrimary)
                                 }
                                 .padding(12)
@@ -226,7 +226,7 @@ struct WhyShownSheet: View {
                         }
                     } else {
                         Text("This organization meets AMEN's baseline trust requirements and has verified transparency data.")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(AmenTheme.Colors.textSecondary)
                             .lineSpacing(3)
                     }
@@ -235,17 +235,17 @@ struct WhyShownSheet: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("What AMEN never does")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(AmenTheme.Colors.textSecondary)
 
                         ForEach(neverDoes, id: \.self) { item in
                             HStack(spacing: 10) {
                                 Image(systemName: "xmark.circle")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                                     .accessibilityHidden(true)
                                 Text(item)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                             }
                         }
@@ -288,22 +288,22 @@ struct AMENTransparencyCard: View {
                         Circle()
                             .fill(AmenTheme.Colors.backgroundSecondary)
                         Image(systemName: "dollarsign.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(AmenTheme.Colors.textSecondary)
                     }
                     .frame(width: 42, height: 42)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("How AMEN's giving surface works")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(AmenTheme.Colors.textPrimary)
                         Text("Transparency about our role")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                     }
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                         .accessibilityHidden(true)
@@ -318,10 +318,10 @@ struct AMENTransparencyCard: View {
                     ForEach(transparencyPoints, id: \.question) { point in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(point.question)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(AmenTheme.Colors.textPrimary)
                             Text(point.answer)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                                 .lineSpacing(2)
                         }
@@ -379,29 +379,29 @@ struct ActiveResponseCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: event.eventType.icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.80))
                     Text("ACTIVE RESPONSE")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .tracking(2.2)
                         .foregroundStyle(.white.opacity(0.75))
                     Spacer()
                     if let updated = event.updatedAt {
                         Text(updated, style: .relative)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.white.opacity(0.60))
                         + Text(" ago")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.white.opacity(0.60))
                     }
                 }
 
                 Text(event.title)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.white)
 
                 Text(event.summary)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.white.opacity(0.80))
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -415,7 +415,7 @@ struct ActiveResponseCard: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Organizations currently responding")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .tracking(1.4)
                         .foregroundStyle(.white.opacity(0.65))
                         .padding(.horizontal, 18)
@@ -428,18 +428,18 @@ struct ActiveResponseCard: View {
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(org.name)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                         .foregroundStyle(.white)
                                     if let action = org.recentActions.first {
                                         Text(action.summary)
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(.white.opacity(0.68))
                                             .lineLimit(2)
                                     }
                                 }
                                 Spacer()
                                 Text("Give")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.systemScaled(12, weight: .bold))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
@@ -492,31 +492,31 @@ struct CauseBriefCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label(brief.causeCategory.rawValue, systemImage: brief.causeCategory.icon)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .tracking(1.6)
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     Spacer()
                     if let updatedAt = brief.updatedAt {
                         Text(updatedAt, style: .date)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                     }
                 }
 
                 Text(brief.title)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                     .lineLimit(2)
 
                 Text(brief.summary)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .lineSpacing(2)
                     .lineLimit(3)
 
                 if let scripture = brief.scriptureRefs.first {
                     Text(scripture)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                         .italic()
                 }
@@ -524,7 +524,7 @@ struct CauseBriefCard: View {
                 HStack(spacing: 8) {
                     ForEach(["Give", "Serve", "Pray"], id: \.self) { action in
                         Text(action)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(AmenTheme.Colors.textSecondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -555,23 +555,23 @@ struct BereanCounselCard: View {
                         .fill(.white.opacity(0.14))
                         .frame(width: 42, height: 42)
                     Image(systemName: "sparkles")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.white)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("BEREAN COUNSEL")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .tracking(2.0)
                         .foregroundStyle(.white.opacity(0.65))
                     Text("I have $\(budgetDollars) to give this month.")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }
 
             Text("Berean shows 2–3 matched organizations with reasons, scripture context, and financial transparency. No pressure, no reward promises.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.white.opacity(0.75))
                 .lineSpacing(2)
 
@@ -582,7 +582,7 @@ struct BereanCounselCard: View {
                             budgetDollars = amount
                         } label: {
                             Text("$\(amount)")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(budgetDollars == amount ? Color(uiColor: .label) : .white.opacity(0.75))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
@@ -597,7 +597,7 @@ struct BereanCounselCard: View {
 
             Button(action: onTap) {
                 Text("Ask Berean →")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 11)
@@ -642,12 +642,12 @@ struct StewardshipDashboardCard: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Label("Stewardship", systemImage: "chart.pie.fill")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .tracking(1.8)
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     Spacer()
                     Text("Private")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -664,14 +664,14 @@ struct StewardshipDashboardCard: View {
                     }
                 } else {
                     Text("Track your giving across church and nonprofit giving — privately, on-device.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .lineSpacing(2)
                 }
 
                 if let target = snapshot.tithingTargetFormatted {
                     Label("Tithe target: \(target)", systemImage: "target")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                 }
             }
@@ -684,10 +684,10 @@ struct StewardshipDashboardCard: View {
     private func statCell(value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
             Text(label)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
         }
     }
@@ -705,17 +705,17 @@ struct RequestCard: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(request.category.label.uppercased())
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .tracking(1.8)
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     Text(request.title)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textPrimary)
                 }
                 Spacer()
                 if let cap = request.approvedCapFormatted {
                     Text(cap)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color(red: 0.20, green: 0.45, blue: 0.85))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -724,11 +724,11 @@ struct RequestCard: View {
             }
 
             Text(request.verificationType.label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
 
             Text(request.summary)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .lineSpacing(2)
                 .lineLimit(3)
@@ -738,10 +738,10 @@ struct RequestCard: View {
                 ForEach(requestTrustSignals, id: \.self) { signal in
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(AmenTheme.Colors.statusSuccess)
                         Text(signal)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                     }
                     .padding(.horizontal, 8)
@@ -753,7 +753,7 @@ struct RequestCard: View {
             HStack(spacing: 10) {
                 Button(action: onGive) {
                     Text("Give anonymously")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textInverse)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -763,7 +763,7 @@ struct RequestCard: View {
 
                 Button(action: onPray) {
                     Text("Pray")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -796,18 +796,18 @@ struct TaxReceiptRow: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(AmenTheme.Colors.backgroundSecondary)
                 Image(systemName: "doc.text.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
             .frame(width: 40, height: 40)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(receipt.destinationName)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                 if let issued = receipt.issuedAt {
                     Text(issued, style: .date)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                 }
             }
@@ -816,11 +816,11 @@ struct TaxReceiptRow: View {
 
             VStack(alignment: .trailing, spacing: 3) {
                 Text(receipt.amountFormatted)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                 if receipt.receiptUrl != nil {
                     Button("View", action: onView)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                 }
             }
@@ -842,30 +842,30 @@ struct GivingJournalComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("A note to yourself")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
 
             Text("Private. Not visible to anyone. Why did you give today?")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .lineSpacing(2)
 
             TextEditor(text: $text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .focused($textFocused)
                 .frame(minHeight: 80)
                 .padding(10)
                 .background(AmenTheme.Colors.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             TextField("Scripture (optional)", text: $scriptureRef)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .padding(10)
                 .background(AmenTheme.Colors.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             HStack(spacing: 10) {
                 Button(action: onDismiss) {
                     Text("Skip")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -875,7 +875,7 @@ struct GivingJournalComposer: View {
 
                 Button(action: onSave) {
                     Text("Save note")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textInverse)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -914,19 +914,19 @@ struct OrgCard: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline) {
                             Text(org.name)
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.systemScaled(18, weight: .semibold))
                                 .foregroundStyle(AmenTheme.Colors.textPrimary)
                                 .lineLimit(2)
                             Spacer()
                         }
                         HStack(spacing: 6) {
                             Text(org.primaryCauseLabel)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                             Text("·")
                                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                             Label(org.primaryLocalityLabel, systemImage: "mappin")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                         }
                     }
@@ -950,26 +950,26 @@ struct OrgCard: View {
                     if let label = transparency.programCentsLabel {
                         HStack(spacing: 8) {
                             Image(systemName: "chart.bar.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(AmenTheme.Colors.statusSuccess)
                                 .accessibilityHidden(true)
                             Text(label)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(AmenTheme.Colors.textPrimary)
                             Spacer()
                             if let sourceLabel = transparency.sourceLabel {
                                 Text(sourceLabel)
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                             }
                         }
                     } else if transparency.verificationStatus == .inProgress {
                         HStack(spacing: 6) {
                             Image(systemName: "clock")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(AmenTheme.Colors.statusWarning)
                             Text("Verification in progress")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                                 .italic()
                         }
@@ -978,7 +978,7 @@ struct OrgCard: View {
 
                 if let action = org.recentActions.first {
                     Text(action.summary)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .lineSpacing(2)
                         .lineLimit(2)
@@ -989,7 +989,7 @@ struct OrgCard: View {
                         HStack(spacing: 8) {
                             ForEach(org.giftImpacts.prefix(3)) { impact in
                                 Text("$\(impact.amount) = \(impact.description)")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
@@ -1010,9 +1010,9 @@ struct OrgCard: View {
                 Button(action: onWhyShown) {
                     HStack(spacing: 4) {
                         Image(systemName: "info.circle")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                         Text("Why shown")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                     .frame(minHeight: 44)
@@ -1027,7 +1027,7 @@ struct OrgCard: View {
                         onTap()
                     } label: {
                         Text("Learn more")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(AmenTheme.Colors.textPrimary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -1038,7 +1038,7 @@ struct OrgCard: View {
 
                 Button(action: onGive) {
                     Text("Give")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textInverse)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
@@ -1064,13 +1064,13 @@ struct OrgCard: View {
                         image.resizable().scaledToFill()
                     default:
                         Image(systemName: org.causeCategories.first?.icon ?? "heart.fill")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                     }
                 }
             } else {
                 Image(systemName: org.causeCategories.first?.icon ?? "heart.fill")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
         }

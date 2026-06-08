@@ -30,6 +30,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
@@ -195,20 +196,22 @@ export const autoSuspendOnCriticalPattern = onDocumentCreated(
  * Input:  { uid: string, reason: string }
  * Output: { success: boolean }
  */
-export const suspendAccount = functions.https.onCall(async (data, context) => {
+export const suspendAccount = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new HttpsError("unauthenticated", "Auth required");
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
     }
 
     if (!context.auth.token.admin) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "permission-denied",
             "Only admins can suspend accounts"
         );
@@ -218,11 +221,11 @@ export const suspendAccount = functions.https.onCall(async (data, context) => {
     const reason: string = (data.reason ?? "Manual suspension by admin").trim();
 
     if (!uid) {
-        throw new functions.https.HttpsError("invalid-argument", "uid is required");
+        throw new HttpsError("invalid-argument", "uid is required");
     }
 
     if (reason.length < 5 || reason.length > 500) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "reason must be between 5 and 500 characters"
         );
@@ -244,20 +247,22 @@ export const suspendAccount = functions.https.onCall(async (data, context) => {
  * Input:  { uid: string, reason: string }
  * Output: { success: boolean }
  */
-export const restoreAccount = functions.https.onCall(async (data, context) => {
+export const restoreAccount = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new HttpsError("unauthenticated", "Auth required");
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
     }
 
     if (!context.auth.token.admin) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "permission-denied",
             "Only admins can restore accounts"
         );
@@ -267,7 +272,7 @@ export const restoreAccount = functions.https.onCall(async (data, context) => {
     const reason: string = (data.reason ?? "Account reinstated by admin").trim();
 
     if (!uid) {
-        throw new functions.https.HttpsError("invalid-argument", "uid is required");
+        throw new HttpsError("invalid-argument", "uid is required");
     }
 
     // Re-enable in Firebase Auth.

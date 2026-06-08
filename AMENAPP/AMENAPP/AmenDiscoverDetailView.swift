@@ -43,7 +43,7 @@ struct AmenDiscoverDetailView: View {
             }
             .padding(16)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 
     private func actionButton(_ title: String, icon: String) -> some View {

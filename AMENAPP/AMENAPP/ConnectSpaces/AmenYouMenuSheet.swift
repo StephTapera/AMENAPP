@@ -128,7 +128,7 @@ struct AmenYouMenuSheet: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "circle.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.green)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Set Spiritual Presence")
@@ -163,7 +163,7 @@ struct AmenYouMenuSheet: View {
                     .fill(sabbathModeEnabled ? Color.amenBlue : Color(uiColor: .secondarySystemBackground))
                     .frame(width: 32, height: 32)
                 Image(systemName: "moon.stars.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(sabbathModeEnabled ? .white : .secondary)
             }
             VStack(alignment: .leading, spacing: 1) {
@@ -225,7 +225,7 @@ struct AmenYouMenuSheet: View {
                         .fill(item.accent.opacity(0.12))
                         .frame(width: 32, height: 32)
                     Image(systemName: item.icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(item.accent)
                 }
                 VStack(alignment: .leading, spacing: 1) {

@@ -58,7 +58,7 @@ struct ScriptureInsightView: View {
     private func scriptureErrorView(message: String) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.secondary)
 
             Text("Couldn't load insight")
@@ -349,7 +349,7 @@ private struct WordStudyRow: View {
                             .font(AMENFont.semiBold(14))
                             .foregroundStyle(.primary)
                         Text(word.originalWord)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(Color(red: 0.52, green: 0.26, blue: 0.73))
                         if let strongs = word.strongsNumber {
                             Text(strongs)
@@ -365,7 +365,7 @@ private struct WordStudyRow: View {
                 Spacer()
 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
 

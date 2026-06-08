@@ -170,7 +170,7 @@ struct AmenCreatorKitHome: View {
                 Spacer(minLength: 0)
             }
             .padding(.top)
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .alert("What's your topic?", isPresented: $showTopicPrompt, actions: {
                 TextField("Topic or Scripture reference", text: $topicInput)
                 Button("Generate") {

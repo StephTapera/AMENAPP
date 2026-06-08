@@ -146,7 +146,7 @@ struct ChurchNoteSelahRenderView: View {
     private func recapStat(count: Int, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(color)
                 .accessibilityHidden(true)
             Text("\(count)")
@@ -204,7 +204,7 @@ struct ChurchNoteSelahRenderView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "doc.text")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(.tertiary)
             Text("No blocks match this filter.")
                 .font(.subheadline)
@@ -308,7 +308,7 @@ struct SelahBlockCard: View {
                     HStack(spacing: 8) {
                         Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(item.completed ? .primary : Color(.tertiaryLabel))
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .accessibilityHidden(true)
                         Text(item.text)
                             .font(.subheadline)

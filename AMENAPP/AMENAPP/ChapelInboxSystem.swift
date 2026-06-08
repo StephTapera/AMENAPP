@@ -158,7 +158,7 @@ private struct ChapelInboxLanePill: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: lane.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
 
                 Text(lane.displayName)
                     .font(AMENFont.semiBold(13))

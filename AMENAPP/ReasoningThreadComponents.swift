@@ -75,7 +75,7 @@ struct AmenGlassPill: View {
         HStack(spacing: 6) {
             if let icon {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
             }
             Text(title)
                 .font(.systemScaled(12, weight: .semibold))
@@ -109,7 +109,7 @@ struct AmenGlassHeaderBar: View {
             HStack(spacing: 12) {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
                         .background(
@@ -175,7 +175,7 @@ struct DiscussionTopicHeroCard: View {
                     Spacer()
 
                     Image(systemName: "quote.bubble.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color.purple.opacity(0.7))
                 }
 
@@ -218,7 +218,7 @@ struct PerspectiveBriefCard: View {
                         }
                     } label: {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .rotationEffect(.degrees(isExpanded ? 180 : 0))
                             .frame(width: 32, height: 32)
@@ -295,7 +295,7 @@ private struct DiscussionPromptRow: View {
                     .foregroundStyle(.primary)
                 Spacer()
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 12)
@@ -355,7 +355,7 @@ struct ThreadUnavailableState: View {
         AmenGlassCard(cornerRadius: 24, padding: 18) {
             VStack(spacing: 12) {
                 Image(systemName: "bubble.left.and.exclamationmark.bubble.right")
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text(title)
                     .font(.systemScaled(18, weight: .semibold))
@@ -392,7 +392,7 @@ struct AddYourViewFloatingButton: View {
                         .fill(Color.black)
                         .frame(width: 28, height: 28)
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                         .foregroundStyle(.white)
                 }
                 Text(title)

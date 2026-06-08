@@ -28,6 +28,6 @@ struct CreatorNewProjectSheet: View {
             CreatorPrimaryCTA(title: "Create", action: onCreate)
         }
         .padding(20)
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }

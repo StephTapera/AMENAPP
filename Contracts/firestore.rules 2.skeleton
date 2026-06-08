@@ -1,0 +1,742 @@
+// =============================================================================
+// firestore.rules.skeleton
+//
+// CONTRACT: C5 — Security Rules Skeleton
+// OWNER:    Trust & Safety Lead (ONE OWNER — do not edit without T&S Lead sign-off)
+// PHASE:    0 — Stubs only. NO business logic. Every condition is a TODO.
+// STATUS:   FROZEN FOR PHASE 0
+// UPDATED:  2026-06-05
+//
+// PURPOSE:
+//   This skeleton defines the collection structure and placeholder functions
+//   that the T&S Lead will implement in Phase 4. All conditions say
+//   `// TODO: implement` — that is intentional. Do not add logic here.
+//
+// HOW TO USE IN PHASE 4:
+//   1. Copy this file to firestore.rules (or merge with existing rules).
+//   2. Replace every `// TODO: implement` with real logic.
+//   3. Add test cases from C5-rbac-test-matrix.md to the Rules Emulator.
+//   4. All 35 test cases must pass before this file is deployed.
+//
+// DO NOT:
+//   - Add business logic to this file during Phase 0.
+//   - Commit this file as the production firestore.rules.
+//   - Skip the test matrix before deploying Phase 4 rules.
+//
+// MINOR RULES:
+//   Lines tagged [MINOR] implement or enforce rules for users with
+//   ageTier == 'teen' or ageTier == 'under_minimum'.
+//   These lines are the highest-priority items for the T&S Lead.
+//
+// OPEN QUESTIONS (must be resolved before Phase 4 — see C5-security-rules.md §6):
+//   OPEN-1: Minor age threshold (13 vs 16 per jurisdiction)
+//   OPEN-2: Guardian tools scope
+//   OPEN-3: Anonymous prayer identity shielding level
+//   OPEN-4: NCMEC pipeline timing + escalation key holder
+//   OPEN-5: Unauthenticated visitor read access to public posts
+//   OPEN-6: Cross-church data access
+// =============================================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // HELPER FUNCTIONS
+    // All functions return false until implemented in Phase 4.
+    // =========================================================================
+
+    // Is the request from a signed-in user?
+    function isSignedIn() {
+      // TODO: implement — return request.auth != null
+      return false;
+    }
+
+    // Is the request actor the document owner?
+    // `uid` is the ownerId / authorId / creatorId field value from the document.
+    function isOwner(uid) {
+      // TODO: implement — return isSignedIn() && request.auth.uid == uid
+      return false;
+    }
+
+    // Does the requesting user have the given role (from custom claims)?
+    // Valid role values: 'owner', 'executive_admin', 'pastor', 'leader',
+    //   'moderator', 'volunteer_lead', 'content_manager', 'event_manager',
+    //   'member', 'visitor', 'minor'
+    function hasRole(role) {
+      // TODO: implement — return isSignedIn() && request.auth.token.role == role
+      return false;
+    }
+
+    // Does the requesting user have at least one of the given roles?
+    // Usage: hasAnyRole(['owner', 'executive_admin', 'pastor'])
+    function hasAnyRole(roles) {
+      // TODO: implement — return isSignedIn() && request.auth.token.role in roles
+      return false;
+    }
+
+    // [MINOR] Is the requesting user a minor (ageTier is 'teen' or 'under_minimum')?
+    function isMinor() {
+      // TODO: implement — return isSignedIn() &&
+      //   request.auth.token.ageTier in ['teen', 'under_minimum']
+      return false;
+    }
+
+    // [MINOR] Is the requesting user under the minimum age (completely blocked)?
+    function isUnderMinimum() {
+      // TODO: implement — return isSignedIn() &&
+      //   request.auth.token.ageTier == 'under_minimum'
+      return false;
+    }
+
+    // Is the given resource publicly visible?
+    function isPublic(privacyLevel) {
+      // TODO: implement — return privacyLevel == 'public'
+      return false;
+    }
+
+    // Is the requesting user a member of the given space?
+    // Requires a read of the membership subcollection — use sparingly.
+    function isMember(spaceId) {
+      // TODO: implement — check existence of
+      //   /spaces/{spaceId}/members/{request.auth.uid}
+      return false;
+    }
+
+    // Is the requesting user a verified member of the given church?
+    function isChurchMember(churchId) {
+      // TODO: implement — check request.auth.token.churchId == churchId
+      //   AND member document exists in /churches/{churchId}/members/{uid}
+      return false;
+    }
+
+    // Does the requesting user belong to the same org as the resource?
+    function sameOrg(orgId) {
+      // TODO: implement — return request.auth.token.orgId == orgId
+      return false;
+    }
+
+    // Is this an admin-SDK server-side request (Cloud Function)?
+    // Used to allow CF-only write paths (BereanInsight, age profile updates, etc.)
+    function isAdminSDK() {
+      // TODO: implement — return request.auth.token.admin == true
+      return false;
+    }
+
+    // [MINOR] Is the DM request safe for a minor sender?
+    // Checks that sender and recipient are mutual follows.
+    // Must also check that the message is NOT from an adult stranger.
+    function isMinorSafeDM(recipientUid) {
+      // TODO: implement — check existence of edge documents confirming mutual follow
+      //   between request.auth.uid and recipientUid,
+      //   AND check recipientUid ageTier does not block the sender.
+      return false;
+    }
+
+    // Does this resource document contain raw PII fields that are forbidden?
+    // (Used for VolunteerOpportunity and Job listings — Invariant I-5)
+    function hasRawPII() {
+      // TODO: implement — return
+      //   'contactPhone' in request.resource.data ||
+      //   'contactEmail' in request.resource.data ||
+      //   'homeAddress' in request.resource.data ||
+      //   'salaryAmount' in request.resource.data
+      return false;
+    }
+
+    // =========================================================================
+    // /users/{userId}
+    // =========================================================================
+
+    match /users/{userId} {
+      allow read: if
+        // TODO: implement — isSignedIn() for own doc; privacy-gated for others
+        false;
+
+      allow create: if
+        // TODO: implement — isSignedIn() && request.auth.uid == userId
+        false;
+
+      allow update: if
+        // TODO: implement — isOwner(userId) for own profile fields;
+        //   admin roles with C-AUDIT for other fields.
+        //   CRITICAL: ageTier field must NOT be settable by client (see I-8)
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied — use soft-delete (set deletedAt) instead
+        false;
+
+      // ----- Private subcollection: age assurance -----
+      match /private/age_assurance {
+        allow read: if
+          // TODO: implement — isOwner(userId) || hasRole('executive_admin')
+          false;
+
+        allow create: if
+          // TODO: implement — isOwner(userId) &&
+          //   !exists(/databases/$(database)/documents/users/$(userId)/private/age_assurance)
+          false;
+
+        allow update: if
+          // I-8: Age profile immutable by clients — Admin SDK only
+          // DO NOT change this rule. It must remain false.
+          false;
+
+        allow delete: if
+          // Age profiles are never deleted by clients
+          false;
+      }
+    }
+
+    // =========================================================================
+    // /posts/{postId}
+    // =========================================================================
+
+    match /posts/{postId} {
+      allow read: if
+        // TODO: implement — isPublic(resource.data.privacyLevel) ||
+        //   isOwner(resource.data.authorId) ||
+        //   (isChurchMember(resource.data.churchId) && resource.data.privacyLevel == 'church') ||
+        //   (isMember(resource.data.spaceId) && resource.data.privacyLevel == 'space')
+        false;
+
+      allow create: if
+        // TODO: implement — isSignedIn() && !isUnderMinimum() &&
+        //   [MINOR] if isMinor(): request.resource.data.privacyLevel != 'public' ||
+        //     request.resource.data.publicConfirmed == true
+        false;
+
+      allow update: if
+        // TODO: implement — isOwner(resource.data.authorId) ||
+        //   (hasAnyRole(['moderator', 'pastor', 'owner', 'executive_admin']) && sameOrg(resource.data.orgId))
+        //   C-AUDIT: update must be accompanied by audit log write
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied for all clients
+        false;
+    }
+
+    // =========================================================================
+    // /prayers/{prayerId}
+    // =========================================================================
+
+    match /prayers/{prayerId} {
+      allow read: if
+        // TODO: implement — isOwner(resource.data.authorId) ||
+        //   (resource.data.privacyLevel == 'public') ||
+        //   (resource.data.privacyLevel == 'trustedCircle' && /* mutual follow check */ false) ||
+        //   (resource.data.privacyLevel == 'church' && isChurchMember(resource.data.churchId)) ||
+        //   (resource.data.privacyLevel == 'space' && isMember(resource.data.spaceId))
+        //   [MINOR] NOTE: Minors' prayers default to 'private'; do not expose them via list queries
+        false;
+
+      allow create: if
+        // TODO: implement — isSignedIn() && !isUnderMinimum()
+        //   [MINOR] if isMinor(): default privacyLevel must be 'private'
+        false;
+
+      allow update: if
+        // TODO: implement — isOwner(resource.data.authorId)
+        //   C-AUDIT: updates by moderator+ roles require audit log
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+    }
+
+    // =========================================================================
+    // /discussions/{discussionId}
+    // =========================================================================
+
+    match /discussions/{discussionId} {
+      allow read: if
+        // TODO: implement — isPublic(resource.data.privacyLevel) ||
+        //   (resource.data.privacyLevel == 'church' && isChurchMember(resource.data.churchId)) ||
+        //   (resource.data.privacyLevel == 'space' && isMember(resource.data.spaceId)) ||
+        //   isOwner(resource.data.authorId)
+        false;
+
+      allow create: if
+        // TODO: implement — isSignedIn() && !isUnderMinimum() &&
+        //   hasAnyRole(['member', 'leader', 'pastor', 'moderator',
+        //               'content_manager', 'event_manager', 'volunteer_lead',
+        //               'owner', 'executive_admin', 'minor'])
+        false;
+
+      allow update: if
+        // TODO: implement — isOwner(resource.data.authorId) ||
+        //   hasAnyRole(['moderator', 'pastor', 'owner', 'executive_admin'])
+        //   C-AUDIT required for non-owner updates
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+
+      // ----- Comments subcollection -----
+      match /comments/{commentId} {
+        allow read: if
+          // TODO: implement — inherits parent discussion visibility
+          false;
+
+        allow create: if
+          // TODO: implement — isSignedIn() && !isUnderMinimum()
+          false;
+
+        allow update: if
+          // TODO: implement — isOwner(resource.data.authorId)
+          false;
+
+        allow delete: if
+          // I-1: Hard deletes denied for all clients
+          false;
+      }
+    }
+
+    // =========================================================================
+    // /edges/{edgeId}
+    // Social graph — follow/mutual/block relationships
+    // =========================================================================
+
+    match /edges/{edgeId} {
+      allow read: if
+        // TODO: implement — isOwner(resource.data.fromUid) ||
+        //   isOwner(resource.data.toUid) ||
+        //   hasAnyRole(['moderator', 'pastor', 'owner', 'executive_admin'])
+        false;
+
+      allow create: if
+        // TODO: implement — isSignedIn() && !isUnderMinimum() &&
+        //   request.auth.uid == request.resource.data.fromUid
+        //   [MINOR] if isMinor(): edge type must not be 'external_discover'
+        false;
+
+      allow update: if
+        // TODO: implement — isOwner(resource.data.fromUid) (e.g., change block status)
+        false;
+
+      allow delete: if
+        // TODO: implement — isOwner(resource.data.fromUid) (unfollow, remove block)
+        //   C-AUDIT for moderator+ deleting block edges
+        false;
+    }
+
+    // =========================================================================
+    // /organizations/{orgId}
+    // =========================================================================
+
+    match /organizations/{orgId} {
+      allow read: if
+        // TODO: implement — isPublic(resource.data.privacyLevel) ||
+        //   sameOrg(orgId)
+        false;
+
+      allow create: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin'])
+        false;
+
+      allow update: if
+        // TODO: implement — (hasRole('owner') && sameOrg(orgId)) ||
+        //   hasRole('executive_admin')
+        //   C-AUDIT required
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+    }
+
+    // =========================================================================
+    // /churches/{churchId}
+    // =========================================================================
+
+    match /churches/{churchId} {
+      allow read: if
+        // TODO: implement — isPublic(resource.data.privacyLevel) ||
+        //   isChurchMember(churchId)
+        false;
+
+      allow create: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin', 'pastor'])
+        false;
+
+      allow update: if
+        // TODO: implement — (hasAnyRole(['owner', 'pastor']) && isChurchMember(churchId)) ||
+        //   hasRole('executive_admin') ||
+        //   (hasRole('content_manager') && isChurchMember(churchId) /* media fields only */)
+        //   C-AUDIT required
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+
+      // ----- Members subcollection -----
+      match /members/{memberId} {
+        allow read: if
+          // TODO: implement — isChurchMember(churchId) ||
+          //   hasAnyRole(['owner', 'executive_admin'])
+          false;
+
+        allow create, update: if
+          // TODO: implement — hasAnyRole(['owner', 'pastor', 'executive_admin']) &&
+          //   isChurchMember(churchId)
+          //   C-AUDIT required
+          false;
+
+        allow delete: if
+          // I-1: Soft-delete only
+          false;
+      }
+    }
+
+    // =========================================================================
+    // /spaces/{spaceId}
+    // =========================================================================
+
+    match /spaces/{spaceId} {
+      allow read: if
+        // TODO: implement — isPublic(resource.data.privacyLevel) ||
+        //   isMember(spaceId)
+        //   [MINOR] if isMinor(): space must have churchVerified == true
+        false;
+
+      allow create: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin', 'pastor', 'leader'])
+        false;
+
+      allow update: if
+        // TODO: implement — (hasAnyRole(['owner', 'pastor']) && isMember(spaceId)) ||
+        //   (hasRole('leader') && resource.data.leaderId == request.auth.uid) ||
+        //   hasRole('executive_admin')
+        //   C-AUDIT required
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+
+      // ----- Members subcollection -----
+      match /members/{memberId} {
+        allow read: if
+          // TODO: implement — isMember(spaceId)
+          false;
+
+        allow create: if
+          // TODO: implement — isSignedIn() && !isUnderMinimum() &&
+          //   (request.auth.uid == memberId /* self-join for public spaces */) ||
+          //   hasAnyRole(['owner', 'pastor', 'leader', 'executive_admin'])
+          //   [MINOR] if isMinor(): space.churchVerified must be true
+          false;
+
+        allow update, delete: if
+          // TODO: implement — hasAnyRole(['owner', 'pastor', 'leader', 'executive_admin'])
+          //   C-AUDIT required for removals
+          false;
+      }
+    }
+
+    // =========================================================================
+    // /events/{eventId}
+    // =========================================================================
+
+    match /events/{eventId} {
+      allow read: if
+        // TODO: implement — isPublic(resource.data.privacyLevel) ||
+        //   sameOrg(resource.data.orgId) ||
+        //   isChurchMember(resource.data.churchId)
+        false;
+
+      allow create: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin', 'pastor',
+        //   'leader', 'event_manager'])
+        false;
+
+      allow update: if
+        // TODO: implement — (isOwner(resource.data.createdBy) ||
+        //   hasAnyRole(['owner', 'pastor', 'executive_admin'])) &&
+        //   sameOrg(resource.data.orgId)
+        //   C-AUDIT required
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+    }
+
+    // =========================================================================
+    // /jobs/{jobId}
+    // =========================================================================
+
+    match /jobs/{jobId} {
+      allow read: if
+        // TODO: implement — isSignedIn() && !isMinor() &&
+        //   [MINOR] Job listings are completely blocked for Minors (C-AGE)
+        //   isPublic(resource.data.privacyLevel) || sameOrg(resource.data.orgId)
+        false;
+
+      allow create: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin', 'pastor', 'leader']) &&
+        //   !hasRawPII()  // I-5: No PII in listings
+        false;
+
+      allow update: if
+        // TODO: implement — (isOwner(resource.data.createdBy) ||
+        //   hasAnyRole(['owner', 'pastor', 'executive_admin'])) &&
+        //   !hasRawPII()
+        //   C-AUDIT required
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+    }
+
+    // =========================================================================
+    // /volunteerOpportunities/{opportunityId}
+    // =========================================================================
+
+    match /volunteerOpportunities/{opportunityId} {
+      allow read: if
+        // TODO: implement — isSignedIn() &&
+        //   isPublic(resource.data.privacyLevel) || sameOrg(resource.data.orgId)
+        //   NOTE: Even for Minors, read is allowed here (unlike jobs).
+        //   But the listing must not contain raw PII fields (I-5).
+        false;
+
+      allow create: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin', 'pastor',
+        //   'leader', 'volunteer_lead']) &&
+        //   !hasRawPII()  // I-5 enforcement
+        false;
+
+      allow update: if
+        // TODO: implement — (isOwner(resource.data.createdBy) ||
+        //   hasAnyRole(['owner', 'pastor', 'volunteer_lead', 'executive_admin'])) &&
+        //   !hasRawPII()
+        //   C-AUDIT required
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+    }
+
+    // =========================================================================
+    // /mentorshipRequests/{requestId}
+    // =========================================================================
+
+    match /mentorshipRequests/{requestId} {
+      allow read: if
+        // TODO: implement — isOwner(resource.data.requestorId) ||
+        //   isOwner(resource.data.mentorId) ||
+        //   (hasAnyRole(['pastor', 'leader']) && isChurchMember(resource.data.churchId)) ||
+        //   hasAnyRole(['owner', 'executive_admin'])
+        false;
+
+      allow create: if
+        // TODO: implement — isSignedIn() && !isUnderMinimum() &&
+        //   request.auth.uid == request.resource.data.requestorId
+        //   [MINOR] Minors may create mentorship requests.
+        //   DM with mentor is separately gated by isMinorSafeDM()
+        false;
+
+      allow update: if
+        // TODO: implement — isOwner(resource.data.requestorId) ||
+        //   isOwner(resource.data.mentorId)
+        //   C-AUDIT required for status changes
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+    }
+
+    // =========================================================================
+    // /conversations/{conversationId}
+    // Direct Messages
+    // =========================================================================
+
+    match /conversations/{conversationId} {
+      allow read: if
+        // TODO: implement — isSignedIn() &&
+        //   request.auth.uid in resource.data.participantUids
+        false;
+
+      allow create: if
+        // TODO: implement — isSignedIn() && !isUnderMinimum() &&
+        //   request.auth.uid in request.resource.data.participantUids &&
+        //   [MINOR] if isMinor(): isMinorSafeDM(
+        //     <the other participant's uid>
+        //   )
+        //   Visitors cannot create conversations (must be Member+)
+        false;
+
+      allow update: if
+        // TODO: implement — isSignedIn() &&
+        //   request.auth.uid in resource.data.participantUids
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+
+      // ----- Messages subcollection -----
+      match /messages/{messageId} {
+        allow read: if
+          // TODO: implement — inherits conversation participant check
+          false;
+
+        allow create: if
+          // TODO: implement — isSignedIn() &&
+          //   request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantUids &&
+          //   [MINOR] if isMinor(): content safety gate must have passed (CF-enforced)
+          false;
+
+        allow update: if
+          // TODO: implement — isOwner(resource.data.senderId) (edit own message)
+          false;
+
+        allow delete: if
+          // I-1: Hard deletes denied — set deletedAt
+          false;
+      }
+    }
+
+    // =========================================================================
+    // /churchNotes/{noteId}
+    // =========================================================================
+
+    match /churchNotes/{noteId} {
+      allow read: if
+        // TODO: implement — isOwner(resource.data.authorId) ||
+        //   request.auth.uid in resource.data.collaboratorUids
+        false;
+
+      allow create: if
+        // TODO: implement — isSignedIn() && !isUnderMinimum()
+        false;
+
+      allow update: if
+        // TODO: implement — isOwner(resource.data.authorId) ||
+        //   (request.auth.uid in resource.data.collaboratorUids &&
+        //    resource.data.collaborators[request.auth.uid].role in ['editor', 'owner'])
+        //   C-AUDIT for admin overrides
+        false;
+
+      allow delete: if
+        // I-1: Hard deletes denied
+        false;
+    }
+
+    // =========================================================================
+    // /bereanInsights/{insightId}
+    // AI-generated content — CF writes only
+    // =========================================================================
+
+    match /bereanInsights/{insightId} {
+      allow read: if
+        // TODO: implement — isOwner(resource.data.userId) ||
+        //   hasAnyRole(['owner', 'executive_admin', 'pastor'])
+        //   [MINOR] Minors can read their own insights (own userId only)
+        //   but crisis/sensitive-topic insights escalate to guardian notification
+        false;
+
+      allow create: if
+        // I-7: BereanInsight is CF-only. DO NOT change this to true.
+        false;
+
+      allow update: if
+        // I-7: CF-only. DO NOT change this to true.
+        false;
+
+      allow delete: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin'])
+        //   C-AUDIT required
+        false;
+    }
+
+    // =========================================================================
+    // /moderationQueue/{itemId}
+    // =========================================================================
+
+    match /moderationQueue/{itemId} {
+      allow read: if
+        // TODO: implement — hasAnyRole(['moderator', 'pastor', 'owner', 'executive_admin']) &&
+        //   (hasAnyRole(['owner', 'executive_admin', 'pastor', 'moderator']) ||
+        //    (hasRole('leader') && isMember(resource.data.spaceId)))
+        false;
+
+      allow create: if
+        // TODO: implement — isAdminSDK()
+        //   Queue items are created by Cloud Functions only.
+        //   Users can escalate (trigger a CF call) but cannot write directly.
+        false;
+
+      allow update: if
+        // TODO: implement — hasAnyRole(['moderator', 'pastor', 'owner', 'executive_admin'])
+        //   C-AUDIT required
+        false;
+
+      allow delete: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin'])
+        //   C-AUDIT required
+        false;
+    }
+
+    // =========================================================================
+    // /auditLog/{eventId}
+    // Append-only. No updates or deletes for any role.
+    // =========================================================================
+
+    match /auditLog/{eventId} {
+      allow read: if
+        // TODO: implement — hasAnyRole(['owner', 'executive_admin'])
+        false;
+
+      allow create: if
+        // TODO: implement — isAdminSDK()
+        //   Audit entries are written only by Cloud Functions via Admin SDK.
+        false;
+
+      allow update: if
+        // Audit log is append-only — no updates ever.
+        // DO NOT change this rule.
+        false;
+
+      allow delete: if
+        // Audit log is permanent — no deletes ever.
+        // DO NOT change this rule.
+        false;
+    }
+
+    // =========================================================================
+    // /age_verification_events/{eventId}
+    // Inherited from firestore_age_assurance.rules
+    // =========================================================================
+
+    match /age_verification_events/{eventId} {
+      allow read: if
+        // TODO: implement — hasRole('executive_admin')
+        false;
+
+      allow write: if
+        // CF Admin SDK only — matches existing age_assurance rules
+        false;
+    }
+
+    // =========================================================================
+    // CATCH-ALL
+    // Any collection not explicitly listed above is denied by default.
+    // This is intentional — add new collections explicitly, never rely on
+    // the catch-all to permit access.
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

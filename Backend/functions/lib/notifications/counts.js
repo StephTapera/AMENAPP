@@ -43,7 +43,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.reconcileNotificationCount = exports.markNotificationDismissed = exports.markNotificationOpened = exports.markNotificationsSeen = void 0;
 exports.incrementUnseenCount = incrementUnseenCount;
 exports.decrementUnseenCount = decrementUnseenCount;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 // ─── Unseen Count Operations ────────────────────────────────────────
@@ -105,15 +105,17 @@ async function decrementUnseenCount(userId, amount) {
  * Input: { notificationIds: string[] }
  * Output: { markedCount: number }
  */
-exports.markNotificationsSeen = functions.https.onCall(async (data, context) => {
+exports.markNotificationsSeen = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in");
     }
     const userId = context.auth.uid;
     const notificationIds = data.notificationIds;
     if (!Array.isArray(notificationIds) ||
         notificationIds.length === 0) {
-        throw new functions.https.HttpsError("invalid-argument", "notificationIds must be a non-empty array");
+        throw new https_1.HttpsError("invalid-argument", "notificationIds must be a non-empty array");
     }
     // Cap batch size to prevent abuse
     const MAX_BATCH = 50;
@@ -165,14 +167,16 @@ exports.markNotificationsSeen = functions.https.onCall(async (data, context) => 
  * Input: { notificationId: string }
  * Output: { success: boolean }
  */
-exports.markNotificationOpened = functions.https.onCall(async (data, context) => {
+exports.markNotificationOpened = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in");
     }
     const userId = context.auth.uid;
     const notificationId = data.notificationId;
     if (!notificationId || typeof notificationId !== "string") {
-        throw new functions.https.HttpsError("invalid-argument", "notificationId must be a string");
+        throw new https_1.HttpsError("invalid-argument", "notificationId must be a string");
     }
     const docRef = db
         .collection("users")
@@ -181,15 +185,15 @@ exports.markNotificationOpened = functions.https.onCall(async (data, context) =>
         .doc(notificationId);
     const doc = await docRef.get();
     if (!doc.exists) {
-        throw new functions.https.HttpsError("not-found", "Notification not found");
+        throw new https_1.HttpsError("not-found", "Notification not found");
     }
     const docData = doc.data();
     if (!docData) {
-        throw new functions.https.HttpsError("not-found", "Notification data missing");
+        throw new https_1.HttpsError("not-found", "Notification data missing");
     }
     // Verify ownership
     if (docData.userId !== userId) {
-        throw new functions.https.HttpsError("permission-denied", "Not your notification");
+        throw new https_1.HttpsError("permission-denied", "Not your notification");
     }
     const updateData = {
         read: true,
@@ -221,14 +225,16 @@ exports.markNotificationOpened = functions.https.onCall(async (data, context) =>
  * Input: { notificationId: string }
  * Output: { success: boolean }
  */
-exports.markNotificationDismissed = functions.https.onCall(async (data, context) => {
+exports.markNotificationDismissed = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in");
     }
     const userId = context.auth.uid;
     const notificationId = data.notificationId;
     if (!notificationId || typeof notificationId !== "string") {
-        throw new functions.https.HttpsError("invalid-argument", "notificationId must be a string");
+        throw new https_1.HttpsError("invalid-argument", "notificationId must be a string");
     }
     const docRef = db
         .collection("users")
@@ -237,10 +243,10 @@ exports.markNotificationDismissed = functions.https.onCall(async (data, context)
         .doc(notificationId);
     const doc = await docRef.get();
     if (!doc.exists) {
-        throw new functions.https.HttpsError("not-found", "Notification not found");
+        throw new https_1.HttpsError("not-found", "Notification not found");
     }
     if (doc.data()?.userId !== userId) {
-        throw new functions.https.HttpsError("permission-denied", "Not your notification");
+        throw new https_1.HttpsError("permission-denied", "Not your notification");
     }
     await docRef.update({
         dismissedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -258,9 +264,12 @@ exports.markNotificationDismissed = functions.https.onCall(async (data, context)
  * Input: {} (no args)
  * Output: { previousCount: number, actualCount: number, corrected: boolean }
  */
-exports.reconcileNotificationCount = functions.https.onCall(async (_data, context) => {
+exports.reconcileNotificationCount = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const _data = data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in");
     }
     const userId = context.auth.uid;
     // Get the current stored count

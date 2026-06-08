@@ -60,6 +60,14 @@ struct LivingEntriesHomeView: View {
                     VStack(alignment: .leading, spacing: 22) {
                         header
                         sourceFilterRow
+                        if viewModel.isLoading && viewModel.sections.values.allSatisfy({ $0.isEmpty }) {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                    .padding(.top, 40)
+                                Spacer()
+                            }
+                        }
                         ForEach(LivingEntrySection.allCases) { section in
                             LiquidGlassEntryStackView(
                                 title: section.title,
@@ -114,7 +122,7 @@ struct LivingEntriesHomeView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.secondary)
                             .symbolRenderingMode(.hierarchical)
                     }
@@ -127,6 +135,14 @@ struct LivingEntriesHomeView: View {
         }
         .refreshable {
             viewModel.loadEntries()
+        }
+        .alert("Error", isPresented: Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )) {
+            Button("OK") { viewModel.errorMessage = nil }
+        } message: {
+            Text(viewModel.errorMessage ?? "")
         }
         .sheet(item: $reflectingEntry) { entry in
             LivingEntryReflectionSheet(entry: entry) { answer, helpfulness in

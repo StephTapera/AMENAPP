@@ -78,12 +78,12 @@ struct AmenToast: View {
             // Title + subtitle
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -115,7 +115,7 @@ struct AmenToast: View {
                 .frame(width: 28, height: 28)
 
             Image(systemName: action.systemImageName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color(uiColor: .systemBackground))
         }
         .overlay {
@@ -133,7 +133,7 @@ struct AmenToast: View {
                 CountdownRing(total: undoWindow, remaining: undoRemaining)
 
                 Text("Undo")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.65))
             }
             .padding(.horizontal, 10)

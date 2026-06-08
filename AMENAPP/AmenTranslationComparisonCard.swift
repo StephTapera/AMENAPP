@@ -46,7 +46,7 @@ struct AmenTranslationComparisonCard: View {
     private var cardHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: "book.pages")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -63,7 +63,7 @@ struct AmenTranslationComparisonCard: View {
             if let onDismiss {
                 Button(action: onDismiss) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.secondary)
                         .symbolRenderingMode(.hierarchical)
                 }

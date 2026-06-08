@@ -22,7 +22,7 @@ struct ChurchAssistActionRow: View {
                         .fill(iconTint.opacity(0.12))
                         .frame(width: 40, height: 40)
                     Image(systemName: icon)
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.systemScaled(17, weight: .medium))
                         .foregroundStyle(iconTint)
                 }
 
@@ -38,7 +38,7 @@ struct ChurchAssistActionRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(14)
@@ -176,7 +176,7 @@ struct ChurchAssistSheet: View {
                     .padding(.bottom, 16)
                 }
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .navigationBarHidden(true)
         }
         .presentationDetents([.medium, .large])

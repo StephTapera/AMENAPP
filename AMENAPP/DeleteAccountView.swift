@@ -66,6 +66,12 @@ struct DeleteAccountView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                         .padding(.top, 4)
+
+                    // A8-002: Explicit grace-period disclosure
+                    Text("Your account will be deactivated immediately. All data is permanently deleted after 30 days.")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .padding(.top, 2)
                 }
                 .padding(16)
                 .background(

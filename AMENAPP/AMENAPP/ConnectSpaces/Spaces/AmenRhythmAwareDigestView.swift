@@ -91,16 +91,16 @@ private struct SabbathRestCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "moon.stars")
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(Color.accentColor)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Digest paused for your Sabbath.")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.90))
 
                 Text("Rest well.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.55))
             }
             Spacer()
@@ -134,18 +134,18 @@ private struct DigestMetricRow: View {
                     .fill(tint.opacity(0.14))
                     .frame(width: 32, height: 32)
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(tint)
             }
 
             Text(label)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.75))
 
             Spacer()
 
             Text(value)
-                .font(.system(size: 14, weight: .bold))
+                .font(.systemScaled(14, weight: .bold))
                 .foregroundStyle(tint)
         }
         .accessibilityLabel("\(label): \(value)")
@@ -248,7 +248,7 @@ struct AmenRhythmAwareDigestView: View {
 
                 if let error = viewModel.errorMessage {
                     Text(error)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.accentColor.opacity(0.70))
                         .padding(.horizontal, 4)
                 }

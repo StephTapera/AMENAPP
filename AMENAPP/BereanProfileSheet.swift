@@ -22,6 +22,7 @@ struct BereanProfileSheet: View {
 
     @State private var showAlignmentSettings = false
     @State private var showUpgradeSheet = false
+    @State private var showPaywall = false
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -75,7 +76,7 @@ struct BereanProfileSheet: View {
             // Dismiss X
             Button { isPresented = false } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundColor(.black.opacity(0.72))
                     .frame(width: 36, height: 36)
                     .background(glassCircle)
@@ -89,9 +90,13 @@ struct BereanProfileSheet: View {
             BereanAlignmentSettingsView()
         }
         .alert("Upgrade to Amen+", isPresented: $showUpgradeSheet) {
-            Button("Learn More", role: .cancel) {}
+            Button("Learn More") { showPaywall = true }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("Unlock unlimited Berean conversations and premium features.")
+        }
+        .sheet(isPresented: $showPaywall) {
+            AmenCovenantPaywallView()
         }
     }
 
@@ -119,7 +124,7 @@ struct BereanProfileSheet: View {
                     )
                     .overlay(
                         Text(initials)
-                            .font(.system(size: 30, weight: .semibold))
+                            .font(.systemScaled(30, weight: .semibold))
                             .foregroundColor(Color(red: 0.35, green: 0.30, blue: 0.90))
                     )
                     .shadow(color: Color(red: 0.35, green: 0.30, blue: 0.90).opacity(0.12), radius: 14, y: 4)
@@ -130,7 +135,7 @@ struct BereanProfileSheet: View {
                     .overlay(Circle().fill(Color.white.opacity(0.88)))
                     .overlay(
                         Image(systemName: "pencil")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundColor(.black.opacity(0.72))
                     )
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.90), lineWidth: 1))
@@ -140,12 +145,12 @@ struct BereanProfileSheet: View {
 
             VStack(spacing: 4) {
                 Text(displayName)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundColor(.black)
 
                 if !email.isEmpty {
                     Text(email)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.systemScaled(13, weight: .regular))
                         .foregroundColor(.black.opacity(0.48))
                 }
             }
@@ -194,7 +199,7 @@ struct BereanProfileSheet: View {
             HStack(spacing: 14) {
                 iconBadge("sun.max", tint: Color(red: 0.85, green: 0.62, blue: 0.10))
                 Text("Appearance")
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundColor(.black)
                 Spacer()
                 Menu {
@@ -204,10 +209,10 @@ struct BereanProfileSheet: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(appearanceLabel)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(.black.opacity(0.42))
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundColor(.black.opacity(0.28))
                     }
                 }
@@ -233,11 +238,11 @@ struct BereanProfileSheet: View {
             HStack(spacing: 14) {
                 iconBadge(icon, tint: tint)
                 Text(label)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundColor(.black)
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(.black.opacity(0.28))
             }
             .padding(.horizontal, 16)
@@ -251,7 +256,7 @@ struct BereanProfileSheet: View {
         HStack(spacing: 14) {
             iconBadge(icon, tint: tint)
             Text(label)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundColor(.black)
             Spacer()
             Toggle("", isOn: value)
@@ -266,11 +271,11 @@ struct BereanProfileSheet: View {
         HStack(spacing: 14) {
             iconBadge(icon, tint: tint)
             Text(label)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundColor(.black)
             Spacer()
             Text(value)
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundColor(.black.opacity(0.42))
                 .lineLimit(1)
         }
@@ -283,7 +288,7 @@ struct BereanProfileSheet: View {
             HStack(spacing: 14) {
                 iconBadge("crown", tint: Color(red: 0.85, green: 0.58, blue: 0.08))
                 Text("Upgrade to Amen+")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundColor(Color(red: 0.78, green: 0.50, blue: 0.06))
                 Spacer()
             }
@@ -300,7 +305,7 @@ struct BereanProfileSheet: View {
     private func profileSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(.black.opacity(0.42))
                 .padding(.horizontal, 16)
 
@@ -332,7 +337,7 @@ struct BereanProfileSheet: View {
             .frame(width: 32, height: 32)
             .overlay(
                 Image(systemName: name)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(tint)
             )
     }

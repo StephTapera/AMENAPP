@@ -105,10 +105,10 @@ struct ChurchNoteReviewMode: View {
                     Spacer()
                     VStack(spacing: 6) {
                         Image(systemName: activeFilter.icon)
-                            .font(.system(size: 24))
+                            .font(.systemScaled(24))
                             .foregroundStyle(.quaternary)
                         Text("No \(activeFilter.label.lowercased()) yet")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.tertiary)
                     }
                     .padding(.vertical, 20)
@@ -120,14 +120,14 @@ struct ChurchNoteReviewMode: View {
             if !tags.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("TAGS")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.tertiary)
                         .tracking(0.6)
 
                     TagWrapLayout(spacing: 6) {
                         ForEach(tags, id: \.self) { tag in
                             Text(tag)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(.primary.opacity(0.7))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
@@ -170,13 +170,13 @@ struct ChurchNoteReviewMode: View {
     private func summaryItem(count: Int, label: String, icon: String) -> some View {
         VStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.tertiary)
             Text("\(count)")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.systemScaled(16, weight: .semibold, design: .rounded))
                 .foregroundStyle(.primary)
             Text(label)
-                .font(.system(size: 9, weight: .medium))
+                .font(.systemScaled(9, weight: .medium))
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
@@ -192,9 +192,9 @@ struct ChurchNoteReviewMode: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                 Text(filter.label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(activeFilter == filter ? Color.primary : Color.secondary.opacity(0.7))
             .padding(.horizontal, 10)
@@ -220,7 +220,7 @@ struct ChurchNoteReviewMode: View {
                     .frame(minHeight: 60)
             } else {
                 Text("No content yet")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.tertiary)
                     .padding(.vertical, 12)
             }
@@ -238,17 +238,17 @@ struct ChurchNoteReviewMode: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
                     Image(systemName: block.type.icon)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(CNToken.BlockBorder.color(for: block.type))
                     Text(block.type.displayName)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .tracking(0.5)
                 }
 
                 Text(block.text)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
             }

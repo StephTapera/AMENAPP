@@ -6,7 +6,7 @@
 //
 // Design: Liquid Glass on dark/black camera context.
 //   Pre-iOS 26: .ultraThinMaterial + strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
-//   iOS 26+:    .glassEffect() on controls
+//   iOS 26+:    .amenGlassEffect() on controls
 
 import SwiftUI
 import AVKit
@@ -38,6 +38,7 @@ struct PrePublishSafetyReviewView: View {
     private let amberGold = Color(red: 1.0, green: 0.84, blue: 0.0)
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openURL) private var openURL
 
     // MARK: Init
 
@@ -161,7 +162,7 @@ struct PrePublishSafetyReviewView: View {
     @ViewBuilder
     private var intentBadgeBackground: some View {
         if #available(iOS 26, *) {
-            Capsule().glassEffect()
+            Capsule().amenGlassEffect()
         } else {
             ZStack {
                 Capsule().fill(.ultraThinMaterial)
@@ -196,7 +197,7 @@ struct PrePublishSafetyReviewView: View {
     private var riskBannerBackground: some View {
         if #available(iOS 26, *) {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .glassEffect(.regular.tint(riskColor.opacity(0.10)))
+                .amenGlassEffect()
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -308,7 +309,7 @@ struct PrePublishSafetyReviewView: View {
     @ViewBuilder
     private func detectedItemChipBackground(isRedacted: Bool) -> some View {
         if #available(iOS 26, *) {
-            Capsule().glassEffect(isRedacted ? .regular.tint(.white.opacity(0.04)) : .regular)
+            Capsule().amenGlassEffect()
         } else {
             ZStack {
                 Capsule().fill(.ultraThinMaterial)
@@ -386,7 +387,7 @@ struct PrePublishSafetyReviewView: View {
     @ViewBuilder
     private var audiencePillBackground: some View {
         if #available(iOS 26, *) {
-            Capsule().glassEffect(.regular.tint(amberGold.opacity(0.06)))
+            Capsule().amenGlassEffect()
         } else {
             ZStack {
                 Capsule().fill(.ultraThinMaterial)
@@ -398,7 +399,7 @@ struct PrePublishSafetyReviewView: View {
     @ViewBuilder
     private var audienceSectionBackground: some View {
         if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: 14, style: .continuous).glassEffect()
+            RoundedRectangle(cornerRadius: 14, style: .continuous).amenGlassEffect()
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.ultraThinMaterial)
@@ -446,7 +447,7 @@ struct PrePublishSafetyReviewView: View {
     @ViewBuilder
     private var locationDelayBackground: some View {
         if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: 14, style: .continuous).glassEffect()
+            RoundedRectangle(cornerRadius: 14, style: .continuous).amenGlassEffect()
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.ultraThinMaterial)
@@ -486,7 +487,7 @@ struct PrePublishSafetyReviewView: View {
     private var reflectCardBackground: some View {
         if #available(iOS 26, *) {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .glassEffect(.regular.tint(amberGold.opacity(0.04)))
+                .amenGlassEffect()
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.ultraThinMaterial)
@@ -503,7 +504,10 @@ struct PrePublishSafetyReviewView: View {
             if localScanResult.blocksPublish {
                 // Blocked: Get Help + Cancel only
                 Button {
-                    // Navigate to help resources
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    if let url = URL(string: "https://amenapp.com/help/content-safety") {
+                        openURL(url)
+                    }
                 } label: {
                     Text("Get Help")
                         .font(.system(size: 15, weight: .semibold))
@@ -563,7 +567,7 @@ struct PrePublishSafetyReviewView: View {
     @ViewBuilder
     private var getHelpButtonBackground: some View {
         if #available(iOS 26, *) {
-            Capsule().glassEffect(.regular.tint(amberGold.opacity(0.10)))
+            Capsule().amenGlassEffect()
         } else {
             ZStack {
                 Capsule().fill(.ultraThinMaterial)
@@ -575,7 +579,7 @@ struct PrePublishSafetyReviewView: View {
     @ViewBuilder
     private var cancelButtonBackground: some View {
         if #available(iOS 26, *) {
-            Capsule().glassEffect()
+            Capsule().amenGlassEffect()
         } else {
             ZStack {
                 Capsule().fill(.ultraThinMaterial)

@@ -11,7 +11,7 @@ import {
   VoicePersona,
   VoiceSpeed,
   BereanCapabilities,
-} from '../../contracts';
+} from '../contracts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

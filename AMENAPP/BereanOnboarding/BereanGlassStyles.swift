@@ -112,7 +112,7 @@ struct BereanGlassOrb: View {
                 .frame(width: size, height: size)
 
             Image(systemName: icon)
-                .font(.system(size: iconSize, weight: .light))
+                .font(.systemScaled(iconSize, weight: .light))
                 .foregroundStyle(BereanColor.textPrimary)
         }
         .onAppear {
@@ -137,7 +137,7 @@ struct BereanGlassIconTile: View {
                 .frame(width: size, height: size)
 
             Image(systemName: icon)
-                .font(.system(size: iconSize, weight: .light))
+                .font(.systemScaled(iconSize, weight: .light))
                 .foregroundStyle(BereanColor.textPrimary)
         }
     }
@@ -148,7 +148,7 @@ struct BereanGlassIconTile: View {
 struct BereanPrimaryCTAStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 17, weight: .semibold))
+            .font(.systemScaled(17, weight: .semibold))
             .foregroundStyle(AmenTheme.Colors.buttonPrimaryText)
             .frame(maxWidth: .infinity)
             // HIGH FIX: minHeight instead of exact height so button grows with Dynamic Type

@@ -577,12 +577,18 @@ struct ContentView: View {
                 }
 
                 keepMountedTab(isActive: viewModel.selectedTab == 2) {
-                    SpiritualInboxView()
-                        .id("hub")
-                        .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.messages)
-                            BadgeCountManager.shared.clearMessages()
+                    Group {
+                        if #available(iOS 26.0, *) {
+                            ONENavigationShell()
+                        } else {
+                            SpiritualInboxView()
                         }
+                    }
+                    .id("hub")
+                    .task {
+                        NotificationAggregationService.shared.updateCurrentScreen(.messages)
+                        BadgeCountManager.shared.clearMessages()
+                    }
                 }
 
                 keepMountedTab(isActive: viewModel.selectedTab == 3) {
@@ -779,7 +785,7 @@ struct ContentView: View {
         }
         .overlay {
             // FTUE Coach Marks overlay
-            if FTUEManager.shared.shouldShowCoachMarks {
+            if showFTUE {
                 CoachMarkOverlay(
                     ftueManager: FTUEManager.shared,
                     postCardFrame: postCardFrame,
@@ -1667,7 +1673,7 @@ private struct AccountSuspendedWallView: View {
         VStack(spacing: 24) {
             Spacer()
             Image(systemName: "xmark.shield.fill")
-                .font(.system(size: 56, weight: .light))
+                .font(.systemScaled(56, weight: .light))
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 10) {

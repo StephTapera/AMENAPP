@@ -71,7 +71,7 @@ struct ReAuthenticationView: View {
                             .frame(width: 60, height: 60)
                         
                         Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.orange)
                     }
                     

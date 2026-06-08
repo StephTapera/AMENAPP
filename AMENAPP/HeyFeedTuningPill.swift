@@ -45,11 +45,11 @@ struct HeyFeedTuningPill: View {
                 // Active mode indicator
                 if sessionSvc.isActive {
                     Image(systemName: sessionSvc.activeMode.icon)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 } else {
                     Image(systemName: "slider.horizontal.below.rectangle")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
 

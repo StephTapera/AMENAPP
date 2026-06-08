@@ -72,27 +72,27 @@ private struct BadgePopoverView: View {
                 statusIcon
                 VStack(alignment: .leading, spacing: 2) {
                     Text(badgeTitle)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(statusSubtitle)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
             }
 
             Text(profile.badgeVariant.explanation)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let verifiedAt = profile.verifiedAt {
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
                     Text("Verified \(badgeDateFormatter.string(from: verifiedAt))")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -136,7 +136,7 @@ private struct BadgePopoverView: View {
                     .foregroundStyle(Color.white.opacity(0.3))
             }
         }
-        .font(.system(size: 22))
+        .font(.systemScaled(22))
         .accessibilityHidden(true)
     }
 }
@@ -174,11 +174,11 @@ struct AmenVerifiedHostBadgeView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: iconName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(tint)
                     .accessibilityHidden(true)
                 Text(labelText)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(tint)
             }
             .padding(.horizontal, 8)

@@ -50,7 +50,7 @@ struct AttachmentIconWell: View {
             .frame(width: size, height: size)
             .overlay(
                 Image(systemName: systemName)
-                    .font(.system(size: size * 0.40, weight: .semibold))
+                    .font(.systemScaled(size * 0.40, weight: .semibold))
                     .foregroundStyle(.white)
             )
     }
@@ -905,7 +905,7 @@ private struct PostCardReflectionCommentsProxy: View {
             } else {
                 VStack(spacing: 16) {
                     Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(.secondary)
                     Text("Reflections unavailable")
                         .font(.systemScaled(15))

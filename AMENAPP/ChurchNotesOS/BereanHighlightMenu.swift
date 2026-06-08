@@ -104,7 +104,7 @@ struct BereanHighlightMenu: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                 Text(action.displayName)
                     .font(.caption.weight(.semibold))

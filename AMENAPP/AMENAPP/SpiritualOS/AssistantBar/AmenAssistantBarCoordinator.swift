@@ -219,7 +219,7 @@ struct AmenAssistantBarOverlay: View {
 
     @ObservedObject var coordinator: AmenAssistantBarCoordinator
 
-    @AppStorage("spiritualOS_assistant_bar_enabled") private var isEnabled = false
+    @AppStorage("spiritualOS_assistant_bar_enabled") private var isEnabled = true
 
     var body: some View {
         if !isEnabled {
@@ -302,7 +302,7 @@ struct AmenAssistantBarOverlay: View {
 
                 // Answer body on matte amenCream background
                 Text(response.answer)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.amenBlack)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -367,7 +367,7 @@ struct AmenAssistantBarOverlay: View {
 
                 HStack(alignment: .center, spacing: 0) {
                     Text(response.aiDisclosureLabel)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.amenSlate)
 
                     Spacer()
@@ -405,7 +405,7 @@ struct CameraOCRSheet: View {
             VStack(spacing: 20) {
                 VStack(spacing: 8) {
                     Image(systemName: "camera.viewfinder")
-                        .font(.system(size: 44))
+                        .font(.systemScaled(44))
                         .foregroundStyle(Color.amenPurple)
                     Text("Verse Lens")
                         .font(.title2.weight(.bold))
@@ -424,7 +424,7 @@ struct CameraOCRSheet: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Color.amenSlate)
                         TextEditor(text: $detectedText)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.amenBlack)
                             .frame(minHeight: 80, maxHeight: 160)
                             .padding(10)
@@ -443,7 +443,7 @@ struct CameraOCRSheet: View {
                             Image(systemName: isProcessing ? "hourglass" : "photo.on.rectangle")
                             Text(isProcessing ? "Reading text…" : "Choose Photo")
                         }
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
@@ -461,7 +461,7 @@ struct CameraOCRSheet: View {
                                 Image(systemName: "sparkles")
                                 Text("Ask Berean about this")
                             }
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color.amenPurple)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
@@ -530,7 +530,7 @@ struct VoiceInputSheet: View {
             VStack(spacing: 20) {
                 VStack(spacing: 8) {
                     Image(systemName: recorder.isRecording ? "mic.fill" : "mic")
-                        .font(.system(size: 44))
+                        .font(.systemScaled(44))
                         .foregroundStyle(recorder.isRecording ? Color.red : Color.amenPurple)
                     Text("Voice to Berean")
                         .font(.title2.weight(.bold))
@@ -543,7 +543,7 @@ struct VoiceInputSheet: View {
 
                 if !recorder.transcribedText.isEmpty {
                     Text(recorder.transcribedText)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color.amenBlack)
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -571,7 +571,7 @@ struct VoiceInputSheet: View {
                                 .fill(recorder.isRecording ? Color.red : Color.amenPurple)
                                 .frame(width: 72, height: 72)
                             Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
-                                .font(.system(size: 28, weight: .semibold))
+                                .font(.systemScaled(28, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -586,7 +586,7 @@ struct VoiceInputSheet: View {
                                 Image(systemName: "sparkles")
                                 Text("Ask Berean")
                             }
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)

@@ -61,19 +61,19 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.inviteThreadParticipant = exports.archiveActionThread = exports.completeActionStep = exports.activateActionThread = exports.createActionThread = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function requireAuth(context) {
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Authentication required");
+        throw new https_1.HttpsError("unauthenticated", "Authentication required");
     }
     return context.auth.uid;
 }
 function assertOwner(uid, userId) {
     if (uid !== userId) {
-        throw new functions.https.HttpsError("permission-denied", "User mismatch");
+        throw new https_1.HttpsError("permission-denied", "User mismatch");
     }
 }
 async function isBlocked(userA, userB) {
@@ -105,28 +105,30 @@ function isActionThreadsEnabled() {
         .catch(() => false);
 }
 // ─── Create Action Thread ─────────────────────────────────────────────────────
-exports.createActionThread = functions.https.onCall(async (data, context) => {
+exports.createActionThread = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     // 5.1 FIX: App Check enforcement.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     if (!(await isActionThreadsEnabled())) {
-        throw new functions.https.HttpsError("failed-precondition", "Action threads not enabled");
+        throw new https_1.HttpsError("failed-precondition", "Action threads not enabled");
     }
     const { postId, postAuthorId, threadId, type, sensitivityLevel, title, description, visibility, suggestedSteps, suggestionId, } = data;
     if (!postId || !postAuthorId || !threadId) {
-        throw new functions.https.HttpsError("invalid-argument", "postId, postAuthorId, threadId required");
+        throw new https_1.HttpsError("invalid-argument", "postId, postAuthorId, threadId required");
     }
     // Server-validate: caller must be the post author
     assertOwner(uid, postAuthorId);
     // Verify the post exists
     const postDoc = await db.collection("posts").doc(postId).get();
     if (!postDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Post not found");
+        throw new https_1.HttpsError("not-found", "Post not found");
     }
     if (postDoc.data()?.authorId !== uid) {
-        throw new functions.https.HttpsError("permission-denied", "You are not the post author");
+        throw new https_1.HttpsError("permission-denied", "You are not the post author");
     }
     // Rate limit: max 10 action threads per post
     const existingThreads = await db.collection("posts").doc(postId)
@@ -134,7 +136,7 @@ exports.createActionThread = functions.https.onCall(async (data, context) => {
         .limit(11)
         .get();
     if (existingThreads.size >= 10) {
-        throw new functions.https.HttpsError("resource-exhausted", "Too many threads on this post");
+        throw new https_1.HttpsError("resource-exhausted", "Too many threads on this post");
     }
     const now = admin.firestore.FieldValue.serverTimestamp();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
@@ -220,31 +222,33 @@ exports.createActionThread = functions.https.onCall(async (data, context) => {
     return { ok: true, threadId };
 });
 // ─── Activate Action Thread ───────────────────────────────────────────────────
-exports.activateActionThread = functions.https.onCall(async (data, context) => {
+exports.activateActionThread = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     // 5.1 FIX: App Check enforcement.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     if (!(await isActionThreadsEnabled())) {
-        throw new functions.https.HttpsError("failed-precondition", "Action threads not enabled");
+        throw new https_1.HttpsError("failed-precondition", "Action threads not enabled");
     }
     const { postId, threadId } = data;
     if (!postId || !threadId) {
-        throw new functions.https.HttpsError("invalid-argument", "postId, threadId required");
+        throw new https_1.HttpsError("invalid-argument", "postId, threadId required");
     }
     const threadRef = db.collection("posts").doc(postId)
         .collection("actionThreads").doc(threadId);
     const threadDoc = await threadRef.get();
     if (!threadDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Thread not found");
+        throw new https_1.HttpsError("not-found", "Thread not found");
     }
     const thread = threadDoc.data();
     if (thread.creatorUserId !== uid) {
-        throw new functions.https.HttpsError("permission-denied", "Only the thread creator can activate it");
+        throw new https_1.HttpsError("permission-denied", "Only the thread creator can activate it");
     }
     if (thread.state !== "draft") {
-        throw new functions.https.HttpsError("failed-precondition", "Thread must be in draft state");
+        throw new https_1.HttpsError("failed-precondition", "Thread must be in draft state");
     }
     const now = admin.firestore.FieldValue.serverTimestamp();
     const batch = db.batch();
@@ -261,25 +265,27 @@ exports.activateActionThread = functions.https.onCall(async (data, context) => {
     return { ok: true };
 });
 // ─── Complete Action Step ─────────────────────────────────────────────────────
-exports.completeActionStep = functions.https.onCall(async (data, context) => {
+exports.completeActionStep = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     // 5.1 FIX: App Check enforcement.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     if (!(await isActionThreadsEnabled())) {
-        throw new functions.https.HttpsError("failed-precondition", "Action threads not enabled");
+        throw new https_1.HttpsError("failed-precondition", "Action threads not enabled");
     }
     const { postId, threadId, stepId } = data;
     if (!postId || !threadId || !stepId) {
-        throw new functions.https.HttpsError("invalid-argument", "postId, threadId, stepId required");
+        throw new https_1.HttpsError("invalid-argument", "postId, threadId, stepId required");
     }
     const threadRef = db.collection("posts").doc(postId)
         .collection("actionThreads").doc(threadId);
     const stepRef = threadRef.collection("steps").doc(stepId);
     const [threadDoc, stepDoc] = await Promise.all([threadRef.get(), stepRef.get()]);
     if (!threadDoc.exists || !stepDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Thread or step not found");
+        throw new https_1.HttpsError("not-found", "Thread or step not found");
     }
     const thread = threadDoc.data();
     const step = stepDoc.data();
@@ -290,13 +296,13 @@ exports.completeActionStep = functions.https.onCall(async (data, context) => {
         participantRole === "coordinator" ||
         step.assignedTo === uid;
     if (!isAuthorized) {
-        throw new functions.https.HttpsError("permission-denied", "Not authorized to complete this step");
+        throw new https_1.HttpsError("permission-denied", "Not authorized to complete this step");
     }
     if (thread.state !== "active") {
-        throw new functions.https.HttpsError("failed-precondition", "Thread must be active");
+        throw new https_1.HttpsError("failed-precondition", "Thread must be active");
     }
     if (step.state === "completed") {
-        throw new functions.https.HttpsError("already-exists", "Step already completed");
+        throw new https_1.HttpsError("already-exists", "Step already completed");
     }
     const now = admin.firestore.FieldValue.serverTimestamp();
     const batch = db.batch();
@@ -337,28 +343,30 @@ exports.completeActionStep = functions.https.onCall(async (data, context) => {
     return { ok: true };
 });
 // ─── Archive Action Thread ────────────────────────────────────────────────────
-exports.archiveActionThread = functions.https.onCall(async (data, context) => {
+exports.archiveActionThread = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     // 5.1 FIX: App Check enforcement.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     if (!(await isActionThreadsEnabled())) {
-        throw new functions.https.HttpsError("failed-precondition", "Action threads not enabled");
+        throw new https_1.HttpsError("failed-precondition", "Action threads not enabled");
     }
     const { postId, threadId } = data;
     if (!postId || !threadId) {
-        throw new functions.https.HttpsError("invalid-argument", "postId, threadId required");
+        throw new https_1.HttpsError("invalid-argument", "postId, threadId required");
     }
     const threadRef = db.collection("posts").doc(postId)
         .collection("actionThreads").doc(threadId);
     const threadDoc = await threadRef.get();
     if (!threadDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Thread not found");
+        throw new https_1.HttpsError("not-found", "Thread not found");
     }
     const thread = threadDoc.data();
     if (thread.creatorUserId !== uid) {
-        throw new functions.https.HttpsError("permission-denied", "Only the thread creator can archive it");
+        throw new https_1.HttpsError("permission-denied", "Only the thread creator can archive it");
     }
     const now = admin.firestore.FieldValue.serverTimestamp();
     const isComplete = thread.completedStepCount >= thread.totalStepCount && thread.totalStepCount > 0;
@@ -395,53 +403,55 @@ exports.archiveActionThread = functions.https.onCall(async (data, context) => {
     return { ok: true, finalState: newState };
 });
 // ─── Invite Participant ───────────────────────────────────────────────────────
-exports.inviteThreadParticipant = functions.https.onCall(async (data, context) => {
+exports.inviteThreadParticipant = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     // 5.1 FIX: App Check enforcement.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     if (!(await isActionThreadsEnabled())) {
-        throw new functions.https.HttpsError("failed-precondition", "Action threads not enabled");
+        throw new https_1.HttpsError("failed-precondition", "Action threads not enabled");
     }
     const { postId, threadId, targetUserId, role } = data;
     if (!postId || !threadId || !targetUserId) {
-        throw new functions.https.HttpsError("invalid-argument", "postId, threadId, targetUserId required");
+        throw new https_1.HttpsError("invalid-argument", "postId, threadId, targetUserId required");
     }
     if (targetUserId === uid) {
-        throw new functions.https.HttpsError("invalid-argument", "Cannot invite yourself");
+        throw new https_1.HttpsError("invalid-argument", "Cannot invite yourself");
     }
     const threadRef = db.collection("posts").doc(postId)
         .collection("actionThreads").doc(threadId);
     const threadDoc = await threadRef.get();
     if (!threadDoc.exists) {
-        throw new functions.https.HttpsError("not-found", "Thread not found");
+        throw new https_1.HttpsError("not-found", "Thread not found");
     }
     const thread = threadDoc.data();
     if (thread.creatorUserId !== uid) {
-        throw new functions.https.HttpsError("permission-denied", "Only the thread owner can invite participants");
+        throw new https_1.HttpsError("permission-denied", "Only the thread owner can invite participants");
     }
     if (thread.state !== "active") {
-        throw new functions.https.HttpsError("failed-precondition", "Thread must be active to invite participants");
+        throw new https_1.HttpsError("failed-precondition", "Thread must be active to invite participants");
     }
     if (thread.participantCount >= 50) {
-        throw new functions.https.HttpsError("resource-exhausted", "Max participants reached");
+        throw new https_1.HttpsError("resource-exhausted", "Max participants reached");
     }
     // Server-side block check
     if (await isBlocked(uid, targetUserId)) {
-        throw new functions.https.HttpsError("permission-denied", "Cannot invite a blocked user");
+        throw new https_1.HttpsError("permission-denied", "Cannot invite a blocked user");
     }
     // For sensitive threads: mutual follow required
     const sensitivity = thread.sensitivityLevel;
     if (sensitivity === "high" || sensitivity === "critical") {
         if (!(await areMutualFollows(uid, targetUserId))) {
-            throw new functions.https.HttpsError("permission-denied", "Sensitive support flows require mutual connections");
+            throw new https_1.HttpsError("permission-denied", "Sensitive support flows require mutual connections");
         }
     }
     // Check if already a participant
     const existingParticipant = await threadRef.collection("participants").doc(targetUserId).get();
     if (existingParticipant.exists && existingParticipant.data()?.status === "active") {
-        throw new functions.https.HttpsError("already-exists", "User is already a participant");
+        throw new https_1.HttpsError("already-exists", "User is already a participant");
     }
     const now = admin.firestore.FieldValue.serverTimestamp();
     const batch = db.batch();

@@ -94,17 +94,17 @@ struct StewardshipDashboardView: View {
                 Circle()
                     .fill(AmenTheme.Colors.backgroundSecondary)
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
             .frame(width: 38, height: 38)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Stays on your device")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                 Text("Income and tithe targets are stored locally using Keychain encryption. Never sent to any server.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                     .lineSpacing(2)
             }
@@ -128,13 +128,13 @@ struct StewardshipDashboardView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Tithe target")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                             .textCase(.uppercase)
                             .tracking(1.2)
                         if let target = vm.monthlyTithingTarget {
                             Text(target)
-                                .font(.system(size: 24, weight: .semibold))
+                                .font(.systemScaled(24, weight: .semibold))
                                 .foregroundStyle(AmenTheme.Colors.textPrimary)
                         }
                     }
@@ -142,7 +142,7 @@ struct StewardshipDashboardView: View {
                     Button("Edit") {
                         vm.showIncomeInput = true
                     }
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
@@ -153,7 +153,7 @@ struct StewardshipDashboardView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("Target percentage")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                         Spacer()
                         HStack(spacing: 2) {
@@ -163,14 +163,14 @@ struct StewardshipDashboardView: View {
                                 vm.saveTithing()
                             } label: {
                                 Image(systemName: "minus")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .frame(width: 32, height: 32)
                                     .background(AmenTheme.Colors.backgroundSecondary, in: Circle())
                             }
                             .buttonStyle(.plain)
 
                             Text("\(vm.tithingPercentText)%")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(AmenTheme.Colors.textPrimary)
                                 .frame(minWidth: 44)
                                 .multilineTextAlignment(.center)
@@ -181,7 +181,7 @@ struct StewardshipDashboardView: View {
                                 vm.saveTithing()
                             } label: {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .frame(width: 32, height: 32)
                                     .background(AmenTheme.Colors.backgroundSecondary, in: Circle())
                             }
@@ -193,7 +193,7 @@ struct StewardshipDashboardView: View {
                 // Prompt to set income
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Set a monthly income estimate to calculate tithe targets and giving allocations.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .lineSpacing(2)
 
@@ -201,7 +201,7 @@ struct StewardshipDashboardView: View {
                         vm.showIncomeInput = true
                     } label: {
                         Label("Set monthly estimate", systemImage: "plus.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(AmenTheme.Colors.textPrimary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -269,11 +269,11 @@ struct StewardshipDashboardView: View {
 
             HStack {
                 Text("Local giving: $\(review.localGivingTotal / 100)")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                 Spacer()
                 Text("Global: $\(review.globalGivingTotal / 100)")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
         }
@@ -289,10 +289,10 @@ struct StewardshipDashboardView: View {
     private func allocationBar(label: String, percent: Int, color: Color, value: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
             Text(label)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
         }
         .frame(maxWidth: .infinity)
@@ -307,7 +307,7 @@ struct StewardshipDashboardView: View {
                 Spacer()
                 let year = Calendar.current.component(.year, from: Date())
                 Text(String(year))
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
 
@@ -315,26 +315,26 @@ struct StewardshipDashboardView: View {
                 HStack {
                     ProgressView()
                     Text("Generating review...")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                 }
             } else if let review = vm.annualReview {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("This year you gave to \(review.destinationCount) organizations totaling \(review.totalFormatted).")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(AmenTheme.Colors.textPrimary)
                         .lineSpacing(2)
 
                     if review.churchPercent > 70 {
                         Text("Your giving is weighted toward your local church. You may want to consider adding a nonprofit cause next year.")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(AmenTheme.Colors.textSecondary)
                             .lineSpacing(2)
                     }
                 }
             } else {
                 Text("Your annual review will generate once you have giving activity this year.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .lineSpacing(2)
             }
@@ -358,10 +358,10 @@ struct StewardshipDashboardView: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: section.icon)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                         Text(section.rawValue)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(AmenTheme.Colors.textSecondary)
                             .lineLimit(1)
                         Spacer()
@@ -384,13 +384,13 @@ struct StewardshipDashboardView: View {
         NavigationStack {
             VStack(spacing: 20) {
                 Image(systemName: "arrow.clockwise.circle.fill")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(Color.accentColor)
                 Text("Recurring Gifts")
                     .font(.title2.bold())
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                 Text("Set up automatic giving to support your church or ministry on a weekly, bi-weekly, or monthly schedule.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -417,7 +417,7 @@ struct StewardshipDashboardView: View {
 
     private var disclaimer: some View {
         Text("Stewardship data is private and stored locally on this device. AMEN does not report or store your income information.")
-            .font(.system(size: 11))
+            .font(.systemScaled(11))
             .foregroundStyle(AmenTheme.Colors.textTertiary)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 8)
@@ -431,14 +431,14 @@ struct StewardshipDashboardView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                         Text("Stored locally only. Never shared.")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                     }
                     Text("This estimate helps calculate tithe targets. It stays on your device.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .lineSpacing(2)
                 }
@@ -447,15 +447,15 @@ struct StewardshipDashboardView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Monthly income estimate")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
 
                     HStack {
                         Text("$")
-                            .font(.system(size: 22, weight: .medium))
+                            .font(.systemScaled(22, weight: .medium))
                             .foregroundStyle(AmenTheme.Colors.textTertiary)
                         TextField("0", text: $vm.incomeInputText)
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(.systemScaled(28, weight: .semibold))
                             .keyboardType(.numberPad)
                     }
                     .padding(14)
@@ -466,7 +466,7 @@ struct StewardshipDashboardView: View {
 
                 Button(action: vm.saveIncome) {
                     Text("Save estimate")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textInverse)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -479,7 +479,7 @@ struct StewardshipDashboardView: View {
                     vm.showIncomeInput = false
                 } label: {
                     Text("Clear income data")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(AmenTheme.Colors.statusError)
                 }
                 .buttonStyle(.plain)
@@ -501,7 +501,7 @@ struct StewardshipDashboardView: View {
 
     private func sectionHeader(_ title: String, icon: String) -> some View {
         Label(title, systemImage: icon)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.systemScaled(13, weight: .semibold))
             .foregroundStyle(AmenTheme.Colors.textSecondary)
     }
 }

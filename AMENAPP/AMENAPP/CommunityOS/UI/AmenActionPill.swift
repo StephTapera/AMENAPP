@@ -145,7 +145,7 @@ struct AmenActionPill: View {
             }
         } label: {
             Image(systemName: pillAction.systemImage)
-                .font(.system(size: 17, weight: .regular))
+                .font(.systemScaled(17, weight: .regular))
                 .foregroundStyle(
                     pillAction.isEnabled
                         ? Color(uiColor: .secondaryLabel)
@@ -171,7 +171,7 @@ struct AmenActionPill: View {
             showOverflow = true
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 17, weight: .regular))
+                .font(.systemScaled(17, weight: .regular))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
                 .frame(width: 44, height: 44)
         }
@@ -211,7 +211,7 @@ struct AmenActionPill: View {
                         )
                         .frame(width: 44, height: 44)
                     Image(systemName: primary.systemImage)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(
                             primary.isEnabled
                                 ? Color.white

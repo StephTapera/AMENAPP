@@ -205,18 +205,18 @@ struct SelahVerseReactionPickerSheet: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("React to")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .tracking(1.5)
                         .foregroundStyle(.secondary)
                     Text(reference.displayString)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                 }
                 Spacer()
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -239,10 +239,10 @@ struct SelahVerseReactionPickerSheet: View {
                     } label: {
                         VStack(spacing: 4) {
                             Image(systemName: kind.icon)
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.systemScaled(18, weight: .medium))
                                 .foregroundStyle(selected ? Color.accentColor : .primary.opacity(0.8))
                             Text(kind.label)
-                                .font(.system(size: 11, weight: selected ? .semibold : .medium))
+                                .font(.systemScaled(11, weight: selected ? .semibold : .medium))
                                 .foregroundStyle(selected ? Color.accentColor : .secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -266,7 +266,7 @@ struct SelahVerseReactionPickerSheet: View {
             }
 
             Text("Private to you unless you share it.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
         }

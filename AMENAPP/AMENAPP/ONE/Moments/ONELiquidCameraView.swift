@@ -97,11 +97,8 @@ extension ONECameraSessionManager: AVCapturePhotoCaptureDelegate {
 private final class ONECameraPreviewUIView: UIView {
     override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
     var previewLayer: AVCaptureVideoPreviewLayer {
-        // layerClass guarantees this cast; guard surfaces any future regression cleanly.
-        guard let pl = layer as? AVCaptureVideoPreviewLayer else {
-            fatalError("ONECameraPreviewUIView: layer is not AVCaptureVideoPreviewLayer — layerClass override broken")
-        }
-        return pl
+        // layerClass override guarantees this cast succeeds
+        layer as! AVCaptureVideoPreviewLayer
     }
 }
 
@@ -210,11 +207,11 @@ struct ONELiquidCameraView: View {
         HStack(spacing: ONE.Spacing.sm) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
             }
-            .glassEffect(.regular.tint(ONE.Colors.glassWarm).interactive(), in: Circle())
+            .amenGlassEffect(in: Circle())
             .accessibilityLabel("Close camera")
 
             Spacer()
@@ -225,11 +222,11 @@ struct ONELiquidCameraView: View {
 
             Button { Task { await cameraManager.flip() } } label: {
                 Image(systemName: "arrow.triangle.2.circlepath.camera.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.white)
                     .frame(width: 36, height: 36)
             }
-            .glassEffect(.regular.tint(ONE.Colors.glassWarm).interactive(), in: Circle())
+            .amenGlassEffect(in: Circle())
             .accessibilityLabel("Flip camera")
         }
         .padding(.horizontal, ONE.Spacing.md)
@@ -241,17 +238,17 @@ struct ONELiquidCameraView: View {
 
     private var privacyPill: some View {
         HStack(spacing: ONE.Spacing.xs) {
-            Image(systemName: "lock.fill").font(.system(size: 10))
+            Image(systemName: "lock.fill").font(.systemScaled(10))
             Text(contract.audience.displayLabel)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
             Text("·").foregroundStyle(.secondary)
             Text(contract.lifetime.displayLabel)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
         }
         .foregroundStyle(.white)
         .padding(.horizontal, ONE.Spacing.md)
         .padding(.vertical, ONE.Spacing.sm)
-        .glassEffect(.regular.tint(ONE.Colors.glassWarm).interactive(), in: Capsule())
+        .amenGlassEffect(in: Capsule())
         .accessibilityLabel("Privacy: \(contract.audience.displayLabel), \(contract.lifetime.displayLabel)")
     }
 
@@ -264,20 +261,20 @@ struct ONELiquidCameraView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showProvenanceTip = false }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: cls.icon).font(.system(size: 10))
-                Text(cls.displayLabel).font(.system(size: 10, weight: .medium))
+                Image(systemName: cls.icon).font(.systemScaled(10))
+                Text(cls.displayLabel).font(.systemScaled(10, weight: .medium))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, ONE.Spacing.sm)
             .padding(.vertical, 4)
-            .glassEffect(.regular.tint(ONE.Colors.glassCool).interactive(), in: Capsule())
+            .amenGlassEffect(in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(cls.accessibilityLabel)
         .overlay(alignment: .topTrailing) {
             if showProvenanceTip {
                 Text(cls.accessibilityLabel)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.white)
                     .padding(.horizontal, ONE.Spacing.sm)
                     .padding(.vertical, 4)
@@ -301,7 +298,7 @@ struct ONELiquidCameraView: View {
                     formatChip(format)
                 }
                 Button("More ›") { showFormatPicker = true }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.7))
                     .padding(.horizontal, ONE.Spacing.sm)
                     .padding(.vertical, 6)
@@ -321,17 +318,13 @@ struct ONELiquidCameraView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: format.provenanceIcon).font(.system(size: 11))
-                Text(format.displayName).font(.system(size: 12, weight: .medium))
+                Image(systemName: format.provenanceIcon).font(.systemScaled(11))
+                Text(format.displayName).font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(isSelected ? Color.accentColor : .white.opacity(0.8))
             .padding(.horizontal, ONE.Spacing.sm)
             .padding(.vertical, 6)
-            .glassEffect(
-                isSelected
-                    ? .regular.tint(ONE.Colors.glassWarm).interactive()
-                    : .regular.interactive(),
-                in: Capsule()
+            .amenGlassEffect(in: Capsule()
             )
         }
         .buttonStyle(.plain)
@@ -348,7 +341,7 @@ struct ONELiquidCameraView: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(Color.white.opacity(0.15))
                 Image(systemName: "photo.on.rectangle")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.white)
             }
             .frame(width: 44, height: 44)
@@ -360,11 +353,11 @@ struct ONELiquidCameraView: View {
             // Format picker shortcut
             Button { showFormatPicker = true } label: {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
             }
-            .glassEffect(.regular.tint(ONE.Colors.glassWarm).interactive(), in: Circle())
+            .amenGlassEffect(in: Circle())
             .accessibilityLabel("Change moment format")
         }
     }
@@ -418,13 +411,13 @@ struct ONELiquidCameraView: View {
             Color.black.ignoresSafeArea()
             VStack(spacing: ONE.Spacing.lg) {
                 Image(systemName: "camera.fill")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.secondary)
                 Text("Camera Access Needed")
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.systemScaled(19, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("ONE needs camera access to capture moments.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 Button("Open Settings") {

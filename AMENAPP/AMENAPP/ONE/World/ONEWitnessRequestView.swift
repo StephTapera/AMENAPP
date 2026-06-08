@@ -104,9 +104,9 @@ struct ONEWitnessRequestView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(level.displayLabel)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                         Text(level.exposureDescription)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -136,9 +136,9 @@ struct ONEWitnessRequestView: View {
             HStack(alignment: .top, spacing: ONE.Spacing.sm) {
                 Image(systemName: "info.circle")
                     .foregroundStyle(.secondary)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text("Witnessing is a season, not a subscription. It ends naturally. You and this person can see each other more fully during this season — as much as your privacy mirrors allow.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)

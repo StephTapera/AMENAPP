@@ -59,7 +59,7 @@ struct PinDurationSheet: View {
                     .foregroundStyle(Color(red: 0.05, green: 0.05, blue: 0.08))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.white)
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)

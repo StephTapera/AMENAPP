@@ -83,12 +83,12 @@ struct AmenLiveActivityBannerView: View {
             // Title + subtitle stack
             VStack(alignment: .leading, spacing: 2) {
                 Text(context.state.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 Text(context.state.subtitle)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -115,7 +115,7 @@ struct AmenLiveActivityBannerView: View {
     @ViewBuilder
     private var tierIconView: some View {
         Image(systemName: context.attributes.tier.symbolName)
-            .font(.system(size: 16, weight: .medium))
+            .font(.systemScaled(16, weight: .medium))
             .foregroundStyle(tierColor)
             .accessibilityLabel(context.attributes.tier.accessibilityLabel)
     }
@@ -126,9 +126,9 @@ struct AmenLiveActivityBannerView: View {
     private var phaseTagView: some View {
         HStack(spacing: 4) {
             Image(systemName: context.state.phase.symbolName)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text(context.state.phase.displayLabel)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
         }
         .foregroundStyle(phaseColor)
         .padding(.horizontal, 8)
@@ -175,10 +175,10 @@ struct AmenLiveExpandedLeadingView: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: context.attributes.tier.symbolName)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(tierColor)
             Text(context.attributes.tier.accessibilityLabel)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.secondary)
         }
         .padding(.leading, 4)
@@ -207,10 +207,10 @@ struct AmenLiveExpandedTrailingView: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: context.state.phase.symbolName)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(phaseColor)
             Text(context.state.phase.displayLabel)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(phaseColor)
         }
         .padding(.trailing, 4)
@@ -238,12 +238,12 @@ struct AmenLiveExpandedBottomView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(context.state.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
             Text(context.state.subtitle)
-                .font(.system(size: 12, weight: .regular))
+                .font(.systemScaled(12, weight: .regular))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
@@ -252,7 +252,7 @@ struct AmenLiveExpandedBottomView: View {
                 Spacer()
                 Link(destination: URL(string: "amenapp://intelligence/card/\(context.attributes.intelligenceCardId)")!) {
                     Text(context.state.actionLabel)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
@@ -280,7 +280,7 @@ struct AmenLiveCompactLeadingView: View {
 
     var body: some View {
         Image(systemName: context.attributes.tier.symbolName)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.systemScaled(13, weight: .semibold))
             .foregroundStyle(tierColor)
             .frame(width: 20, height: 20)
             .accessibilityLabel("AMEN \(context.attributes.tier.accessibilityLabel) update")
@@ -307,10 +307,10 @@ struct AmenLiveCompactTrailingView: View {
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: context.state.phase.symbolName)
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
                 .foregroundStyle(phaseColor)
             Text(context.state.phase.displayLabel)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(phaseColor)
                 .lineLimit(1)
         }
@@ -336,7 +336,7 @@ struct AmenLiveMinimalView: View {
 
     var body: some View {
         Image(systemName: context.attributes.tier.symbolName)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(tierColor)
             .accessibilityLabel("AMEN \(context.attributes.tier.accessibilityLabel)")
     }

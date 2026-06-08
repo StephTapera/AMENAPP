@@ -1,4 +1,7 @@
 {
+  "remoteconfig": {
+    "template": "remoteconfig.template.json"
+  },
   "database": {
     "rules": "AMENAPP/database.rules.json"
   },

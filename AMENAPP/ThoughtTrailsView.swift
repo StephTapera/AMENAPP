@@ -132,7 +132,7 @@ struct ThoughtTrailsView: View {
     private var emptyTrailState: some View {
         VStack(spacing: 12) {
             Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(.secondary.opacity(0.35))
             Text("No trails yet")
                 .font(.systemScaled(15, weight: .semibold))

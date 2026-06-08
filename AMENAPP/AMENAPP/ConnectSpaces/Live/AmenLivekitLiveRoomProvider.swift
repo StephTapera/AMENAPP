@@ -156,7 +156,7 @@ private struct LocalLivekitVideoView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         Image(systemName: "video.slash.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(.white.opacity(0.4))
                     )
             }
@@ -198,7 +198,7 @@ private struct RemoteParticipantPlaceholder: View {
                 .frame(width: 64, height: 64)
                 .overlay(
                     Text(initials(from: identity))
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(.white)
                 )
         }

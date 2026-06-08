@@ -45,14 +45,14 @@ struct ContextBeforeCommentGateView: View {
             HStack(spacing: 12) {
                 // Icon
                 Image(systemName: isUnlocked ? "checkmark.bubble.fill" : "text.bubble.fill")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(isUnlocked ? Color.green : amber)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 6) {
                     // Message
                     Text(isUnlocked ? "Comments are now unlocked!" : messageText)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.white)
                         .accessibilityLabel(isUnlocked
                             ? "Comments are now unlocked"
@@ -98,7 +98,7 @@ struct ContextBeforeCommentGateView: View {
             // Dismiss button
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.6))
                     .frame(width: 24, height: 24)
                     .background(.ultraThinMaterial, in: Circle())
@@ -148,14 +148,14 @@ struct ContextBeforeCommentSettingsView: View {
                 // Header
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Context Before Comments")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.systemScaled(20, weight: .semibold))
                         .foregroundStyle(.white)
                         .accessibilityAddTraits(.isHeader)
 
                     Text(
                         "Require viewers to watch a portion of your content before they can comment. Encourages thoughtful engagement."
                     )
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.white.opacity(0.55))
                     .fixedSize(horizontal: false, vertical: true)
                 }
@@ -165,12 +165,12 @@ struct ContextBeforeCommentSettingsView: View {
                     Toggle(isOn: $settings.isEnabled) {
                         HStack(spacing: 10) {
                             Image(systemName: "text.bubble")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(amber)
                                 .accessibilityHidden(true)
 
                             Text("Enable")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(.white)
                         }
                     }
@@ -185,14 +185,14 @@ struct ContextBeforeCommentSettingsView: View {
                         // Watch fraction slider
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Required watch amount")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.55))
 
                             glassRow {
                                 VStack(alignment: .leading, spacing: 10) {
                                     HStack {
                                         Text("\(Int(settings.minimumWatchFraction * 100))%")
-                                            .font(.system(size: 22, weight: .bold))
+                                            .font(.systemScaled(22, weight: .bold))
                                             .foregroundStyle(amber)
                                             .accessibilityLabel(
                                                 "Required watch fraction: \(Int(settings.minimumWatchFraction * 100)) percent"
@@ -213,7 +213,7 @@ struct ContextBeforeCommentSettingsView: View {
                                     HStack {
                                         ForEach(["25%", "50%", "75%", "100%"], id: \.self) { label in
                                             Text(label)
-                                                .font(.system(size: 11))
+                                                .font(.systemScaled(11))
                                                 .foregroundStyle(.white.opacity(0.4))
                                             if label != "100%" { Spacer() }
                                         }
@@ -225,7 +225,7 @@ struct ContextBeforeCommentSettingsView: View {
                         // Custom message field
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Message for viewers")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.55))
 
                             ZStack(alignment: .leading) {
@@ -239,14 +239,14 @@ struct ContextBeforeCommentSettingsView: View {
 
                                 if settings.messageForViewers.isEmpty {
                                     Text("Watch more to join the conversation")
-                                        .font(.system(size: 15))
+                                        .font(.systemScaled(15))
                                         .foregroundStyle(.white.opacity(0.3))
                                         .padding(.horizontal, 16)
                                         .allowsHitTesting(false)
                                 }
 
                                 TextField("", text: $settings.messageForViewers)
-                                    .font(.system(size: 15))
+                                    .font(.systemScaled(15))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 16)
                             }
@@ -256,7 +256,7 @@ struct ContextBeforeCommentSettingsView: View {
                         // Live preview
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Preview")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.55))
 
                             ContextBeforeCommentGateView(
@@ -270,7 +270,7 @@ struct ContextBeforeCommentSettingsView: View {
 
                         // Ambient note
                         Text("Comments unlock automatically. No manual action needed.")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.white.opacity(0.35))
                             .accessibilityLabel(
                                 "Note: comments unlock automatically, no manual action needed"

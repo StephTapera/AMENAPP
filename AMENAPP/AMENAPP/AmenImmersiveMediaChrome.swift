@@ -366,7 +366,7 @@ private struct AmenGlassCircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .frame(width: 44, height: 44)
                 .background(AmenAdaptiveMaterialBackground(cornerRadius: 22, reduceTransparency: reduceTransparency))
                 .clipShape(Circle())

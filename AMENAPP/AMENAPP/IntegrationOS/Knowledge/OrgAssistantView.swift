@@ -78,7 +78,7 @@ struct OrgAssistantView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "building.2.crop.circle.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.tint)
             Text("Ask about your organization")
                 .font(.headline)

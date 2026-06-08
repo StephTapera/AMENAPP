@@ -1,16 +1,18 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as path from "path";
 import * as os from "os";
 import { cleanupTmp, createThumbnailImage, downloadToTmp, uploadFromTmp } from "./ffmpegUtils";
 
-export const generateThumbnail = functions.https.onCall(async (data, context) => {
+export const generateThumbnail = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new HttpsError("unauthenticated", "Auth required");
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -22,7 +24,7 @@ export const generateThumbnail = functions.https.onCall(async (data, context) =>
     const outputStoragePath = String(data?.outputStoragePath ?? "");
 
     if (!jobID || !sourceStoragePath || !outputStoragePath) {
-        throw new functions.https.HttpsError("invalid-argument", "Missing jobID or storage paths");
+        throw new HttpsError("invalid-argument", "Missing jobID or storage paths");
     }
 
     const jobRef = admin.firestore()

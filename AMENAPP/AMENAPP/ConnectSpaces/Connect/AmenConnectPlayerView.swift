@@ -187,15 +187,15 @@ struct AmenConnectPlayerView: View {
                 ForEach(defaultChapters) { chapter in
                     HStack(spacing: 10) {
                         Text("\(chapter.id + 1)")
-                            .font(.system(size: 11, weight: .bold).monospacedDigit())
+                            .font(.systemScaled(11, weight: .bold).monospacedDigit())
                             .foregroundStyle(Color(hex: "D9A441"))
                             .frame(width: 22, alignment: .center)
                         Text(chapter.title)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(Color.white.opacity(0.80))
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.30))
                     }
                     .padding(.horizontal, 12)
@@ -223,7 +223,7 @@ struct AmenConnectPlayerView: View {
                     sectionHeader("TRANSCRIPT")
                     Spacer()
                     Image(systemName: showTranscript ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.40))
                 }
             }
@@ -231,7 +231,7 @@ struct AmenConnectPlayerView: View {
 
             if showTranscript {
                 Text("Transcript is not yet available for this video. Check back after processing is complete.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.55))
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -254,7 +254,7 @@ struct AmenConnectPlayerView: View {
 
             if video.scriptureRefs.isEmpty {
                 Text("No scripture verified yet")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.40))
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -277,10 +277,10 @@ struct AmenConnectPlayerView: View {
                 // Reference + translation
                 HStack(spacing: 6) {
                     Text(ref.reference)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.90))
                     Text(ref.translation)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -290,7 +290,7 @@ struct AmenConnectPlayerView: View {
 
                 // Confidence
                 Text(String(format: "%.0f%% confidence", ref.confidence * 100))
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(Color.white.opacity(0.45))
             }
 
@@ -318,7 +318,7 @@ struct AmenConnectPlayerView: View {
         }()
 
         Text(label)
-            .font(.system(size: 9, weight: .bold))
+            .font(.systemScaled(9, weight: .bold))
             .kerning(0.4)
             .foregroundStyle(color)
             .padding(.horizontal, 7)
@@ -343,7 +343,7 @@ struct AmenConnectPlayerView: View {
                     Image(systemName: "stop.circle")
                     Text("End Session")
                 }
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.65))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 11)
@@ -361,7 +361,7 @@ struct AmenConnectPlayerView: View {
     @ViewBuilder
     private func sectionHeader(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .font(.systemScaled(10, weight: .bold))
             .kerning(1.0)
             .foregroundStyle(Color.white.opacity(0.35))
     }
@@ -383,16 +383,16 @@ private struct ConnectSessionIntentSheet: View {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("What do you want to learn?")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     Text("Setting an intention helps you stay focused and makes it easier to reflect afterward.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     intentSectionHeader("MY GOAL FOR THIS SESSION")
                     TextField("e.g. Understand how faith and works connect", text: $goal, axis: .vertical)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .lineLimit(3, reservesSpace: true)
                         .padding(12)
                         .background(Color(.secondarySystemBackground))
@@ -407,7 +407,7 @@ private struct ConnectSessionIntentSheet: View {
                                 timeLimitMinutes = option.value
                             } label: {
                                 Text(option.label)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
                                     .background(timeLimitMinutes == option.value ? Color.accentColor : Color(.secondarySystemBackground))
@@ -425,7 +425,7 @@ private struct ConnectSessionIntentSheet: View {
 
                 Button(action: onStart) {
                     Text("Start Watching")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
@@ -444,7 +444,7 @@ private struct ConnectSessionIntentSheet: View {
     @ViewBuilder
     private func intentSectionHeader(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .font(.systemScaled(10, weight: .bold))
             .kerning(0.8)
             .foregroundStyle(.secondary)
     }
@@ -467,16 +467,16 @@ private struct ConnectSessionRecapView: View {
                     HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Session complete")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(.secondary)
                             if elapsedMinutes > 0 {
                                 Text("\(elapsedMinutes) min watched")
-                                    .font(.system(size: 22, weight: .bold))
+                                    .font(.systemScaled(22, weight: .bold))
                             }
                         }
                         Spacer()
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 36))
+                            .font(.systemScaled(36))
                             .foregroundStyle(Color.accentColor)
                     }
                     .padding(16)
@@ -488,7 +488,7 @@ private struct ConnectSessionRecapView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             recapSectionHeader("YOUR GOAL")
                             Text(goal)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(Color(.secondarySystemBackground))
@@ -504,11 +504,11 @@ private struct ConnectSessionRecapView: View {
                                 ForEach(video.claims) { claim in
                                     HStack(alignment: .top, spacing: 10) {
                                         Image(systemName: "quote.opening")
-                                            .font(.system(size: 11))
+                                            .font(.systemScaled(11))
                                             .foregroundStyle(Color.accentColor)
                                             .padding(.top, 2)
                                         Text(claim.text)
-                                            .font(.system(size: 13))
+                                            .font(.systemScaled(13))
                                             .fixedSize(horizontal: false, vertical: true)
                                         Spacer()
                                     }
@@ -527,7 +527,7 @@ private struct ConnectSessionRecapView: View {
                             recapSectionHeader("SCRIPTURE REFERENCED")
                             FlowLayout(items: video.scriptureRefs) { ref in
                                 Text(ref.reference)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
                                     .background(Color.accentColor.opacity(0.12))
@@ -541,10 +541,10 @@ private struct ConnectSessionRecapView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         recapSectionHeader("WHAT DID I LEARN?")
                         Text("Take a moment to write down what stood out to you.")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                         TextField("Write your reflection here…", text: $reflection, axis: .vertical)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .lineLimit(5, reservesSpace: true)
                             .padding(12)
                             .background(Color(.secondarySystemBackground))
@@ -553,7 +553,7 @@ private struct ConnectSessionRecapView: View {
 
                     Button(action: onDone) {
                         Text("Done")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 15)
@@ -578,7 +578,7 @@ private struct ConnectSessionRecapView: View {
     @ViewBuilder
     private func recapSectionHeader(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .font(.systemScaled(10, weight: .bold))
             .kerning(0.8)
             .foregroundStyle(.secondary)
     }

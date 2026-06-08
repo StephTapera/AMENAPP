@@ -65,7 +65,7 @@ struct SelahMemoryView: View {
             Spacer()
             Button { showComposer = true } label: {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 26))
+                    .font(.systemScaled(26))
                     .foregroundStyle(.purple)
                     .symbolRenderingMode(.hierarchical)
             }
@@ -121,7 +121,7 @@ struct SelahMemoryView: View {
         VStack(spacing: 16) {
             Spacer(minLength: 40)
             Image(systemName: "brain")
-                .font(.system(size: 48, weight: .ultraLight))
+                .font(.systemScaled(48, weight: .ultraLight))
                 .foregroundStyle(.secondary)
             Text(service.memories.isEmpty
                  ? "No memories yet"

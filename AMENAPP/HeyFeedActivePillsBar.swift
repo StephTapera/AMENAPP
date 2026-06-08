@@ -53,7 +53,7 @@ private struct HeyFeedActivePillChip: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: actionIcon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(actionColor)
 
             Text(preference.targetLabel)
@@ -62,13 +62,13 @@ private struct HeyFeedActivePillChip: View {
                 .lineLimit(1)
 
             Text(preference.timeRemainingLabel)
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.tertiary)
                     .padding(3)
             }

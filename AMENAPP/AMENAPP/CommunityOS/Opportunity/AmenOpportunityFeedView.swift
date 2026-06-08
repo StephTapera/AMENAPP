@@ -171,7 +171,7 @@ struct AmenOpportunityFeedView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: selectedCategory.systemImage)
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color(uiColor: .quaternaryLabel))
                 .accessibilityHidden(true)
             Text("No \(selectedCategory.displayName) Opportunities")

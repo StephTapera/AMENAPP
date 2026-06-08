@@ -41,7 +41,7 @@ struct CrisisExpandableSection<Content: View>: View {
                                 blue: accent.bg.2
                             ))
                         Image(systemName: section.systemImage)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color(
                                 red: accent.icon.0,
                                 green: accent.icon.1,
@@ -53,10 +53,10 @@ struct CrisisExpandableSection<Content: View>: View {
                     // Title + subtitle
                     VStack(alignment: .leading, spacing: 3) {
                         Text(section.title)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(.primary)
                         Text(section.subtitle)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                     }
 
@@ -64,7 +64,7 @@ struct CrisisExpandableSection<Content: View>: View {
 
                     // Animated chevron
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                         .animation(
@@ -101,11 +101,11 @@ struct CrisisExpandableSection<Content: View>: View {
                 )
             }
         }
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.black.opacity(0.05), lineWidth: 0.8)
+                .stroke(Color.primary.opacity(0.05), lineWidth: 0.8)
         )
         .shadow(color: .black.opacity(0.06), radius: 18, y: 6)
     }
@@ -123,10 +123,10 @@ struct CrisisResourceRow: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(resource.title)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(.primary)
                     Text(resource.subtitle)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -134,7 +134,7 @@ struct CrisisResourceRow: View {
                 Spacer()
 
                 Text(resource.channel == .call ? "Call" : resource.channel == .text ? "Text" : "Open")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)

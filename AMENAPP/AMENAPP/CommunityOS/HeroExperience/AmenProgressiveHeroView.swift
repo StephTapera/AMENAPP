@@ -141,7 +141,7 @@ struct AmenProgressiveHeroView: View {
                 dismissPill
                     .padding(.top, 12)
                     .padding(.bottom, 24)
-                    .background(Color.white)
+                    .background(Color(.systemBackground))
             }
             .clipShape(RoundedRectangle(cornerRadius: AmenRadius.card, style: .continuous))
             .shadow(

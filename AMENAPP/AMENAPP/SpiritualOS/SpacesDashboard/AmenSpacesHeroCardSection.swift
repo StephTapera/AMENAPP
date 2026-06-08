@@ -36,7 +36,7 @@ private struct MemberAvatarStack: View {
                         .fill(Color.white.opacity(0.2))
                         .overlay(
                             Image(systemName: "person.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(Color.white.opacity(0.6))
                         )
                 }
@@ -100,14 +100,14 @@ private struct SpaceNameCapsule: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(spaceName)
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             if let tagline {
                 Text(tagline)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.72))
                     .lineLimit(1)
             }
@@ -150,7 +150,7 @@ private struct DashboardStatRow: View {
                 )
                 if totalMemberCount > memberPreviews.count {
                     Text("+\(totalMemberCount - memberPreviews.count)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color.white.opacity(0.65))
                 }
             }
@@ -160,10 +160,10 @@ private struct DashboardStatRow: View {
             // Active prayer count
             HStack(spacing: 5) {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.accentColor)
                 Text("\(activePrayerCount) Prayer\(activePrayerCount == 1 ? "" : "s")")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.85))
             }
 
@@ -172,10 +172,10 @@ private struct DashboardStatRow: View {
             // Next event
             HStack(spacing: 5) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(hex: "245B8F"))
                 Text(nextEventLabel)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.85))
                     .lineLimit(1)
             }
@@ -206,22 +206,22 @@ private struct StudySeriesCard: View {
         LiquidGlassCard(contextTint: Color.amenPurple, elevated: false) {
             HStack(spacing: 14) {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(series.seriesTitle)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color(.label))
                         .lineLimit(1)
 
                     Text("Week \(series.currentWeek) of \(series.totalWeeks)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color(.secondaryLabel))
 
                     if let reading = series.suggestedReading, !reading.isEmpty {
                         Text(reading)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.accentColor.opacity(0.90))
                             .lineLimit(1)
                     }
@@ -248,7 +248,7 @@ private struct SpaceDashboardQuickActionButton: View {
     var body: some View {
         Button(action: action) {
             Label(label, systemImage: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
         }
         .buttonStyle(.bordered)
         .tint(Color.accentColor)
@@ -288,7 +288,7 @@ private struct SpaceDashboardActivityRow: View {
                     .fill(Color.white.opacity(0.15))
                     .overlay(
                         Image(systemName: "person.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.white.opacity(0.5))
                     )
             }
@@ -298,17 +298,17 @@ private struct SpaceDashboardActivityRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Image(systemName: iconName)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(iconTint)
 
                     Text(item.actorName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
                 }
 
                 Text(item.summary)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.72))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -317,7 +317,7 @@ private struct SpaceDashboardActivityRow: View {
             Spacer(minLength: 0)
 
             Text(relativeFormatter.localizedString(for: item.timestamp, relativeTo: Date()))
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color.white.opacity(0.40))
                 .lineLimit(1)
         }
@@ -352,7 +352,7 @@ private struct HeroLoadingPlaceholder: View {
 
 private func dashboardSectionHeader(title: String) -> some View {
     Text(title.uppercased())
-        .font(.system(size: 11, weight: .bold))
+        .font(.systemScaled(11, weight: .bold))
         .kerning(1.2)
         .foregroundStyle(Color.white.opacity(0.50))
         .padding(.horizontal, 16)
@@ -557,7 +557,7 @@ private struct PrayTogetherPlaceholderSheet: View {
                 if submitted {
                     VStack(spacing: 16) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 44))
+                            .font(.systemScaled(44))
                             .foregroundStyle(Color.accentColor)
                         Text("Prayer Submitted")
                             .font(.title2.weight(.bold))

@@ -47,17 +47,87 @@ final class AmenTeacherOSViewModel: ObservableObject {
 
     func loadMetrics() async {
         isLoading = true
-        // STUB — Wave D will wire real Firestore aggregation queries.
-        // Shape: query knowledgeGraph where studied contains teacherId's videoIds,
-        // count "markedUnderstood" events, aggregate edificationScores from comments.
-        try? await Task.sleep(nanoseconds: 200_000_000)
-        metrics = AmenTeacherPrivateMetrics(
-            retentionQuality: 72,
-            communityTrust: 85,
-            formationImpactCount: 0,
-            changedMindSignals: 0,
-            communityHealth: "Healthy"
-        )
+        errorMessage = nil
+        let db = Firestore.firestore()
+
+        do {
+            // 1. Fetch content IDs authored by this teacher (cap at 10 for Firestore `in` limit)
+            let contentSnap = try await db.collection("teacherContent")
+                .whereField("authorId", isEqualTo: teacherId)
+                .limit(to: 10)
+                .getDocuments()
+            let contentIds = contentSnap.documents.map { $0.documentID }
+
+            guard !contentIds.isEmpty else {
+                metrics = AmenTeacherPrivateMetrics(
+                    retentionQuality: 0,
+                    communityTrust: 0,
+                    formationImpactCount: 0,
+                    changedMindSignals: 0,
+                    communityHealth: "No content yet"
+                )
+                isLoading = false
+                return
+            }
+
+            // 2. Formation impact — count "markedUnderstood" events
+            let understoodSnap = try await db.collection("knowledgeGraphEvents")
+                .whereField("contentId", in: contentIds)
+                .whereField("eventType", isEqualTo: "markedUnderstood")
+                .getDocuments()
+            let formationImpactCount = understoodSnap.documents.count
+
+            // 3. Community signals from structured comments
+            let commentsSnap = try await db.collection("comments")
+                .whereField("contentId", in: contentIds)
+                .limit(to: 200)
+                .getDocuments()
+            let allComments = commentsSnap.documents
+
+            // Community trust — average edification score (0–1) → 0–100
+            let edScores = allComments.compactMap { $0.data()["edificationScore"] as? Double }
+            let communityTrust = edScores.isEmpty ? 50.0
+                : (edScores.reduce(0, +) / Double(edScores.count)) * 100
+
+            // Changed-mind signals — respectfulDisagree the author acknowledged
+            let changedMindSignals = allComments.filter { doc in
+                let d = doc.data()
+                return (d["type"] as? String) == "respectfulDisagree"
+                    && (d["authorAcknowledged"] as? Bool) == true
+            }.count
+
+            // Retention quality — ratio of positive-sentiment to total comments, scaled to 0–100
+            let positiveCount = allComments.filter {
+                ($0.data()["sentiment"] as? String) == "positive"
+            }.count
+            let retentionQuality = allComments.isEmpty ? 50.0
+                : min(100, Double(positiveCount) / Double(allComments.count) * 100)
+
+            // Community health label
+            let negativeCount = allComments.filter {
+                ($0.data()["sentiment"] as? String) == "negative"
+            }.count
+            let negRatio = allComments.isEmpty ? 0.0
+                : Double(negativeCount) / Double(allComments.count)
+            let communityHealth: String
+            switch negRatio {
+            case ..<0.05: communityHealth = "Thriving"
+            case ..<0.15: communityHealth = "Healthy"
+            case ..<0.30: communityHealth = "Growing"
+            default:      communityHealth = "Needs Attention"
+            }
+
+            metrics = AmenTeacherPrivateMetrics(
+                retentionQuality: retentionQuality,
+                communityTrust: communityTrust,
+                formationImpactCount: formationImpactCount,
+                changedMindSignals: changedMindSignals,
+                communityHealth: communityHealth
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
         isLoading = false
     }
 }
@@ -131,7 +201,7 @@ struct AmenTeacherOSView: View {
         .padding(.vertical, 16)
         .background(
             Color(.systemBackground)
-                .glassEffect(in: .rect(cornerRadius: 16))
+                .amenGlassEffect(in: .rect(cornerRadius: 16))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -362,7 +432,7 @@ private struct AmenTeacherUploadStubView: View {
         NavigationStack {
             VStack(spacing: 20) {
                 Image(systemName: "arrow.up.doc.fill")
-                    .font(.system(size: 56))
+                    .font(.systemScaled(56))
                     .foregroundStyle(Color.amenPurple.opacity(0.6))
                 Text("Upload flow coming in Wave D.")
                     .font(.headline)

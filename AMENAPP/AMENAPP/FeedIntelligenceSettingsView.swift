@@ -68,7 +68,7 @@ struct FeedIntelligenceSettingsView: View {
             ForEach(FeedMode.allCases) { mode in
                 HStack(spacing: 12) {
                     Image(systemName: mode.icon)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                         .frame(width: 24)
                     VStack(alignment: .leading, spacing: 2) {
@@ -150,8 +150,8 @@ struct FeedIntelligenceSettingsView: View {
     private func topicChip(_ topic: String, isBoost: Bool) -> some View {
         HStack(spacing: 4) {
             Image(systemName: isBoost ? "arrow.up" : "arrow.down")
-                .font(.system(size: 9, weight: .bold))
-            Text(topic).font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(9, weight: .bold))
+            Text(topic).font(.systemScaled(12, weight: .medium))
         }
         .foregroundStyle(isBoost ? .primary : .secondary)
         .padding(.horizontal, 10).padding(.vertical, 5)

@@ -34,6 +34,7 @@ struct ResourcesView: View {
     // Scroll-collapse — same pattern as MessagesView
     @State private var scrollOffset: CGFloat = 0
     @State private var showHeader: Bool = true
+    @State private var showBereanOSHub = false
     @Environment(\.tabBarVisible) private var tabBarVisible
     
     /// Drives category pills compression — 0 = fully visible, 1 = fully hidden
@@ -421,20 +422,17 @@ struct ResourcesView: View {
                 DisasterResourcesSection()
             }
 
-            // ── Community Discovery Rails (gated by AppStorage flag) ──
-            if selectedCategory == .all || selectedCategory == .community {
-                AmenDiscoveryRailsView(
-                    userId: Auth.auth().currentUser?.uid ?? ""
-                ) { item in
-                    if item.type == .church, let churchId = item.metadata["churchId"] {
-                        selectedChurchId = churchId
-                        showChurchHub = true
-                    }
-                }
+            // ── Resources-specific content rails ──────────────────────────
+            if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
+                ResourcesContentView(onFindChurchTap: {
+                    showChurchHub = true
+                })
                 .frame(maxWidth: .infinity)
                 .sheet(isPresented: $showChurchHub) {
                     if let churchId = selectedChurchId {
                         AmenChurchHubView(churchId: churchId, onDismiss: { showChurchHub = false })
+                    } else {
+                        FindChurchView()
                     }
                 }
             }
@@ -653,7 +651,37 @@ struct ResourcesView: View {
                             }
                             .buttonStyle(ResourceCardPressStyle())
                         }
+
+                        // Berean OS
+                        Button { showBereanOSHub = true } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: "brain.head.profile")
+                                    .font(.systemScaled(20))
+                                    .foregroundStyle(.purple)
+                                    .frame(width: 44, height: 44)
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Berean OS")
+                                        .font(.systemScaled(15, weight: .semibold))
+                                        .foregroundStyle(.primary)
+                                    Text("Wisdom research, debates & mentorship")
+                                        .font(.systemScaled(12))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.systemScaled(13, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(14)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
                     }
+                }
+                .sheet(isPresented: $showBereanOSHub) {
+                    BereanOSHubView()
                 }
             }
 
@@ -1425,10 +1453,12 @@ struct LiquidGlassConnectCard: View {
     let category: String
     let badge: String?
     let features: [String]
-    
+    var onGetStarted: (() -> Void)? = nil
+
     @State private var isPressed = false
     @State private var isExpanded = false
-    
+    @State private var showBereanSheet = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 16) {
@@ -1443,7 +1473,7 @@ struct LiquidGlassConnectCard: View {
                             .foregroundStyle(iconColor)
                             .symbolEffect(.bounce, value: isExpanded)
                     }
-                    .glassEffect(.regular)
+                    .amenGlassEffect()
                     
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
@@ -1493,12 +1523,18 @@ struct LiquidGlassConnectCard: View {
                         }
                         
                         Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            if let onGetStarted {
+                                onGetStarted()
+                            } else {
+                                showBereanSheet = true
+                            }
                         } label: {
                             HStack {
                                 Spacer()
-                                
+
                                 getStartedButton
-                                
+
                                 Spacer()
                             }
                         }
@@ -1513,7 +1549,7 @@ struct LiquidGlassConnectCard: View {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color(.systemBackground))
             )
-            .glassEffect(.regular)
+            .amenGlassEffect()
             .shadow(color: iconColor.opacity(isPressed ? 0.2 : 0.15), radius: isPressed ? 6 : 12, y: isPressed ? 2 : 4)
             .padding(.horizontal)
             .scaleEffect(isPressed ? 0.98 : 1.0)
@@ -1537,8 +1573,13 @@ struct LiquidGlassConnectCard: View {
                         }
                     }
             )
+            .sheet(isPresented: $showBereanSheet) {
+                BereanChatView(
+                    initialQuery: "Help me get started with \(title)"
+                )
+            }
     }
-    
+
     // Helper views to reduce complexity
     @ViewBuilder
     private func badgeView(badge: String) -> some View {
@@ -3114,6 +3155,8 @@ struct WalkWithChristEntryCard: View {
                     .font(.systemScaled(24, weight: .bold, design: .serif))
                     .foregroundStyle(.white)
                     .tracking(-0.3)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
 
                 // Subtitle / state
                 if store.profile.onboardingComplete {
@@ -3159,7 +3202,7 @@ struct WalkWithChristEntryCard: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 22)
         }
-        .frame(height: 200)
+        .frame(minHeight: 200)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: ink.opacity(0.18), radius: 14, x: 0, y: 5)
     }

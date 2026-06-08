@@ -827,7 +827,7 @@ const spacesStripe = require("./spacesStripeFunctions");
 exports.createStripeConnectAccount = spacesStripe.createStripeConnectAccount;
 
 const spacesLivekit = require("./spacesLivekitFunctions");
-// getLivekitToken owned by creator codebase
+exports.getLivekitToken = spacesLivekit.getLivekitToken;
 
 const connectHub = require("./connectHubFunctions");
 exports.getConnectHubFeed = connectHub.getConnectHubFeed;

@@ -100,7 +100,7 @@ struct PrayerCaptureView: View {
             Spacer()
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.7))
                     .frame(width: 32, height: 32)
                     .background(.ultraThinMaterial, in: Circle())
@@ -120,12 +120,12 @@ struct PrayerCaptureView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Begin in Prayer")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.systemScaled(28, weight: .semibold))
                         .foregroundStyle(.white)
                         .accessibilityAddTraits(.isHeader)
 
                     Text("What kind of prayer is this?")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 .padding(.horizontal, 20)
@@ -147,7 +147,7 @@ struct PrayerCaptureView: View {
                 // Begin button
                 Button(action: { withAnimation(.easeInOut(duration: 0.3)) { phase = .recording } }) {
                     Text("Begin")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
@@ -180,7 +180,7 @@ struct PrayerCaptureView: View {
                     )
 
                 Image(systemName: isRecording ? "waveform" : "mic.fill")
-                    .font(.system(size: 56))
+                    .font(.systemScaled(56))
                     .foregroundStyle(amber)
                     .accessibilityHidden(true)
             }
@@ -188,13 +188,13 @@ struct PrayerCaptureView: View {
 
             // Status text
             Text(isRecording ? "Recording..." : "Tap to begin")
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
 
             // Timer
             if isRecording || recordingSeconds > 0 {
                 Text(formattedTime(recordingSeconds))
-                    .font(.system(size: 14, weight: .medium).monospacedDigit())
+                    .font(.systemScaled(14, weight: .medium).monospacedDigit())
                     .foregroundStyle(.white.opacity(0.55))
                     .accessibilityLabel("Elapsed time \(formattedTime(recordingSeconds))")
             }
@@ -236,7 +236,7 @@ struct PrayerCaptureView: View {
                 .accessibilityLabel("Transcribing your prayer")
 
             Text("Transcribing...")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(.white.opacity(0.7))
             Spacer()
         }
@@ -249,7 +249,7 @@ struct PrayerCaptureView: View {
             VStack(alignment: .leading, spacing: 20) {
 
                 Text("Review Your Prayer")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
@@ -258,7 +258,7 @@ struct PrayerCaptureView: View {
                 // Transcript editor
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Transcript")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.55))
                         .padding(.horizontal, 20)
 
@@ -274,7 +274,7 @@ struct PrayerCaptureView: View {
                         TextEditor(text: $transcript)
                             .scrollContentBackground(.hidden)
                             .background(.clear)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.white)
                             .padding(12)
                             .frame(height: 160)
@@ -286,7 +286,7 @@ struct PrayerCaptureView: View {
                 // Written prayer editor
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Written Prayer")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.55))
                         .padding(.horizontal, 20)
 
@@ -301,7 +301,7 @@ struct PrayerCaptureView: View {
 
                         if writtenPrayer.isEmpty {
                             Text("Edit your written prayer...")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.white.opacity(0.35))
                                 .padding(16)
                                 .allowsHitTesting(false)
@@ -310,7 +310,7 @@ struct PrayerCaptureView: View {
                         TextEditor(text: $writtenPrayer)
                             .scrollContentBackground(.hidden)
                             .background(.clear)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.white)
                             .padding(12)
                             .frame(height: 160)
@@ -322,7 +322,7 @@ struct PrayerCaptureView: View {
                 // Scripture reference
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Scripture Reference")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.55))
                         .padding(.horizontal, 20)
 
@@ -337,14 +337,14 @@ struct PrayerCaptureView: View {
 
                         if scriptureRef.isEmpty {
                             Text("e.g., Philippians 4:6")
-                                .font(.system(size: 15))
+                                .font(.systemScaled(15))
                                 .foregroundStyle(.white.opacity(0.35))
                                 .padding(.horizontal, 16)
                                 .allowsHitTesting(false)
                         }
 
                         TextField("", text: $scriptureRef)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                     }
@@ -356,7 +356,7 @@ struct PrayerCaptureView: View {
                 VStack(spacing: 12) {
                     Button(action: completePrayer) {
                         Text("Complete Prayer")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
@@ -373,7 +373,7 @@ struct PrayerCaptureView: View {
                         }
                     }) {
                         Text("Record Again")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
@@ -400,7 +400,7 @@ struct PrayerCaptureView: View {
                     .frame(width: 100, height: 100)
 
                 Image(systemName: "checkmark")
-                    .font(.system(size: 44, weight: .bold))
+                    .font(.systemScaled(44, weight: .bold))
                     .foregroundStyle(amber)
                     .accessibilityHidden(true)
             }
@@ -409,11 +409,11 @@ struct PrayerCaptureView: View {
             .accessibilityLabel("Prayer saved checkmark")
 
             Text("Prayer Captured")
-                .font(.system(size: 24, weight: .semibold))
+                .font(.systemScaled(24, weight: .semibold))
                 .foregroundStyle(.white)
 
             Text("Your prayer has been saved.")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.white.opacity(0.6))
 
             Spacer()
@@ -545,18 +545,18 @@ private struct PrayerTypeOptionRow: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: type.systemIcon)
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.systemScaled(22, weight: .medium))
                     .foregroundStyle(isSelected ? .black : amber)
                     .frame(width: 32)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(type.displayName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(isSelected ? .black : .white)
 
                     Text(description)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(isSelected ? .black.opacity(0.65) : .white.opacity(0.5))
                 }
 
@@ -564,7 +564,7 @@ private struct PrayerTypeOptionRow: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(.black.opacity(0.7))
                         .accessibilityHidden(true)
                 }

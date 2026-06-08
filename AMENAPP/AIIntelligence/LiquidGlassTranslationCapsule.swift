@@ -25,13 +25,13 @@ struct LiquidGlassTranslationCapsule: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "captions.bubble")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 Text(selectedLanguage.displayName)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)
@@ -47,7 +47,7 @@ struct LiquidGlassTranslationCapsule: View {
             // Shadow before glass so it composites under the specular layer, not on top.
             .shadow(color: .black.opacity(0.06 + Double(behavior.compression) * 0.10), radius: 16, x: 0, y: 8)
             // .identity disables the blur when reduceTransparency is on; solid background above shows through.
-            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+            .amenGlassEffect(in: Capsule())
         }
         .accessibilityLabel("Caption language")
         .accessibilityValue(selectedLanguage.displayName)

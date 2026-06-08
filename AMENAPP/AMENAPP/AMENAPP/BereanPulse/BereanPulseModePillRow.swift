@@ -12,10 +12,10 @@ struct BereanPulseModePillRow: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: mode.systemImage)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .accessibilityHidden(true)
                             Text(String(localized: mode.titleKey))
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .lineLimit(1)
                         }
                         .foregroundStyle(selectedMode == mode ? Color.white : Color.black.opacity(0.78))

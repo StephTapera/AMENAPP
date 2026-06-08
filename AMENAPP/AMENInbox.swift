@@ -41,23 +41,23 @@ enum AMENInboxTokens {
 
     // Typography
     // Large lowercase editorial title ("messages")
-    static let editorialHeroFont = Font.system(size: 48, weight: .light, design: .default)
+    static let editorialHeroFont = Font.systemScaled(48, weight: .light, design: .default)
     // Small index label ("01")
-    static let editorialIndexFont = Font.system(size: 18, weight: .light, design: .default)
+    static let editorialIndexFont = Font.systemScaled(18, weight: .light, design: .default)
     // Greeting above hero
-    static let greetingFont      = Font.system(size: 13, weight: .semibold)
+    static let greetingFont      = Font.systemScaled(13, weight: .semibold)
     // Compact collapsed title
-    static let heroFont          = Font.system(size: 28, weight: .bold, design: .default)
-    static let nameFontRead      = Font.system(size: 15, weight: .regular)
-    static let nameFontUnread    = Font.system(size: 15, weight: .semibold)
-    static let previewFont       = Font.system(size: 13, weight: .regular)
-    static let previewFontUnread = Font.system(size: 13, weight: .medium)
-    static let timestampFont     = Font.system(size: 12, weight: .regular)
-    static let labelFont         = Font.system(size: 11, weight: .semibold)
-    static let aiLabelFont       = Font.system(size: 11, weight: .medium, design: .monospaced)
+    static let heroFont          = Font.systemScaled(28, weight: .bold, design: .default)
+    static let nameFontRead      = Font.systemScaled(15, weight: .regular)
+    static let nameFontUnread    = Font.systemScaled(15, weight: .semibold)
+    static let previewFont       = Font.systemScaled(13, weight: .regular)
+    static let previewFontUnread = Font.systemScaled(13, weight: .medium)
+    static let timestampFont     = Font.systemScaled(12, weight: .regular)
+    static let labelFont         = Font.systemScaled(11, weight: .semibold)
+    static let aiLabelFont       = Font.systemScaled(11, weight: .medium, design: .monospaced)
     // Filter pill
-    static let pillFont          = Font.system(size: 13, weight: .medium)
-    static let pillFontActive    = Font.system(size: 13, weight: .semibold)
+    static let pillFont          = Font.systemScaled(13, weight: .medium)
+    static let pillFontActive    = Font.systemScaled(13, weight: .semibold)
 
     // Metrics
     static let avatarSize: CGFloat      = 50

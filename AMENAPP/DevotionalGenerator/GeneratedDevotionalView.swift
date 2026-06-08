@@ -154,7 +154,7 @@ struct GeneratedDevotionalView: View {
                 showShareSheet = true
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .frame(width: 50, height: 50)
                     .background(Color(.tertiarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 14))

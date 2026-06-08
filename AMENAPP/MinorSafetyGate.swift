@@ -35,7 +35,7 @@ struct BereanMinorBlockedView: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "hand.raised.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             Text("Berean AI requires parental permission")
                 .font(.title3.weight(.semibold))

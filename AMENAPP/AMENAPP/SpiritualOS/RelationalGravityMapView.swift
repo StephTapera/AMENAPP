@@ -62,7 +62,7 @@ struct RelationalGravityMapView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.2.circle")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(Color.secondary)
             Text("Your relational map is empty.")
                 .font(.headline)
@@ -140,7 +140,7 @@ struct RelationshipStateCard: View {
     private func miniBar(value: Double, color: Color, label: String) -> some View {
         HStack(spacing: 4) {
             Text(label)
-                .font(.system(size: 8))
+                .font(.systemScaled(8))
                 .foregroundStyle(Color.secondary)
             Capsule()
                 .fill(color.opacity(0.3))

@@ -15,6 +15,9 @@ struct BereanDMConsentSheet: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    @State private var isSaving = false
+    @State private var consentSaveError: String?
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -29,7 +32,7 @@ struct BereanDMConsentSheet: View {
                                     .fill(Color.accentColor.opacity(0.12))
                                     .frame(width: 72, height: 72)
                                 Image(systemName: "shield.lefthalf.filled")
-                                    .font(.system(size: 32, weight: .semibold))
+                                    .font(.systemScaled(32, weight: .semibold))
                                     .foregroundStyle(Color.accentColor)
                             }
                             .accessibilityHidden(true)
@@ -140,24 +143,70 @@ struct BereanDMConsentSheet: View {
 
                     // MARK: — Action Buttons
                     VStack(spacing: 12) {
-                        Button {
-                            saveConsent(true)
-                            onAccept()
-                        } label: {
-                            Text("I understand, continue")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Color.accentColor)
-                                .foregroundStyle(.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        if let errorMsg = consentSaveError {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.red)
+                                    .font(.subheadline)
+                                Text(errorMsg)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.red)
+                            }
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.red.opacity(0.08))
+                            )
                         }
+
+                        Button {
+                            guard !isSaving else { return }
+                            isSaving = true
+                            consentSaveError = nil
+                            Task {
+                                do {
+                                    try await saveConsent(true)
+                                    onAccept()
+                                } catch {
+                                    consentSaveError = "Could not save your preference. Please try again."
+                                }
+                                isSaving = false
+                            }
+                        } label: {
+                            Group {
+                                if isSaving {
+                                    HStack(spacing: 8) {
+                                        ProgressView().tint(.white)
+                                        Text("Saving…")
+                                    }
+                                } else {
+                                    Text("I understand, continue")
+                                }
+                            }
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.accentColor)
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .disabled(isSaving)
                         .accessibilityLabel("Accept AI safety scanning and continue to DMs")
                         .accessibilityHint("AI will scan your messages for crisis signals. You can change this in Settings later.")
 
                         Button {
-                            saveConsent(false)
-                            onDecline()
+                            guard !isSaving else { return }
+                            isSaving = true
+                            consentSaveError = nil
+                            Task {
+                                do {
+                                    try await saveConsent(false)
+                                    onDecline()
+                                } catch {
+                                    consentSaveError = "Could not save your preference. Please try again."
+                                }
+                                isSaving = false
+                            }
                         } label: {
                             Text("Not now")
                                 .fontWeight(.medium)
@@ -167,6 +216,7 @@ struct BereanDMConsentSheet: View {
                                 .foregroundStyle(.primary)
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
+                        .disabled(isSaving)
                         .accessibilityLabel("Decline AI safety scanning")
                         .accessibilityHint("AI safety scanning will be disabled. You can still send and receive messages normally.")
 
@@ -189,7 +239,7 @@ struct BereanDMConsentSheet: View {
     private func bulletRow(icon: String, iconColor: Color, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(iconColor)
                 .frame(width: 28)
                 .accessibilityHidden(true)
@@ -210,7 +260,7 @@ struct BereanDMConsentSheet: View {
     private func doNotRow(icon: String, text: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(.red.opacity(0.8))
                 .frame(width: 28)
                 .accessibilityHidden(true)
@@ -224,13 +274,20 @@ struct BereanDMConsentSheet: View {
 
     // MARK: — Persistence
 
-    private func saveConsent(_ accepted: Bool) {
+    /// Persists consent to both UserDefaults (fast) and Firestore (audit trail).
+    /// Throws if the Firestore write fails so the caller can surface an error banner
+    /// and withhold dismissal until the record is durably saved.
+    private func saveConsent(_ accepted: Bool) async throws {
         // UserDefaults for fast in-process access
         UserDefaults.standard.set(accepted, forKey: "consentDMProcessing")
 
-        // Firestore for cross-device persistence and audit trail
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        Firestore.firestore().collection("users").document(uid)
+        // Firestore for cross-device persistence and audit trail.
+        // Must succeed before the sheet dismisses so the audit record is durable.
+        guard let uid = Auth.auth().currentUser?.uid else {
+            dlog("⚠️ [Consent] No authenticated user — skipping Firestore write.")
+            return
+        }
+        try await Firestore.firestore().collection("users").document(uid)
             .setData(
                 [
                     "consentDMProcessing": accepted,

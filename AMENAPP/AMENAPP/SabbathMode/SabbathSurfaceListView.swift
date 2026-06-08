@@ -90,7 +90,7 @@ private struct SurfaceRowView: View {
                         .frame(width: 36, height: 36)
 
                     Image(systemName: entry.symbolName)
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.systemScaled(16, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
 

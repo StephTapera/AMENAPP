@@ -216,20 +216,20 @@ private struct SimpleModeButton: View {
                         .frame(width: 60, height: 60)
 
                     Image(systemName: action.icon)
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.systemScaled(28, weight: .semibold))
                         .foregroundStyle(highContrast ? .primary : action.accentColor)
                 }
                 .accessibilityHidden(true)
 
                 // Label
                 Text(action.rawValue)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(highContrast ? .primary : AmenTheme.Colors.textPrimary)
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(highContrast ? .primary : AmenTheme.Colors.textSecondary)
             }
             .padding(.horizontal, 20)

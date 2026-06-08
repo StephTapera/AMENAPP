@@ -63,7 +63,7 @@ struct ONEWorldFeedView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("World")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                 Spacer()
                 relayBudgetBadge
@@ -85,9 +85,9 @@ struct ONEWorldFeedView: View {
     private var relayBudgetBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             Text("\(service.userRelayBudget)")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .monospacedDigit()
         }
         .foregroundStyle(service.userRelayBudget <= 5 ? ONE.Colors.ephemeralRed : .secondary)
@@ -118,17 +118,13 @@ struct ONEWorldFeedView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: modeIcon(mode)).font(.system(size: 11))
-                Text(mode.displayLabel).font(.system(size: 12, weight: .medium))
+                Image(systemName: modeIcon(mode)).font(.systemScaled(11))
+                Text(mode.displayLabel).font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             .padding(.horizontal, ONE.Spacing.md)
             .padding(.vertical, 6)
-            .glassEffect(
-                isSelected
-                    ? .regular.tint(ONE.Colors.glassWarm).interactive()
-                    : .regular.interactive(),
-                in: Capsule()
+            .amenGlassEffect(in: Capsule()
             )
         }
         .buttonStyle(.plain)
@@ -158,7 +154,7 @@ struct ONEWorldFeedView: View {
             Text(service.session.isExhausted
                  ? "Session done"
                  : "\(service.session.remaining) left")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
                 .fixedSize()
@@ -203,7 +199,7 @@ struct ONEWorldFeedView: View {
         VStack(alignment: .leading, spacing: ONE.Spacing.sm) {
             authorRow(item)
             Text(item.textBody)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.primary)
                 .lineLimit(5)
             metaRow(item)
@@ -224,16 +220,16 @@ struct ONEWorldFeedView: View {
                 .frame(width: 36, height: 36)
                 .overlay(
                     Text(String(item.authorDisplayName.prefix(1)))
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.authorDisplayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(item.createdAt, style: .relative)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -241,7 +237,7 @@ struct ONEWorldFeedView: View {
                 witnessTargetUID = item.authorDisplayName   // stub: would be item.authorUID
             } label: {
                 Text("Witness")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(ONE.Colors.witnessGold)
                     .padding(.horizontal, ONE.Spacing.sm)
                     .padding(.vertical, 3)
@@ -258,8 +254,8 @@ struct ONEWorldFeedView: View {
         HStack(spacing: ONE.Spacing.sm) {
             let cls = item.provenance.displayClassification
             HStack(spacing: 4) {
-                Image(systemName: cls.icon).font(.system(size: 10))
-                Text(cls.displayLabel).font(.system(size: 10, weight: .medium))
+                Image(systemName: cls.icon).font(.systemScaled(10))
+                Text(cls.displayLabel).font(.systemScaled(10, weight: .medium))
             }
             .foregroundStyle(.secondary)
             .padding(.horizontal, ONE.Spacing.sm)
@@ -269,13 +265,13 @@ struct ONEWorldFeedView: View {
 
             if !item.permissions.forwardAllowed {
                 Image(systemName: "arrow.turn.up.right.slash")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("No forwarding")
             }
             if !item.permissions.saveAllowed {
                 Image(systemName: "square.and.arrow.down.slash")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("No saving")
             }
@@ -290,11 +286,12 @@ struct ONEWorldFeedView: View {
         HStack(spacing: ONE.Spacing.lg) {
             if item.permissions.reactAllowed {
                 Button {
-                    // React action (P4 scope: reaction picker)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    // TODO: implement reaction picker (P4 scope)
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "heart").font(.system(size: 14))
-                        Text("React").font(.system(size: 12))
+                        Image(systemName: "heart").font(.systemScaled(14))
+                        Text("React").font(.systemScaled(12))
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -310,8 +307,8 @@ struct ONEWorldFeedView: View {
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: "bubble.left").font(.system(size: 14))
-                    Text("Comment").font(.system(size: 12))
+                    Image(systemName: "bubble.left").font(.systemScaled(14))
+                    Text("Comment").font(.systemScaled(12))
                 }
                 .foregroundStyle(.secondary)
             }
@@ -333,8 +330,8 @@ struct ONEWorldFeedView: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 14))
-                        Text("Relay").font(.system(size: 12))
+                        Image(systemName: "arrow.triangle.2.circlepath").font(.systemScaled(14))
+                        Text("Relay").font(.systemScaled(12))
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -352,13 +349,13 @@ struct ONEWorldFeedView: View {
         VStack(spacing: ONE.Spacing.lg) {
             Color.clear.frame(height: 156)
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(Color.accentColor.opacity(0.5))
             Text("Session complete")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("You've seen all \(service.session.sessionBudget) items for this \(service.session.mode.displayLabel) session.\nSwitch modes or come back fresh.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             ONEWrapLayout(spacing: ONE.Spacing.sm) {
@@ -379,13 +376,13 @@ struct ONEWorldFeedView: View {
         VStack(spacing: ONE.Spacing.lg) {
             Color.clear.frame(height: 156)
             Image(systemName: modeIcon(service.session.mode))
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(Color.accentColor.opacity(0.4))
             Text("Nothing here yet")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(.primary)
             Text(modeDescription(service.session.mode))
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -401,7 +398,7 @@ struct ONEWorldFeedView: View {
                 service.switchMode(mode)
             }
         }
-        .font(.system(size: 13, weight: .medium))
+        .font(.systemScaled(13, weight: .medium))
         .foregroundStyle(Color.accentColor)
         .padding(.horizontal, ONE.Spacing.md)
         .padding(.vertical, ONE.Spacing.sm)

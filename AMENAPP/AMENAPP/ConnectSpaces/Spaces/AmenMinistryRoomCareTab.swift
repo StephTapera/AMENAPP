@@ -35,12 +35,12 @@ struct AmenMinistryRoomCareTab: View {
     private var careHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: "heart.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .accessibilityHidden(true)
 
             Text("Care & Shepherding")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color.white)
 
             Spacer()

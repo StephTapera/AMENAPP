@@ -379,6 +379,10 @@ struct TrendingTopicDetailView: View {
     @Environment(\.dismiss) var dismiss
     let title: String
     let icon: String
+
+    @State private var showJoinDiscussion = false
+    @State private var isFollowingTopic = false
+    @State private var selectedResource: (String, String)? = nil
     
     // Mock data based on topic
     private var topicContent: (description: String, stats: [(String, String)], relatedTopics: [String], resources: [(String, String)]) {
@@ -516,7 +520,13 @@ struct TrendingTopicDetailView: View {
                     // Action Buttons
                     VStack(spacing: 12) {
                         Button {
-                            // Join discussion
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            showJoinDiscussion = true
+                            NotificationCenter.default.post(
+                                name: Notification.Name("amenOpenDiscussion"),
+                                object: nil,
+                                userInfo: ["discussionId": title, "topic": title]
+                            )
                         } label: {
                             HStack {
                                 Image(systemName: "bubble.left.and.bubble.right.fill")
@@ -532,11 +542,20 @@ struct TrendingTopicDetailView: View {
                         
                         HStack(spacing: 12) {
                             Button {
-                                // Follow topic
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                withAnimation { isFollowingTopic.toggle() }
+                                NotificationCenter.default.post(
+                                    name: Notification.Name("amenFollowTopic"),
+                                    object: nil,
+                                    userInfo: [
+                                        "topic": title,
+                                        "isFollowing": !isFollowingTopic
+                                    ]
+                                )
                             } label: {
                                 HStack {
-                                    Image(systemName: "bell.fill")
-                                    Text("Follow")
+                                    Image(systemName: isFollowingTopic ? "bell.slash.fill" : "bell.fill")
+                                    Text(isFollowingTopic ? "Following" : "Follow")
                                         .font(AMENFont.bold(14))
                                 }
                                 .foregroundStyle(.primary)
@@ -553,9 +572,7 @@ struct TrendingTopicDetailView: View {
                                 )
                             }
                             
-                            Button {
-                                // Share
-                            } label: {
+                            ShareLink(item: "Check out the \(title) discussion on Amen!") {
                                 HStack {
                                     Image(systemName: "square.and.arrow.up")
                                     Text("Share")
@@ -618,7 +635,16 @@ struct TrendingTopicDetailView: View {
                         VStack(spacing: 10) {
                             ForEach(topicContent.resources, id: \.0) { resource in
                                 Button {
-                                    // Open resource
+                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                    selectedResource = resource
+                                    NotificationCenter.default.post(
+                                        name: Notification.Name("amenOpenResource"),
+                                        object: nil,
+                                        userInfo: [
+                                            "resourceId": resource.0,
+                                            "topic": title
+                                        ]
+                                    )
                                 } label: {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
@@ -670,8 +696,57 @@ struct TrendingTopicDetailView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showJoinDiscussion) {
+                NavigationStack {
+                    VStack(spacing: 16) {
+                        Text("Discussions for \(title)")
+                            .font(AMENFont.bold(20))
+                            .padding(.top, 24)
+                        Text("Discussion threads will appear here.")
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding()
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showJoinDiscussion = false }
+                        }
+                    }
+                }
+            }
+            .sheet(item: Binding(
+                get: { selectedResource.map { IdentifiableResource(name: $0.0, description: $0.1) } },
+                set: { _ in selectedResource = nil }
+            )) { res in
+                NavigationStack {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(res.name)
+                            .font(AMENFont.bold(20))
+                            .padding(.top, 24)
+                        Text(res.description)
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding()
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { selectedResource = nil }
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+private struct IdentifiableResource: Identifiable {
+    let id = UUID()
+    let name: String
+    let description: String
 }
 
 // Old PostCard removed - now using the enhanced version from PostCard.swift

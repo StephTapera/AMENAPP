@@ -9,6 +9,8 @@
 
 import SwiftUI
 import Combine
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Design Tokens
 
@@ -937,11 +939,27 @@ struct AccountSettingsViewNew: View {
                 .padding(.top, 8)
         }
         .alert("Delete Account", isPresented: $showDeleteConfirm) {
-            Button("Delete in 30 days", role: .destructive) {}
+            Button("Delete in 30 days", role: .destructive) {
+                Task { await scheduleAccountDeletion() }
+            }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your account will be scheduled for deletion. You have 30 days to cancel. All data will be permanently removed.")
         }
+    }
+
+    private func scheduleAccountDeletion() async {
+        guard let user = Auth.auth().currentUser else { return }
+        let db = Firestore.firestore()
+        let executeAt = Date().addingTimeInterval(30 * 24 * 3600)
+        try? await db.collection("deletionRequests").document(user.uid).setData([
+            "uid": user.uid,
+            "email": user.email ?? "",
+            "requestedAt": Timestamp(date: Date()),
+            "executeAt": Timestamp(date: executeAt),
+            "status": "pending"
+        ])
+        try? Auth.auth().signOut()
     }
 }
 
@@ -1751,10 +1769,23 @@ struct BereanAISettingsViewNew: View {
         }
         .animation(ST.spring, value: bereanEnabled)
         .alert("Clear Context Memory", isPresented: $showClearMemoryConfirm) {
-            Button("Clear Memory", role: .destructive) {}
+            Button("Clear Memory", role: .destructive) {
+                clearBereanContextMemory()
+            }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Berean will no longer remember previous conversations. This cannot be undone.")
+        }
+    }
+
+    private func clearBereanContextMemory() {
+        contextMemory = false
+        let keys = ["amen_berean_context_data", "amen_berean_conversation_history", "amen_berean_last_session"]
+        keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        Task {
+            try? await db.collection("users").document(uid).collection("bereanContext").document("memory").delete()
         }
     }
 }
@@ -2064,9 +2095,22 @@ struct StorageDataSettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: { Text("This will free \(cacheSize) of storage. Media will reload on demand.") }
         .alert("Download Your Data", isPresented: $showDownloadDataConfirm) {
-            Button("Request Download") {}
+            Button("Request Download") {
+                Task { await requestDataExport() }
+            }
             Button("Cancel", role: .cancel) {}
         } message: { Text("We'll prepare your data and send a download link to your email within 48 hours.") }
+    }
+
+    private func requestDataExport() async {
+        guard let user = Auth.auth().currentUser else { return }
+        let db = Firestore.firestore()
+        try? await db.collection("dataExportRequests").document(user.uid).setData([
+            "uid": user.uid,
+            "email": user.email ?? "",
+            "requestedAt": Timestamp(date: Date()),
+            "status": "pending"
+        ], merge: true)
     }
 }
 

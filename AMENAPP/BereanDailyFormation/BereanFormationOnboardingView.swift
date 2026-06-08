@@ -76,6 +76,7 @@ struct BereanFormationOnboardingView: View {
     @State private var selectedTopics: Set<String> = ["verse", "prayer"]
     @State private var consents: [String: Bool] = [:]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -122,7 +123,21 @@ struct BereanFormationOnboardingView: View {
     private var introView: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                Spacer(minLength: 60)
+                HStack {
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.systemScaled(22))
+                            .foregroundStyle(Color.secondary)
+                    }
+                    .accessibilityLabel("Close Berean onboarding")
+                    .padding(.trailing, 24)
+                    .padding(.top, 16)
+                }
+
+                Spacer(minLength: 44)
 
                 // Gold emblem
                 ZStack {
@@ -131,7 +146,7 @@ struct BereanFormationOnboardingView: View {
                         .frame(width: 80, height: 80)
                         .shadow(color: Color.accentColor.opacity(0.4), radius: 24)
                     Image(systemName: "sparkle")
-                        .font(.system(size: 28, weight: .ultraLight))
+                        .font(.systemScaled(28, weight: .ultraLight))
                         .foregroundStyle(Color(.systemBackground))
                 }
                 .padding(.bottom, 40)
@@ -142,7 +157,7 @@ struct BereanFormationOnboardingView: View {
                     .tracking(2)
 
                 Text("EXAMINING THE SCRIPTURES DAILY")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(Color.accentColor.opacity(0.85))
                     .tracking(3)
                     .padding(.bottom, 40)
@@ -154,12 +169,12 @@ struct BereanFormationOnboardingView: View {
                         .foregroundStyle(Color.primary)
                         .lineSpacing(4)
                     Text("Acts 17:11 (ESV)")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                         .tracking(0.5)
                     BereanMockLabel()
                     Text("Berean helps you stay rooted. Every morning, a personal arc of reflection — tied to where you actually are in your walk.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.secondary)
                         .lineSpacing(3)
                         .padding(.top, 8)
@@ -179,10 +194,10 @@ struct BereanFormationOnboardingView: View {
                     ], id: \.self) { point in
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "sparkle")
-                                .font(.system(size: 10)).foregroundStyle(Color.accentColor)
+                                .font(.systemScaled(10)).foregroundStyle(Color.accentColor)
                                 .padding(.top, 3)
                             Text(point)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(Color.secondary)
                                 .lineSpacing(2)
                         }
@@ -208,14 +223,14 @@ struct BereanFormationOnboardingView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
-                        Image(systemName: "sparkle").font(.system(size: 10)).foregroundStyle(Color.accentColor)
-                        Text("Berean").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.accentColor).tracking(1.5)
+                        Image(systemName: "sparkle").font(.systemScaled(10)).foregroundStyle(Color.accentColor)
+                        Text("Berean").font(.systemScaled(11, weight: .semibold)).foregroundStyle(Color.accentColor).tracking(1.5)
                     }
                     Text("What shapes your morning?")
                         .font(.title2.bold())
                         .foregroundStyle(Color.primary)
                     Text("Select the kinds of formation you want each day.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.secondary)
                 }
                 .padding(.horizontal, 24)
@@ -228,13 +243,13 @@ struct BereanFormationOnboardingView: View {
                             if active { selectedTopics.remove(topic.id) } else { selectedTopics.insert(topic.id) }
                         } label: {
                             HStack(alignment: .top, spacing: 14) {
-                                Text(topic.icon).font(.system(size: 22))
+                                Text(topic.icon).font(.systemScaled(22))
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(topic.label)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.systemScaled(14, weight: .semibold))
                                         .foregroundStyle(active ? Color.accentColor : Color.primary)
                                     Text(topic.desc)
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                         .foregroundStyle(Color.secondary)
                                         .lineSpacing(2)
                                         .multilineTextAlignment(.leading)
@@ -242,7 +257,7 @@ struct BereanFormationOnboardingView: View {
                                 Spacer()
                                 if active {
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(Color.accentColor)
                                 }
                             }
@@ -269,7 +284,7 @@ struct BereanFormationOnboardingView: View {
                 .padding(.horizontal, 24)
 
                 Text("All integrations default OFF. You'll choose what to share next.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.secondary.opacity(0.5))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -291,13 +306,13 @@ struct BereanFormationOnboardingView: View {
 
                 VStack(spacing: 24) {
                     VStack(spacing: 8) {
-                        Text(meta.icon).font(.system(size: 44))
+                        Text(meta.icon).font(.systemScaled(44))
                         Text("Connect \(meta.name)?")
                             .font(.title2.bold())
                             .foregroundStyle(Color.primary)
                             .multilineTextAlignment(.center)
                         Text("All integrations default OFF. You decide what Berean sees.")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -307,11 +322,11 @@ struct BereanFormationOnboardingView: View {
                         consentRow(label: "Why it helps",      value: meta.why)
                         HStack(alignment: .top, spacing: 8) {
                             Text("If you decline:")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(Color.secondary)
                                 .frame(width: 90, alignment: .leading)
                             Text(meta.ifDeclined)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(Color.secondary)
                                 .lineSpacing(2)
                         }
@@ -340,8 +355,8 @@ struct BereanFormationOnboardingView: View {
 
     private func consentRow(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.accentColor).tracking(1.2).textCase(.uppercase)
-            Text(value).font(.system(size: 13)).foregroundStyle(Color.secondary).lineSpacing(2)
+            Text(label).font(.systemScaled(10, weight: .semibold)).foregroundStyle(Color.accentColor).tracking(1.2).textCase(.uppercase)
+            Text(value).font(.systemScaled(13)).foregroundStyle(Color.secondary).lineSpacing(2)
         }
     }
 
@@ -366,16 +381,16 @@ struct BereanFormationOnboardingView: View {
         VStack(spacing: 24) {
             Spacer()
             Image(systemName: "sparkle")
-                .font(.system(size: 48, weight: .ultraLight))
+                .font(.systemScaled(48, weight: .ultraLight))
                 .foregroundStyle(Color.accentColor)
-                .symbolEffect(.breathe, isActive: !reduceMotion)
+                .amenBreatheSymbolEffect(isActive: !reduceMotion)
             Text("Your first Berean is being prepared.")
                 .font(.title.bold())
                 .foregroundStyle(Color.accentColor)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
             Text("Overnight, Berean reads where you are in your walk and prepares a personal arc of reflection for morning.\n\nFormation over information. Faithfulness over productivity.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.secondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
@@ -400,7 +415,7 @@ struct BereanFormationPrimaryButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(disabled ? Color.secondary : Color(.systemBackground))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -424,7 +439,7 @@ struct BereanFormationGhostButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(Color.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)

@@ -1401,7 +1401,7 @@ struct DevotionalContent: View {
                             .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(Color(white: 0.4))
                             .frame(width: 32, height: 32)
-                            .background(Circle().fill(Color.white).shadow(color: .black.opacity(0.06), radius: 4))
+                            .background(Circle().fill(Color(.secondarySystemBackground)).shadow(color: .black.opacity(0.06), radius: 4))
                     }
                     Button {
                         withAnimation(.easeOut(duration: 0.2)) {
@@ -1413,7 +1413,7 @@ struct DevotionalContent: View {
                             .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(Color(white: 0.4))
                             .frame(width: 32, height: 32)
-                            .background(Circle().fill(Color.white).shadow(color: .black.opacity(0.06), radius: 4))
+                            .background(Circle().fill(Color(.secondarySystemBackground)).shadow(color: .black.opacity(0.06), radius: 4))
                     }
                 }
             }
@@ -1899,7 +1899,7 @@ private struct WordStudyCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color.white).shadow(color: .black.opacity(0.04), radius: 6, y: 2))
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)).shadow(color: .black.opacity(0.04), radius: 6, y: 2))
 
             // Definition
             sectionCard(title: "DEFINITION", icon: "text.quote") {

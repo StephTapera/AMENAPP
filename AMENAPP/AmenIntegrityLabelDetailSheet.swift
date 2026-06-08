@@ -89,7 +89,7 @@ struct TranslationRequestSheet: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "globe.americas.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(Color.accentColor)
                 .padding(.top, 28)
 

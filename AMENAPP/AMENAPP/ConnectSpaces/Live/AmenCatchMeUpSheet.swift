@@ -103,11 +103,11 @@ struct AmenCatchMeUpSheet: View {
     private var sheetHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(streamTitle)
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
             Text("Started \(minutesElapsed) minute\(minutesElapsed == 1 ? "" : "s") ago")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -122,7 +122,7 @@ struct AmenCatchMeUpSheet: View {
     private var lengthPickerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Choose a summary length")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .accessibilityAddTraits(.isHeader)
 
@@ -157,11 +157,11 @@ struct AmenCatchMeUpSheet: View {
     private func errorSection(_ message: String) -> some View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(Color.red.opacity(0.7))
                 .accessibilityHidden(true)
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button {
@@ -170,7 +170,7 @@ struct AmenCatchMeUpSheet: View {
                 }
             } label: {
                 Text("Try Again")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
             }
             .accessibilityLabel("Retry loading summary")
@@ -187,7 +187,7 @@ struct AmenCatchMeUpSheet: View {
             // Main summary — matte content area (no glass-on-glass)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Summary")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(0.5)
@@ -245,7 +245,7 @@ struct AmenCatchMeUpSheet: View {
     private func chipRowSection(title: String, items: [String], chipColor: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .kerning(0.5)
@@ -255,7 +255,7 @@ struct AmenCatchMeUpSheet: View {
                 HStack(spacing: 8) {
                     ForEach(items, id: \.self) { item in
                         Text(item)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(chipColor)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -280,11 +280,11 @@ struct AmenCatchMeUpSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(accentColor)
                     .accessibilityHidden(true)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(0.5)
@@ -302,7 +302,7 @@ struct AmenCatchMeUpSheet: View {
                             .padding(.top, 6)
                             .accessibilityHidden(true)
                         Text(item)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.white.opacity(0.85))
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -328,7 +328,7 @@ struct AmenCatchMeUpSheet: View {
             Divider().opacity(0.2)
             Button(action: onDismiss) {
                 Text("Got it, take me in")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.systemScaled(17, weight: .bold))
                     .foregroundStyle(Color(hex: "070607"))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
@@ -407,24 +407,24 @@ private struct LengthCard: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: "clock.fill")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(isSelected ? Color(hex: "070607") : Color(hex: "D9A441"))
                     .frame(width: 24)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(length.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(isSelected ? Color(hex: "070607") : .white)
                     Text("Best for: \(length.bestFor)")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(isSelected ? Color(hex: "070607").opacity(0.7) : .secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(isSelected ? Color(hex: "070607").opacity(0.6) : Color.white.opacity(0.35))
             }
             .padding(.horizontal, 16)
@@ -458,7 +458,7 @@ private struct AttributedSummaryText: View {
         // Falls back gracefully if no refs are present.
         let built = buildText()
         built
-            .font(.system(size: 14))
+            .font(.systemScaled(14))
             .foregroundStyle(.white.opacity(0.88))
             .fixedSize(horizontal: false, vertical: true)
     }

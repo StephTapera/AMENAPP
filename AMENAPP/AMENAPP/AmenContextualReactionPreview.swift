@@ -15,10 +15,10 @@ struct AmenContextualReactionPreview: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Contextual Reactions")
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.systemScaled(30, weight: .bold))
 
                 Text("Threads-style hidden delight, aligned to Amen.")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.black.opacity(0.6))
 
                 VStack(alignment: .leading, spacing: 12) {

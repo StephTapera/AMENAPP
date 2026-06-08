@@ -75,13 +75,27 @@ struct PrayerView: View {
 
                 // MARK: Header
                 if showHeader {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("#Prayer")
-                            .font(AMENFont.bold(24))
-                            .foregroundStyle(.primary)
-                        Text("Pray together, grow together")
-                            .font(AMENFont.regular(12))
-                            .foregroundStyle(.secondary)
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("#Prayer")
+                                .font(AMENFont.bold(24))
+                                .foregroundStyle(.primary)
+                            Text("Pray together, grow together")
+                                .font(AMENFont.regular(12))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            Task { await PrayerSessionManager.shared.start(title: "Personal Prayer") }
+                        } label: {
+                            Label("Start Session", systemImage: "timer")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(Capsule().fill(Color.accentColor))
+                        }
+                        .accessibilityLabel("Start a focused prayer session Live Activity")
                     }
                     .padding(.horizontal)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -1946,10 +1960,10 @@ struct PrayerPostCard: View {
     @ViewBuilder
     private var amenButtonLabel: some View {
         let iconName = hasAmened ? "hands.clap.fill" : "hands.clap"
-        let foregroundColor = hasAmened ? Color.black : Color.black.opacity(0.5)
-        let backgroundColor = hasAmened ? Color.white : Color.black.opacity(0.05)
-        let shadowColor = hasAmened ? Color.black.opacity(0.15) : Color.clear
-        let strokeColor = hasAmened ? Color.black.opacity(0.2) : Color.black.opacity(0.1)
+        let foregroundColor = hasAmened ? Color.primary : Color.primary.opacity(0.5)
+        let backgroundColor = hasAmened ? Color(.secondarySystemBackground) : Color.primary.opacity(0.05)
+        let shadowColor = hasAmened ? Color.primary.opacity(0.15) : Color.clear
+        let strokeColor = hasAmened ? Color.primary.opacity(0.2) : Color.primary.opacity(0.1)
         let strokeWidth: CGFloat = hasAmened ? 1.5 : 1
         
         HStack(spacing: 4) {
@@ -3570,7 +3584,7 @@ struct SmartPrayerChatView: View {
                     
                     Divider()
                 }
-                .background(Color.white)
+                .background(Color(.systemBackground))
                 
                 if !messages.isEmpty && messages.count < 3 {
                     PrayerContextCard(
@@ -3734,7 +3748,7 @@ struct SmartPrayerChatView: View {
                     }
                     .padding(.vertical, 12)
                 }
-                .background(Color.white)
+                .background(Color(.systemBackground))
             }
             .navigationBarHidden(true)
         }

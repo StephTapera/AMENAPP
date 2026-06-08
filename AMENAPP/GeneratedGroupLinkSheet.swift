@@ -30,7 +30,7 @@ struct GeneratedGroupLinkSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.secondary)
                     }
@@ -75,7 +75,7 @@ struct GeneratedGroupLinkSheet: View {
                 .fill(Color.black.opacity(0.04))
                 .frame(width: 72, height: 72)
             Image(systemName: "checkmark")
-                .font(.system(size: 28, weight: .semibold))
+                .font(.systemScaled(28, weight: .semibold))
                 .foregroundStyle(.primary)
         }
         .scaleEffect(appeared ? 1.0 : 0.5)
@@ -135,7 +135,7 @@ struct GeneratedGroupLinkSheet: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 Text(copied ? "Copied" : "Copy Link")
                     .font(.custom("OpenSans-SemiBold", size: 14))
             }
@@ -153,7 +153,7 @@ struct GeneratedGroupLinkSheet: View {
             ShareLink(item: url) {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                     Text("Share")
                         .font(.custom("OpenSans-SemiBold", size: 14))
                 }
@@ -211,7 +211,7 @@ struct GeneratedGroupLinkSheet: View {
     private func metadataBadge(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
             Text(text)
                 .font(.custom("OpenSans-Regular", size: 11))
         }

@@ -12,7 +12,7 @@
 //
 //  Design tokens (selah.contracts.ts §6–§7):
 //    Card: white, cornerRadius 28, dual shadow
-//    Citation block: Color(hex: "#F5F5F6"), cornerRadius 16, padding 12
+//    Citation block: Color(.tertiarySystemBackground), cornerRadius 16, padding 12
 //    Verdict chip: .regularMaterial + Capsule, black text ONLY — never red/green
 //    Privacy footer: always visible in non-refused grounded states
 //
@@ -46,7 +46,7 @@ struct DiscernmentCheckView: View {
                 contestedCard
             }
         }
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .cornerRadius(28)
         .shadow(color: .black.opacity(0.10), radius: 20, y: 8)
         .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
@@ -98,7 +98,7 @@ struct DiscernmentCheckView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
-            .background(Color(hex: "#F5F5F6"))
+            .background(Color(.tertiarySystemBackground))
             .cornerRadius(16)
 
             dismissButton
@@ -273,7 +273,7 @@ struct DiscernmentCheckView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
-        .background(Color(hex: "#F5F5F6"))
+        .background(Color(.tertiarySystemBackground))
         .cornerRadius(16)
     }
 
@@ -305,7 +305,7 @@ struct DiscernmentCheckView: View {
                     }
                 }
                 .padding(12)
-                .background(Color(hex: "#F5F5F6"))
+                .background(Color(.tertiarySystemBackground))
                 .cornerRadius(16)
             }
         }

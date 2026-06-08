@@ -34,6 +34,7 @@ struct AmenDiscussionThreadView: View {
     @State private var showFollowUpPrompts = false
     @State private var errorAlertMessage: String? = nil
     @State private var isAtBottom = true
+    @State private var showBerean = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -94,6 +95,9 @@ struct AmenDiscussionThreadView: View {
         }
         .onChange(of: service.errorMessage) { _, msg in
             if let msg { errorAlertMessage = msg }
+        }
+        .sheet(isPresented: $showBerean) {
+            BereanVoiceAssistantView()
         }
     }
 
@@ -187,9 +191,9 @@ struct AmenDiscussionThreadView: View {
             // Room type chip
             HStack(spacing: 5) {
                 Image(systemName: room.type.systemImage)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.systemScaled(11, weight: .regular))
                 Text(room.type.displayName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(Color.accentColor)
             .padding(.horizontal, 10)
@@ -200,9 +204,9 @@ struct AmenDiscussionThreadView: View {
             // Privacy badge
             HStack(spacing: 4) {
                 Image(systemName: room.privacyLevel.systemImage)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                 Text(room.privacyLevel.displayName)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
             }
             .foregroundStyle(Color(uiColor: .secondaryLabel))
             .padding(.horizontal, 8)
@@ -252,7 +256,7 @@ struct AmenDiscussionThreadView: View {
     private var lockedBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
             Text("This discussion is closed. No new messages can be posted.")
                 .font(.footnote)
@@ -274,7 +278,7 @@ struct AmenDiscussionThreadView: View {
                 .tint(Color.accentColor)
                 .scaleEffect(0.85)
             Text("Loading messages…")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
         }
         .frame(maxWidth: .infinity)
@@ -286,7 +290,7 @@ struct AmenDiscussionThreadView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 32, weight: .ultraLight))
+                .font(.systemScaled(32, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Be the first to start the conversation.")
@@ -318,7 +322,7 @@ struct AmenDiscussionThreadView: View {
                         .frame(width: 2, height: 14)
                         .accessibilityHidden(true)
                     Text("Reply")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 }
                 .padding(.leading, 58)
@@ -334,7 +338,7 @@ struct AmenDiscussionThreadView: View {
                     .frame(width: 32, height: 32)
                     .overlay(
                         Text(String(message.authorId.prefix(1)).uppercased())
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(isOwn ? Color.accentColor : Color(uiColor: .secondaryLabel))
                     )
                     .accessibilityHidden(true)
@@ -343,7 +347,7 @@ struct AmenDiscussionThreadView: View {
                     // Timestamp row
                     HStack(spacing: 6) {
                         Text(isOwn ? "You" : "Member")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(
                                 isOwn
                                     ? Color.accentColor
@@ -351,21 +355,21 @@ struct AmenDiscussionThreadView: View {
                             )
 
                         Text(relativeTime(from: message.createdAt))
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
 
                         Spacer()
 
                         if isPending {
                             Label("Pending review", systemImage: "clock")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(Color.orange)
                         }
                     }
 
                     // Message body
                     Text(visibleBody)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(
                             isPending
                                 ? Color(uiColor: .tertiaryLabel)
@@ -378,9 +382,9 @@ struct AmenDiscussionThreadView: View {
                     if let prov = message.provenance {
                         HStack(spacing: 4) {
                             Image(systemName: "link")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             Text("From \(prov.sourceType.capitalized)")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                         }
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     }
@@ -393,9 +397,9 @@ struct AmenDiscussionThreadView: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrowshape.turn.up.left")
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                 Text("Reply")
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                             }
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         }
@@ -435,7 +439,7 @@ struct AmenDiscussionThreadView: View {
                             newMessageText = prompt
                         } label: {
                             Text(prompt)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(Color(uiColor: .label))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -456,13 +460,14 @@ struct AmenDiscussionThreadView: View {
 
     private var askBereanButton: some View {
         Button {
-            // Berean integration hook — connects to BereanOS callable
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            showBerean = true
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "sparkle")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text("Ask Berean")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color.accentColor)
         }
@@ -477,10 +482,10 @@ struct AmenDiscussionThreadView: View {
             if replyingTo != nil, isComposingReply {
                 HStack(spacing: 8) {
                     Image(systemName: "arrowshape.turn.up.left")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.accentColor)
                     Text("Replying to a message")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(uiColor: .secondaryLabel))
                     Spacer()
                     Button {
@@ -488,7 +493,7 @@ struct AmenDiscussionThreadView: View {
                         isComposingReply = false
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     }
                     .buttonStyle(.plain)
@@ -502,7 +507,7 @@ struct AmenDiscussionThreadView: View {
 
             HStack(spacing: 10) {
                 TextField(room.type.composerPlaceholder, text: $newMessageText, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(uiColor: .label))
                     .tint(Color.accentColor)
                     .lineLimit(1...5)
@@ -547,7 +552,7 @@ struct AmenDiscussionThreadView: View {
                     .frame(width: 36, height: 36)
             } else {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(
                         newMessageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             ? Color(uiColor: .tertiaryLabel)
@@ -595,7 +600,7 @@ struct AmenDiscussionThreadView: View {
     private var featureUnavailableView: some View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 40, weight: .ultraLight))
+                .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Discussion rooms are coming soon.")

@@ -10,6 +10,7 @@ struct AmenCovenantPaywallView: View {
     let context: PaywallContext
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTier: CovenantTier?
+    @ObservedObject private var checkoutService = AmenCovenantCheckoutService.shared
 
     private static let currencyFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -204,7 +205,7 @@ struct AmenCovenantPaywallView: View {
                 ForEach(["Welcome post from the creator", "Community guidelines", "One featured teaching"], id: \.self) { item in
                     HStack(spacing: 12) {
                         Image(systemName: "lock.open.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.green)
                             .frame(width: 28)
                         Text(item)
@@ -242,7 +243,7 @@ struct AmenCovenantPaywallView: View {
     private func trustPill(icon: String, label: String) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
             Text(label)
                 .font(.caption)
@@ -256,11 +257,22 @@ struct AmenCovenantPaywallView: View {
         VStack(spacing: 12) {
             if let tier = selectedTier ?? covenant.tiers.first {
                 Button {
-                    // IAP / Stripe checkout entrypoint — wired to platform billing
+                    guard !checkoutService.isLoading else { return }
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    Task {
+                        await checkoutService.startCheckout(
+                            covenantId: covenant.id ?? "",
+                            tierId: tier.id
+                        )
+                    }
                 } label: {
                     HStack {
-                        Text("Join for \(formattedPrice(tier))")
-                            .font(.headline)
+                        if checkoutService.isLoading {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Join for \(formattedPrice(tier))")
+                                .font(.headline)
+                        }
                         Spacer()
                         Image(systemName: "arrow.right.circle.fill")
                     }
@@ -268,11 +280,20 @@ struct AmenCovenantPaywallView: View {
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.purple)
+                            .fill(Color.purple.opacity(checkoutService.isLoading ? 0.6 : 1.0))
                     )
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)
+                .disabled(checkoutService.isLoading)
+
+                if case .failed(let err) = checkoutService.checkoutState {
+                    Text(err.localizedDescription)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
 
                 Text("Cancel anytime. No dark-pattern pressure here — just a real community that matters to you.")
                     .font(.caption)
@@ -313,7 +334,7 @@ private struct TierCard: View {
                     Spacer()
                     if tier.isPopular {
                         Text("Popular")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)

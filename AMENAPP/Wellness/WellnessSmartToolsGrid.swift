@@ -64,7 +64,7 @@ struct WellnessToolCard: View {
                             .fill(tool.accent.opacity(0.14))
                             .frame(width: 44, height: 44)
                         Image(systemName: tool.icon)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.systemScaled(18, weight: .semibold))
                             .foregroundStyle(tool.accent)
                     }
                 }

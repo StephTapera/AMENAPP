@@ -24,7 +24,7 @@ struct ONEMessageBubble: View {
         VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 3) {
             if !isFromCurrentUser {
                 Text(senderName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.leading, ONE.Spacing.sm)
             }
@@ -33,7 +33,7 @@ struct ONEMessageBubble: View {
                 if isFromCurrentUser { Spacer(minLength: 56) }
 
                 Text(bodyText)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(isDecrypting ? Color.secondary : Color.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
@@ -86,9 +86,9 @@ struct ONEMessageBubble: View {
     private var ephemeralRow: some View {
         HStack(spacing: 3) {
             if isFromCurrentUser { Spacer() }
-            Image(systemName: "flame.fill").font(.system(size: 9))
+            Image(systemName: "flame.fill").font(.systemScaled(9))
             if let exp = message.expiresAt {
-                Text(exp, style: .relative).font(.system(size: 9))
+                Text(exp, style: .relative).font(.systemScaled(9))
             }
             if !isFromCurrentUser { Spacer() }
         }

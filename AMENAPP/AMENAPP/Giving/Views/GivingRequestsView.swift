@@ -40,12 +40,12 @@ struct GivingRequestsView: View {
     private var moderationHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Acts 2 Benevolence", systemImage: "person.3.fill")
-                .font(.system(size: 11, weight: .bold))
+                .font(.systemScaled(11, weight: .bold))
                 .tracking(1.8)
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
 
             Text("These requests are from verified church members with pastoral or benevolence team attestation. Every request passes Guardian AI review before appearing here.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .lineSpacing(2)
 
@@ -68,10 +68,10 @@ struct GivingRequestsView: View {
     private func guaranteeChip(_ label: String, icon: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.statusSuccess)
             Text(label)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .tracking(0.5)
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .multilineTextAlignment(.center)
@@ -84,13 +84,13 @@ struct GivingRequestsView: View {
     private var emptyView: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.badge.shield.checkmark.fill")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
             Text("No active requests right now")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
             Text("Verified requests will appear here when approved by church verification and Guardian review.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
@@ -104,17 +104,17 @@ struct GivingRequestsView: View {
     private var policyNote: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("How this works")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
 
             ForEach(policyPoints, id: \.self) { point in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "circle.fill")
-                        .font(.system(size: 4))
+                        .font(.systemScaled(4))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                         .padding(.top, 6)
                     Text(point)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                         .lineSpacing(2)
                 }

@@ -114,7 +114,7 @@ struct AmenKnowledgeGraphSpacesLinkView: View {
         .background(
             Color(.systemBackground)
                 .opacity(0.0)
-                .glassEffect(in: .rect(cornerRadius: 0))
+                .amenGlassEffect(in: .rect(cornerRadius: 0))
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Teachings linked to this space")

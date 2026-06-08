@@ -68,7 +68,7 @@ struct ChurchJourneyPlanView: View {
     private var churchHeaderCard: some View {
         HStack(spacing: 12) {
             Image(systemName: "building.columns")
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 44, height: 44)
                 .background(Color(.secondarySystemFill))
@@ -258,7 +258,7 @@ struct ChurchJourneyPlanView: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .foregroundStyle(isOn ? .primary : .secondary)
                     .frame(width: 28)
                     .accessibilityHidden(true)
@@ -271,7 +271,7 @@ struct ChurchJourneyPlanView: View {
 
                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isOn ? .primary : Color(.tertiaryLabel))
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .accessibilityHidden(true)
             }
             .padding(.vertical, 10)
@@ -328,7 +328,7 @@ struct ChurchJourneyPlanView: View {
     private func timingRow(label: String, date: Date?, icon: String) -> some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
                 .accessibilityHidden(true)

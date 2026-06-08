@@ -59,6 +59,9 @@ final class SabbathModeService: ObservableObject {
     private var sessionListener: ListenerRegistration?
     private var minuteTimer: Timer?
     private var currentDateKey: String = ""
+    /// Stored token for the one-shot "AuthStateDidChange" observer so we can
+    /// remove it once auth resolves (or when the service is torn down).
+    private var authObserverToken: NSObjectProtocol?
 
     private init() {
         startMinuteTicker()
@@ -69,18 +72,31 @@ final class SabbathModeService: ObservableObject {
         configListener?.remove()
         sessionListener?.remove()
         minuteTimer?.invalidate()
+        if let token = authObserverToken {
+            NotificationCenter.default.removeObserver(token)
+        }
     }
 
     // MARK: - Bootstrap
 
     private func startIfAuthenticated() {
         guard let uid = Auth.auth().currentUser?.uid else {
-            NotificationCenter.default.addObserver(
+            // Store the token so we can remove this one-shot observer once auth
+            // resolves (or in deinit if it never fires).
+            authObserverToken = NotificationCenter.default.addObserver(
                 forName: .init("AuthStateDidChange"),
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor [weak self] in self?.startIfAuthenticated() }
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    // Remove the observer now that it has fired once.
+                    if let token = self.authObserverToken {
+                        NotificationCenter.default.removeObserver(token)
+                        self.authObserverToken = nil
+                    }
+                    self.startIfAuthenticated()
+                }
             }
             return
         }

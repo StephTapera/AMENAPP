@@ -1,6 +1,25 @@
 import SwiftUI
 import FirebaseAuth
 
+// MARK: - Scroll offset tracker (iOS 18 availability shim)
+
+private struct ScrollOffsetTracker: ViewModifier {
+    let action: (CGFloat, CGFloat) -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geo in
+                geo.contentOffset.y
+            } action: { old, new in
+                action(old, new)
+            }
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Feed Mode
 
 enum LegacyFeedMode: String, CaseIterable {
@@ -187,6 +206,7 @@ struct HomeView: View {
                                     .stroke(Color.white.opacity(0.22), lineWidth: 1)
                             }
                     }
+                    .accessibilityLabel("Open feed mode menu")
                     .opacity(showToolbar ? 1 : 0)
                 }
                     ToolbarItem(placement: .topBarTrailing) {
@@ -230,6 +250,7 @@ struct HomeView: View {
                                     .font(.systemScaled(9, weight: .medium))
                                     .foregroundStyle(.primary.opacity(0.6))
                                     .rotationEffect(.degrees(isCategoriesExpanded ? 180 : 0))
+                                    .accessibilityHidden(true)
                             }
                         }
                     }
@@ -406,11 +427,9 @@ struct HomeView: View {
             }
             // Native scroll offset tracking — does not replace SwiftUI's internal UIScrollViewDelegate
             // ✅ PERFORMANCE FIX: Throttle scroll updates to reduce lag
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                geo.contentOffset.y
-            } action: { _, newOffset in
+            .modifier(ScrollOffsetTracker { _, newOffset in
                 handleScroll(offset: -newOffset)
-            }
+            })
             .refreshable {
                 await refreshCurrentCategory()
                 withAnimation(.easeOut(duration: 0.18)) {

@@ -40,7 +40,7 @@ struct ChurchMatchIndicator: View {
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .glassEffect(.subtle, in: Capsule())
+            .amenGlassEffect(in: Capsule())
         }
     }
 }
@@ -61,7 +61,7 @@ struct ChurchVibeTagsRow: View {
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .glassEffect(.subtle, in: Capsule())
+                            .amenGlassEffect(in: Capsule())
                     }
                 }
             }
@@ -120,7 +120,7 @@ struct WhyThisChurchHint: View {
                         }
                     }
                     .padding(10)
-                    .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .amenGlassEffect(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
@@ -170,7 +170,7 @@ struct ChurchCardExpandedContent: View {
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .foregroundStyle(isServiceLive ? liveRed : .primary)
-                                .glassEffect(.subtle, in: Capsule())
+                                .amenGlassEffect(in: Capsule())
                         }
                     }
                 }
@@ -221,7 +221,7 @@ struct ChurchCardExpandedContent: View {
                     .foregroundStyle(isPlanned ? .green : .primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
 
@@ -233,7 +233,7 @@ struct ChurchCardExpandedContent: View {
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .buttonStyle(.plain)
 
@@ -243,7 +243,7 @@ struct ChurchCardExpandedContent: View {
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .glassEffect(.subtle, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }

@@ -436,12 +436,17 @@ struct SettingsView: View {
 
     private func signOut() {
         HapticManager.notification(type: .success)
-        // P1 FIX: Delegate to AuthenticationViewModel.signOut() which performs full
-        // teardown including 2FA state, phone auth, FCM deregistration, and all
-        // listener cleanup via AppLifecycleManager. Previously this path did its own
-        // partial teardown, leaving stale is2FAInProgress/pending2FACredential state.
-        authViewModel.signOut()
-        dismiss()
+        // A8-003 FIX: Wrap in a Task so dismiss() runs only after authViewModel.signOut()
+        // completes its full async teardown (FCM token deactivation, listener cleanup,
+        // 2FA state wipe). Previously dismiss() raced ahead of the internal FCM Task,
+        // leaving stale push tokens registered for the signed-out user.
+        Task { @MainActor in
+            authViewModel.signOut()
+            // authViewModel.signOut() fires its own internal Task for FCM; yield so
+            // the runtime can schedule it before we dismiss the sheet.
+            await Task.yield()
+            dismiss()
+        }
     }
 }
 

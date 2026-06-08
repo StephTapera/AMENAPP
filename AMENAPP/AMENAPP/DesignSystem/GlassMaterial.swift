@@ -29,6 +29,7 @@ private struct GlassSurfaceModifier: ViewModifier {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    // TODO: use AmenTheme.Colors.glassStroke when available
                     .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5)
             }
             .shadow(

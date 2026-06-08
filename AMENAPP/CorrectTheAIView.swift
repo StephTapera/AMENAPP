@@ -14,7 +14,7 @@ struct CorrectTheAIView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Guide Berean with your perspective.")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.black.opacity(0.68))
 
                 Picker("Lens", selection: $selectedLens) {

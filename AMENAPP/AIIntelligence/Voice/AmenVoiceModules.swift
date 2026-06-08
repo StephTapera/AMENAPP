@@ -52,11 +52,14 @@ struct AmenRealtimeVoiceView: View {
             AmenLiveTranscriptView(transcript: session.transcript)
             AmenVoiceIntentChips { _ in }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }
 
 struct AmenVoiceCompanionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var voiceSession = AmenVoiceSessionManager()
+
     var body: some View {
         if AMENFeatureFlags.shared.amenRealtimeVoiceEnabled {
             AmenLiquidGlassBottomSheet(
@@ -67,8 +70,15 @@ struct AmenVoiceCompanionSheet: View {
                 AmenRealtimeVoiceView()
             } footer: {
                 AmenLiquidGlassControlDock(placement: .bottom) {
-                    AmenLiquidGlassPillButton(title: "Start", systemImage: "mic.fill", isLoading: false, isDisabled: false, action: {})
-                    AmenLiquidGlassPillButton(title: "Close", systemImage: "xmark", isLoading: false, isDisabled: false, action: {})
+                    AmenLiquidGlassPillButton(title: "Start", systemImage: "mic.fill", isLoading: false, isDisabled: false, action: {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        voiceSession.start()
+                    })
+                    AmenLiquidGlassPillButton(title: "Close", systemImage: "xmark", isLoading: false, isDisabled: false, action: {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        voiceSession.stop()
+                        dismiss()
+                    })
                 }
             }
         }

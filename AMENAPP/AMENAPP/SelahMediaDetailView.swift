@@ -44,7 +44,7 @@ struct SelahMediaDetailView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.systemScaled(22))
                             .foregroundStyle(.secondary)
                             .symbolRenderingMode(.hierarchical)
                     }
@@ -53,7 +53,7 @@ struct SelahMediaDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showMemoryComposer = true } label: {
                         Image(systemName: "brain.filled.head.profile")
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.systemScaled(17, weight: .medium))
                     }
                     .accessibilityLabel("Save to Memories")
                 }
@@ -113,7 +113,7 @@ struct SelahMediaDetailView: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
             Image(systemName: item.itemType == .audio ? "waveform" : "photo")
-                .font(.system(size: 48, weight: .light))
+                .font(.systemScaled(48, weight: .light))
                 .foregroundStyle(.white.opacity(0.7))
         }
         .frame(maxWidth: .infinity).frame(height: 340)
@@ -227,7 +227,7 @@ struct SelahMediaDetailView: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(tint)
                 Text(label)
                     .font(.caption2.weight(.medium))
@@ -241,7 +241,7 @@ struct SelahMediaDetailView: View {
         Button { showCommentRoom = true } label: {
             HStack(spacing: 10) {
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.purple)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Comment Room")
@@ -308,6 +308,7 @@ struct SelahCommentRoomView: View {
     @State private var messages: [SelahCommentRoomMessage] = []
     @State private var draftText = ""
     @State private var isLoading = true
+    @State private var loadError: String?
     @State private var isSending = false
     @FocusState private var focused: Bool
 
@@ -316,10 +317,28 @@ struct SelahCommentRoomView: View {
             VStack(spacing: 0) {
                 if isLoading {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let error = loadError {
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.systemScaled(36, weight: .light))
+                            .foregroundStyle(.secondary)
+                        Text("Couldn't load reflections")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Try Again") { Task { await loadMessages() } }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.purple)
+                    }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if messages.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 40, weight: .light))
+                            .font(.systemScaled(40, weight: .light))
                             .foregroundStyle(.secondary)
                         Text("Be the first to share a reflection")
                             .font(.subheadline)
@@ -349,7 +368,7 @@ struct SelahCommentRoomView: View {
                         sendMessage()
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .foregroundStyle(draftText.trimmingCharacters(in: .whitespaces).isEmpty
                                              ? Color.secondary : Color.purple)
                     }
@@ -371,7 +390,13 @@ struct SelahCommentRoomView: View {
 
     private func loadMessages() async {
         isLoading = true
-        messages = (try? await SelahMediaService.shared.fetchCommentRoom(for: item.id ?? "")) ?? []
+        loadError = nil
+        do {
+            messages = try await SelahMediaService.shared.fetchCommentRoom(for: item.id ?? "")
+        } catch {
+            print("⚠️ [SelahCommentRoomView] loadMessages failed: \(error)")
+            loadError = error.localizedDescription
+        }
         isLoading = false
     }
 
@@ -381,7 +406,11 @@ struct SelahCommentRoomView: View {
         draftText = ""
         isSending = true
         Task {
-            try? await SelahMediaService.shared.addCommentRoomMessage(to: item.id ?? "", text: text)
+            do {
+                try await SelahMediaService.shared.addCommentRoomMessage(to: item.id ?? "", text: text)
+            } catch {
+                print("⚠️ [SelahCommentRoomView] sendMessage failed: \(error)")
+            }
             await loadMessages()
             isSending = false
         }

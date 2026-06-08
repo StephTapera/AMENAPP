@@ -32,7 +32,7 @@ struct BereanVoiceButton: View {
                     )
 
                 Image(systemName: "waveform")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(Color.white)
                     .allowsHitTesting(false)
             }

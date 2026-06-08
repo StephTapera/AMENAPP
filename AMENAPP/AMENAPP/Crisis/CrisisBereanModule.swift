@@ -43,10 +43,10 @@ struct CrisisBereanModule: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Berean — Reflect Mode")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                     Text("Presence first. Non-judgmental. Private.")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.white.opacity(0.52))
                 }
                 Spacer()
@@ -56,7 +56,7 @@ struct CrisisBereanModule: View {
 
             // Response area
             Text(viewModel.bereanPrompt)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.white.opacity(0.90))
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -78,7 +78,7 @@ struct CrisisBereanModule: View {
 
             // Disclaimer
             Text("Berean supports you but does not replace emergency or professional care.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.white.opacity(0.34))
                 .padding(.top, 14)
                 .fixedSize(horizontal: false, vertical: true)
@@ -108,7 +108,7 @@ struct CrisisBereanModule: View {
 
     private var safeModeBadge: some View {
         Text("Safe mode")
-            .font(.system(size: 11, weight: .medium))
+            .font(.systemScaled(11, weight: .medium))
             .foregroundStyle(.white.opacity(0.55))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -136,7 +136,7 @@ struct CrisisBereanModule: View {
     private var inputRow: some View {
         HStack(spacing: 10) {
             TextField("Say anything — this is private.", text: $userInput, axis: .vertical)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white)
                 .tint(.white)
                 .lineLimit(1...4)
@@ -150,7 +150,7 @@ struct CrisisBereanModule: View {
             if !userInput.isEmpty {
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.white.opacity(0.70))
                 }
                 .buttonStyle(.plain)
@@ -174,17 +174,17 @@ struct CrisisBereanModule: View {
     private var escalationBanner: some View {
         HStack(spacing: 12) {
             Image(systemName: "phone.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(Color.red))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("You're not alone — help is available now.")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("The 988 Lifeline is free and confidential, 24/7.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
 
@@ -194,7 +194,7 @@ struct CrisisBereanModule: View {
                 viewModel.callNumber(viewModel.localeResources.crisisHotlineNumber)
             } label: {
                 Text("Call")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
@@ -236,7 +236,7 @@ private struct BereanQuickActionPill: View {
     var body: some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.white.opacity(0.78))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)

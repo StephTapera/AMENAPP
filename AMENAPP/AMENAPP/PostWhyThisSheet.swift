@@ -60,7 +60,7 @@ struct PostWhyThisSheet: View {
             ForEach(computedReasons, id: \.self) { reason in
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.secondary)
                         .frame(width: 20)
                         .padding(.top, 1)
@@ -276,7 +276,7 @@ private struct PostFeedActionButton: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Image(systemName: isApplied ? "checkmark.circle.fill" : action.icon)
-                        .font(.system(size: 20, weight: .light))
+                        .font(.systemScaled(20, weight: .light))
                         .foregroundStyle(isApplied ? .green : .primary)
                     Spacer()
                 }

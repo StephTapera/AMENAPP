@@ -51,7 +51,7 @@ struct MediaTileView: View {
                 .fill(AmenTheme.Colors.shimmerBase)
                 .overlay(
                     Image(systemName: "photo")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(AmenTheme.Colors.iconSecondary)
                 )
         }
@@ -66,9 +66,9 @@ struct MediaTileView: View {
         if item.isCarousel && item.isFirstInPost {
             HStack(spacing: 3) {
                 Image(systemName: "square.on.square")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                 Text("\(item.carouselCount)")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.systemScaled(10, weight: .bold, design: .rounded))
             }
             .foregroundColor(AmenTheme.Colors.textPrimary)
             .padding(.horizontal, 6)
@@ -89,9 +89,9 @@ struct MediaTileView: View {
         if let verse = item.verseReference, !verse.isEmpty {
             HStack(spacing: 3) {
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.systemScaled(8, weight: .medium))
                 Text(verse)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.systemScaled(9, weight: .medium))
                     .lineLimit(1)
             }
             .foregroundColor(AmenTheme.Colors.textPrimary)

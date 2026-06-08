@@ -8,8 +8,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { tokens } from '../../contracts';
-import type { ConnectorType } from '../../contracts';
+import { tokens } from '../contracts';
+import type { ConnectorType } from '../contracts';
 import {
   fetchConnectors,
   connectConnector,

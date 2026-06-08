@@ -204,7 +204,7 @@ struct AmenConnectGlassControlsView: View {
                     vm.togglePlayPause()
                 } label: {
                     Image(systemName: vm.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .foregroundStyle(Color(.systemBackground))
                         .frame(width: 44, height: 44)
                         .background(Circle().fill(Color.accentColor))
@@ -221,7 +221,7 @@ struct AmenConnectGlassControlsView: View {
 
                 // Time display (matte text)
                 Text("\(vm.formattedCurrentTime) / \(vm.formattedDuration)")
-                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                    .font(.systemScaled(11, weight: .semibold).monospacedDigit())
                     .foregroundStyle(Color.white.opacity(0.75))
                     .accessibilityLabel("Time: \(vm.formattedCurrentTime) of \(vm.formattedDuration)")
             }
@@ -311,9 +311,9 @@ struct AmenConnectGlassControlsView: View {
     private var provenancePill: some View {
         HStack(spacing: 5) {
             Image(systemName: "shield.fill")
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
             Text(provenanceSummary)
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
                 .kerning(0.4)
         }
         .foregroundStyle(Color.white.opacity(0.85))
@@ -336,7 +336,7 @@ struct AmenConnectGlassControlsView: View {
     private func controlButton(icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(Color.white.opacity(0.85))
                 .frame(width: 36, height: 36)
                 .background {
@@ -352,9 +352,9 @@ struct AmenConnectGlassControlsView: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
             }
             .foregroundStyle(isActive ? color : Color.white.opacity(0.60))
             .padding(.horizontal, 10)

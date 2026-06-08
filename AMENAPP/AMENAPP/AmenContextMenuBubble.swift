@@ -65,10 +65,10 @@ struct AmenContextMenuBubble: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: action.systemImage)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.systemScaled(16, weight: .regular))
                     .frame(width: 22, alignment: .center)
                 Text(action.label)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                 Spacer()
             }
             .padding(.horizontal, 16)

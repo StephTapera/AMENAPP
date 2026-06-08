@@ -84,9 +84,7 @@ struct QuoteForgeSheet: View {
                             }
                             .buttonStyle(.plain)
 
-                            Button {
-                                showComingSoon = true
-                            } label: {
+                            ShareLink(item: viewModel.detectedQuote) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "square.and.arrow.up")
                                     Text("Share")
@@ -116,11 +114,6 @@ struct QuoteForgeSheet: View {
                     Button("Done") { dismiss() }
                         .foregroundColor(.cnGold)
                 }
-            }
-            .alert("Coming Soon", isPresented: $showComingSoon) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Quote export and sharing will be available in a future update.")
             }
         }
         .presentationBackground(.ultraThinMaterial)

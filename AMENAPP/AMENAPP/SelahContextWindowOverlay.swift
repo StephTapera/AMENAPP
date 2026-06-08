@@ -21,20 +21,20 @@ struct SelahContextWindowOverlay: View {
             HStack(spacing: 5) {
                 if showIcon {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .foregroundStyle(pillColor)
                 }
                 Text(expanded ? reason : abbreviatedReason)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(.primary)
                     .lineLimit(expanded ? 2 : 1)
                     .fixedSize(horizontal: !expanded, vertical: false)
                 if confidence < 0.6 && expanded {
                     Text("·")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.tertiary)
                     Text("suggested")
-                        .font(.system(size: 9))
+                        .font(.systemScaled(9))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -127,7 +127,7 @@ struct SelahContextWindowRow: View {
                         withAnimation(.easeInOut(duration: 0.2)) { showAll = true }
                     } label: {
                         Text("+\(windows.count - 2) more")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)

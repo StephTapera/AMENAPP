@@ -23,6 +23,11 @@ Date: 2026-06-07
 | Safety actions never counted | ✅ PASS | safetyExempt: true hardcoded in usageService; safety/crisis excluded from credit costByDomain |
 | Berean Firestore rules added | ✅ PASS | B-1 through B-8 invariants in firestore.rules |
 | bereanChat / bereanMemory / bereanCrisisDetect CFs | ✅ PASS | Appended to v2functions.js; auth enforced; rate limited; secrets via defineSecret |
+| bereanBibleLookup CF | ✅ PASS | Server-side Bible proxy added; YouVersion blocked; BSB/WEB/KJV supported |
+| v2entry.js exports all 4 callables | ✅ PASS | bereanChat, bereanMemory, bereanCrisisDetect, bereanBibleLookup all wired |
+| wire.ts invariant type accuracy | ✅ PASS | CrisisResource.contact used (not r.phone/r.sms — fixed) |
+| Firestore config seed script | ✅ PASS | scripts/seed-berean-config.js — idempotent, credits + voice seeded |
+| Deploy script | ✅ PASS | deploy-berean-v1.sh — 5-step with BIBLE_API_KEY gate, seed, T&S reminder |
 
 ---
 

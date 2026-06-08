@@ -1249,7 +1249,62 @@ class AuthenticationViewModel: ObservableObject {
     }
     
     // MARK: - Phone Number Authentication
-    
+
+    /// Verify an SMS OTP code after `sendPhoneVerificationCode` has been called.
+    /// Links the verified phone credential to the current signed-in user.
+    /// - Parameter code: The 6-digit SMS code entered by the user.
+    public func verifyPhoneOTP(code: String) async throws {
+        guard let verificationID = phoneVerificationId else {
+            throw NSError(
+                domain: "AuthenticationViewModel",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Verification session expired. Please request a new code."]
+            )
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        let credential = PhoneAuthProvider.provider().credential(
+            withVerificationID: verificationID,
+            verificationCode: code
+        )
+
+        guard let currentUser = Auth.auth().currentUser else {
+            // No active session — sign in fresh with the phone credential
+            _ = try await Auth.auth().signIn(with: credential)
+            await MainActor.run {
+                self.phoneVerificationId = nil
+                self.needsEmailVerification = false
+                self.showEmailVerificationBanner = false
+            }
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+            return
+        }
+
+        // Link the phone credential to the existing account
+        do {
+            _ = try await currentUser.link(with: credential)
+            await MainActor.run {
+                self.phoneVerificationId = nil
+            }
+            await SecurityService.shared.recordSecurityEvent(type: .phoneVerified)
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+        } catch let nsError as NSError where nsError.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
+            // Credential belongs to a different account — sign in with it instead
+            _ = try await Auth.auth().signIn(with: credential)
+            await MainActor.run {
+                self.phoneVerificationId = nil
+                self.needsEmailVerification = false
+                self.showEmailVerificationBanner = false
+            }
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+        }
+    }
+
     /// Send verification code to phone number
     /// P0 FIX: Added duplicate send prevention, network error handling, and proper state management
     func sendPhoneVerificationCode(phoneNumber: String) async {

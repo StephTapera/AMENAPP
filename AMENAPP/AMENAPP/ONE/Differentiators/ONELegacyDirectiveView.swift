@@ -85,7 +85,7 @@ struct ONELegacyDirectiveView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(trustee.displayName)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 HStack(spacing: ONE.Spacing.xs) {
                     if trustee.canActivate {
                         capabilityBadge("Can activate", color: ONE.Colors.witnessGold)
@@ -103,7 +103,7 @@ struct ONELegacyDirectiveView: View {
 
     private func capabilityBadge(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .medium))
+            .font(.systemScaled(10, weight: .medium))
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -139,14 +139,14 @@ struct ONELegacyDirectiveView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Vault item → \(trusteeName(for: bequest.recipientUID))")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 Text(bequest.deliverAt, style: .date)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                 if let msg = bequest.message {
                     Text(msg)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -184,10 +184,10 @@ struct ONELegacyDirectiveView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(option.displayLabel)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 Text(option.memorialDescription)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -210,9 +210,9 @@ struct ONELegacyDirectiveView: View {
             HStack(alignment: .top, spacing: ONE.Spacing.sm) {
                 Image(systemName: "info.circle")
                     .foregroundStyle(.secondary)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text("Trustees activate this directive from their own devices. You cannot self-activate. The `one_activateLegacy` callable verifies trustee identity server-side.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)

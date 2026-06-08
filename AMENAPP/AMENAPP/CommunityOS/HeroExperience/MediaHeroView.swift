@@ -116,11 +116,11 @@ struct MediaHeroView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
                             .background(.ultraThinMaterial, in: Circle())
-                            .glassEffect(in: Circle())
+                            .amenGlassEffect(in: Circle())
                     }
                     .accessibilityLabel("Close")
                     .accessibilityHint("Dismiss the hero view")
@@ -249,7 +249,7 @@ struct MediaHeroView: View {
                             if isSelected {
                                 Capsule()
                                     .fill(Color(.secondarySystemBackground))
-                                    .glassEffect(in: Capsule())
+                                    .amenGlassEffect(in: Capsule())
                             } else {
                                 Capsule()
                                     .fill(Color.clear)
@@ -452,7 +452,7 @@ struct MediaHeroView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial, in: Capsule())
-                    .glassEffect(in: Capsule())
+                    .amenGlassEffect(in: Capsule())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Join \(node.name)")

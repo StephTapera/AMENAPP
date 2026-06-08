@@ -13,7 +13,7 @@ struct ChurchNotesMetadataCard: View {
             } label: {
                 HStack {
                     Text(summary.isEmpty ? "Sermon Details" : summary)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Spacer()

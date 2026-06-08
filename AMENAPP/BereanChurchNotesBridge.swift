@@ -232,7 +232,7 @@ struct BereanSaveToChurchNotesSheet: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: cat.icon)
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                     Text(cat.displayName)
                                         .font(AMENFont.regular(12))
                                         .lineLimit(1)
@@ -289,7 +289,7 @@ struct BereanSaveToChurchNotesSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Color.black, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(Color(.label), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(isSaving)
@@ -302,17 +302,17 @@ struct BereanSaveToChurchNotesSheet: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44))
-                .foregroundColor(.black)
+                .font(.systemScaled(44))
+                .foregroundStyle(.primary)
             Text("Added to Church Notes")
                 .font(AMENFont.semiBold(20))
             Text("You can find this in your Church Notes.")
                 .font(AMENFont.regular(15))
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
             Spacer()
             Button("Done") { isPresented = false }
                 .font(AMENFont.semiBold(16))
-                .foregroundColor(.black)
+                .foregroundStyle(.primary)
         }
         .padding(24)
     }

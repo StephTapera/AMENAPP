@@ -155,7 +155,7 @@ struct YourFeedView: View {
                                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
                         )
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
 
@@ -202,7 +202,7 @@ struct YourFeedView: View {
     private var seasonalStrip: some View {
         HStack(spacing: 12) {
             Image(systemName: seasonalContext.icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(seasonalContext.color)
                 .frame(width: 32, height: 32)
                 .background(seasonalContext.color.opacity(0.12), in: Circle())
@@ -268,7 +268,7 @@ struct YourFeedView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(isSelected ? .white : .secondary)
                     .frame(width: 28, height: 28)
                     .background(
@@ -288,7 +288,7 @@ struct YourFeedView: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(Color.primary)
                         .transition(.scale(scale: 0.5).combined(with: .opacity))
                 }
@@ -385,7 +385,7 @@ struct YourFeedView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
-                            .font(.system(size: 17))
+                            .font(.systemScaled(17))
                     }
                     .buttonStyle(.plain)
                 }
@@ -440,10 +440,10 @@ struct YourFeedView: View {
                                 ProgressView().scaleEffect(0.75)
                             } else if nlShowSuccess {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.systemScaled(11, weight: .bold))
                             } else {
                                 Image(systemName: "arrow.up.circle.fill")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.systemScaled(13, weight: .semibold))
                             }
                             Text(nlShowSuccess ? "Applied" : "Apply")
                                 .font(AMENFont.semiBold(13))
@@ -472,7 +472,7 @@ struct YourFeedView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "wand.and.stars")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text("Understood as")
                     .font(AMENFont.semiBold(11))
@@ -487,7 +487,7 @@ struct YourFeedView: View {
             ForEach(intent.targets) { target in
                 HStack(spacing: 6) {
                     Image(systemName: nlActionIcon(intent.action))
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(nlActionColor(intent.action))
                     Text("\(intent.action.verbLabel) \(target.label) · \(intent.duration.label)")
                         .font(AMENFont.regular(12))
@@ -540,7 +540,7 @@ struct YourFeedView: View {
             if sessionSvc.isActive {
                 HStack(spacing: 8) {
                     Image(systemName: sessionSvc.activeMode.icon)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text(sessionSvc.activeMode.label)
                         .font(AMENFont.semiBold(14))
@@ -636,7 +636,7 @@ struct YourFeedView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.counterclockwise")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                         Text("Reset all feed tuning")
                             .font(AMENFont.regular(14))
                     }
@@ -685,7 +685,7 @@ struct YourFeedView: View {
                             Spacer()
                             if isSelected {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.systemScaled(12, weight: .bold))
                                     .foregroundStyle(.primary)
                             }
                         }
@@ -722,7 +722,7 @@ struct YourFeedView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: icon)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 20)
 
@@ -742,7 +742,7 @@ struct YourFeedView: View {
                     Spacer()
 
                     Image(systemName: isExpanded.wrappedValue ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 16)
@@ -922,7 +922,7 @@ struct YourFeedTopicChip: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: leadingIcon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(chipForeground)
             Text(topic.displayName)
                 .font(AMENFont.semiBold(12))
@@ -994,7 +994,7 @@ struct YourFeedSessionModeChip: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(isActive ? .white : .secondary)
                 Text(mode.label)
                     .font(AMENFont.semiBold(12))
@@ -1025,7 +1025,7 @@ struct YourFeedActiveAdjustmentRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: actionIcon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(actionColor)
                 .frame(width: 18)
 
@@ -1042,7 +1042,7 @@ struct YourFeedActiveAdjustmentRow: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .foregroundStyle(.secondary)
                     .padding(5)
             }

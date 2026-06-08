@@ -130,7 +130,7 @@ struct CreationPublishView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                         Text("Re-check")
                             .font(.custom("OpenSans-SemiBold", size: 13))
                     }
@@ -161,7 +161,7 @@ struct CreationPublishView: View {
             ForEach(vm.timelineSegments) { segment in
                 HStack(spacing: 12) {
                     Image(systemName: segment.kind.icon)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(segment.kind.color)
                         .frame(width: 28)
 
@@ -195,7 +195,7 @@ struct CreationPublishView: View {
                         .fill(Color.teal.opacity(0.15))
                         .frame(width: 40, height: 40)
                     Image(systemName: "a.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(.teal)
                 }
 
@@ -210,7 +210,7 @@ struct CreationPublishView: View {
                 Spacer()
 
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.teal)
             }
             .padding(14)
@@ -267,7 +267,7 @@ struct CreationPublishView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                     Text("Published successfully!")
                         .font(.custom("OpenSans-Bold", size: 15))
                 }
@@ -309,7 +309,7 @@ struct CreationSafetySheet: View {
                         .fill(Color.orange.opacity(0.1))
                         .frame(width: 80, height: 80)
                     Image(systemName: "exclamationmark.shield.fill")
-                        .font(.system(size: 36))
+                        .font(.systemScaled(36))
                         .foregroundStyle(.orange)
                 }
                 .padding(.top, 24)
@@ -365,7 +365,7 @@ struct SafetyGuideRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(color)
                 .frame(width: 28)
             Text(text)

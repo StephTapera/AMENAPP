@@ -110,12 +110,12 @@ private struct InboxSectionHeader: View {
         Button(action: { withAnimation(.easeInOut(duration: 0.20)) { isExpanded.toggle() } }) {
             HStack(spacing: 8) {
                 Text(title)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.systemScaled(12, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.78))
 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(
@@ -130,7 +130,7 @@ private struct InboxSectionHeader: View {
 
                 // Glass chevron
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.38))
                     .padding(6)
                     .background(
@@ -153,7 +153,7 @@ private struct PeaceInboxEmptyState: View {
     var body: some View {
         HStack(spacing: 6) {
             Text("All clear ✦")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color(hex: "#D9A441"))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -177,13 +177,13 @@ private struct InboxDerivedItemRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.88))
                     .lineLimit(2)
 
                 if let owner = item.owner {
                     Text(owner)
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.white.opacity(0.38))
                 }
             }
@@ -192,7 +192,7 @@ private struct InboxDerivedItemRow: View {
 
             if let due = item.due {
                 Text(due.formatted(.dateTime.month(.abbreviated).day()))
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.38))
             }
         }
@@ -215,7 +215,7 @@ private struct InboxMessageRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(message.body)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.80))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -288,7 +288,7 @@ struct AmenPriorityPeaceInboxView: View {
             // Glass header with amenPurple
             HStack {
                 Text("Priority & Peace")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.systemScaled(17, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.95))
                 Spacer()
                 if viewModel.isLoading {
@@ -317,7 +317,7 @@ struct AmenPriorityPeaceInboxView: View {
 
             if let error = viewModel.errorMessage {
                 Text(error)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.accentColor.opacity(0.80))
                     .padding()
             }

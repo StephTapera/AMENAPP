@@ -140,7 +140,7 @@ private struct FamilyGuardianTeaserCard: View {
                         )
                         .frame(width: 40, height: 40)
                     Image(systemName: "house.and.flag.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 .accessibilityHidden(true)
@@ -170,7 +170,7 @@ private struct FamilyGuardianTeaserCard: View {
                 Button(action: onUpgradeTapped) {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                         Text("Upgrade to Amen Pro")
                             .font(.custom("OpenSans-SemiBold", size: 14))
                     }
@@ -458,7 +458,7 @@ struct WellnessSupportCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                 }
                 Text(title)

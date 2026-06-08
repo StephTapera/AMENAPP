@@ -158,6 +158,8 @@ final class ChurchNoteTabViewModel: ObservableObject {
 
 struct ChurchNoteDetailTabView: View {
     @StateObject private var vm: ChurchNoteTabViewModel
+    @State private var showBereanForScripture = false
+    @State private var bereanScriptureQuery = ""
 
     init(note: ChurchNote) {
         _vm = StateObject(wrappedValue: ChurchNoteTabViewModel(note: note))
@@ -171,6 +173,9 @@ struct ChurchNoteDetailTabView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task { await vm.loadReflectionAnswers() }
+        .fullScreenCover(isPresented: $showBereanForScripture) {
+            BereanChatView(initialQuery: "Help me study \(bereanScriptureQuery)")
+        }
     }
 
     // MARK: - Tab Pill Row
@@ -586,7 +591,9 @@ struct ChurchNoteDetailTabView: View {
                     .foregroundColor(.black)
                 Spacer()
                 Button {
-                    // "Study with Berean" — open Berean with this reference
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    bereanScriptureQuery = ref
+                    showBereanForScripture = true
                 } label: {
                     Text("Study")
                         .font(.systemScaled(12, weight: .medium))

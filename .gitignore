@@ -97,6 +97,9 @@ extensions/*.env
 Backend/functions/lib/
 functions/dist-notifications/
 
+# SPM resolved packages — Xcode resolves these automatically
+SourcePackages/
+
 .sourcePackages/
 
 # Local Xcode / SwiftPM cache

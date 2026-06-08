@@ -153,7 +153,7 @@ struct AmenNotificationCard: View {
     private var bodyText: some View {
         Text("\(bodyLeading) \(Text("Learn more").foregroundStyle(Color.accentColor)) about how this works.")
             .foregroundStyle(.primary.opacity(0.75))
-            .font(.system(size: 15))
+            .font(.systemScaled(15))
             .lineSpacing(3)
             .onTapGesture(perform: onLearnMore)
     }
@@ -175,7 +175,7 @@ struct AmenNotificationCard: View {
             // Primary pill
             Button(action: onPrimary) {
                 Text(action.primaryButtonTitle)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(Color.primary)
                     .padding(.horizontal, 28)
                     .padding(.vertical, 13)
@@ -198,7 +198,7 @@ struct AmenNotificationCard: View {
                 HStack(spacing: 6) {
                     CountdownRing(total: undoWindow, remaining: undoRemaining)
                     Text("Undo")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(.primary.opacity(0.60))
                 }
                 .padding(.horizontal, 14)

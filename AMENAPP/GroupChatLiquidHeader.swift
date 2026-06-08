@@ -52,7 +52,7 @@ struct GroupChatLiquidHeader: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .onAppear {
             loadParticipants()
         }

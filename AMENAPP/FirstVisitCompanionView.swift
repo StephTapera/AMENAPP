@@ -23,11 +23,11 @@ private enum PVTokens {
     static let pillBorder   = Color.white.opacity(0.30)
 
     // Typography
-    static let labelFont    = Font.system(size: 11, weight: .semibold, design: .monospaced)
-    static let rowTitleFont = Font.system(size: 22, weight: .bold)
-    static let rowMetaFont  = Font.system(size: 11, weight: .medium, design: .monospaced)
-    static let bodyFont     = Font.system(size: 15, weight: .regular)
-    static let pillFont     = Font.system(size: 12, weight: .semibold, design: .monospaced)
+    static let labelFont    = Font.systemScaled(11, weight: .semibold, design: .monospaced)
+    static let rowTitleFont = Font.systemScaled(22, weight: .bold)
+    static let rowMetaFont  = Font.systemScaled(11, weight: .medium, design: .monospaced)
+    static let bodyFont     = Font.systemScaled(15, weight: .regular)
+    static let pillFont     = Font.systemScaled(12, weight: .semibold, design: .monospaced)
 
     // Metrics
     static let hPad: CGFloat        = 20

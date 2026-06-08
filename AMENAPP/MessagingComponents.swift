@@ -1074,7 +1074,7 @@ struct DiaEmptyStateView: View {
     let onPrimaryAction: () -> Void
     let onSecondaryAction: (() -> Void)?
 
-    @State private var showAttachmentAlert = false
+    @State private var selectedAttachment: PhotosPickerItem? = nil
     
     init(
         title: String = "Chat with your tabs",
@@ -1186,15 +1186,10 @@ struct DiaEmptyStateView: View {
     private var demoInputBar: some View {
         HStack(spacing: 12) {
             // Plus button
-            Button { showAttachmentAlert = true } label: {
+            PhotosPicker(selection: $selectedAttachment, matching: .images) {
                 Image(systemName: "plus.circle.fill")
                     .font(.systemScaled(24))
                     .foregroundStyle(.secondary)
-            }
-            .alert("Coming Soon", isPresented: $showAttachmentAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Media attachments are coming soon.")
             }
             
             // Input field

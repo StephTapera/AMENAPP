@@ -234,6 +234,65 @@ struct PrayerPrivacyScope {
     }
 }
 
+// MARK: - Domain Enum
+// 14-case life-domain taxonomy for content tagging and Berean formation routing.
+// Frozen contract — matches audit/00-inventory/contracts.md.
+
+enum Domain: String, Codable, CaseIterable {
+    case personal
+    case professional
+    case spiritual
+    case community
+    case health
+    case relationships
+    case growth
+    case creativity
+    case service
+    case faith
+    case family
+    case learning
+    case wellness
+    case purpose
+
+    var displayName: String {
+        switch self {
+        case .personal:       return "Personal"
+        case .professional:   return "Professional"
+        case .spiritual:      return "Spiritual"
+        case .community:      return "Community"
+        case .health:         return "Health"
+        case .relationships:  return "Relationships"
+        case .growth:         return "Growth"
+        case .creativity:     return "Creativity"
+        case .service:        return "Service"
+        case .faith:          return "Faith"
+        case .family:         return "Family"
+        case .learning:       return "Learning"
+        case .wellness:       return "Wellness"
+        case .purpose:        return "Purpose"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .personal:       return "person.circle"
+        case .professional:   return "briefcase"
+        case .spiritual:      return "sparkles"
+        case .community:      return "person.3"
+        case .health:         return "heart"
+        case .relationships:  return "person.2"
+        case .growth:         return "arrow.up.circle"
+        case .creativity:     return "paintbrush"
+        case .service:        return "hands.and.sparkles"
+        case .faith:          return "cross"
+        case .family:         return "house"
+        case .learning:       return "book.open"
+        case .wellness:       return "leaf"
+        case .purpose:        return "star"
+        }
+    }
+}
+
 // MARK: - Community Health Status
 
 enum CommunityHealthStatus: String, Codable {

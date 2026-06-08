@@ -73,12 +73,12 @@ private struct ContextSectionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
                 .kerning(1.1)
                 .foregroundStyle(Color.white.opacity(0.38))
 
             Text(content)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.88))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -105,12 +105,12 @@ private struct DerivedItemRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: kindIcon(item.kind))
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(kindColor(item.kind))
                 .frame(width: 20)
 
             Text(item.title)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.80))
                 .lineLimit(2)
 
@@ -154,7 +154,7 @@ private struct StatusBadge: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 9, weight: .bold))
+            .font(.systemScaled(9, weight: .bold))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(
@@ -218,12 +218,12 @@ struct AmenContextBeforeReplyPanel: View {
                     // Header
                     HStack {
                         Text("Before You Reply")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.systemScaled(16, weight: .bold))
                             .foregroundStyle(Color.white.opacity(0.94))
                         Spacer()
                         Button(action: onDismiss) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(Color.white.opacity(0.50))
                                 .frame(width: 26, height: 26)
                                 .background(Circle().fill(Color.white.opacity(0.08)))
@@ -242,7 +242,7 @@ struct AmenContextBeforeReplyPanel: View {
 
                     if let error = viewModel.errorMessage {
                         Text(error)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.accentColor.opacity(0.80))
                             .padding(.horizontal, 4)
                     }
@@ -250,7 +250,7 @@ struct AmenContextBeforeReplyPanel: View {
                     // CTA
                     Button(action: onStartReply) {
                         Text("Start Reply")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -339,7 +339,7 @@ struct AmenContextBeforeReplyPanel: View {
 
     private func sectionHeader(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .font(.systemScaled(10, weight: .bold))
             .kerning(0.8)
             .foregroundStyle(Color.white.opacity(0.38))
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -348,7 +348,7 @@ struct AmenContextBeforeReplyPanel: View {
 
     private func emptyState(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12))
+            .font(.systemScaled(12))
             .foregroundStyle(Color.white.opacity(0.35))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, 4)

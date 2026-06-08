@@ -22,7 +22,7 @@ struct AmenCommandCenterSection: View {
     @ObservedObject var viewModel: AmenCommandCenterViewModel
     var userId: String
 
-    @AppStorage("spiritualOS_command_center_enabled") private var isEnabled = false
+    @AppStorage("spiritualOS_command_center_enabled") private var isEnabled = true
 
     // MARK: Body
 
@@ -57,7 +57,7 @@ struct AmenCommandCenterSection: View {
     private var formationHeader: some View {
         HStack(spacing: 8) {
             Text("Your Formation")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.amenBlack)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
@@ -144,11 +144,11 @@ struct AmenCommandCenterSection: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
                         Text(planTitle)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.systemScaled(15, weight: .semibold))
                             .foregroundStyle(Color.amenBlack)
                             .lineLimit(1)
                     }
@@ -162,7 +162,7 @@ struct AmenCommandCenterSection: View {
                         )
 
                     Text("\(Int(viewModel.readingPlanProgress * 100))% complete")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.amenSlate)
                 }
                 .padding(16)
@@ -183,16 +183,16 @@ struct AmenCommandCenterSection: View {
                 GlassCard(tint: Color.accentColor.opacity(0.10), elevated: false) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Days in the Word")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.amenSlate)
 
                         Text("\(count)")
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(.systemScaled(28, weight: .semibold))
                             .foregroundStyle(Color(.label))
                             .accessibilityLabel("\(count) days in the Word")
 
                         Text("This is your private count — only you can see this.")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.amenSlate)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -208,14 +208,14 @@ struct AmenCommandCenterSection: View {
                         }
                     )) {
                         Text("Track days in the Word")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.amenBlack)
                     }
                     .tint(Color.accentColor)
                 }
 
                 Text("This count is private. It's an invitation, not a score.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.amenSlate)
                     .padding(.top, 2)
             }
@@ -230,7 +230,7 @@ struct AmenCommandCenterSection: View {
             GlassCard(elevated: false) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Would you like to gently track your time in the Word? This is private and optional.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color.amenSlate)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -262,18 +262,18 @@ private struct StatTile: View {
         GlassCard(elevated: false) {
             VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.systemScaled(24))
                     .foregroundStyle(Color.accentColor)
                     .symbolRenderingMode(.hierarchical)
                     .accessibilityHidden(true)
 
                 Text(label)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.amenSlate)
                     .lineLimit(1)
 
                 Text(value)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.systemScaled(20, weight: .semibold))
                     .foregroundStyle(Color.amenBlack)
                     .accessibilityLabel("\(label): \(value)")
             }

@@ -205,7 +205,7 @@ struct AmenCovenantStartHereView: View {
                         ForEach(CovenantRoom.RoomType.allCases.prefix(4), id: \.self) { type in
                             HStack(spacing: 12) {
                                 Image(systemName: type.icon)
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(.purple)
                                     .frame(width: 32)
                                 Text(type.displayName)
@@ -258,7 +258,7 @@ struct AmenCovenantStartHereView: View {
                         .font(.subheadline.weight(.semibold))
                     HStack(spacing: 14) {
                         Image(systemName: "moon.stars.fill")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.indigo)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Enable Sunday Mode")
@@ -284,7 +284,7 @@ struct AmenCovenantStartHereView: View {
     private func prefToggle(_ label: String, icon: String, binding: Binding<Bool>) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
             Text(label).font(.subheadline)
@@ -332,7 +332,7 @@ struct AmenCovenantStartHereView: View {
     private func stepHeader(icon: String, title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(.purple)
             Text(title)
                 .font(.title2.weight(.bold))

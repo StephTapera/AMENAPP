@@ -36,8 +36,8 @@ struct FeedHealthDashboardView: View {
                 ForEach(Array(topics.keys.sorted()), id: \.self) { topic in
                     HStack(spacing: 4) {
                         Image(systemName: isBoost ? "arrow.up" : "arrow.down")
-                            .font(.system(size: 9, weight: .bold))
-                        Text(topic).font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(9, weight: .bold))
+                        Text(topic).font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(isBoost ? .primary : .secondary)
                     .padding(.horizontal, 10).padding(.vertical, 5)
@@ -68,13 +68,17 @@ struct FeedHealthDashboardView: View {
     private func healthRow(icon: String, label: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon).font(.caption).foregroundStyle(.secondary).frame(width: 16)
-            Text(label).font(.system(size: 13)).foregroundStyle(.secondary)
+            Text(label).font(.systemScaled(13)).foregroundStyle(.secondary)
         }
     }
 
     private func loadSummary() async {
         isLoading = true
-        summary = try? await AmenFeedDirectionService.shared.getFeedIntelligenceSummary()
+        do {
+            summary = try await AmenFeedDirectionService.shared.getFeedIntelligenceSummary()
+        } catch {
+            print("⚠️ [FeedHealthDashboardView] loadSummary failed: \(error)")
+        }
         isLoading = false
     }
 }

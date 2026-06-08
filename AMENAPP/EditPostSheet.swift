@@ -127,7 +127,7 @@ struct EditPostSheet: View {
                     handleDismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 40, height: 40)
                         .background(glassCircleBackground)
@@ -138,10 +138,10 @@ struct EditPostSheet: View {
 
                 VStack(spacing: 4) {
                     Text("Edit Post")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("Editing your post")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -164,7 +164,7 @@ struct EditPostSheet: View {
                     }
                 } label: {
                     Text("Cancel")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 72, height: 40)
                         .background(glassCapsuleBackground)
@@ -208,11 +208,11 @@ struct EditPostSheet: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(post.authorName)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text(post.category.displayName)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -228,7 +228,7 @@ struct EditPostSheet: View {
             .fill(Color.black.opacity(0.08))
             .overlay {
                 Text(post.authorInitials)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                     .foregroundStyle(.primary)
             }
     }
@@ -237,25 +237,25 @@ struct EditPostSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Post text")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("\(viewModel.remainingCharacters)")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(viewModel.remainingCharacters < 25 ? .orange : .secondary)
             }
 
             ZStack(alignment: .topLeading) {
                 if viewModel.draftText.isEmpty {
                     Text("Refine your post clearly without overwriting what readers already engaged with.")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.secondary)
                         .padding(.top, 14)
                         .padding(.leading, 6)
                 }
 
                 TextEditor(text: $viewModel.draftText)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.primary)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 220)
@@ -273,7 +273,7 @@ struct EditPostSheet: View {
 
             if viewModel.hasChanges {
                 Text("Changes detected")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
         }
@@ -313,12 +313,12 @@ struct EditPostSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Media")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 PhotosPicker(selection: $viewModel.selectedPhotos, maxSelectionCount: 4, matching: .images) {
                     Label("Add", systemImage: "plus")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 9)
@@ -328,7 +328,7 @@ struct EditPostSheet: View {
 
             if viewModel.draftMedia.isEmpty {
                 Text("No media attached. Add, remove, or reorder images here without re-uploading unchanged ones.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -358,26 +358,26 @@ struct EditPostSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: "sparkles.rectangle.stack")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.purple.opacity(0.9))
                 Text("Edit intelligence")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text(viewModel.intelligence.primaryType.displayName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
 
             ForEach(viewModel.intelligence.notices, id: \.self) { notice in
                 Text(notice)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.primary.opacity(0.82))
             }
 
             if let evidenceSuggestion = viewModel.intelligence.evidenceSuggestion {
                 Label(evidenceSuggestion, systemImage: "doc.text.magnifyingglass")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -386,7 +386,7 @@ struct EditPostSheet: View {
                     viewModel.showUpdateInsteadSheet = true
                 } label: {
                     Text("Consider Add Update Instead")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
@@ -403,7 +403,7 @@ struct EditPostSheet: View {
             Image(systemName: "info.circle")
                 .foregroundStyle(.secondary)
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Spacer()
         }
@@ -413,7 +413,7 @@ struct EditPostSheet: View {
 
     private var policyFooter: some View {
         Text("Editing stays within AMEN’s trust-aware window and may show subtle edit context when meaning changes.")
-            .font(.system(size: 12))
+            .font(.systemScaled(12))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 4)
     }
@@ -424,7 +424,7 @@ struct EditPostSheet: View {
                 handleDismiss()
             } label: {
                 Text(viewModel.hasChanges ? "Discard" : "Cancel")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -444,7 +444,7 @@ struct EditPostSheet: View {
                         ProgressView().tint(.white)
                     default:
                         Text("Save Changes")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.systemScaled(15, weight: .bold))
                     }
                 }
                 .foregroundStyle(.white)
@@ -562,7 +562,7 @@ private struct EditMetadataChip: View {
                 Text(title)
                     .lineLimit(1)
             }
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -609,7 +609,7 @@ private struct EditMediaTile: View {
 
                 if isPrimary {
                     Text("Primary")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 6)
@@ -641,7 +641,7 @@ private struct EditMediaTile: View {
     private func smallButton(_ systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(Color.white.opacity(0.82)))
@@ -715,7 +715,7 @@ private struct EditPostTypePickerSheet: View {
                                     .foregroundStyle(.primary)
                                 if !EditIntelligenceEngine.isValidTransition(from: originalCategory, to: category) {
                                     Text("Not available for this post")
-                                        .font(.system(size: 12))
+                                        .font(.systemScaled(12))
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -753,11 +753,11 @@ private struct UpdateInsteadFlowSheet: View {
                 .padding(.top, 8)
 
             Text("This looks like a substantive change")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .multilineTextAlignment(.center)
 
             Text("If earlier replies already depend on the original post, adding an update can preserve context more cleanly.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
@@ -768,7 +768,7 @@ private struct UpdateInsteadFlowSheet: View {
                     onSaveAsEdit()
                 } label: {
                     Text("Save as Edit")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
@@ -782,7 +782,7 @@ private struct UpdateInsteadFlowSheet: View {
                     onAddUpdateInstead()
                 } label: {
                     Text("Add Update Instead")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)

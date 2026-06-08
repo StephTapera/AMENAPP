@@ -9,10 +9,10 @@ import SwiftUI
 
 struct BereanMenteeGrowthView: View {
     @StateObject private var service = BereanMentorshipService.shared
-    @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = false
+    @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @AppStorage("berean_plus_enabled") private var isPlusEnabled: Bool = false
+    @AppStorage("berean_plus_enabled") private var isPlusEnabled: Bool = true
     @State private var showMeetingPrep: Bool = false
     @State private var checkedGoals: Set<String> = []
     @State private var aiInsightText: String = ""
@@ -54,14 +54,14 @@ struct BereanMenteeGrowthView: View {
             Color(.systemBackground).ignoresSafeArea()
             VStack(spacing: 20) {
                 Image(systemName: "person.crop.circle.badge.plus")
-                    .font(.system(size: 48, weight: .ultraLight))
+                    .font(.systemScaled(48, weight: .ultraLight))
                     .foregroundStyle(Color.accentColor.opacity(0.7))
                     .accessibilityHidden(true)
                 Text("Find a Mentor")
                     .font(.title2).bold()
                     .foregroundStyle(Color.primary)
                 Text("Connect with a mentor in your church community to receive a personalised growth plan.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -113,7 +113,7 @@ struct BereanMenteeGrowthView: View {
         VStack(spacing: 16) {
             ProgressView().tint(Color.accentColor)
             Text("Loading your growth plan...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.secondary)
         }
         .accessibilityLabel("Loading your growth plan")
@@ -125,7 +125,7 @@ struct BereanMenteeGrowthView: View {
         BereanMentorshipSection(title: "YOUR GROWTH PLAN", icon: "target") {
             if plan.goals.isEmpty {
                 Text("No goals set yet. Talk with your mentor.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -139,7 +139,7 @@ struct BereanMenteeGrowthView: View {
                     .padding(.vertical, 6)
                 }
                 Text("These checkmarks are for meeting prep only — not saved.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.secondary.opacity(0.5))
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -155,18 +155,19 @@ struct BereanMenteeGrowthView: View {
             BereanMentorshipSection(title: "CURRENT STUDY", icon: "book.fill") {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(study)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color.primary)
                         Button {
-                            // Navigation to study view handled by parent coordinator
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            // TODO: navigation to study view handled by parent coordinator
                         } label: {
                             Text("Continue")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(Color.accentColor)
                         }
                         .accessibilityLabel("Continue \(study)")
@@ -187,16 +188,16 @@ struct BereanMenteeGrowthView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(formatSessionDate(date))
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color.primary)
                         Text("Prepare your questions and reflections.")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.secondary)
                     }
                     Spacer()
                     Button { showMeetingPrep = true } label: {
                         Text("Prepare")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color(.systemBackground))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -216,7 +217,7 @@ struct BereanMenteeGrowthView: View {
         BereanMentorshipSection(title: "MILESTONES", icon: "star.fill") {
             if plan.milestones.isEmpty {
                 Text("Complete sessions to earn milestones.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -240,7 +241,7 @@ struct BereanMenteeGrowthView: View {
         BereanMentorshipSection(title: "SUGGESTED RESOURCES", icon: "books.vertical.fill") {
             if plan.suggestedResources.isEmpty {
                 Text("No resources suggested yet.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -249,11 +250,11 @@ struct BereanMenteeGrowthView: View {
                     let resource = plan.suggestedResources[index]
                     HStack(spacing: 12) {
                         Image(systemName: "book.circle")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
                         Text(resource)
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.primary)
                         Spacer()
                     }
@@ -278,11 +279,11 @@ struct BereanMenteeGrowthView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "hands.and.sparkles")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                     Text("Pray for my mentor")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                     Spacer()
                 }
@@ -378,11 +379,11 @@ private struct BereanMentorshipSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
                 Text(title)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .tracking(2)
                 Spacer()
@@ -410,11 +411,11 @@ private struct ChecklistRow: View {
         Button(action: onToggle) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(isChecked ? Color(hex: "#4CAF82") : Color.secondary.opacity(0.5))
                     .accessibilityHidden(true)
                 Text(text)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(isChecked ? Color.secondary : Color.primary)
                     .strikethrough(isChecked)
                     .multilineTextAlignment(.leading)
@@ -444,16 +445,16 @@ struct MilestoneBadgeView: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: badge.iconName)
-                .font(.system(size: 28, weight: .light))
+                .font(.systemScaled(28, weight: .light))
                 .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
             Text(badge.title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color.primary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
             Text(earnedDateText)
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
                 .foregroundStyle(Color.secondary)
         }
         .frame(width: 80, height: 100)
@@ -498,7 +499,7 @@ struct MeetingPrepSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Work through this checklist before your session.")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.secondary)
                             .padding(.horizontal, 24)
                             .padding(.top, 8)
@@ -521,7 +522,7 @@ struct MeetingPrepSheet: View {
 
                         Button { dismiss() } label: {
                             Text(allChecked ? "Ready for session!" : "Close")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .foregroundStyle(allChecked ? Color(.systemBackground) : Color.accentColor)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
@@ -566,11 +567,11 @@ private struct PrepCheckRow: View {
         Button(action: onToggle) {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(isChecked ? Color(hex: "#4CAF82") : Color.secondary.opacity(0.5))
                     .accessibilityHidden(true)
                 Text(text)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(isChecked ? Color.secondary : Color.primary)
                     .strikethrough(isChecked)
                     .multilineTextAlignment(.leading)

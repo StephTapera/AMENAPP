@@ -115,7 +115,7 @@ struct SafetyTrustLayer: View {
         let tint = confidenceTint(confidence)
         return HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(tint)
                 .accessibilityHidden(true)
             Text(label)
@@ -158,7 +158,7 @@ struct SafetyTrustLayer: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(6)
                 .background(Circle().fill(Color(.tertiarySystemFill)))

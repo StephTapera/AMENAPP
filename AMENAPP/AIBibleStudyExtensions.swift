@@ -253,7 +253,13 @@ struct AISettingsView: View {
     @AppStorage("aiResponseStyle") private var responseStyle = "Balanced"
     @AppStorage("includeReferences") private var includeReferences = true
     @AppStorage("enableNotifications") private var enableNotifications = true
-    @AppStorage("dailyReminderTime") private var dailyReminderTime = Date()
+    @AppStorage("dailyReminderTime") private var dailyReminderTimeInterval: Double = Date().timeIntervalSinceReferenceDate
+    private var dailyReminderTimeBinding: Binding<Date> {
+        Binding(
+            get: { Date(timeIntervalSinceReferenceDate: dailyReminderTimeInterval) },
+            set: { dailyReminderTimeInterval = $0.timeIntervalSinceReferenceDate }
+        )
+    }
 
     let responseStyles = ["Concise", "Balanced", "Detailed", "Academic"]
 
@@ -322,7 +328,7 @@ struct AISettingsView: View {
 
                         if enableNotifications {
                             Divider().padding(.leading, 16)
-                            DatePicker("Reminder Time", selection: $dailyReminderTime, displayedComponents: .hourAndMinute)
+                            DatePicker("Reminder Time", selection: dailyReminderTimeBinding, displayedComponents: .hourAndMinute)
                                 .font(AMENFont.regular(16))
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 14)

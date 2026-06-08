@@ -67,11 +67,11 @@ struct PrayerPrivacySelector: View {
                 HStack(spacing: 4) {
                     if level.isHighTrustLevel && level != .private {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.systemScaled(9, weight: .semibold))
                             .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .tertiaryLabel))
                     }
                     Image(systemName: level.systemImage)
-                        .font(.system(size: 20, weight: .regular))
+                        .font(.systemScaled(20, weight: .regular))
                         .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
                 }
 
@@ -127,7 +127,7 @@ struct PrayerPrivacySelector: View {
     private var selectedDescription: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "info.circle")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
 

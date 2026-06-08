@@ -51,7 +51,7 @@ struct PathProgressCard: View {
                     .foregroundStyle(isLocked ? Color.black.opacity(0.4) : Color.secondary)
             }
             .padding(14)
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .cornerRadius(16)
             .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
             .opacity(isLocked ? 0.55 : 1.0)

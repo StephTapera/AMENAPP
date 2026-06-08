@@ -92,10 +92,10 @@ struct AmenLiveQAQueueView: View {
     private func sectionHeader(_ title: String, count: Int) -> some View {
         HStack(spacing: 6) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text("\(count)")
-                .font(.system(size: 11, weight: .bold))
+                .font(.systemScaled(11, weight: .bold))
                 .foregroundStyle(.white.opacity(0.45))
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
@@ -117,9 +117,9 @@ struct AmenLiveQAQueueView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "mic.slash.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Mute All")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -161,7 +161,7 @@ private struct ParticipantRow: View {
                     .fill(Color(hex: "245B8F").opacity(0.35))
                     .frame(width: 40, height: 40)
                 Text(initials(for: participant.displayName))
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(.white)
             }
 
@@ -169,7 +169,7 @@ private struct ParticipantRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(participant.displayName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.white)
 
                     if participant.isHost {
@@ -182,9 +182,9 @@ private struct ParticipantRow: View {
                 if participant.isMuted {
                     HStack(spacing: 4) {
                         Image(systemName: "mic.slash.fill")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                         Text("Muted")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -195,7 +195,7 @@ private struct ParticipantRow: View {
             // Raised hand indicator
             if participant.hasRaisedHand {
                 Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityLabel("Hand raised")
             }
@@ -239,7 +239,7 @@ private struct ParticipantRow: View {
     @ViewBuilder
     private func badgePill(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: .bold))
+            .font(.systemScaled(9, weight: .bold))
             .kerning(0.3)
             .foregroundStyle(color)
             .padding(.horizontal, 6)
@@ -255,7 +255,7 @@ private struct ParticipantRow: View {
     private func actionButton(icon: String, tint: Color, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 32, height: 32)
                 .background {

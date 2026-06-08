@@ -526,6 +526,53 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" },
         { "fieldPath": "isDeleted", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "works",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creatorId",   "order": "ASCENDING"  },
+        { "fieldPath": "reviewState", "order": "ASCENDING"  },
+        { "fieldPath": "visibility",  "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "works",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creatorId",   "order": "ASCENDING"  },
+        { "fieldPath": "type",        "order": "ASCENDING"  },
+        { "fieldPath": "reviewState", "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "works",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "topics",      "arrayConfig": "CONTAINS" },
+        { "fieldPath": "visibility",  "order": "ASCENDING"      },
+        { "fieldPath": "reviewState", "order": "ASCENDING"      },
+        { "fieldPath": "publishedAt", "order": "DESCENDING"     }
+      ]
+    },
+    {
+      "collectionGroup": "knowledgeNodes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creatorId", "order": "ASCENDING" },
+        { "fieldPath": "topic",     "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ingestionJobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creatorId", "order": "ASCENDING"  },
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

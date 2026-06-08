@@ -95,13 +95,13 @@ struct AmenLiveBannerView: View {
 
             // Type icon
             Image(systemName: session.type.symbolName)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(accentColor(for: session.type))
                 .accessibilityHidden(true)
 
             // Title
             Text(session.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,7 +111,7 @@ struct AmenLiveBannerView: View {
                 Task { await viewModel.handleAction(session) }
             } label: {
                 Text(session.actionLabel)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -129,7 +129,7 @@ struct AmenLiveBannerView: View {
                 viewModel.dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 22, height: 22)
                     .background(
@@ -165,7 +165,7 @@ struct AmenLiveBannerView: View {
                         .fill(accentColor(for: session.type).opacity(0.15))
                         .frame(width: 40, height: 40)
                     Image(systemName: session.type.symbolName)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(accentColor(for: session.type))
                 }
                 .accessibilityHidden(true)
@@ -175,14 +175,14 @@ struct AmenLiveBannerView: View {
                     HStack(spacing: 6) {
                         LivePulseIndicator(color: accentColor(for: session.type))
                         Text(session.type.displayLabel.uppercased())
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .foregroundStyle(accentColor(for: session.type))
                             .accessibilityLabel("Type: \(session.type.displayLabel)")
                     }
 
                     // Title
                     Text(session.title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -197,7 +197,7 @@ struct AmenLiveBannerView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.up")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .frame(width: 24, height: 24)
                             .background(
@@ -212,7 +212,7 @@ struct AmenLiveBannerView: View {
                         viewModel.dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .frame(width: 24, height: 24)
                             .background(
@@ -245,7 +245,7 @@ struct AmenLiveBannerView: View {
                 Task { await viewModel.handleAction(session) }
             } label: {
                 Text(session.actionLabel)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)

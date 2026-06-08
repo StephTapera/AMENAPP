@@ -17,7 +17,7 @@ struct JITConsentSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: scopeIcon)
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(.tint)
                     .padding(.top, 32)
 

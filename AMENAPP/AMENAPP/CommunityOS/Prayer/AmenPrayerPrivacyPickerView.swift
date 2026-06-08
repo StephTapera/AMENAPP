@@ -80,7 +80,7 @@ struct AmenPrayerPrivacyPickerView: View {
                         .frame(width: 40, height: 40)
 
                     Image(systemName: level.systemImage)
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.systemScaled(17, weight: .regular))
                         .foregroundStyle(
                             isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel)
                         )
@@ -118,7 +118,7 @@ struct AmenPrayerPrivacyPickerView: View {
                     if level == .anonymous {
                         HStack(spacing: 4) {
                             Image(systemName: "info.circle")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             Text("Your identity is not shown to other users.")
                                 .font(.caption2)
                         }
@@ -131,7 +131,7 @@ struct AmenPrayerPrivacyPickerView: View {
 
                 // Selection indicator
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .tertiaryLabel))
                     .accessibilityHidden(true)
             }

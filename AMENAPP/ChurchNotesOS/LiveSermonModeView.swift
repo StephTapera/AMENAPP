@@ -151,7 +151,7 @@ struct LiveSermonModeView: View {
         Spacer()
         VStack(spacing: 12) {
             Image(systemName: "note.text")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.quaternary)
             Text("Your notes will appear here.\nUse the block row below to add structure.")
                 .font(.subheadline)
@@ -254,7 +254,7 @@ private struct NoteBlockRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: block.type.icon)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(block.type.accent)
                 .frame(width: 20, alignment: .center)
                 .padding(.top, 3)

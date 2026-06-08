@@ -674,7 +674,15 @@ async function analyzeForCrisis(prayerText, userId) {
     let maxUrgency = "none";
 
     // Suicide patterns (CRITICAL)
-    const suicidePatterns = ["want to die", "kill myself", "end my life", "suicide"];
+    // C-14 FIX: Expanded keyword list to reduce false-negatives.
+    // Covers morphological variants ("suicid" matches suicidal/suicide),
+    // passive ideation phrases, and overdose/self-harm signals.
+    const suicidePatterns = [
+      "want to die", "kill myself", "end my life", "suicide", "suicid",
+      "killing myself", "end it all", "don't want to be here", "no reason to live",
+      "not worth living", "rather be dead", "wish i was dead", "overdose",
+      "take my own life", "take all my pills",
+    ];
     for (const pattern of suicidePatterns) {
         if (lowercased.includes(pattern)) {
             detectedCrises.push("suicide_ideation");
@@ -684,7 +692,8 @@ async function analyzeForCrisis(prayerText, userId) {
     }
 
     // Self-harm patterns (HIGH)
-    const selfHarmPatterns = ["hurt myself", "cut myself", "harm myself"];
+    // C-14 FIX: Added "cutting myself" and "self harm" variants.
+    const selfHarmPatterns = ["hurt myself", "cut myself", "cutting myself", "harm myself", "self harm", "self-harm"];
     for (const pattern of selfHarmPatterns) {
         if (lowercased.includes(pattern)) {
             detectedCrises.push("self_harm");

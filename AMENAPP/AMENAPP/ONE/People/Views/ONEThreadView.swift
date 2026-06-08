@@ -13,7 +13,6 @@ struct ONEThreadView: View {
     @ObservedObject var store: ONEThreadStore
     @State private var livingSummary: ONELivingThreadSummary?
     @State private var isDistilling = false
-    @State private var engine = ONELivingThreadsEngine()
     @State private var shareItem: String?
     @State private var showShareSheet = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -55,7 +54,9 @@ struct ONEThreadView: View {
             store.startListeningToMessages(threadID: thread.id)
         }
         .onChange(of: messages.count) { _, _ in
-            if livingThreadsEnabled { Task { await runDistillation() } }
+            if livingThreadsEnabled {
+                if #available(iOS 26, *) { Task { await runDistillation() } }
+            }
         }
         .onDisappear { store.stopListeningToMessages(threadID: thread.id) }
         .sheet(isPresented: $showShareSheet) {
@@ -104,11 +105,11 @@ struct ONEThreadView: View {
         ToolbarItem(placement: .principal) {
             VStack(spacing: 1) {
                 Text(threadDisplayName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 HStack(spacing: 3) {
-                    Image(systemName: "lock.fill").font(.system(size: 9))
+                    Image(systemName: "lock.fill").font(.systemScaled(9))
                         .accessibilityHidden(true)
-                    Text("End-to-end encrypted").font(.system(size: 10))
+                    Text("End-to-end encrypted").font(.systemScaled(10))
                 }
                 .foregroundStyle(ONE.Colors.privateIndigo)
             }
@@ -119,6 +120,7 @@ struct ONEThreadView: View {
 
     // MARK: - Living Threads
 
+    @available(iOS 26.0, *)
     private func runDistillation() async {
         guard livingThreadsEnabled, !isDistilling else { return }
         isDistilling = true
@@ -128,6 +130,7 @@ struct ONEThreadView: View {
             .map { (senderName: displayName(for: $0.senderUID), text: decrypted[$0.id] ?? "") }
             .filter { !$0.text.isEmpty }
 
+        let engine = ONELivingThreadsEngine()
         livingSummary = await engine.distil(messages: inputs)
     }
 }

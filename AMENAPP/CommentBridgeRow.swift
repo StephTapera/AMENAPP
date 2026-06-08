@@ -22,7 +22,7 @@ struct CommentBridgeRow: View {
                let langCode = bridge.detectedLanguage(for: commentId) {
                 HStack(spacing: 4) {
                     Image(systemName: "globe")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                     Text(SupportedLanguage.displayName(for: langCode))
                         .font(AMENFont.regular(10))
                 }

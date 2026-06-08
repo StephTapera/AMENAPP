@@ -50,10 +50,10 @@ struct WeeklyAlignmentSummaryView: View {
     private func section(title: String, items: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
             ForEach(items, id: \.self) { item in
                 Text(item)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.black.opacity(0.76))
             }
         }

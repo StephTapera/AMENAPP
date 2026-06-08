@@ -154,7 +154,7 @@ struct CreateGroupLinkSheet: View {
                     } label: {
                         VStack(spacing: 6) {
                             Image(systemName: purpose.icon)
-                                .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                                .font(.systemScaled(20, weight: isSelected ? .semibold : .regular))
                                 .foregroundStyle(isSelected ? .black : .secondary)
                             Text(purpose.displayName)
                                 .font(.custom("OpenSans-SemiBold", size: 12))
@@ -200,7 +200,7 @@ struct CreateGroupLinkSheet: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: mode.icon)
-                            .font(.system(size: 17))
+                            .font(.systemScaled(17))
                             .frame(width: 28)
                             .foregroundStyle(isSelected ? .primary : .tertiary)
 
@@ -217,7 +217,7 @@ struct CreateGroupLinkSheet: View {
 
                         Image(systemName: isSelected
                               ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(isSelected ? .black : Color.black.opacity(0.12))
                     }
                     .padding(14)
@@ -257,7 +257,7 @@ struct CreateGroupLinkSheet: View {
                     } label: {
                         VStack(spacing: 5) {
                             Image(systemName: tier == .strict ? "shield.checkered" : "shield")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(isSelected ? .primary : .tertiary)
                             Text(tier.displayName)
                                 .font(.custom("OpenSans-SemiBold", size: 13))
@@ -312,7 +312,7 @@ struct CreateGroupLinkSheet: View {
                             .font(.custom("OpenSans-SemiBold", size: 14))
                             .foregroundStyle(.primary)
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -333,7 +333,7 @@ struct CreateGroupLinkSheet: View {
                             .font(.custom("OpenSans-SemiBold", size: 14))
                             .foregroundStyle(.primary)
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -347,7 +347,7 @@ struct CreateGroupLinkSheet: View {
     ) -> some View {
         HStack {
             Image(systemName: icon)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.tertiary)
                 .frame(width: 24)
             Text(label)
@@ -374,7 +374,7 @@ struct CreateGroupLinkSheet: View {
             if !text.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.black.opacity(0.5))
                     Text(text)
                         .font(.custom("OpenSans-Regular", size: 13))

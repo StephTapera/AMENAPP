@@ -24,7 +24,7 @@ struct AmenSimpleModeSettingsSection: View {
             Toggle(isOn: $service.isSimpleModeActive) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "hand.tap")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.secondary)
                         .frame(width: 22, alignment: .center)
                         .padding(.top, 2)
@@ -50,7 +50,7 @@ struct AmenSimpleModeSettingsSection: View {
                 } label: {
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: "textformat.size")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.secondary)
                             .frame(width: 22, alignment: .center)
                             .padding(.top, 2)
@@ -66,7 +66,7 @@ struct AmenSimpleModeSettingsSection: View {
                 Toggle(isOn: $service.useHighContrast) {
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: "circle.lefthalf.filled")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.secondary)
                             .frame(width: 22, alignment: .center)
                             .padding(.top, 2)

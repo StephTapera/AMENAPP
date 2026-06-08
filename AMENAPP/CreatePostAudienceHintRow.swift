@@ -74,7 +74,7 @@ struct CreatePostAudienceHintRow: View {
     private func selectedStateRow(_ hint: AudienceHint) -> some View {
         HStack(spacing: 8) {
             Image(systemName: hint.icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Text(hint.label)
@@ -90,7 +90,7 @@ struct CreatePostAudienceHintRow: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(5)
                     .background(Circle().fill(Color(.systemGray5)))
@@ -120,7 +120,7 @@ private struct AudienceHintPill: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: hint.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(hint.label)
                     .font(AMENFont.semiBold(12))
             }

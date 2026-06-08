@@ -63,7 +63,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
         GlassCard(tint: .accentColor) {
             VStack(spacing: 0) {
                 TextField("Space name…", text: $viewModel.spaceName)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color.amenBlack)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
@@ -75,14 +75,14 @@ struct AmenCreateSpaceEnhancedSheet: View {
                 ZStack(alignment: .topLeading) {
                     if viewModel.spaceDescription.isEmpty {
                         Text("Add description…")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.amenSlate.opacity(0.6))
                             .padding(.top, 12)
                             .padding(.leading, 16)
                             .allowsHitTesting(false)
                     }
                     TextEditor(text: $viewModel.spaceDescription)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color.amenSlate)
                         .frame(minHeight: 56, maxHeight: 80)
                         .padding(.horizontal, 12)
@@ -105,7 +105,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
                         .fill(Color.amenSlate.opacity(0.08))
                         .frame(width: 60, height: 60)
                     Image(systemName: "photo")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(Color.amenSlate.opacity(0.5))
                 }
                 VStack(alignment: .leading, spacing: 4) {
@@ -154,11 +154,11 @@ struct AmenCreateSpaceEnhancedSheet: View {
                                         Circle().strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1.5)
                                     )
                                 Image(systemName: "person.badge.plus")
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                     .foregroundStyle(Color.accentColor)
                             }
                             Text("Add")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(Color.amenSlate)
                                 .lineLimit(1)
                         }
@@ -196,14 +196,14 @@ struct AmenCreateSpaceEnhancedSheet: View {
                         .frame(width: 44, height: 44)
                         .overlay(
                             Image(systemName: "person.fill")
-                                .font(.system(size: 18))
+                                .font(.systemScaled(18))
                                 .foregroundStyle(Color.amenSlate)
                         )
                 }
             }
 
             Text(member.displayName)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color.amenBlack)
                 .lineLimit(1)
                 .frame(maxWidth: 60)
@@ -438,7 +438,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
                         .tint(.white)
                 } else {
                     Text("Create Space")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }

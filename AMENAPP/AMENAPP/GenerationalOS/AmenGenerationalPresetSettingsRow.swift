@@ -48,7 +48,7 @@ struct AmenGenerationalPresetSettingsRow: View {
                     .frame(width: 30, height: 30)
                     .overlay(
                         Image(systemName: "person.badge.shield.checkmark.fill")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.white)
                     )
                     .accessibilityHidden(true)

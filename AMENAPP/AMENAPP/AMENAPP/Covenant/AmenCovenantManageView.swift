@@ -154,7 +154,7 @@ struct AmenCovenantManageView: View {
     private func statCard(value: String, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(color)
             Text(value)
                 .font(.title3.bold())
@@ -191,7 +191,7 @@ struct AmenCovenantManageView: View {
                             .fill(tool.tint.opacity(0.15))
                             .frame(width: 38, height: 38)
                         Image(systemName: tool.icon)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(tool.tint)
                     }
 

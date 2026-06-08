@@ -157,7 +157,7 @@ struct AmenEventBroadcastView: View {
         HStack {
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
                     .background(.ultraThinMaterial, in: Circle())
@@ -166,10 +166,10 @@ struct AmenEventBroadcastView: View {
             Spacer()
             VStack(spacing: 2) {
                 Text("Announce")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(.white)
                 Text(spaceName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
             }
             Spacer()
@@ -189,35 +189,35 @@ struct AmenEventBroadcastView: View {
                     .fill(Color(hex: "D9A441").opacity(0.12))
                     .frame(width: 40, height: 40)
                 Image(systemName: platformImageForEvent(event))
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(Color(hex: "D9A441"))
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(event.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.secondary)
                     Text(event.scheduledAt.broadcastShortLabel)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                     if event.durationMinutes > 0 {
                         Text("·")
                             .foregroundStyle(.secondary)
                         Text("\(event.durationMinutes) min")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                 }
                 HStack(spacing: 3) {
                     Image(systemName: "paperclip")
-                        .font(.system(size: 9))
+                        .font(.systemScaled(9))
                     Text(".ics will be auto-attached")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                 }
                 .foregroundStyle(Color(hex: "D9A441").opacity(0.8))
             }
@@ -268,7 +268,7 @@ struct AmenEventBroadcastView: View {
             HStack {
                 Spacer()
                 Text("\(messageText.count)/\(charLimit)")
-                    .font(.system(size: 11).monospacedDigit())
+                    .font(.systemScaled(11).monospacedDigit())
                     .foregroundStyle(
                         messageText.count > Int(Double(charLimit) * 0.9)
                             ? Color(hex: "FF3B30")
@@ -300,16 +300,16 @@ struct AmenEventBroadcastView: View {
                     }) {
                         HStack(spacing: 10) {
                             Image(systemName: scope.systemImage)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(isSel ? Color(hex: "070607") : Color(hex: "D9A441"))
                                 .frame(width: 22)
                             Text(scope.rawValue)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(isSel ? Color(hex: "070607") : Color.white.opacity(0.85))
                             Spacer()
                             if isSel {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.systemScaled(12, weight: .bold))
                                     .foregroundStyle(Color(hex: "070607"))
                             }
                         }
@@ -346,9 +346,9 @@ struct AmenEventBroadcastView: View {
                     }) {
                         HStack(spacing: 5) {
                             Image(systemName: p.systemImage)
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                             Text(p.rawValue)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                         }
                         .foregroundStyle(isSel ? Color(hex: "070607") : Color.white.opacity(0.85))
                         .padding(.horizontal, 12)
@@ -380,7 +380,7 @@ struct AmenEventBroadcastView: View {
                     Image(systemName: scheduleEnabled ? "clock.fill" : "bolt.fill")
                         .foregroundStyle(Color(hex: "D9A441"))
                     Text(scheduleEnabled ? "Schedule for later" : "Send now")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }
@@ -425,12 +425,12 @@ struct AmenEventBroadcastView: View {
                         .controlSize(.small)
                         .tint(Color(hex: "070607"))
                     Text("Sending…")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color(hex: "070607"))
                 } else {
                     Image(systemName: scheduleEnabled ? "clock.badge.checkmark" : "paperplane.fill")
                     Text(scheduleEnabled ? "Schedule Message" : "Send Now")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                 }
             }
             .foregroundStyle(Color(hex: "070607"))
@@ -455,7 +455,7 @@ struct AmenEventBroadcastView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(Color(hex: "D9A441"))
                 Text("Message sent to \(count) member\(count == 1 ? "" : "s")")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, 18)
@@ -470,7 +470,7 @@ struct AmenEventBroadcastView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.systemScaled(11, weight: .semibold))
             .foregroundStyle(.secondary)
             .textCase(.uppercase)
             .tracking(0.5)
@@ -481,7 +481,7 @@ struct AmenEventBroadcastView: View {
             Image(systemName: "exclamationmark.circle")
                 .foregroundStyle(Color(hex: "FF3B30"))
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.white)
                 .lineLimit(3)
         }
@@ -534,7 +534,7 @@ struct AmenEventBroadcastView: View {
                     payload["scheduledAt"] = scheduledDate.timeIntervalSince1970
                 }
 
-                let fn = Functions.functions().httpsCallable("broadcastSpaceAnnouncement")
+                let fn = Functions.functions(region: "us-east1").httpsCallable("broadcastSpaceAnnouncement")
                 let result = try await fn.call(payload)
 
                 let count: Int

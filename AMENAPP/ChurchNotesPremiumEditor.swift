@@ -479,9 +479,9 @@ struct ChurchNotesPremiumEditor: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: isReviewMode ? "pencil" : "eye")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                     Text(isReviewMode ? "Edit" : "Review")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                 }
                 .foregroundStyle(isReviewMode ? Color.primary.opacity(0.7) : Color.secondary.opacity(0.6))
                 .padding(.horizontal, 10)

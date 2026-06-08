@@ -104,10 +104,10 @@ struct SuccessChipPresenter: ViewModifier {
                     HStack(spacing: 6) {
                         if let icon = chip.systemIcon {
                             Image(systemName: icon)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                         }
                         Text(chip.text)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                     }
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 12)
@@ -143,10 +143,10 @@ struct FloatingStatusPillView: View {
         HStack(spacing: 6) {
             if let systemIcon {
                 Image(systemName: systemIcon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
             }
             Text(text)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 12)
@@ -170,9 +170,9 @@ struct JumpToLatestPill: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text("Latest")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
@@ -244,7 +244,7 @@ struct SoftReactionSheet: View {
             ForEach(actions, id: \.self) { action in
                 Button(action: { onSelect(action) }) {
                     Text(action)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                 }
                 .buttonStyle(.plain)
             }
@@ -312,7 +312,7 @@ struct MorphingBadgeView: View {
                     .frame(width: 8, height: 8)
             } else if count > 0 {
                 Text("\(count)")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)

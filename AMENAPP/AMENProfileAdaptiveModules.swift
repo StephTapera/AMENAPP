@@ -954,7 +954,7 @@ struct AMENProfileAdaptiveModules_Previews: PreviewProvider {
             }
             .padding(16)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .previewDisplayName("All Profile Modules")
     }
 }

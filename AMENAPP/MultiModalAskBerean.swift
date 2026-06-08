@@ -290,7 +290,7 @@ struct AskBereanSheet: View {
                 .frame(width: 80, height: 80)
                 .overlay {
                     Image(systemName: voiceVM.isRecording ? "stop.circle.fill" : "mic.fill")
-                        .font(.system(size: 32))
+                        .font(.systemScaled(32))
                         .foregroundStyle(voiceVM.isRecording ? .red : .indigo)
                 }
                 .onTapGesture {

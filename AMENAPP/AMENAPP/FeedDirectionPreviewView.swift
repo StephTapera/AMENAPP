@@ -12,11 +12,11 @@ struct FeedDirectionPreviewView: View {
                 ForEach(previewLines, id: \.text) { line in
                     HStack(spacing: 8) {
                         Image(systemName: line.isIncrease ? "arrow.up" : "arrow.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(line.isIncrease ? Color.black : Color.secondary)
                             .frame(width: 16)
                         Text(line.text)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.primary)
                     }
                 }

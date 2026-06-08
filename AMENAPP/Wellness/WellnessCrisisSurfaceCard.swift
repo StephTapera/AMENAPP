@@ -14,7 +14,7 @@ struct WellnessCrisisSurfaceCard: View {
                         .fill(.white.opacity(0.18))
                         .frame(width: 28, height: 28)
                     Image(systemName: "exclamationmark")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.systemScaled(13, weight: .bold))
                         .foregroundStyle(.white)
                 }
                 Text("Need help now?")
@@ -68,7 +68,7 @@ struct WellnessCrisisSurfaceCard: View {
                                 .fill(Color(red: 0.90, green: 0.88, blue: 0.99))
                                 .frame(width: 44, height: 44)
                             Image(systemName: "heart.text.square.fill")
-                                .font(.system(size: 20))
+                                .font(.systemScaled(20))
                                 .foregroundStyle(Color(red: 0.40, green: 0.20, blue: 0.72))
                         }
                         VStack(alignment: .leading, spacing: 2) {
@@ -91,7 +91,7 @@ struct WellnessCrisisSurfaceCard: View {
                         }
                         Spacer()
                         Image(systemName: friendExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 18)
@@ -133,7 +133,7 @@ private struct WellnessCrisisRow: View {
                     .fill(iconBg)
                     .frame(width: 44, height: 44)
                 Image(systemName: icon)
-                    .font(.system(size: 19))
+                    .font(.systemScaled(19))
                     .foregroundStyle(iconColor)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -146,7 +146,7 @@ private struct WellnessCrisisRow: View {
             }
             Spacer()
             Image(systemName: "arrow.up.right")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 18)
@@ -172,7 +172,7 @@ private struct WellnessForAFriendExpanded: View {
             ForEach(Array(guidance.enumerated()), id: \.offset) { i, item in
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: item.icon)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(colors[i])
                         .frame(width: 20)
                         .padding(.top, 2)

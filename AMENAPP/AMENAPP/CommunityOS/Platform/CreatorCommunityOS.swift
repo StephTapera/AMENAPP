@@ -445,7 +445,7 @@ struct CreatorCommunityDashboardView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.3")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundColor(Color(.secondaryLabel))
             Text("Share content to start building community around your work")
                 .font(.body)

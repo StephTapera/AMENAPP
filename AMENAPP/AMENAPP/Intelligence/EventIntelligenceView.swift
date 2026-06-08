@@ -92,7 +92,7 @@ struct EventIntelligenceView: View {
     private var emptyView: some View {
         VStack(spacing: 20) {
             Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
@@ -116,7 +116,7 @@ struct EventIntelligenceView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
@@ -165,7 +165,7 @@ private struct RSVPConfirmationSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 52))
+                    .font(.systemScaled(52))
                     .foregroundStyle(.green)
                     .accessibilityHidden(true)
 

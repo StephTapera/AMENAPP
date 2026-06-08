@@ -18,7 +18,7 @@ struct BereanStudyCardView: View {
             // Header
             HStack(spacing: 8) {
                 Image(systemName: card.type.icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(card.type.tintColor)
                     .frame(width: 24, height: 24)
                     .background(card.type.tintColor.opacity(0.12), in: Circle())
@@ -32,7 +32,7 @@ struct BereanStudyCardView: View {
 
                 if card.type.isExpandable {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -132,7 +132,7 @@ struct BereanCrisisResourceCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.shield.fill")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 30, height: 30)
                     .background(Color.orange, in: Circle())
@@ -193,7 +193,7 @@ struct BereanLeadershipPromptBanner: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "person.fill.questionmark")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color(red: 0.40, green: 0.60, blue: 0.80))
                 .frame(width: 36, height: 36)
                 .background(Color(red: 0.40, green: 0.60, blue: 0.80).opacity(0.12), in: Circle())
@@ -214,7 +214,7 @@ struct BereanLeadershipPromptBanner: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.tertiary)
                     .frame(width: 24, height: 24)
             }

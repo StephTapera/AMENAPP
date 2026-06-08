@@ -5,7 +5,7 @@
 //  Above-keyboard formatting bar with bold/italic/underline,
 //  5 highlight type pills, and block conversion actions.
 //
-//  iOS 26+: each button segment uses native .glassEffect() so the bar
+//  iOS 26+: each button segment uses native .amenGlassEffect() so the bar
 //  matches the iOS 26 Notes app formatting toolbar pattern.
 //  Reduce-transparency: falls back to a solid systemBackground strip.
 //
@@ -79,9 +79,9 @@ struct ChurchNoteFormattingBar: View {
                         Button { onHighlight(type) } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: type.icon)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                 Text(type.shortLabel)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                             }
                             .foregroundStyle(isSelected ? type.selectedButtonTextColor : .primary.opacity(0.65))
                             .padding(.horizontal, 10)
@@ -103,7 +103,7 @@ struct ChurchNoteFormattingBar: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel(type.shortLabel)
                         .accessibilityAddTraits(isSelected ? .isSelected : [])
-                        .glassEffect(in: Capsule())
+                        .amenGlassEffect(in: Capsule())
                         .animation(reduceMotion ? nil : .snappy, value: isSelected)
                     }
                 }
@@ -120,9 +120,9 @@ struct ChurchNoteFormattingBar: View {
                         } label: {
                             HStack(spacing: 3) {
                                 Image(systemName: type.icon)
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                 Text(type.displayName)
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.systemScaled(11, weight: .medium))
                             }
                             .foregroundStyle(hasSelection ? Color.secondary : Color.secondary.opacity(0.3))
                             .padding(.horizontal, 8)
@@ -132,7 +132,7 @@ struct ChurchNoteFormattingBar: View {
                         .disabled(!hasSelection)
                         .accessibilityLabel("Convert to \(type.displayName)")
                         .accessibilityHint(hasSelection ? "" : "Requires a text selection")
-                        .glassEffect(in: Capsule())
+                        .amenGlassEffect(in: Capsule())
                         .animation(reduceMotion ? nil : .snappy, value: hasSelection)
                     }
                 }
@@ -167,9 +167,9 @@ struct ChurchNoteFormattingBar: View {
                 } label: {
                     HStack(spacing: 3) {
                         Image(systemName: type.icon)
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text(type.displayName)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                     }
                     .foregroundStyle(hasSelection ? Color.secondary : Color.secondary.opacity(0.3))
                     .padding(.horizontal, 8)
@@ -187,17 +187,17 @@ struct ChurchNoteFormattingBar: View {
 
     // MARK: - Helpers
 
-    /// Glass format button — `.glassEffect()` is the last modifier on the button.
+    /// Glass format button — `.amenGlassEffect()` is the last modifier on the button.
     private func formatButton(icon: String, label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(isActive ? Color.primary : Color.secondary)
                 .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
-        .glassEffect()
+        .amenGlassEffect()
         .animation(reduceMotion ? nil : .snappy, value: isActive)
     }
 
@@ -205,7 +205,7 @@ struct ChurchNoteFormattingBar: View {
     private func solidFormatButton(icon: String, label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(isActive ? Color.primary : Color.secondary)
                 .frame(width: 40, height: 36)
                 .background(

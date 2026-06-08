@@ -31,12 +31,12 @@ struct BereanAssistantPulseCard: View {
             // Title + subtitle stack
             VStack(alignment: .leading, spacing: 3) {
                 Text(pulse.title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundColor(.primary)
                     .lineLimit(1)
 
                 Text(pulse.subtitle)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundColor(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -45,7 +45,7 @@ struct BereanAssistantPulseCard: View {
 
             // Disclosure chevron
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundColor(Color(.tertiaryLabel))
         }
         .padding(.horizontal, DesignTokens.spacingM)
@@ -117,7 +117,7 @@ struct BereanAssistantPulseCard: View {
 
             // Symbol
             Image(systemName: "sparkles")
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [

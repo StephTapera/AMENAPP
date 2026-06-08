@@ -15,7 +15,7 @@ struct GreetingHeaderView: View {
                     .fill(iconBackground)
                     .frame(width: 38, height: 38)
                 Image(systemName: timeIcon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(iconColor)
             }
 
@@ -76,7 +76,7 @@ private struct IntentModePill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: intent.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
             Text(intent.rawValue)
                 .font(.custom("OpenSans-SemiBold", size: 11))
         }

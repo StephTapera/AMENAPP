@@ -84,7 +84,10 @@ struct AmenDiscoveryRailsView: View {
 
                 if viewModel.isLoading && viewModel.rails.isEmpty {
                     loadingPlaceholder
-                } else if viewModel.rails.isEmpty {
+                } else if viewModel.rails.isEmpty && !heroCardsEnabled {
+                    // Only show the empty state when no hero cards are visible above.
+                    // If heroCardsEnabled, the Featured carousel already provides content —
+                    // showing "Discovering your community…" alongside visible cards is misleading.
                     emptyState
                 } else {
                     ForEach(viewModel.rails) { rail in
@@ -198,7 +201,7 @@ struct AmenDiscoveryRailsView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "sparkles")
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(Color.amenSlate.opacity(0.5))
             Text("Discovering your community...")
                 .font(.subheadline)
@@ -232,12 +235,12 @@ struct AmenDiscoveryRailSection: View {
     private var sectionHeader: some View {
         HStack(spacing: 6) {
             Image(systemName: rail.type.iconName)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(Color.amenBlack)
                 .accessibilityHidden(true)
 
             Text(rail.type.title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.amenBlack)
                 .accessibilityAddTraits(.isHeader)
 
@@ -247,7 +250,7 @@ struct AmenDiscoveryRailSection: View {
                 onSeeAll?(rail.type)
             } label: {
                 Text("See All")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(Color.accentColor)
             }
             .buttonStyle(.plain)
@@ -373,7 +376,7 @@ struct AmenDiscoveryRailCard: View {
             Rectangle()
                 .fill(Color(.tertiarySystemBackground))
             Image(systemName: fallbackIcon)
-                .font(.system(size: 28, weight: .light))
+                .font(.systemScaled(28, weight: .light))
                 .foregroundStyle(Color.amenSlate.opacity(0.5))
         }
     }
@@ -396,14 +399,14 @@ struct AmenDiscoveryRailCard: View {
     private var textSection: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(item.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let sub = item.subtitle {
                 Text(sub)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .lineLimit(1)
             }

@@ -937,7 +937,7 @@ struct NotificationsView: View {
             HStack(spacing: 6) {
                 Image(systemName: filter.icon)
                     .font(.systemScaled(13, weight: .semibold))
-                    .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
+                    .amenSymbolReplaceTransition()
                 
                 Text(filter.rawValue)
                     .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
@@ -1436,7 +1436,7 @@ struct GroupedNotificationRow: View {
 
         func boldAttr(_ s: String) -> AttributedString {
             var a = AttributedString(s)
-            a.font = .system(size: 15, weight: .semibold)
+            a.font = .systemScaled(15, weight: .semibold)
             a.foregroundColor = .label
             return a
         }

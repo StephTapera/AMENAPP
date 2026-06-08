@@ -15,8 +15,8 @@ struct ChurchNotesBottomActionCapsule: View {
             ForEach(actions) { action in
                 Button(action: action.handler) {
                     VStack(spacing: 3) {
-                        Image(systemName: action.icon).font(.system(size: 16))
-                        Text(action.label).font(.system(size: 10, weight: .medium))
+                        Image(systemName: action.icon).font(.systemScaled(16))
+                        Text(action.label).font(.systemScaled(10, weight: .medium))
                     }
                     .foregroundStyle(.primary.opacity(0.72))
                     .frame(maxWidth: .infinity)

@@ -185,7 +185,7 @@ struct AmenOrgProfileView: View {
         Color(uiColor: .secondarySystemBackground)
             .overlay(
                 Image(systemName: org.type.systemImage)
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             )
     }
@@ -215,7 +215,7 @@ struct AmenOrgProfileView: View {
         ZStack {
             Color(uiColor: .secondarySystemBackground)
             Image(systemName: org.type.systemImage)
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }
     }
@@ -231,7 +231,7 @@ struct AmenOrgProfileView: View {
 
                 if org.verificationStatus == .verified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(Color.accentColor)
                         .accessibilityLabel("Verified organization")
                 }
@@ -437,7 +437,7 @@ struct AmenOrgProfileView: View {
     private func aboutRow(icon: String, label: String, value: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 20)
             Text(label)
@@ -497,7 +497,7 @@ struct AmenOrgProfileView: View {
     private var eventsTab: some View {
         VStack(spacing: 16) {
             Image(systemName: "calendar")
-                .font(.system(size: 36, weight: .ultraLight))
+                .font(.systemScaled(36, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Events are coming soon.")
@@ -515,7 +515,7 @@ struct AmenOrgProfileView: View {
     private func opportunitiesTab(org: AmenOrganization) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "briefcase")
-                .font(.system(size: 36, weight: .ultraLight))
+                .font(.systemScaled(36, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Opportunities feed is coming in A10.")
@@ -569,7 +569,7 @@ struct AmenOrgProfileView: View {
     private func errorView(message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Unable to load organization.")

@@ -40,7 +40,7 @@ struct BereanOSOnboardingView: View {
                         Spacer()
 
                         Image(systemName: pages[i].icon)
-                            .font(.system(size: 72))
+                            .font(.systemScaled(72))
                             .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
 

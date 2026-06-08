@@ -296,7 +296,7 @@ struct FaithReelCreatorView: View {
         var uiFont: Font {
             switch self {
             case .serif:  return .custom("Georgia", size: 18)
-            case .sans:   return .system(size: 18, weight: .regular)
+            case .sans:   return .systemScaled(18, weight: .regular)
             case .script: return .custom("Georgia-Italic", size: 18)
             }
         }
@@ -648,7 +648,7 @@ struct FaithReelCreatorView: View {
         Text(scriptureText.isEmpty ? "Your verse will appear here..." : scriptureText)
             .font(selectedFont == .serif ? .custom("Georgia", size: 14) :
                   selectedFont == .script ? .custom("Georgia-Italic", size: 14) :
-                  .system(size: 14))
+                  .systemScaled(14))
             .foregroundStyle(scriptureText.isEmpty ? Color.white.opacity(0.2) : Color.white.opacity(0.85))
             .multilineTextAlignment(.center)
             .padding(.horizontal, 8)

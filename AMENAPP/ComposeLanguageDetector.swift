@@ -30,7 +30,7 @@ struct ComposeLanguageChip: View {
             if let detected = detectedLanguage, text.count >= 15 {
                 HStack(spacing: 4) {
                     Image(systemName: "globe")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
 
                     if isDifferentLanguage {
                         Text("Writing in \(SupportedLanguage.displayName(for: detected))")

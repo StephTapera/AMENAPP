@@ -12,17 +12,17 @@ struct AmenInlineObjectHubPill: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: model.iconName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
 
                 Text(model.aggregateText)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.systemScaled(12.5, weight: .medium))
                     .lineLimit(1)
 
                 Text("·")
                     .foregroundStyle(.black.opacity(0.35))
 
                 Text(model.actionText)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.systemScaled(12.5, weight: .semibold))
                     .lineLimit(1)
             }
             .foregroundStyle(.black.opacity(contrast == .increased ? 0.95 : 0.85))

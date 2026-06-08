@@ -232,8 +232,32 @@ struct AmenConnectProfileView: View {
                     vm.showEditProfile = true
                 }
             } else {
-                profileButton("Pray", icon: "hands.sparkles") {}
-                profileButton("Message", icon: "bubble.left") {}
+                profileButton("Pray", icon: "hands.sparkles") {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    NotificationCenter.default.post(
+                        name: Notification.Name("amenPrayForUser"),
+                        object: nil,
+                        userInfo: ["userId": vm.profile.id]
+                    )
+                }
+                profileButton("Message", icon: "bubble.left") {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    NotificationCenter.default.post(
+                        name: Notification.Name("amenOpenDM"),
+                        object: nil,
+                        userInfo: ["userId": vm.profile.id]
+                    )
+                }
+                profileButton("Share", icon: "square.and.arrow.up") {
+                    let username = vm.profile.username
+                    let userId   = vm.profile.id
+                    let text     = "Check out \(username) on AMEN – amen://user/\(userId)"
+                    let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let root  = scene.windows.first?.rootViewController {
+                        root.present(av, animated: true)
+                    }
+                }
             }
         }
         .padding(.horizontal, 24)
@@ -504,7 +528,7 @@ private struct AmenServiceMatchSheet: View {
         NavigationStack {
             VStack(spacing: 20) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(Color.amenPurple)
                     .padding(.top, 40)
                 Text("Berean is looking for opportunities that match your gifts")

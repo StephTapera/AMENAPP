@@ -82,7 +82,7 @@ struct ServiceModeOverlay: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text("Service Mode")
                     .font(AMENFont.semiBold(12))
@@ -118,7 +118,7 @@ struct ServiceModeOverlay: View {
                         .font(AMENFont.semiBold(12))
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -132,7 +132,7 @@ struct ServiceModeOverlay: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: action.icon)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(.primary)
                             Text(action.label)
                                 .font(AMENFont.semiBold(12))

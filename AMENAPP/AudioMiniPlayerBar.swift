@@ -21,7 +21,7 @@ struct AudioMiniPlayerBar: View {
                     speechService.togglePlayPause()
                 } label: {
                     Image(systemName: speechService.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color(.label))
                         .frame(width: 32, height: 32)
                 }
@@ -68,7 +68,7 @@ struct AudioMiniPlayerBar: View {
                     speechService.stop()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .frame(width: 28, height: 28)
                         .background(Color(.tertiarySystemFill))

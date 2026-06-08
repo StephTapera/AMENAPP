@@ -34,19 +34,21 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.moderateCreatorAsset = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
-exports.moderateCreatorAsset = functions.https.onCall(async (data, context) => {
+exports.moderateCreatorAsset = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     const ownerID = context.auth.uid;
     const assetID = String(data?.assetID ?? "");
     if (!assetID) {
-        throw new functions.https.HttpsError("invalid-argument", "Missing assetID");
+        throw new https_1.HttpsError("invalid-argument", "Missing assetID");
     }
     const assetRef = admin.firestore()
         .collection("users")

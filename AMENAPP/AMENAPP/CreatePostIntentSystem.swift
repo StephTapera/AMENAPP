@@ -130,7 +130,7 @@ struct ComposerSuggestionChips: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(label)
                     .font(AMENFont.semiBold(12))
             }
@@ -208,7 +208,7 @@ private struct IntentPill: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: intent.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(intent.displayName)
                     .font(AMENFont.semiBold(12))
             }
@@ -236,7 +236,7 @@ private struct AudiencePill: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: hint.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(hint.displayName)
                     .font(AMENFont.semiBold(12))
             }

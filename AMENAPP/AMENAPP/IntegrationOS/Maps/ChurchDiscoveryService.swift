@@ -42,7 +42,10 @@ actor ChurchDiscoveryService {
 
         return response.mapItems.map { item in
             ChurchResult(
-                id: item.identifier?.rawValue ?? UUID().uuidString,
+                id: {
+                    if #available(iOS 18, *) { return item.identifier?.rawValue ?? UUID().uuidString }
+                    return UUID().uuidString
+                }(),
                 name: item.name ?? "Church",
                 address: formattedAddress(item.placemark),
                 coordinate: item.placemark.coordinate,

@@ -301,11 +301,13 @@ struct DailyVerseBanner: View {
             await loadCachedVerseIfNeeded()
         }
         // OFFLINE FIX: When the app moves to active and the verse is a curated fallback
-        // (isPersonalized == false), attempt a fresh Cloud Function call now that the
-        // network may be available.  Guard on isGenerating to avoid duplicate calls.
+        // (!isFromAI), attempt a fresh Cloud Function call now that the network may be
+        // available. Guard on isGenerating to avoid duplicate calls.
+        // A5-008: Use isFromAI (not the deprecated isPersonalized) — the retry trigger is
+        // "we never got an AI verse", regardless of whether it would be personalised.
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active,
-               !verseService.isPersonalized,
+               !verseService.isFromAI,
                networkMonitor.isConnected,
                !verseService.isGenerating {
                 Task { _ = await verseService.generatePersonalizedDailyVerse(forceRefresh: true) }

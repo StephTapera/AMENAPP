@@ -221,7 +221,7 @@ private struct DiscernmentNoteCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "scale.3d")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.orange.opacity(0.85))
                 .padding(.top, 2)
 

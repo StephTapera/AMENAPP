@@ -45,6 +45,14 @@ struct AskSelahView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.top, 16)
                                 .textSelection(.enabled)
+
+                            // Check against Scripture — Requires DiscernmentActionButton.swift in target (see SelahScripture/)
+                            DiscernmentActionButton(
+                                inputText: streamedContent,
+                                sourceType: "selah_note",
+                                sourceRef: nil
+                            )
+                            .padding(.horizontal, 20)
                         }
 
                         if isStreaming {
@@ -114,7 +122,7 @@ struct AskSelahView: View {
             }
             .padding(.horizontal, 20)
         }
-        .frame(height: 34)
+        .frame(minHeight: 34)
     }
 
     private func sourcePill(icon: String, label: String, color: Color) -> some View {
@@ -137,7 +145,7 @@ struct AskSelahView: View {
             Spacer()
 
             Image(systemName: "brain.head.profile")
-                .font(.system(size: 44, weight: .light))
+                .font(.systemScaled(44, weight: .light))
                 .foregroundStyle(.secondary.opacity(0.35))
 
             VStack(spacing: 6) {
@@ -240,7 +248,7 @@ struct AskSelahView: View {
                 submitQuery()
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 30))
+                    .font(.systemScaled(30))
                     .foregroundStyle(query.trimmingCharacters(in: .whitespaces).isEmpty ? .secondary : Color.accentColor)
             }
             .buttonStyle(.plain)

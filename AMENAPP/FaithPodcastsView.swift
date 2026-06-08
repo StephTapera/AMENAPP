@@ -738,7 +738,10 @@ struct MiniPlayer: View {
 struct PodcastDetailView: View {
     let podcast: Podcast
     @Environment(\.dismiss) var dismiss
-    
+    @State private var showingShare = false
+    @State private var isSubscribed = false
+    @State private var isPlaying = false
+
     var body: some View {
         ScrollView {
                 VStack(spacing: 24) {
@@ -796,21 +799,23 @@ struct PodcastDetailView: View {
                     // Action buttons
                     HStack(spacing: 12) {
                         Button {
-                            // Subscribe action
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            isSubscribed.toggle()
                         } label: {
-                            Text("Subscribe")
+                            Text(isSubscribed ? "Subscribed" : "Subscribe")
                                 .font(.custom("OpenSans-Bold", size: 16))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.black)
+                                        .fill(isSubscribed ? Color.gray : Color.black)
                                 )
                         }
                         
                         Button {
-                            // Share action
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            showingShare = true
                         } label: {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.systemScaled(18))
@@ -844,12 +849,20 @@ struct PodcastDetailView: View {
                             .padding(.horizontal, 32)
                         
                         ForEach(0..<5) { index in
-                            EpisodeRow(episodeNumber: index + 1)
+                            EpisodeRow(episodeNumber: index + 1, onPlay: { isPlaying = true })
                         }
                     }
                     
                     Spacer(minLength: 40)
                 }
+            }
+            .sheet(isPresented: $showingShare) {
+                ShareLink(
+                    item: "\(podcast.title) by \(podcast.host)",
+                    subject: Text(podcast.title),
+                    message: Text("Check out this podcast on Faith Podcasts in AMEN!")
+                )
+                .presentationDetents([.medium])
             }
             .safeAreaInset(edge: .top) {
                 // Custom header with dismiss button
@@ -862,14 +875,14 @@ struct PodcastDetailView: View {
                                 .fill(.ultraThinMaterial)
                                 .frame(width: 36, height: 36)
                                 .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
-                            
+
                             Image(systemName: "xmark")
                                 .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(.primary)
                         }
                     }
                     .buttonStyle(LiquidGlassButtonStyle())
-                    
+
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -886,7 +899,8 @@ struct PodcastDetailView: View {
 
 struct EpisodeRow: View {
     let episodeNumber: Int
-    
+    var onPlay: (() -> Void)? = nil
+
     var body: some View {
         HStack(spacing: 16) {
             // Episode artwork thumbnail
@@ -914,7 +928,8 @@ struct EpisodeRow: View {
             Spacer()
             
             Button {
-                // Play episode
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                onPlay?()
             } label: {
                 Image(systemName: "play.circle.fill")
                     .font(.systemScaled(32))

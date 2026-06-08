@@ -47,7 +47,7 @@ private struct ThinkFirstSheet: View {
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "hand.raised.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.orange)
                 .padding(.top, 28)
 

@@ -457,7 +457,7 @@ struct ImpactOpportunitiesView: View {
                     .padding(.vertical, 8)
                     .background(Color(.label))
                     .clipShape(Capsule())
-                    .glassEffect()
+                    .amenGlassEffect()
                 }
                 .accessibilityLabel("Learn more about \(opportunity.title)")
             }
@@ -472,7 +472,7 @@ struct ImpactOpportunitiesView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "figure.walk.circle")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundColor(Color(.secondaryLabel))
             Text("Opportunities will appear as your community grows")
                 .font(.body)

@@ -15,6 +15,7 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions
 import Combine
+import Speech
 
 private struct UnifiedChatScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
@@ -197,6 +198,7 @@ struct UnifiedChatView: View {
     @StateObject private var intelligenceCoordinator = AmenMessagingIntelligenceCoordinator()
     @State private var pendingSaveMessage: AmenMessageSaveContext? = nil
     @State private var pendingTranscriptMessage: AppMessage? = nil   // CF-2: voice transcript panel
+    @State private var transcriptState: AmenVoiceTranscriptState = .loading
     @State private var activeMediaActionMessage: AppMessage? = nil   // Phase 11: media action overlay
     @State private var safetyNudgeIsForEdit: Bool = false            // NB-5: edit safety routing
 
@@ -988,7 +990,7 @@ struct UnifiedChatView: View {
         }
         // CF-2: Voice transcript panel — honest unavailable state until STT is wired
         .sheet(item: $pendingTranscriptMessage) { _ in
-            unavailableTranscriptPanel
+            voiceTranscriptPanel
         }
         // Crisis resources: presented when safe messaging gateway detects self-harm
         // signals in the sender's own message (offerCrisisResources == true).
@@ -2561,21 +2563,64 @@ struct UnifiedChatView: View {
         }
     }
 
-    private var unavailableTranscriptPanel: some View {
+    private var voiceTranscriptPanel: some View {
         AmenVoiceTranscriptPanel(
-            state: .unavailable,
-            onClose: { pendingTranscriptMessage = nil },
-            onCopy: nil,
+            state: transcriptState,
+            onClose: {
+                pendingTranscriptMessage = nil
+                transcriptState = .loading
+            },
+            onCopy: { text in UIPasteboard.general.string = text },
             onTranslate: nil
         )
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
+        .onAppear {
+            guard let message = pendingTranscriptMessage else { return }
+            Task { await transcribeVoiceMessage(message) }
+        }
     }
 
     private func handleVoiceRecordingCompletion(_ audioURL: URL, _ duration: TimeInterval) {
         Task { @MainActor in
             isRecording = false
             handleVoiceMessageRecorded(url: audioURL, duration: duration)
+        }
+    }
+
+    private func transcribeVoiceMessage(_ message: AppMessage) async {
+        guard let urlString = message.mediaURL, let audioURL = URL(string: urlString) else {
+            transcriptState = .unavailable
+            return
+        }
+        transcriptState = .loading
+        do {
+            let (tempURL, _) = try await URLSession.shared.download(from: audioURL)
+            guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
+                transcriptState = .unavailable
+                return
+            }
+            let request = SFSpeechURLRecognitionRequest(url: tempURL)
+            request.shouldReportPartialResults = false
+            var task: SFSpeechRecognitionTask?
+            let text: String = try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { cont in
+                    var resumed = false
+                    task = recognizer.recognitionTask(with: request) { result, error in
+                        guard !resumed else { return }
+                        if let error { resumed = true; cont.resume(throwing: error); return }
+                        if let result, result.isFinal {
+                            resumed = true
+                            cont.resume(returning: result.bestTranscription.formattedString)
+                        }
+                    }
+                }
+            } onCancel: {
+                task?.cancel()
+            }
+            transcriptState = text.isEmpty ? .failed : .succeeded(text)
+        } catch {
+            transcriptState = .failed
         }
     }
 
@@ -3361,8 +3406,8 @@ struct UnifiedChatView: View {
                 )
             }
         case .voiceTranscript:
-            // CF-2: open transcript panel in honest unavailable state; no silent no-op
-            AmenMessagingAnalytics.track(.voiceTranscriptUnavailable)
+            AmenMessagingAnalytics.track(.voiceTranscriptRequested)
+            transcriptState = .loading
             pendingTranscriptMessage = selectedMessage
                 ?? messages.last(where: { !$0.isFromCurrentUser })
                 ?? messages.last

@@ -23,7 +23,7 @@ struct CatchMeUpBanner: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                         .symbolEffect(.pulse, isActive: state == .loading && !reduceMotion)
 

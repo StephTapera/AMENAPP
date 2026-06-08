@@ -166,7 +166,7 @@ struct TimestampedCommentsView: View {
                 } else {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(newCommentText.trimmingCharacters(in: .whitespaces).isEmpty ? .quaternary : .blue)
+                        .foregroundStyle(newCommentText.trimmingCharacters(in: .whitespaces).isEmpty ? AnyShapeStyle(.quaternary) : AnyShapeStyle(Color.blue))
                 }
             }
             .disabled(newCommentText.trimmingCharacters(in: .whitespaces).isEmpty || isSubmitting)

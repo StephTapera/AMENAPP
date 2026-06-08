@@ -56,7 +56,7 @@ final class PrayerSessionManager {
 
     /// End the session and dismiss the Live Activity immediately.
     func end() async {
-        await activity?.end(dismissalPolicy: .immediate)
+        await activity?.end(nil, dismissalPolicy: .immediate)
         activity = nil
         stateObserver?.cancel()
         stateObserver = nil

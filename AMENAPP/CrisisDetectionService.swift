@@ -168,7 +168,14 @@ class CrisisDetectionService {
     }
     
     // MARK: - Quick Local Crisis Detection
-    
+
+    /// Fast synchronous scan for crisis keywords — safe to call from any context.
+    /// Returns `true` if local patterns match, triggering immediate resource display
+    /// before any server response.
+    func hasLocalCrisisSignal(in text: String) -> Bool {
+        performQuickCrisisCheck(text) != nil
+    }
+
     /// Perform instant local pattern matching for crisis keywords
     private func performQuickCrisisCheck(_ text: String) -> CrisisDetectionResult? {
         let lowercased = text.lowercased()
@@ -292,16 +299,17 @@ class CrisisDetectionService {
             return response
             
         } catch {
-            dlog("❌ [CRISIS] AI API error: \(error)")
-            
-            // Fallback: No crisis detected if AI fails
+            dlog("❌ [CRISIS] AI API error — failing closed: \(error)")
+
+            // Fail-closed: when AI analysis is unreachable (network outage, timeout),
+            // surface crisis resources as a precaution rather than silently pass.
             return CrisisDetectionResult(
-                isCrisis: false,
+                isCrisis: true,
                 crisisTypes: [],
-                urgencyLevel: .none,
-                recommendedResources: [],
+                urgencyLevel: .low,
+                recommendedResources: [.mentalHealth, .crisisTextLine, .christianCounseling],
                 confidence: 0.0,
-                suggestedIntervention: .none
+                suggestedIntervention: .showResources
             )
         }
     }

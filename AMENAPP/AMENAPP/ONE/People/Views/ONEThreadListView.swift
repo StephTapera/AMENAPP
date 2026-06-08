@@ -9,7 +9,6 @@ struct ONEThreadListView: View {
     @ObservedObject var store: ONEThreadStore
 
     @State private var searchQuery = ""
-    @State private var showEphemeralFlow = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var currentUID: String { Auth.auth().currentUser?.uid ?? "" }
@@ -43,16 +42,6 @@ struct ONEThreadListView: View {
                         participantNames: [:],
                         store: store
                     )
-                }
-            }
-            .sheet(isPresented: $showEphemeralFlow) {
-                ONEEphemeralGroupFlowView(participantUIDs: []) { settings in
-                    Task {
-                        try? await store.createEphemeralThread(
-                            participantUIDs: [],
-                            settings: settings
-                        )
-                    }
                 }
             }
         }
@@ -89,26 +78,26 @@ struct ONEThreadListView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(threadName(thread))
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     Spacer()
                     Text(thread.lastActivityAt, style: .relative)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.tertiary)
                 }
 
                 HStack(spacing: ONE.Spacing.xs) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 9))
+                        .font(.systemScaled(9))
                         .foregroundStyle(ONE.Colors.privateIndigo)
                         .accessibilityHidden(true)
                     Text("End-to-end encrypted")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     if thread.isEphemeral {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                             .foregroundStyle(ONE.Colors.ephemeralRed)
                     }
                 }
@@ -126,7 +115,7 @@ struct ONEThreadListView: View {
         return ZStack {
             Circle().fill(ONE.Colors.privateIndigo.opacity(0.18))
             Text(initials)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(ONE.Colors.privateIndigo)
         }
         .frame(width: 44, height: 44)
@@ -143,14 +132,14 @@ struct ONEThreadListView: View {
     private var emptyState: some View {
         VStack(spacing: ONE.Spacing.lg) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(ONE.Colors.privateIndigo.opacity(0.35))
 
             VStack(spacing: ONE.Spacing.sm) {
                 Text("Private conversations")
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.systemScaled(19, weight: .semibold))
                 Text("Every message is end-to-end encrypted.\nStart a conversation only you and the recipient can read.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -169,18 +158,11 @@ struct ONEThreadListView: View {
     // MARK: - Toolbar
 
     private var newConversationButton: some View {
-        Menu {
-            Button {
-                NotificationCenter.default.post(name: Notification.Name("AmenOpenContactPicker"), object: nil)
-            } label: {
-                Label("New Message", systemImage: "square.and.pencil")
-            }
-            Button { showEphemeralFlow = true } label: {
-                Label("Ephemeral Group", systemImage: "flame.fill")
-            }
+        Button {
+            NotificationCenter.default.post(name: Notification.Name("AmenOpenContactPicker"), object: nil)
         } label: {
             Image(systemName: "square.and.pencil")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
         }
         .accessibilityLabel("New conversation")
     }

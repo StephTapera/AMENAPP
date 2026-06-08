@@ -29,7 +29,7 @@ struct AmenSyncHubCard: View {
                         )
 
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(.white)
                 }
 
@@ -58,7 +58,7 @@ struct AmenSyncHubCard: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.5))
             }
             .padding(16)

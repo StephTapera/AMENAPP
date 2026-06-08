@@ -27,9 +27,9 @@ struct AmenHiddenReactionRing: View {
                     } label: {
                         VStack(spacing: 4) {
                             Image(systemName: reaction.systemImage)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                             Text(reaction.title)
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .lineLimit(1)
                         }
                         .foregroundStyle(.black.opacity(0.84))

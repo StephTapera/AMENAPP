@@ -59,7 +59,7 @@ struct AmenUniversalSearchView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
 
                 TextField("Search people, verses, churches…", text: $query)
                     .focused($isFocused)
@@ -129,7 +129,7 @@ struct AmenUniversalSearchView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "clock")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                             .frame(width: 20)
 
@@ -181,7 +181,7 @@ struct AmenUniversalSearchView: View {
     private func trendingTopicCell(_ topic: DiscoveryTopic) -> some View {
         HStack(spacing: 8) {
             Image(systemName: topic.icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(topic.iconColor)
                 .frame(width: 32, height: 32)
                 .background(topic.iconColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))

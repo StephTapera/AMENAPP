@@ -61,7 +61,7 @@ private struct BannedAccountView: View {
             Spacer()
 
             Image(systemName: "person.crop.circle.badge.xmark")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.red)
 
             VStack(spacing: 10) {
@@ -119,7 +119,7 @@ private struct FrozenAccountView: View {
             Spacer()
 
             Image(systemName: "lock.circle.fill")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(.orange)
 
             VStack(spacing: 10) {

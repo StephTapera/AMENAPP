@@ -245,7 +245,7 @@ struct SafeContactFlow: View {
             Spacer()
 
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
+                .font(.systemScaled(64))
                 .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
 
@@ -293,7 +293,7 @@ struct SafeContactFlow: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(Color.orange)
                 .accessibilityHidden(true)
             Text("Something went wrong")
@@ -326,7 +326,7 @@ struct SafeContactFlow: View {
     private var privacyBanner: some View {
         HStack(spacing: 12) {
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 22))
+                .font(.systemScaled(22))
                 .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
@@ -378,7 +378,7 @@ struct SafeContactFlow: View {
     private func stepBullet(icon: String, text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 20)
             Text(text)

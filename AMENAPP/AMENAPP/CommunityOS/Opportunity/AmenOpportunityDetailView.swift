@@ -144,7 +144,7 @@ struct AmenJobDetailView: View {
             ForEach(job.requirements, id: \.self) { req in
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(Color.accentColor)
                         .padding(.top, 2)
                         .accessibilityHidden(true)

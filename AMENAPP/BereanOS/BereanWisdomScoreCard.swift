@@ -99,7 +99,7 @@ struct BereanWisdomScoreCard: View {
                 let label = axes[i].label
                 let text = ctx.resolve(
                     Text(label)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(Color.secondary)
                 )
                 ctx.draw(text, at: pt)
@@ -155,7 +155,7 @@ struct BereanWisdomScoreCard: View {
                 .font(.title3.bold())
                 .foregroundStyle(.primary)
             Text("/ 10")
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.secondary)
         }
         .padding(8)

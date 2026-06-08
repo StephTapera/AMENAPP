@@ -45,7 +45,7 @@ struct AmenChatTypingIndicator: View {
     private var pillContent: some View {
         if reduceMotion {
             Text(amenTypingLabel(for: names))
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)

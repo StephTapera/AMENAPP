@@ -89,7 +89,7 @@ struct OpportunityCard: View {
                 Circle()
                     .fill(Color(uiColor: .secondarySystemFill))
                 Image(systemName: post.type.icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.accentColor)
             }
             .frame(width: 32, height: 32)
@@ -104,7 +104,7 @@ struct OpportunityCard: View {
                 // Org verified badge
                 if post.orgId != nil {
                     Label("Verified", systemImage: "checkmark.seal.fill")
-                        .font(.system(size: 10).weight(.medium))
+                        .font(.systemScaled(10).weight(.medium))
                         .foregroundStyle(.mint)
                 }
             }
@@ -121,7 +121,7 @@ struct OpportunityCard: View {
                     onSave?()
                 } label: {
                     Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(isSaved ? Color.accentColor : Color(uiColor: .secondaryLabel))
                 }
                 .buttonStyle(.plain)
@@ -134,7 +134,7 @@ struct OpportunityCard: View {
 
     private var typeBadge: some View {
         Label(post.type.rawValue, systemImage: post.type.icon)
-            .font(.system(size: 10).weight(.semibold))
+            .font(.systemScaled(10).weight(.semibold))
             .foregroundStyle(Color(uiColor: .secondaryLabel))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -200,7 +200,7 @@ struct OpportunityCard: View {
                 showFlagMenu = true
             } label: {
                 Image(systemName: "flag")
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
                     .frame(width: 40, height: 40)
                     .background(

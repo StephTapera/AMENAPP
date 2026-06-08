@@ -57,16 +57,16 @@ struct CrisisGroundingModule: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: mode.systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text(mode.label)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
             }
 
             Text(mode.prompt)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color(UIColor.label).opacity(0.80))
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -94,7 +94,7 @@ struct CrisisGroundingModule: View {
 
     private var emptyPrompt: some View {
         Text("Choose a tool above. Take your time.")
-            .font(.system(size: 14))
+            .font(.systemScaled(14))
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 8)
@@ -114,9 +114,9 @@ private struct GroundingToolPill: View {
         Button(action: onTap) {
             HStack(spacing: 6) {
                 Image(systemName: mode.systemImage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(mode.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(isActive ? .white : .secondary)
             .padding(.horizontal, 14)
@@ -169,7 +169,7 @@ private struct BreathingRingView: View {
                 )
 
             Text("breathe")
-                .font(.system(size: 9, weight: .medium))
+                .font(.systemScaled(9, weight: .medium))
                 .foregroundStyle(Color.blue.opacity(0.55))
         }
         .onAppear { phase = 1 }

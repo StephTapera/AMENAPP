@@ -50,16 +50,16 @@ struct DraftInsightSheet: View {
 
             VStack(spacing: 8) {
                 Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
                 Text("A reflection before you post")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(Color.white)
             }
 
             Text(analysis.observation)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color.white.opacity(0.8))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -67,7 +67,7 @@ struct DraftInsightSheet: View {
             VStack(spacing: 10) {
                 Button(action: onRevise) {
                     Text("Revise my comment")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(Color(.systemBackground))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -76,7 +76,7 @@ struct DraftInsightSheet: View {
                 .accessibilityLabel("Revise my comment")
                 Button(action: onPostAnyway) {
                     Text("Post anyway")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color.white.opacity(0.45))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -110,7 +110,7 @@ struct ReflectionFirstSheet: View {
                 .padding(.top, 12)
 
             Text("What would you like to do?")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.white)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -132,11 +132,11 @@ struct ReflectionFirstSheet: View {
         Button(action: { action(); dismiss() }) {
             VStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(Color.accentColor)
                     .accessibilityHidden(true)
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.85))
                     .multilineTextAlignment(.center)
             }

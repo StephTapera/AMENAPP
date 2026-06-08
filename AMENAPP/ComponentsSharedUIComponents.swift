@@ -412,14 +412,14 @@ struct ErrorView: View {
             
             Text("Something Went Wrong")
                 .font(AMENFont.bold(18))
-                .foregroundColor(.black)
-            
+                .foregroundStyle(.primary)
+
             Text(error.localizedDescription)
                 .font(AMENFont.regular(14))
-                .foregroundColor(.gray)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
-            
+
             if let retryAction = retryAction {
                 Button(action: retryAction) {
                     HStack(spacing: 8) {
@@ -427,10 +427,10 @@ struct ErrorView: View {
                         Text("Try Again")
                     }
                     .font(AMENFont.semiBold(15))
-                    .foregroundColor(.white)
+                    .foregroundStyle(Color(.systemBackground))
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.black)
+                    .background(Color(.label))
                     .cornerRadius(25)
                 }
             }
@@ -455,7 +455,7 @@ struct SharedUIInlineErrorBanner: View {
             
             Text(message)
                 .font(AMENFont.regular(13))
-                .foregroundColor(.black)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             
             Spacer()

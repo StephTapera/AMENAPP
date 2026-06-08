@@ -107,10 +107,10 @@ struct SafeSharePrompt: View {
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: DesignTokens.spacingXS) {
                 Text("Checking content for safety…")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(DesignTokens.textPrimary)
                 Text("This only takes a moment.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(DesignTokens.textSecondary)
             }
         }
@@ -122,15 +122,15 @@ struct SafeSharePrompt: View {
     private var approvedContent: some View {
         HStack(spacing: DesignTokens.spacingM) {
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 26, weight: .medium))
+                .font(.systemScaled(26, weight: .medium))
                 .foregroundStyle(.green)
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: DesignTokens.spacingXS) {
                 Text("Looks good")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(DesignTokens.textPrimary)
                 Text("Your content is ready to share.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(DesignTokens.textSecondary)
             }
         }
@@ -142,21 +142,21 @@ struct SafeSharePrompt: View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingS) {
             HStack(spacing: DesignTokens.spacingM) {
                 Image(systemName: "xmark.shield.fill")
-                    .font(.system(size: 26, weight: .medium))
+                    .font(.systemScaled(26, weight: .medium))
                     .foregroundStyle(.red)
                     .frame(width: 28, height: 28)
                 VStack(alignment: .leading, spacing: DesignTokens.spacingXS) {
                     Text("This content needs a review before sharing.")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(DesignTokens.textPrimary)
                 }
             }
             HStack(spacing: DesignTokens.spacingS) {
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(DesignTokens.textTertiary)
                 Text("We keep this community safe for people of all ages.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(DesignTokens.textSecondary)
             }
         }
@@ -168,15 +168,15 @@ struct SafeSharePrompt: View {
     private func errorContent(message: String) -> some View {
         HStack(spacing: DesignTokens.spacingM) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .foregroundStyle(DesignTokens.textSecondary)
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: DesignTokens.spacingXS) {
                 Text("Could not complete safety check.")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(DesignTokens.textPrimary)
                 Text(message)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(DesignTokens.textSecondary)
             }
         }
@@ -188,15 +188,15 @@ struct SafeSharePrompt: View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingS) {
             HStack(spacing: DesignTokens.spacingS) {
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(DesignTokens.textTertiary)
                 Text("Sharing to \(payload.destinationLabel)")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(DesignTokens.textSecondary)
                     .lineLimit(1)
             }
             Text(payload.text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(DesignTokens.textPrimary)
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
@@ -223,7 +223,7 @@ struct SafeSharePrompt: View {
                     onApprove()
                 } label: {
                     Text("Share")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
@@ -239,7 +239,7 @@ struct SafeSharePrompt: View {
                     onCancel()
                 } label: {
                     Text("Cancel")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(DesignTokens.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -255,7 +255,7 @@ struct SafeSharePrompt: View {
                 onCancel()
             } label: {
                 Text("Got it")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -275,7 +275,7 @@ struct SafeSharePrompt: View {
                     Task { await runModeration() }
                 } label: {
                     Text("Try again")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
@@ -290,7 +290,7 @@ struct SafeSharePrompt: View {
                     onCancel()
                 } label: {
                     Text("Cancel")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(DesignTokens.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)

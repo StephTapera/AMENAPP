@@ -157,7 +157,7 @@ struct ChurchNotesMediaCaptureView: View {
             Spacer()
             if reduceMotion {
                 Image(systemName: "doc.text.magnifyingglass")
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundStyle(.secondary)
             } else {
                 ProgressView()
@@ -179,7 +179,7 @@ struct ChurchNotesMediaCaptureView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.orange)
             Text(message)
                 .font(.systemScaled(16))
@@ -204,7 +204,7 @@ struct ChurchNotesMediaCaptureView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "lock.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.secondary)
             Text("Media capture is not available right now.")
                 .font(.systemScaled(16))

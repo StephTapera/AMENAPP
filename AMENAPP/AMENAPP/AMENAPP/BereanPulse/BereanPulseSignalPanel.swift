@@ -38,7 +38,7 @@ struct BereanPulseSignalPanel: View {
                     }
                 } icon: {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
                 .foregroundStyle(.primary)
 

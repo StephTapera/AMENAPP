@@ -146,6 +146,16 @@ struct DailyVerseBannerView: View {
                         .fill(Color.white.opacity(0.5))
                 )
 
+            HStack(spacing: 3) {
+                Image(systemName: "sparkles")
+                    .font(.systemScaled(8, weight: .medium))
+                Text("AI")
+                    .font(.systemScaled(8, weight: .semibold))
+                    .tracking(0.8)
+            }
+            .foregroundStyle(.tertiary)
+            .accessibilityLabel("AI-generated reflection")
+
             Spacer()
 
             Button(action: toggleExpanded) {
@@ -308,17 +318,17 @@ struct ExpandableSection: View {
                     HStack {
                         Text("Selah View")
                             .font(.systemScaled(13, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
                             .font(.systemScaled(11, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.8))
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.black.opacity(0.9))
+                            .fill(.regularMaterial)
                     )
                 }
                 .buttonStyle(.plain)

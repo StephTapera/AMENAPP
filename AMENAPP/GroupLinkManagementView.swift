@@ -122,7 +122,7 @@ struct GroupLinkManagementView: View {
     private func healthMetric(value: String, label: String, icon: String, alert: Bool = false) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundColor(alert ? .orange : Color.gray.opacity(0.5))
             Text(value)
                 .font(.custom("OpenSans-Bold", size: 18))
@@ -245,7 +245,7 @@ struct GroupLinkManagementView: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "xmark.circle")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .frame(width: 24)
                         Text("Disable Link")
                             .font(.custom("OpenSans-Regular", size: 15))
@@ -265,7 +265,7 @@ struct GroupLinkManagementView: View {
     private var noLinkCard: some View {
         VStack(spacing: 16) {
             Image(systemName: "link.badge.plus")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(.tertiary)
             Text("No active invite link")
                 .font(.custom("OpenSans-Regular", size: 15))
@@ -342,7 +342,7 @@ struct GroupLinkManagementView: View {
                         }
                     } label: {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 26))
+                            .font(.systemScaled(26))
                             .foregroundStyle(.green)
                     }
                     .buttonStyle(.plain)
@@ -358,7 +358,7 @@ struct GroupLinkManagementView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 26))
+                            .font(.systemScaled(26))
                             .foregroundStyle(.red.opacity(0.7))
                     }
                     .buttonStyle(.plain)
@@ -403,7 +403,7 @@ struct GroupLinkManagementView: View {
     private func actionRowLabel(icon: String, label: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
             Text(label)
@@ -411,7 +411,7 @@ struct GroupLinkManagementView: View {
                 .foregroundStyle(.primary)
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.quaternary)
         }
         .padding(.vertical, 12)

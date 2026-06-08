@@ -416,7 +416,7 @@ private struct DiscussionQuestionCardView: View {
                 .foregroundStyle(Color(.label))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .glassEffect(.regular.tint(.white.opacity(0.10)).interactive(), in: Capsule())
+                .amenGlassEffect(in: Capsule())
                 .accessibilityHint("Start a discussion about this question")
         }
         .padding(12)

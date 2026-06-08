@@ -250,6 +250,9 @@ struct Post: Identifiable, Codable, Equatable {
     // Original filename shown in the composer chip and post card
     var documentName: String? = nil
 
+    // Music attachment — optional song attached to this post
+    var music: MusicAttachment? = nil
+
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
         case testimonies = "testimonies"  // ✅ Firebase-safe (lowercase)
@@ -443,6 +446,7 @@ struct Post: Identifiable, Codable, Equatable {
         case sharedChurchEventId, sharedChurchEventName, sharedChurchEventTime
         case actionThreadId, actionThreadType, hasActiveActionThread
         case normalizedTopicKeys, topicScoreMap, primaryTopicKey
+        case music
     }
     
     init(from decoder: Decoder) throws {
@@ -539,6 +543,7 @@ struct Post: Identifiable, Codable, Equatable {
         normalizedTopicKeys = try container.decodeIfPresent([String].self, forKey: .normalizedTopicKeys)
         topicScoreMap = try container.decodeIfPresent([String: Double].self, forKey: .topicScoreMap)
         primaryTopicKey = try container.decodeIfPresent(String.self, forKey: .primaryTopicKey)
+        music = try container.decodeIfPresent(MusicAttachment.self, forKey: .music)
         feedContext = nil
     }
 
@@ -615,6 +620,7 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(normalizedTopicKeys, forKey: .normalizedTopicKeys)
         try container.encodeIfPresent(topicScoreMap, forKey: .topicScoreMap)
         try container.encodeIfPresent(primaryTopicKey, forKey: .primaryTopicKey)
+        try container.encodeIfPresent(music, forKey: .music)
     }
 
     init(

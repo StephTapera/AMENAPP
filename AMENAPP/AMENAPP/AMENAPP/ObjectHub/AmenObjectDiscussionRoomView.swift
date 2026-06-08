@@ -130,7 +130,7 @@ struct AmenObjectDiscussionRoomView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: roomType.icon)
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(roomTypeColor)
             Text("Opening \(roomType.displayName)…")
                 .font(.headline)
@@ -190,7 +190,7 @@ struct AmenObjectDiscussionRoomView: View {
                     .fill(roomTypeColor.opacity(0.12))
                     .frame(width: 60, height: 60)
                 Image(systemName: roomType.icon)
-                    .font(.system(size: 26, weight: .semibold))
+                    .font(.systemScaled(26, weight: .semibold))
                     .foregroundStyle(roomTypeColor)
             }
             Text(roomType.displayName)
@@ -288,7 +288,7 @@ struct AmenObjectDiscussionRoomView: View {
                     ProgressView().tint(.white).scaleEffect(0.8)
                 } else {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(
                             messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                 ? Color.secondary : roomTypeColor
@@ -379,7 +379,7 @@ private struct DiscussionMessageBubble: View {
                 VStack(alignment: isOwn ? .trailing : .leading, spacing: 4) {
                     if !isOwn {
                         Text(message.authorDisplayName)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                     bubbleBody
@@ -424,7 +424,7 @@ private struct DiscussionMessageBubble: View {
 
     private var initialsText: some View {
         Text(initials)
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .foregroundStyle(.purple)
     }
 
@@ -438,7 +438,7 @@ private struct DiscussionMessageBubble: View {
             HStack {
                 Spacer()
                 Text(message.createdAt.dateValue(), style: .time)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(isOwn ? Color.white.opacity(0.6) : Color.secondary.opacity(0.7))
             }
             .padding(.top, 4)

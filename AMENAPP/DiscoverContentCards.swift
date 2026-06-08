@@ -50,7 +50,7 @@ struct DiscoverNewsCard: View {
                             )
                         
                         Image(systemName: "newspaper")
-                            .font(.system(size: 48))
+                            .font(.systemScaled(48))
                             .foregroundStyle(.secondary.opacity(0.3))
                     }
                     .frame(height: 180)
@@ -191,7 +191,7 @@ struct DiscoverVideoCard: View {
                                 )
                             
                             Image(systemName: "play.rectangle.fill")
-                                .font(.system(size: 56))
+                                .font(.systemScaled(56))
                                 .foregroundStyle(.secondary.opacity(0.25))
                         }
                         .frame(height: 200)
@@ -204,7 +204,7 @@ struct DiscoverVideoCard: View {
                             .frame(width: 56, height: 56)
                         
                         Image(systemName: "play.fill")
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.white)
                             .offset(x: 2) // Visual centering
                     }

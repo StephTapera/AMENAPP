@@ -43,6 +43,7 @@ struct AmenSpaceHostOnboardingView: View {
     @State private var submissionError: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openURL) private var openURL
 
     private var requiresEIN: Bool {
         switch selectedHostType {
@@ -91,7 +92,7 @@ struct AmenSpaceHostOnboardingView: View {
             Spacer()
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.70))
                     .padding(9)
                     .background(
@@ -137,7 +138,7 @@ struct AmenSpaceHostOnboardingView: View {
                 .frame(width: isActive ? 10 : 8, height: isActive ? 10 : 8)
             if isComplete {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 5, weight: .black))
+                    .font(.systemScaled(5, weight: .black))
                     .foregroundStyle(Color(hex: "070607"))
             }
         }
@@ -149,12 +150,12 @@ struct AmenSpaceHostOnboardingView: View {
     private var stepTitle: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color(hex: "D9A441").opacity(0.85))
                 .textCase(.uppercase)
                 .kerning(0.8)
             Text(currentStep.title)
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(Color.white)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -201,7 +202,7 @@ struct AmenSpaceHostOnboardingView: View {
         VStack(spacing: 10) {
             if let error = submissionError {
                 Text(error)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.red.opacity(0.85))
                     .multilineTextAlignment(.center)
             }
@@ -223,7 +224,7 @@ struct AmenSpaceHostOnboardingView: View {
             }
         } label: {
             Text("Back")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.70))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -249,7 +250,7 @@ struct AmenSpaceHostOnboardingView: View {
                         .tint(Color(hex: "070607"))
                 } else {
                     Text(currentStep == .payout ? "Complete setup" : "Continue")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color(hex: "070607"))
                 }
             }
@@ -313,6 +314,30 @@ struct AmenSpaceHostOnboardingView: View {
             }
         }
     }
+
+    private func connectBankAccount() async {
+        isSubmitting = true
+        submissionError = nil
+        defer { isSubmitting = false }
+        do {
+            let callable = Functions.functions().httpsCallable("createStripeConnectLink")
+            let payload: [String: Any] = [
+                "entityName": entityName.trimmingCharacters(in: .whitespaces),
+                "entityEmail": entityEmail.trimmingCharacters(in: .whitespaces),
+                "hostType": selectedHostType?.rawValue ?? ""
+            ]
+            let result = try await callable.call(payload)
+            if let data = result.data as? [String: Any],
+               let urlString = data["url"] as? String,
+               let url = URL(string: urlString) {
+                await MainActor.run { openURL(url) }
+            } else {
+                submissionError = "Unable to start payment setup. Please try again."
+            }
+        } catch {
+            submissionError = "Payment setup is unavailable right now. Please try again later."
+        }
+    }
 }
 
 // MARK: - Step 1: Host Type
@@ -366,23 +391,23 @@ private struct HostTypeOptionCard: View {
                         )
                         .frame(width: 44, height: 44)
                     Image(systemName: type.iconName)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(isSelected ? Color(hex: "D9A441") : Color.white.opacity(0.55))
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(type.displayName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                     Text(type.hostDescription)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.50))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -452,7 +477,7 @@ private struct IdentityStep: View {
                     keyboard: .numbersAndPunctuation
                 )
                 Text("Required for churches, organizations, and nonprofits to receive payouts.")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.white.opacity(0.40))
             }
         }
@@ -475,10 +500,10 @@ private struct IdentityStep: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.55))
             TextField(placeholder, text: binding)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white)
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(keyboard == .emailAddress ? .never : .words)
@@ -503,6 +528,8 @@ private struct IdentityStep: View {
 private struct PayoutStep: View {
     let isSubmitting: Bool
 
+    @State private var showComingSoon: Bool = false
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
@@ -511,6 +538,11 @@ private struct PayoutStep: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
+        }
+        .alert("Coming Soon", isPresented: $showComingSoon) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Stripe Connect bank account integration is coming soon. You can complete your host setup now and connect your payout account later from Settings > Payout.")
         }
     }
 
@@ -526,31 +558,33 @@ private struct PayoutStep: View {
                         )
                         .frame(width: 44, height: 44)
                     Image(systemName: "building.columns.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(Color(hex: "245B8F"))
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Bank account")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                     Text("Connected securely via Stripe")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.50))
                 }
             }
 
             Text("Your bank details are entered securely on Stripe's platform. AMEN never sees or stores your account numbers.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.65))
                 .fixedSize(horizontal: false, vertical: true)
 
             Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showComingSoon = true
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.up.right.square")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Connect Bank Account")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                 }
                 .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity)
@@ -565,8 +599,8 @@ private struct PayoutStep: View {
                 )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Connect bank account via Stripe's secure platform")
-            .accessibilityHint("Opens Stripe's hosted onboarding in your browser")
+            .accessibilityLabel("Connect bank account — coming soon")
+            .accessibilityHint("Stripe Connect payout integration is not yet available. You can add it later from Settings.")
         }
         .padding(18)
         .background(
@@ -582,11 +616,11 @@ private struct PayoutStep: View {
     private var stripeNote: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color.white.opacity(0.35))
                 .padding(.top, 1)
             Text("You can continue setup now and connect your bank account later from Settings > Payout.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.40))
                 .fixedSize(horizontal: false, vertical: true)
         }

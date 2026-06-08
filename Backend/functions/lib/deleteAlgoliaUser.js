@@ -48,6 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteAlgoliaUser = void 0;
 const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 // ── Algolia REST helpers ─────────────────────────────────────────────────────
@@ -99,22 +100,24 @@ async function algoliaDeleteByFilter(indexName, filterExpression, adminKey) {
     }
 }
 // ── Cloud Function ────────────────────────────────────────────────────────────
-exports.deleteAlgoliaUser = functions.https.onCall(async (data, context) => {
+exports.deleteAlgoliaUser = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in.");
     }
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     const callerUid = context.auth.uid;
     const requestedUid = typeof data?.userId === "string" ? data.userId.trim() : "";
     if (!requestedUid) {
-        throw new functions.https.HttpsError("invalid-argument", "userId is required.");
+        throw new https_1.HttpsError("invalid-argument", "userId is required.");
     }
     // Only the account owner or an admin may delete Algolia records.
     const isAdmin = context.auth.token.admin === true;
     if (callerUid !== requestedUid && !isAdmin) {
-        throw new functions.https.HttpsError("permission-denied", "You can only delete your own Algolia records.");
+        throw new https_1.HttpsError("permission-denied", "You can only delete your own Algolia records.");
     }
     // Verify the user document is already being deleted (exists check as a guard).
     // We don't fail hard here — the caller may have already deleted the Firestore doc.
@@ -122,7 +125,7 @@ exports.deleteAlgoliaUser = functions.https.onCall(async (data, context) => {
     if (userSnap.exists && callerUid !== requestedUid) {
         // Only admins can delete another user's records while their doc still exists
         if (!isAdmin) {
-            throw new functions.https.HttpsError("permission-denied", "User document still exists and caller is not admin.");
+            throw new https_1.HttpsError("permission-denied", "User document still exists and caller is not admin.");
         }
     }
     let adminKey;

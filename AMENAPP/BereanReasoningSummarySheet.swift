@@ -16,15 +16,15 @@ struct BereanReasoningSummarySheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
                     Image(systemName: node.category.icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(Color.black.opacity(0.7))
                     Text(node.category.title)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.systemScaled(18, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
 
                 Text(node.summary ?? "Berean is preparing this surface.")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(Color.black.opacity(0.75))
                     .lineSpacing(3)
 
@@ -37,7 +37,7 @@ struct BereanReasoningSummarySheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
             }
         }

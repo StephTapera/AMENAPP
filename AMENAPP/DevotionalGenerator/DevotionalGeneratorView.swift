@@ -121,7 +121,7 @@ struct DevotionalGeneratorView: View {
                     .fill(Color.orange.opacity(0.15))
                     .frame(width: 96, height: 96)
                 Image(systemName: "sun.max.fill")
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundStyle(Color.orange)
                     .symbolEffect(.pulse)
             }
@@ -254,7 +254,7 @@ private struct DevotionalToneSelector: View {
                         } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: tone.icon)
-                                    .font(.system(size: 18))
+                                    .font(.systemScaled(18))
                                     .foregroundStyle(selectedTone == tone ? tone.color : .secondary)
                                 Text(tone.rawValue)
                                     .font(.caption2.weight(.medium))
@@ -300,7 +300,7 @@ private struct DevotionalCommunitySelector: View {
                         } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: mode.icon)
-                                    .font(.system(size: 16))
+                                    .font(.systemScaled(16))
                                 Text(mode.rawValue)
                                     .font(.caption2)
                             }
@@ -440,7 +440,7 @@ struct SpiritualRhythmCard: View {
                 HStack(spacing: 16) {
                     VStack(spacing: 2) {
                         Text("\(snapshot.currentStreakDays)")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .font(.systemScaled(32, weight: .bold, design: .rounded))
                             .foregroundStyle(.orange)
                         Text("day streak")
                             .font(.caption2)

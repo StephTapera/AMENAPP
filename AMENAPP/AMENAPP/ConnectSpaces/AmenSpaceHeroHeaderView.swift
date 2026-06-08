@@ -108,9 +108,9 @@ private struct AmenHostBadgeChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: badgeIcon(for: variant))
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
             Text(badgeLabel(for: variant))
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
         }
         .foregroundStyle(Color(hex: "D9A441"))
         .padding(.horizontal, 8)
@@ -149,14 +149,14 @@ private struct HeroTitleBar: View {
             // Left: name stack
             VStack(alignment: .leading, spacing: 4) {
                 Text(spaceName)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.systemScaled(20, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
                 HStack(spacing: 6) {
                     Text(hostDisplayName)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color.white.opacity(0.75))
 
                     if isVerified {
@@ -164,14 +164,6 @@ private struct HeroTitleBar: View {
                     }
                 }
 
-                HStack(spacing: 4) {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.white.opacity(0.50))
-                    Text("\(formattedMemberCount) members")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.white.opacity(0.50))
-                }
             }
 
             Spacer(minLength: 8)
@@ -181,7 +173,7 @@ private struct HeroTitleBar: View {
                 isSubscribed ? onLeave() : onJoin()
             } label: {
                 Text(isSubscribed ? "Subscribed" : "Join")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(isSubscribed ? Color.white.opacity(0.85) : Color(hex: "070607"))
                     .padding(.horizontal, 18)
                     .padding(.vertical, 9)

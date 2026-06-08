@@ -105,6 +105,9 @@ struct PostCard: View {
     // Scripture attachment detail
     @State private var postCardScriptureAttachment: ScriptureAttachment?
     @State private var showPostCardScriptureDetail = false
+
+    // Music attachment card mode
+    @State private var musicCardMode: MusicCardMode = .compact
     
     // Error handling
     @State private var showErrorAlert = false
@@ -230,7 +233,7 @@ struct PostCard: View {
     @State private var currentTranslationMode: TranslationMode = .literal
     @State private var isRefinementLoading = false
     // Apple Translation framework: session-based config for language download prompts
-    @State private var appleTranslationConfig: Translation.TranslationSession.Configuration?
+    @State private var appleTranslationConfig: Any? // Translation.TranslationSession.Configuration; gated by #available(iOS 18)
     @State private var difficultyScore: ContentDifficultyScore?
     @State private var detectedContextTerms: [DetectedTerm] = []
     @State private var selectedContextTerm: DetectedTerm?
@@ -412,7 +415,8 @@ struct PostCard: View {
                 avatarContent
             }
             .buttonStyle(.liquidGlass)  // P0 FIX: Instant visual press feedback
-            
+            .accessibilityLabel("View \(authorName)'s profile")
+
             // Follow button - positioned outside the avatar button to avoid nesting
             if !isUserPost && post != nil {
                 followButton
@@ -497,6 +501,7 @@ struct PostCard: View {
             // Show placeholder while loading
             avatarCircleWithInitials
         }
+        .accessibilityLabel("Profile image of \(authorName)")
     }
     
     private var avatarCircleWithInitials: some View {
@@ -2283,6 +2288,10 @@ struct PostCard: View {
             .onDisappear {
                 closeActionMenu(animated: false)
                 clearTextSelection()
+                if let music = post?.music,
+                   AudioPlaybackManager.shared.currentTrackID == music.id {
+                    AudioPlaybackManager.shared.pause()
+                }
             }
             .onChange(of: activeSheet?.id) { _, newValue in
                 if newValue != nil {
@@ -2305,9 +2314,10 @@ struct PostCard: View {
             .task(id: content) {
                 await detectAndTranslatePost()
             }
-            .translationTask(appleTranslationConfig) { session in
-                await handleAppleTranslationSession(session)
-            }
+            .modifier(TranslationTaskBridge(config: appleTranslationConfig) { anySession in
+                guard #available(iOS 18, *) else { return }
+                await handleAppleTranslationSession(anySession as! Translation.TranslationSession)
+            })
     }
 
 
@@ -2393,15 +2403,18 @@ struct PostCard: View {
         // If language models need downloading, fall back to .translationTask() modifier
         // which prompts the user to download and handles progress UI automatically.
         if case .error(.languageDownloadNeeded) = result {
-            let sourceLang = detectedLanguage ?? "und"
-            let targetLang = TranslationSettingsManager.shared.userLanguageCode
-            if appleTranslationConfig == nil {
-                appleTranslationConfig = .init(
-                    source: Locale.Language(identifier: sourceLang),
-                    target: Locale.Language(identifier: targetLang)
-                )
-            } else {
-                appleTranslationConfig?.invalidate()
+            if #available(iOS 18, *) {
+                let sourceLang = detectedLanguage ?? "und"
+                let targetLang = TranslationSettingsManager.shared.userLanguageCode
+                if appleTranslationConfig == nil {
+                    appleTranslationConfig = Translation.TranslationSession.Configuration(
+                        source: Locale.Language(identifier: sourceLang),
+                        target: Locale.Language(identifier: targetLang)
+                    )
+                } else if var config = appleTranslationConfig as? Translation.TranslationSession.Configuration {
+                    config.invalidate()
+                    appleTranslationConfig = config
+                }
             }
             return
         }
@@ -2427,6 +2440,7 @@ struct PostCard: View {
     /// Handle a TranslationSession provided by the .translationTask() modifier.
     /// This session can download language models automatically (prompting the user),
     /// unlike TranslationSession(installedSource:) which only works with pre-installed models.
+    @available(iOS 18.0, *)
     private func handleAppleTranslationSession(_ session: Translation.TranslationSession) async {
         do {
             let response = try await session.translate(content)
@@ -2481,7 +2495,7 @@ struct PostCard: View {
             HStack(spacing: 4) {
                 Image(systemName: SpeechSynthesisService.shared.currentItemId == (post?.firestoreId ?? "")
                       ? "speaker.wave.2.fill" : "speaker.wave.2")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text("Listen")
                     .font(AMENFont.semiBold(12))
             }
@@ -2944,8 +2958,15 @@ struct PostCard: View {
                     .padding(.top, 12)
             }
         }
+
+        // Music attachment card
+        if let music = post?.music {
+            MusicCardContainer(track: music, displayMode: $musicCardMode)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+        }
     }
-    
+
     // MARK: - Moderation Banner
     @ViewBuilder
     private var moderationBanner: some View {
@@ -3371,7 +3392,14 @@ struct PostCard: View {
                 // ✅ FIX: Removed .frame(width: 20, height: 20) - was too small to tap
                 // Button has its own 28x28 frame which provides proper tap target
             }
-            
+
+            // 5. Check against Scripture — Requires DiscernmentActionButton.swift in target (see SelahScripture/)
+            DiscernmentActionButton(
+                inputText: content,
+                sourceType: "post",
+                sourceRef: stablePostId
+            )
+
             Spacer()
         }
     }
@@ -4406,12 +4434,14 @@ private struct AmenPostCardPlusButton: View {
                     .rotationEffect(.degrees(isExpanded ? 45 : 0))
             }
             .frame(width: 40, height: 40)
+            .frame(minWidth: 44, minHeight: 44)
             .shadow(color: Color.black.opacity(isExpanded ? 0.12 : 0.08), radius: isExpanded ? 20 : 14, y: isExpanded ? 12 : 7)
             .scaleEffect(isPressed ? 0.94 : (isExpanded ? 1.02 : 1.0))
             .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isExpanded)
             .animation(.easeOut(duration: 0.12), value: isPressed)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(isExpanded ? "Collapse actions" : "Expand actions")
         .gesture(
             DragGesture(minimumDistance: 0)
                 .updating($isPressed) { _, state, _ in
@@ -4460,6 +4490,7 @@ private struct AmenPostCardOverflowButton: View {
             .animation(.easeOut(duration: 0.12), value: isPressed)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("More actions")
         .gesture(
             DragGesture(minimumDistance: 0)
                 .updating($isPressed) { _, state, _ in
@@ -5291,6 +5322,26 @@ struct EditCommentSheet: View {
                     HapticManager.notification(type: .error)
                 }
             }
+        }
+    }
+}
+
+// MARK: - TranslationTaskBridge
+
+/// Applies `.translationTask` only on iOS 18+, bridging through `Any` so the enclosing
+/// view doesn't need to declare `Translation.TranslationSession.Configuration` as a property type.
+private struct TranslationTaskBridge: ViewModifier {
+    let config: Any?
+    let onSession: (Any) async -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content.translationTask(config as? Translation.TranslationSession.Configuration) { session in
+                await onSession(session)
+            }
+        } else {
+            content
         }
     }
 }

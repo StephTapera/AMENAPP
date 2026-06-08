@@ -34,7 +34,7 @@ struct WellnessRhythmCard: View {
 
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: rhythmIcon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
                 Text(rhythm.contextNote)
@@ -124,7 +124,7 @@ private struct WellnessLocalInsightCard: View {
 
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: insightEngine.isEnabled ? "lock.fill" : "lock.slash.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
                 Text(insightEngine.isEnabled ? insightEngine.currentInsight : "Local insight is disabled. No pattern summaries will appear here.")
@@ -176,7 +176,7 @@ private struct WellnessSafetyGuardrailsCard: View {
                 ForEach(rules, id: \.text) { rule in
                     HStack(spacing: 12) {
                         Image(systemName: rule.icon)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                             .frame(width: 18)
                         Text(rule.text)

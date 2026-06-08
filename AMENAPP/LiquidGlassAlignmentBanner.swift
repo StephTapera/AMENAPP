@@ -15,12 +15,12 @@ struct LiquidGlassAlignmentBanner: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: iconName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                     Text(result.userVisibleSummary)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.black.opacity(0.68))
                 }
                 Spacer()
@@ -29,7 +29,7 @@ struct LiquidGlassAlignmentBanner: View {
                         expanded.toggle()
                     }
                 }
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
             }
 
             if expanded {
@@ -38,7 +38,7 @@ struct LiquidGlassAlignmentBanner: View {
                         HStack(spacing: 8) {
                             ForEach(result.scriptureSuggestions) { suggestion in
                                 Text(suggestion.reference)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.systemScaled(12, weight: .medium))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
                                     .background(Color.black.opacity(0.06), in: Capsule())
@@ -64,7 +64,7 @@ struct LiquidGlassAlignmentBanner: View {
                         bannerAction("Hold", action: onHold)
                     }
                 }
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
             }
         }
         .padding(14)

@@ -19,9 +19,9 @@ struct ChurchNoteHighlightButton: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(type.shortLabel)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(isSelected ? type.selectedButtonTextColor : .primary.opacity(0.65))
             .padding(.horizontal, 10)

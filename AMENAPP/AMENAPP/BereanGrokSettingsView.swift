@@ -98,7 +98,7 @@ struct BereanGrokSettingsView: View {
     private func settingRow(icon: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.secondary)
                 .frame(width: 22, alignment: .center)
                 .padding(.top, 2)

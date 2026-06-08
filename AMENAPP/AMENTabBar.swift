@@ -27,7 +27,9 @@ struct AMENBadgeCounts {
         case .messages:      return messages
         case .library:       return library
         case .notifications: return notifications
-        case .profile:       return profile
+        // Profile badge shows its own count + notification count
+        // since notifications tab is not in the visible bar.
+        case .profile:       return profile + notifications
         case .spaces:        return spaces
         case .intelligence:  return intelligence
         }
@@ -77,13 +79,17 @@ enum AMENTab: Int, CaseIterable {
         case .home:          return "Home"
         case .search:        return "Search"
         case .messages:      return "Messages"
-        case .library:       return "Library"
+        case .library:       return "Resources"
         case .notifications: return "Notifications"
         case .profile:       return "Profile"
         case .spaces:        return "Spaces"
         case .intelligence:  return "Brief"
         }
     }
+
+    /// The five tabs shown in the bottom bar. All other tabs remain
+    /// navigable via deep links / programmatic selection.
+    static let visibleTabs: [AMENTab] = [.home, .search, .messages, .library, .profile]
 
     var tag: Int { rawValue }
 }
@@ -98,42 +104,43 @@ struct AMENTabBar: View {
     var profilePhotoURL: String? = nil
     var isMinimized: Bool = false
 
+    @Namespace private var selectionNamespace
+
     var body: some View {
         HStack(spacing: 0) {
-            // All 6 tabs in original order (compact spacing)
-            ForEach(AMENTab.allCases, id: \.rawValue) { tab in
+            // 5 equally-spaced nav tabs — matchedGeometryEffect slides the active pill
+            ForEach(AMENTab.visibleTabs, id: \.rawValue) { tab in
                 tabItem(tab)
-                    .frame(width: 50, height: 48)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
             }
 
-            // Subtle divider between tabs and compose (monochrome)
+            // Divider before compose
             Rectangle()
                 .fill(AmenTheme.Colors.separatorSubtle)
-                .frame(width: 0.5, height: 20)
-                .padding(.horizontal, 6)
+                .frame(width: 0.5, height: 22)
+                .padding(.horizontal, 4)
 
-            // Camera OS button
-            if let onCameraOS {
-                cameraButton(action: onCameraOS)
-                    .padding(.leading, 2)
-            }
-
-            // Compose button at end
+            // Compose button
             composeButton
-                .padding(.leading, 2)
+                .padding(.horizontal, 4)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
         .background(glassBackground)
         .clipShape(Capsule())
-        // Refined layered shadow for premium floating effect
         .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.70), radius: 20, x: 0, y: 8)
         .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.38), radius: 8, x: 0, y: 3)
         .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.20), radius: 2, x: 0, y: 1)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .padding(.bottom, 10)
         .offset(y: isMinimized ? 100 : 0)
         .animation(.easeOut(duration: 0.18), value: isMinimized)
+        // Drive the active-pill slide animation
+        .animation(
+            Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.72)),
+            value: selectedTab
+        )
     }
 
     // MARK: - Glass background (adaptive for light and dark mode)
@@ -213,84 +220,92 @@ struct AMENTabBar: View {
             clearBadge(for: tab)
         } label: {
             ZStack {
-                // Selected state: Ink Motion sculpted glass tile
+                // Active state: prominent glass tile that slides via matchedGeometryEffect
                 if isSelected {
-                    Capsule()
-                        .fill(colorScheme == .dark ? AmenTheme.Colors.surfaceElevated : AmenTheme.Colors.surfaceCard)
-                        .background(
-                            Capsule()
-                                .fill(.thinMaterial)
-                        )
-                        .overlay(
-                            // Directional top-left highlight (molded glass polish)
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            AmenTheme.Colors.glassHighlightTop.opacity(colorScheme == .dark ? 0.55 : 0.95),
-                                            AmenTheme.Colors.glassHighlightBottom.opacity(colorScheme == .dark ? 0.7 : 0.9),
-                                            Color.clear
-                                        ],
-                                        startPoint: .init(x: 0.15, y: 0),
-                                        endPoint: .init(x: 0.8, y: 0.5)
-                                    )
-                                )
-                        )
-                        .overlay(
-                            // Subtle black depth on opposite edge
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.clear,
-                                            AmenTheme.Colors.glassDepth.opacity(colorScheme == .dark ? 0.8 : 0.45)
-                                        ],
-                                        startPoint: .init(x: 0.2, y: 0.5),
-                                        endPoint: .init(x: 1, y: 1)
-                                    )
-                                )
-                        )
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(
-                                    AmenTheme.Colors.borderSoft,
-                                    lineWidth: 0.5
-                                )
-                        )
-                        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.65), radius: 6, x: 0, y: 2)
-                        .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.28), radius: 2, x: 0, y: 1)
-                        .frame(width: 44, height: 36)
-                        .transition(.scale(scale: 0.92).combined(with: .opacity))
-                        .animation(.spring(response: 0.22, dampingFraction: 0.75), value: isSelected)
+                    activePill
+                        .matchedGeometryEffect(id: "activeTab", in: selectionNamespace)
                 }
 
-                // Icon with badge pinned to its top-right corner
+                // Icon + badge overlay
                 ZStack(alignment: .topTrailing) {
                     if tab == .profile, let url = profilePhotoURL, !url.isEmpty {
                         profileAvatar(url: url, isSelected: isSelected)
                     } else {
                         Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
-                            .font(.systemScaled(19, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(isSelected ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
-                            .scaleEffect(isSelected ? 1.03 : 1.0)
-                            .animation(.spring(response: 0.22, dampingFraction: 0.75), value: isSelected)
+                            .font(.systemScaled(20, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(
+                                isSelected
+                                    ? AmenTheme.Colors.iconPrimary
+                                    : AmenTheme.Colors.iconSecondary
+                            )
+                            .scaleEffect(isSelected ? 1.06 : 1.0)
+                            .animation(
+                                Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.75)),
+                                value: isSelected
+                            )
                     }
 
                     let count = badges.count(for: tab)
                     if count > 0 {
                         BadgeView(count: count)
-                            .offset(x: 8, y: -6)
+                            .offset(x: 9, y: -7)
                     }
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(minWidth: 44, minHeight: 44)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: isSelected)
         .accessibilityLabel(tab.label)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    // The glass tile that sits behind the active tab icon.
+    // Matches the iOS 26 / Liquid Glass "button" aesthetic: material blur base,
+    // directional top-left highlight, depth gradient on the opposite corner, fine edge stroke.
+    private var activePill: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(colorScheme == .dark
+                  ? AmenTheme.Colors.surfaceElevated
+                  : AmenTheme.Colors.surfaceCard)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.regularMaterial)
+            )
+            .overlay(
+                // Top-left polish gloss
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [
+                            AmenTheme.Colors.glassHighlightTop.opacity(colorScheme == .dark ? 0.50 : 1.0),
+                            AmenTheme.Colors.glassHighlightBottom.opacity(colorScheme == .dark ? 0.65 : 0.90),
+                            Color.clear
+                        ],
+                        startPoint: .init(x: 0.1, y: 0),
+                        endPoint: .init(x: 0.85, y: 0.55)
+                    ))
+            )
+            .overlay(
+                // Bottom-right depth shadow
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [
+                            Color.clear,
+                            AmenTheme.Colors.glassDepth.opacity(colorScheme == .dark ? 0.75 : 0.35)
+                        ],
+                        startPoint: .init(x: 0.15, y: 0.5),
+                        endPoint: .init(x: 1, y: 1)
+                    ))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
+            )
+            .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.55), radius: 8, x: 0, y: 3)
+            .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.22), radius: 2, x: 0, y: 1)
+            .frame(width: 56, height: 40)
     }
 
     // MARK: - Profile avatar
@@ -324,7 +339,7 @@ struct AMENTabBar: View {
     private func cameraButton(action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: "camera.fill")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 40, height: 40)
                 .background(
@@ -418,7 +433,7 @@ struct AMENTabBar: View {
                 
                 // Plus icon (black on white)
                 Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.iconPrimary)
             }
         }

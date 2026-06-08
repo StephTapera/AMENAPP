@@ -16,7 +16,7 @@ struct AmenMessagingFeatureAvailability {
                                   && AMENFeatureFlags.shared.selahMediaOSEnabled }
     var churchNotes: Bool       { AMENFeatureFlags.shared.messagingCrossSurfaceActionsEnabled }
     var reminders: Bool         { AMENFeatureFlags.shared.messagingCrossSurfaceActionsEnabled }
-    var voiceTranscript: Bool   { false }   // STT for received voice messages not yet wired — TODO
+    var voiceTranscript: Bool   { AMENFeatureFlags.shared.messagingCrossSurfaceActionsEnabled }
     var mediaIntelligence: Bool { AMENFeatureFlags.shared.messagingMediaIntelligenceEnabled }
     var safetyReview: Bool      { AMENFeatureFlags.shared.messagingSafetyNudgesEnabled }
     var approvalCards: Bool     { AMENFeatureFlags.shared.messagingApprovalCardsEnabled }

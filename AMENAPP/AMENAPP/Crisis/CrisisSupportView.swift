@@ -128,7 +128,7 @@ struct CrisisSupportView: View {
 
                 // "CRISIS HELP & SUPPORT" label
                 Text("CRISIS HELP & SUPPORT")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .tracking(3.0)
                     .foregroundStyle(.white.opacity(0.66))
                     .padding(.bottom, 14)
@@ -147,7 +147,7 @@ struct CrisisSupportView: View {
 
                 // Body text
                 Text(viewModel.crisisState.heroBody)
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(.white.opacity(0.76))
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -187,7 +187,7 @@ struct CrisisSupportView: View {
                 Circle()
                     .stroke(.white.opacity(0.22), lineWidth: 0.7)
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
             }
             .frame(width: 42, height: 42)
@@ -202,7 +202,7 @@ struct CrisisSupportView: View {
     private var triageSelector: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("HOW ARE YOU RIGHT NOW?")
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
                 .tracking(2.2)
                 .foregroundStyle(.secondary)
 
@@ -237,17 +237,17 @@ struct CrisisSupportView: View {
                 Circle()
                     .fill(Color(UIColor.secondarySystemGroupedBackground))
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .frame(width: 42, height: 42)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("This space is private")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("Not visible to followers, your church, or community. Berean supports — but never replaces — emergency or professional care.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineSpacing(2)
             }
@@ -299,17 +299,17 @@ struct CrisisSupportView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Emergency support first")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.white.opacity(0.72))
                     Text("Get help now")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.systemScaled(28, weight: .semibold))
                         .foregroundStyle(.white)
                 }
                 Spacer()
                 ZStack {
                     Circle().fill(.white.opacity(0.15))
                     Image(systemName: "phone.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                 }
                 .frame(width: 46, height: 46)
@@ -327,14 +327,14 @@ struct CrisisSupportView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(resource.title)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                                 Text(resource.subtitle)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .opacity(0.72)
                             }
                             Spacer()
                             Text(resource.channel == .call ? "Call" : "Text")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.systemScaled(12, weight: .bold))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
                                 .background(Capsule().fill(.white.opacity(0.20)))
@@ -382,14 +382,14 @@ struct CrisisSupportView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "phone.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(red: 0.78, green: 0.10, blue: 0.10))
                 Text(viewModel.localeResources.crisisHotlineLabel)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(red: 0.78, green: 0.10, blue: 0.10))
                 Spacer()
                 Text("Call")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -462,10 +462,10 @@ struct CrisisSupportView: View {
     private func faithRow(title: String, body: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(body)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
                 .lineSpacing(3)
                 .italic(title.hasPrefix("Psalm") || title == "Short Prayer")
@@ -495,16 +495,16 @@ struct CrisisSupportView: View {
     private func recoveryRow(icon: String, title: String, sub: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color(red: 0.80, green: 0.20, blue: 0.40))
                 .frame(width: 36, height: 36)
                 .background(Circle().fill(Color(red: 1.00, green: 0.94, blue: 0.96)))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 Text(sub)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -521,7 +521,7 @@ struct CrisisSupportView: View {
     private var followUpBanner: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("You don't have to respond. Just wanted you to know support is here.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
                 .lineSpacing(3)
 
@@ -530,7 +530,7 @@ struct CrisisSupportView: View {
                     viewModel.optInToFollowUp()
                 } label: {
                     Text("Yes, check in with me")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -544,7 +544,7 @@ struct CrisisSupportView: View {
                     }
                 } label: {
                     Text("No thanks")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -590,7 +590,7 @@ private struct CrisisTriagePill: View {
     var body: some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(isActive ? .white : .secondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)

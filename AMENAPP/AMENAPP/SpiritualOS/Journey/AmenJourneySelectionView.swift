@@ -96,7 +96,7 @@ struct AmenJourneySelectionView: View {
     private var headerBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("What's your journey\nright now?")
-                .font(.system(size: 28, weight: .bold, design: .default))
+                .font(.systemScaled(28, weight: .bold, design: .default))
                 .foregroundStyle(Color.amenBlack)
                 .accessibilityAddTraits(.isHeader)
 
@@ -289,13 +289,13 @@ private struct StageTile: View {
                         .frame(width: 44, height: 44)
 
                     Image(systemName: stage.iconName)
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.systemScaled(20, weight: .medium))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(isSelected ? stage.color : Color.amenSlate)
 
                     if isSelected {
                         Image(systemName: isPrimary ? "checkmark.circle.fill" : "checkmark.circle")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(stage.color)
                             .frame(width: 44, height: 44, alignment: .topTrailing)
                             .offset(x: 8, y: -8)
@@ -449,7 +449,7 @@ struct AmenJourneyPrivateGrowthView: View {
     private var noJourneyPrompt: some View {
         VStack(spacing: 12) {
             Image(systemName: "map.fill")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(Color.accentColor)
             Text("You haven't set your journey yet.")
                 .font(.subheadline.weight(.medium))
@@ -649,7 +649,7 @@ private struct JourneyStageCard: View {
                     .fill(stage.color.opacity(0.14))
                     .frame(width: isPrimary ? 44 : 36, height: isPrimary ? 44 : 36)
                 Image(systemName: stage.iconName)
-                    .font(.system(size: isPrimary ? 20 : 16, weight: .medium))
+                    .font(.systemScaled(isPrimary ? 20 : 16, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(stage.color)
             }
@@ -691,7 +691,7 @@ private struct GrowthAreaCard: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 22, weight: .medium))
+                .font(.systemScaled(22, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(tintColor)
                 .frame(width: 36)
@@ -775,7 +775,7 @@ private struct StatCell: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(Color.amenSlate)
 

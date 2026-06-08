@@ -57,9 +57,9 @@ struct FeedViewModeSwitcher: View {
     private func modeLabel(_ mode: FeedViewMode, isActive: Bool) -> some View {
         HStack(spacing: 5) {
             Image(systemName: mode.icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
             Text(mode.rawValue)
-                .font(.system(size: 13, weight: isActive ? .bold : .medium))
+                .font(.systemScaled(13, weight: isActive ? .bold : .medium))
         }
         .foregroundColor(isActive ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
         .padding(.horizontal, 14)

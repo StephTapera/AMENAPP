@@ -142,7 +142,7 @@ struct BereanPulseView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(BereanPulseGlassIconButtonStyle())
@@ -158,7 +158,7 @@ struct BereanPulseView: View {
 
             Button(action: { viewModel.openCurate() }) {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(BereanPulseGlassIconButtonStyle())
@@ -433,7 +433,6 @@ struct BereanPulseView: View {
 
 private struct BereanPulseScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> Void) {}
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }

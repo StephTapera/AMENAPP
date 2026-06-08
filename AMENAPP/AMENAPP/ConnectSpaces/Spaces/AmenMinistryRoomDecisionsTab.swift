@@ -52,13 +52,13 @@ private struct AmenDecisionCard: View {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let owner = item.owner {
                         Text(owner)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.white.opacity(0.50))
                     }
                 }
@@ -67,7 +67,7 @@ private struct AmenDecisionCard: View {
 
                 // Purple "Decision made" badge
                 Text("Decision made")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(Color(hex: "6E4BB5"))
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
@@ -88,11 +88,11 @@ private struct AmenDecisionCard: View {
             // Date made
             HStack(spacing: 6) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color(hex: "D9A441").opacity(0.70))
                     .accessibilityHidden(true)
                 Text("Made \(decisionDateFormatter.string(from: item.createdAt))")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color(hex: "D9A441").opacity(0.80))
             }
             .accessibilityLabel("Made on \(decisionDateFormatter.string(from: item.createdAt))")
@@ -100,11 +100,11 @@ private struct AmenDecisionCard: View {
             // Source message snippet
             HStack(spacing: 6) {
                 Image(systemName: "quote.opening")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.white.opacity(0.30))
                     .accessibilityHidden(true)
                 Text("From conversation thread")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.40))
                     .italic()
             }
@@ -130,7 +130,7 @@ private struct AmenDecisionsEmptyState: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "scale.3d")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(Color(hex: "D9A441").opacity(0.7))
                 .accessibilityHidden(true)
             Text("No decisions logged yet.")

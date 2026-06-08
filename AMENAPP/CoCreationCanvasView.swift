@@ -12,6 +12,8 @@ import SwiftUI
 struct CoCreationCanvasView: View {
 
     @ObservedObject var vm: CoCreationViewModel
+    var isBold: Bool = false
+    var isItalic: Bool = false
     @FocusState private var isFocused: Bool
 
     private let amenPurple = Color(red: 0.42, green: 0.28, blue: 1.00)
@@ -45,7 +47,7 @@ struct CoCreationCanvasView: View {
 
                 // TextEditor
                 TextEditor(text: $vm.canvasText)
-                    .font(.systemScaled(17))
+                    .font(editorFont)
                     .foregroundStyle(Color.white)
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)

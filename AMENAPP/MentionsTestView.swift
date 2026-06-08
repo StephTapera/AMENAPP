@@ -163,7 +163,7 @@ struct MentionsTestView: View {
             MentionTextView(
                 text: post.content,
                 mentions: post.mentions,
-                font: .system(size: 15),
+                font: .systemScaled(15),
                 lineSpacing: 4
             ) { mention in
                 selectedMention = mention

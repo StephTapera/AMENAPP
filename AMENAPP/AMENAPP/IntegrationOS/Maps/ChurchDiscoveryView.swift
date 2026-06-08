@@ -112,7 +112,7 @@ private struct IntegrationChurchMapPin: View {
                     .frame(width: isSelected ? 40 : 32, height: isSelected ? 40 : 32)
                     .shadow(radius: isSelected ? 6 : 3)
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: isSelected ? 18 : 14))
+                    .font(.systemScaled(isSelected ? 18 : 14))
                     .foregroundStyle(isSelected ? .white : .accentColor)
             }
             if isSelected {

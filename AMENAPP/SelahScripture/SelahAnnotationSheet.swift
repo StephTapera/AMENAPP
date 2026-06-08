@@ -152,7 +152,7 @@ struct SelahAnnotationSheet: View {
                 .padding(.bottom, 40)
             }
         }
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .shadow(color: .black.opacity(0.10), radius: 20, x: 0, y: 8)
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
@@ -172,17 +172,17 @@ struct SelahAnnotationSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(.secondaryLabel))
                 Text(mode.displayTitle)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color(.secondaryLabel))
                 Spacer()
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.systemScaled(20))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
                 .buttonStyle(.plain)
@@ -190,11 +190,11 @@ struct SelahAnnotationSheet: View {
             }
 
             Text(verseRef)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(Color(.label))
 
             Text(versePreview)
-                .font(.system(size: 14, design: .serif))
+                .font(.systemScaled(14, design: .serif))
                 .foregroundStyle(Color(.secondaryLabel))
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -206,7 +206,7 @@ struct SelahAnnotationSheet: View {
     private var colorSwatches: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Color")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color(.secondaryLabel))
                 .tracking(0.5)
 
@@ -237,7 +237,7 @@ struct SelahAnnotationSheet: View {
                         .strokeBorder(Color(.label).opacity(0.35), lineWidth: 2)
                         .frame(width: 36, height: 36)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.systemScaled(11, weight: .bold))
                         .foregroundStyle(Color(.label).opacity(0.7))
                 }
             }
@@ -250,20 +250,20 @@ struct SelahAnnotationSheet: View {
     private var textInputArea: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(mode == .note ? "Note" : mode == .question ? "Question" : "Prayer")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color(.secondaryLabel))
                 .tracking(0.5)
 
             ZStack(alignment: .topLeading) {
                 if noteText.isEmpty {
                     Text(mode.placeholder)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .padding(.top, 12)
                         .padding(.horizontal, 14)
                 }
                 TextEditor(text: $noteText)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(Color(.label))
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 100)
@@ -281,7 +281,7 @@ struct SelahAnnotationSheet: View {
                     dismiss()
                 } label: {
                     Text("Cancel")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color(.secondaryLabel))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -294,7 +294,7 @@ struct SelahAnnotationSheet: View {
                     saveAndDismiss()
                 } label: {
                     Text("Save")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -314,7 +314,7 @@ struct SelahAnnotationSheet: View {
             }
         } label: {
             Text("Delete Note")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color(.systemRed))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)

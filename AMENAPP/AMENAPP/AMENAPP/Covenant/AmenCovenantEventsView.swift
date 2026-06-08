@@ -75,7 +75,7 @@ struct AmenCovenantEventsView: View {
                     sectionHeader(title: "Past Events", icon: "clock.arrow.trianglehead.counterclockwise.rotate.90")
                     Spacer()
                     Image(systemName: vm.showPastEvents ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -111,7 +111,7 @@ struct AmenCovenantEventsView: View {
 
             // Title
             Text(event.title)
-                .font(.system(size: 18, weight: .bold))
+                .font(.systemScaled(18, weight: .bold))
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 18)
                 .padding(.bottom, 4)
@@ -129,7 +129,7 @@ struct AmenCovenantEventsView: View {
                let host = URL(string: url)?.host {
                 HStack(spacing: 6) {
                     Image(systemName: "link")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                     Text(host)
                         .font(.caption)
@@ -221,7 +221,7 @@ struct AmenCovenantEventsView: View {
                         .scaleEffect(0.75)
                 } else {
                     Image(systemName: isGoing ? "checkmark.circle.fill" : "person.badge.plus")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                 }
                 Text(isGoing ? "Cancel RSVP" : "RSVP")
                     .font(.subheadline.weight(.semibold))
@@ -253,7 +253,7 @@ struct AmenCovenantEventsView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "calendar.badge.plus")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                 Text("Add to Calendar")
                     .font(.subheadline.weight(.medium))
             }
@@ -309,7 +309,7 @@ struct AmenCovenantEventsView: View {
     private func sectionHeader(title: String, icon: String) -> some View {
         HStack(spacing: 7) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.purple)
             Text(title)
                 .font(.headline)
@@ -321,7 +321,7 @@ struct AmenCovenantEventsView: View {
     private func emptyState(icon: String, message: String) -> some View {
         VStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 38))
+                .font(.systemScaled(38))
                 .foregroundStyle(.tertiary)
             Text(message)
                 .font(.subheadline)

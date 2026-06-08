@@ -365,7 +365,7 @@ struct ChurchNoteMusicAttachmentSheet: View {
                     } else if let resolvedAttachment {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Preview")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
 
                             ComposerMusicAttachmentPreview(attachment: resolvedAttachment)
@@ -380,7 +380,7 @@ struct ChurchNoteMusicAttachmentSheet: View {
                     } else if let currentAttachment {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Current attachment")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.systemScaled(12, weight: .semibold))
                                 .foregroundStyle(.secondary)
 
                             ComposerMusicAttachmentPreview(attachment: currentAttachment)
@@ -399,7 +399,7 @@ struct ChurchNoteMusicAttachmentSheet: View {
 
                     if let errorMessage {
                         Text(errorMessage)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                             .padding(14)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -427,10 +427,10 @@ struct ChurchNoteMusicAttachmentSheet: View {
     private var headerCopy: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Attach Apple Music or Spotify")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("Paste a song or album link. The note stays primary, and the music is attached as supporting context.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
     }
@@ -468,14 +468,14 @@ struct ChurchNoteMusicAttachmentSheet: View {
     private var pasteField: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Paste music link")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 10) {
                 TextField("https://music.apple.com/... or https://open.spotify.com/...", text: $rawURL, axis: .vertical)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .lineLimit(2 ... 4)
 
                 HStack {
@@ -515,10 +515,10 @@ struct ChurchNoteMusicAttachmentSheet: View {
     private var honestCopy: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Opening may require the provider app, login, or subscription.")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.primary)
             Text("AMEN attaches the real destination. If the app isn’t available, the link falls back to the canonical web page.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
     }
@@ -603,17 +603,17 @@ private struct ComposerMusicAttachmentPreview: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(attachment.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 Text(attachment.subtitle ?? attachment.artist)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 Text(attachment.provider.displayName)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -668,7 +668,7 @@ struct MusicAttachmentArtworkView: View {
             .fill(fallbackGradient)
             .overlay(
                 Image(systemName: "music.note")
-                    .font(.system(size: min(size.width, size.height) * 0.34, weight: .semibold))
+                    .font(.systemScaled(min(size.width, size.height) * 0.34, weight: .semibold))
                     .foregroundStyle(.primary.opacity(0.68))
             )
             .overlay(

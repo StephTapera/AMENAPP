@@ -7,7 +7,7 @@
 //
 // Liquid Glass: collapsed pill and expanded chip row share the "context-bar" glass
 // identity so they morph between states via matchedGeometryEffect.
-// Shadow applied before .glassEffect() per kit rules.
+// Shadow applied before .amenGlassEffect() per kit rules.
 // Solid opaque fallback used when accessibilityReduceTransparency is on.
 // No glass applied to message thread content below this bar.
 
@@ -104,10 +104,10 @@ struct SmartThreadContextBar: View {
                 .padding(.horizontal, 16)
                 .accessibilityHint("Scroll up to expand thread insights")
         } else {
-            // Shadow before .glassEffect() — required by kit rules.
+            // Shadow before .amenGlassEffect() — required by kit rules.
             pillContent
                 .shadow(color: .black.opacity(0.10), radius: 10, x: 0, y: 4)
-                .glassEffect(GlassEffectStyle.subtle, in: Capsule(style: .continuous))
+                .amenGlassEffect(in: Capsule(style: .continuous))
                 .glassEffectID("context-bar", in: barNamespace)
                 .padding(.horizontal, 16)
                 .accessibilityHint("Scroll up to expand thread insights")
@@ -132,7 +132,7 @@ struct SmartThreadContextBar: View {
             .background(Color(.systemBackground))
             .padding(.horizontal, 16)
         } else {
-            // Shadow before .glassEffect() — required by kit rules.
+            // Shadow before .amenGlassEffect() — required by kit rules.
             ScrollView(.horizontal, showsIndicators: false) {
                 GlassEffectContainer(spacing: 6) {
                     HStack(spacing: 6) {
@@ -147,10 +147,8 @@ struct SmartThreadContextBar: View {
                 radius: LiquidGlassTokens.shadowSoftRadius,
                 y: LiquidGlassTokens.shadowSoftY
             )
-            // .glassEffect() is the absolute last modifier on the shell.
-            .glassEffect(
-                GlassEffectStyle.regular,
-                in: RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
+            // .amenGlassEffect() is the absolute last modifier on the shell.
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
             )
             .glassEffectID("context-bar", in: barNamespace)
             .padding(.horizontal, 16)
@@ -169,7 +167,7 @@ struct SmartThreadContextBar: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
-        .glassEffect(GlassEffectStyle.subtle, in: Capsule(style: .continuous))
+        .amenGlassEffect(in: Capsule(style: .continuous))
     }
 
     // MARK: - Individual chip button
@@ -188,9 +186,9 @@ struct SmartThreadContextBar: View {
             .foregroundStyle(chipColor(chip))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            // Shadow before .glassEffect() — required by kit rules.
+            // Shadow before .amenGlassEffect() — required by kit rules.
             .shadow(color: chipColor(chip).opacity(0.12), radius: 8, y: 3)
-            .glassEffect(GlassEffectStyle.subtle.tint(chipColor(chip)), in: Capsule(style: .continuous))
+            .amenGlassEffect(in: Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(chip.rawValue): \(chipAccessibilityHint(chip))")

@@ -221,7 +221,7 @@ struct BereanVoiceView: View {
             case .speaking:
                 HStack(spacing: 5) {
                     Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                     Text("Speaking")
                 }
             }
@@ -319,20 +319,20 @@ struct BereanVoiceView: View {
             switch voiceState {
             case .idle:
                 Image(systemName: voiceMode.icon)
-                    .font(.system(size: 44, weight: .ultraLight))
+                    .font(.systemScaled(44, weight: .ultraLight))
                     .foregroundStyle(voiceMode.orbColor)
             case .listening:
                 Image(systemName: "waveform")
-                    .font(.system(size: 44, weight: .thin))
+                    .font(.systemScaled(44, weight: .thin))
                     .foregroundStyle(.primary.opacity(0.82))
                     .symbolEffect(.variableColor.iterative, isActive: true)
             case .processing:
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 36, weight: .light))
+                    .font(.systemScaled(36, weight: .light))
                     .foregroundStyle(.primary.opacity(0.65))
             case .speaking:
                 Image(systemName: "speaker.wave.3")
-                    .font(.system(size: 40, weight: .thin))
+                    .font(.systemScaled(40, weight: .thin))
                     .foregroundStyle(.primary.opacity(0.75))
                     .symbolEffect(.variableColor.iterative, isActive: true)
             }
@@ -493,7 +493,7 @@ struct BereanVoiceView: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .regular))
+                    .font(.systemScaled(18, weight: .regular))
                     .foregroundStyle(style == .secondary ? Color.primary.opacity(0.65) : Color.primary)
                     .frame(width: 52, height: 52)
                     .background(
@@ -529,7 +529,7 @@ struct BereanVoiceView: View {
                         }
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .frame(width: 30, height: 30)
                             .background(Circle().fill(.ultraThinMaterial).overlay(Circle().fill(Color.white.opacity(0.50))))

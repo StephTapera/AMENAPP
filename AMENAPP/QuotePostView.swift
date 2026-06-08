@@ -278,7 +278,7 @@ struct QuotePostView: View {
                     Text(emoji)
                         .font(.systemScaled(20))
                         .frame(width: 36, height: 36)
-                        .background(Circle().fill(Color.white))
+                        .background(Circle().fill(Color(.secondarySystemBackground)))
                         .clipShape(Circle())
                         .overlay(Circle().stroke(Color(.separator), lineWidth: 0.5))
                         .shadow(color: .black.opacity(0.12), radius: 4, y: 2)

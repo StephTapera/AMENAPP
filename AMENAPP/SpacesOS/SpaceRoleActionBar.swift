@@ -131,7 +131,7 @@ private struct ActionBarButton: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(action.isEnabled ? Color.accentColor : Color.secondary.opacity(0.5))
                     .frame(width: 44, height: 44)
                     .background(

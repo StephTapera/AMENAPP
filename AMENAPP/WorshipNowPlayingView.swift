@@ -42,8 +42,14 @@ struct WorshipNowPlayingView: View {
         GeometryReader { geo in
             ZStack {
                 // ── Animated mesh background ─────────────────────────────────
-                MeshBackground(colors: service.meshColors)
-                    .ignoresSafeArea()
+                Group {
+                    if #available(iOS 18, *) {
+                        MeshBackground(colors: service.meshColors)
+                    } else {
+                        LinearGradient(colors: [Color.black, Color(white: 0.12)], startPoint: .top, endPoint: .bottom)
+                    }
+                }
+                .ignoresSafeArea()
 
                 // ── Subtle vignette so controls stay readable ─────────────────
                 LinearGradient(
@@ -369,6 +375,7 @@ struct WorshipNowPlayingView: View {
 /// A 4×4 MeshGradient with 16 control points.
 /// Two independent oscillators — slow drift + faster micro-shimmer — create
 /// the organic, "breathing lava-lamp" effect seen in Apple Music on iOS 18.
+@available(iOS 18.0, *)
 private struct MeshBackground: View {
     let colors: [Color]
 
@@ -768,6 +775,8 @@ struct NoteWorshipSection: View {
 }
 
 #Preview("Mesh Background — Faith") {
-    MeshBackground(colors: MeshPalette.faith)
-        .ignoresSafeArea()
+    if #available(iOS 18, *) {
+        MeshBackground(colors: MeshPalette.faith)
+            .ignoresSafeArea()
+    }
 }

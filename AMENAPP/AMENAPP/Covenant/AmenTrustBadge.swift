@@ -11,7 +11,7 @@ struct AmenTrustBadge: View {
     enum BadgeSize {
         case compact, standard, large
         var iconSize: CGFloat    { switch self { case .compact: 10; case .standard: 12; case .large: 16 } }
-        var textFont: Font       { switch self { case .compact: .system(size: 9, weight: .semibold); case .standard: .caption.weight(.semibold); case .large: .subheadline.weight(.semibold) } }
+        var textFont: Font       { switch self { case .compact: .systemScaled(9, weight: .semibold); case .standard: .caption.weight(.semibold); case .large: .subheadline.weight(.semibold) } }
         var padding: EdgeInsets  { switch self { case .compact: .init(top: 3, leading: 6, bottom: 3, trailing: 6); case .standard: .init(top: 4, leading: 8, bottom: 4, trailing: 8); case .large: .init(top: 6, leading: 12, bottom: 6, trailing: 12) } }
         var showLabel: Bool      { self != .compact }
     }
@@ -19,7 +19,7 @@ struct AmenTrustBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: type.icon)
-                .font(.system(size: size.iconSize, weight: .semibold))
+                .font(.systemScaled(size.iconSize, weight: .semibold))
                 .foregroundStyle(badgeColor)
             if size.showLabel {
                 Text(type.displayName)
@@ -72,7 +72,7 @@ struct AmenTrustBadgeRow: View {
 struct VerifiedCreatorMark: View {
     var body: some View {
         Image(systemName: "checkmark.seal.fill")
-            .font(.system(size: 13))
+            .font(.systemScaled(13))
             .foregroundStyle(Color.blue)
             .accessibilityLabel("Verified Creator")
     }

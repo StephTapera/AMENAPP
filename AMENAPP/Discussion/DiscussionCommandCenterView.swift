@@ -100,7 +100,7 @@ struct DiscussionCommandCenterView: View {
         return HStack(spacing: 10) {
             Circle().fill(color).frame(width: 10, height: 10)
             Text("Discussion Health: \(status.capitalized)")
-                .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.white)
+                .font(.systemScaled(14, weight: .semibold)).foregroundStyle(Color.white)
             Spacer()
         }
         .padding(14)
@@ -120,9 +120,9 @@ struct DiscussionCommandCenterView: View {
 
     private func statCell(icon: String, value: Int, label: String) -> some View {
         VStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 20)).foregroundStyle(Color.accentColor)
-            Text("\(value)").font(.system(size: 22, weight: .bold)).foregroundStyle(Color.white)
-            Text(label).font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.5))
+            Image(systemName: icon).font(.systemScaled(20)).foregroundStyle(Color.accentColor)
+            Text("\(value)").font(.systemScaled(22, weight: .bold)).foregroundStyle(Color.white)
+            Text(label).font(.systemScaled(11)).foregroundStyle(Color.white.opacity(0.5))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
@@ -131,10 +131,10 @@ struct DiscussionCommandCenterView: View {
 
     private func keywordsSection(_ keywords: [String]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("TOP TOPICS").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.white.opacity(0.35)).kerning(1.2)
+            Text("TOP TOPICS").font(.systemScaled(10, weight: .bold)).foregroundStyle(Color.white.opacity(0.35)).kerning(1.2)
             CommandCenterFlowLayout(spacing: 6) {
                 ForEach(keywords, id: \.self) { kw in
-                    Text(kw).font(.system(size: 11, weight: .medium)).foregroundStyle(Color.accentColor)
+                    Text(kw).font(.systemScaled(11, weight: .medium)).foregroundStyle(Color.accentColor)
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(Color.accentColor.opacity(0.12), in: Capsule())
                 }
@@ -144,12 +144,12 @@ struct DiscussionCommandCenterView: View {
 
     private func suggestionsSection(_ suggestions: [String]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("SUGGESTED HOST RESPONSES").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.white.opacity(0.35)).kerning(1.2)
+            Text("SUGGESTED HOST RESPONSES").font(.systemScaled(10, weight: .bold)).foregroundStyle(Color.white.opacity(0.35)).kerning(1.2)
             ForEach(suggestions, id: \.self) { s in
                 HStack {
-                    Text(s).font(.system(size: 13)).foregroundStyle(Color.white.opacity(0.8))
+                    Text(s).font(.systemScaled(13)).foregroundStyle(Color.white.opacity(0.8))
                     Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.25))
+                    Image(systemName: "chevron.right").font(.systemScaled(11)).foregroundStyle(Color.white.opacity(0.25))
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.ultraThinMaterial))
@@ -159,11 +159,11 @@ struct DiscussionCommandCenterView: View {
 
     private var controlsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("CONTROLS").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.white.opacity(0.35)).kerning(1.2)
+            Text("CONTROLS").font(.systemScaled(10, weight: .bold)).foregroundStyle(Color.white.opacity(0.35)).kerning(1.2)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Slow Mode: \(Int(vm.slowModeSeconds))s").font(.system(size: 13)).foregroundStyle(Color.white.opacity(0.8))
+                    Text("Slow Mode: \(Int(vm.slowModeSeconds))s").font(.systemScaled(13)).foregroundStyle(Color.white.opacity(0.8))
                     Spacer()
                 }
                 Slider(value: $vm.slowModeSeconds, in: 10...300, step: 10)
@@ -175,9 +175,9 @@ struct DiscussionCommandCenterView: View {
             Button(action: vm.toggleLock) {
                 HStack {
                     Image(systemName: vm.isLocked ? "lock.fill" : "lock.open.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                     Text(vm.isLocked ? "Unlock Discussion" : "Lock Discussion")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                     Spacer()
                 }
                 .foregroundStyle(vm.isLocked ? .red : Color.accentColor)

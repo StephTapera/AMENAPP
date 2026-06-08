@@ -80,11 +80,11 @@ struct SmartMessageInsightCard: View {
                 onDismiss(item)
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .frame(minWidth: 20, minHeight: 20)
+            .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel("Dismiss \(item.displayText)")
         }
         .padding(.horizontal, 12)

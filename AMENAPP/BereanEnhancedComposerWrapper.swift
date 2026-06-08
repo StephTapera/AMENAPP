@@ -102,7 +102,7 @@ struct BereanEnhancedComposerWrapper: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 
                 Text(mode.rawValue)
                     .font(AMENFont.medium(12))
@@ -158,7 +158,7 @@ struct BereanEnhancedComposerWrapper: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: item.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.6))
                 
                 Text(item.text)
@@ -226,5 +226,5 @@ struct BereanEnhancedComposerWrapper: View {
             composerVM: composerVM
         )
     }
-    .background(Color.white)
+    .background(Color(.systemBackground))
 }

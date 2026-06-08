@@ -230,7 +230,7 @@ struct CatalogSearchView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
             Text("Search for people, organizations,\nbooks, podcasts, sermons, and more.")
                 .font(.subheadline)
@@ -314,7 +314,7 @@ struct CatalogSearchView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
             Text("No results for \"\(vm.query)\"")
                 .font(.headline)
@@ -333,7 +333,7 @@ struct CatalogSearchView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
             Text("Search unavailable")
                 .font(.headline)
@@ -374,30 +374,30 @@ private struct CreatorResultRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(creator.displayName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
                     if creator.verified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.blue)
                     }
 
                     if creator.entityType == "organization" {
                         Image(systemName: "building.2")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 Text(workCountLabel)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
 
                 if !creator.topics.isEmpty {
                     Text(creator.topics.prefix(3).joined(separator: " · "))
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
@@ -412,7 +412,7 @@ private struct CreatorResultRow: View {
 
     private var avatarPlaceholder: some View {
         Image(systemName: creator.entityType == "organization" ? "building.2" : "person.circle")
-            .font(.system(size: 22))
+            .font(.systemScaled(22))
             .foregroundStyle(.secondary)
             .frame(width: 44, height: 44)
             .background(Color(uiColor: .secondarySystemBackground))
@@ -457,14 +457,14 @@ private struct WorkResultRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(work.title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
 
                 HStack(spacing: 6) {
                     WorkTypeBadge(type: work.type)
                     Text(work.creatorName)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -479,7 +479,7 @@ private struct WorkResultRow: View {
 
     private var workIconPlaceholder: some View {
         Image(systemName: workIcon(for: work.type))
-            .font(.system(size: 20))
+            .font(.systemScaled(20))
             .foregroundStyle(.secondary)
             .frame(width: 48, height: 48)
             .background(Color(uiColor: .secondarySystemBackground))
@@ -509,7 +509,7 @@ private struct WorkTypeBadge: View {
 
     var body: some View {
         Text(type.capitalized)
-            .font(.system(size: 11, weight: .medium))
+            .font(.systemScaled(11, weight: .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -525,11 +525,11 @@ private struct CatalogTopicChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(topic.topicName)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.primary)
             if topic.creatorCount > 0 {
                 Text("\(topic.creatorCount) creator\(topic.creatorCount == 1 ? "" : "s")")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
         }
@@ -606,7 +606,7 @@ private struct CatalogWorkDetailSheet: View {
                         HStack(spacing: 8) {
                             ForEach(work.topics, id: \.self) { topic in
                                 Text(topic)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
                                     .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
@@ -630,7 +630,7 @@ private struct CatalogWorkDetailSheet: View {
 
     private var coverPlaceholder: some View {
         Image(systemName: "doc.text")
-            .font(.system(size: 28))
+            .font(.systemScaled(28))
             .foregroundStyle(.secondary)
             .frame(width: 72, height: 72)
             .background(Color(uiColor: .secondarySystemBackground))

@@ -46,7 +46,7 @@ struct FeedIntelligenceWhyThisPostSheet: View {
     private var fallbackView: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "questionmark.circle").font(.system(size: 36)).foregroundStyle(.secondary)
+            Image(systemName: "questionmark.circle").font(.systemScaled(36)).foregroundStyle(.secondary)
             Text("Amen is still learning your preferences.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Spacer()
@@ -63,7 +63,7 @@ struct FeedIntelligenceWhyThisPostSheet: View {
                     ForEach(ex.reasons, id: \.self) { reason in
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "circle.fill")
-                                .font(.system(size: 5))
+                                .font(.systemScaled(5))
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 6)
                             Text(reason).font(.subheadline).foregroundStyle(.primary)
@@ -125,7 +125,7 @@ struct FeedIntelligenceWhyThisPostSheet: View {
             }
         } label: {
             Label(label, systemImage: applied ? "checkmark" : icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(applied ? .green : .primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)

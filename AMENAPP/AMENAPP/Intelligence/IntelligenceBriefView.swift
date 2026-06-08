@@ -49,7 +49,7 @@ private struct IntelligenceEmptyStateView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "hands.sparkles")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(.secondary)
 
             Text("Nothing Needs Attention Right Now")
@@ -104,7 +104,7 @@ private struct IntelligenceBriefErrorView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
 
             Text("Something Went Wrong")
@@ -175,7 +175,7 @@ private struct IntelligenceSensitiveStateView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "heart.circle")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(.secondary)
 
             Text("Sensitive Content")

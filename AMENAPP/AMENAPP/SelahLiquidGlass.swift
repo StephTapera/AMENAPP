@@ -95,11 +95,11 @@ struct SelahGlassSegmentedControl<T: Hashable & CaseIterable & Identifiable>: Vi
                         HStack(spacing: 4) {
                             if let icon = iconMap?(item) {
                                 Image(systemName: icon)
-                                    .font(.system(size: 11, weight: selection == item ? .semibold : .regular))
+                                    .font(.systemScaled(11, weight: selection == item ? .semibold : .regular))
                             }
                             if selection == item {
                                 Text(item.rawValue)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.systemScaled(12, weight: .semibold))
                                     .transition(.opacity.combined(with: .scale(scale: 0.85)))
                             }
                         }
@@ -246,11 +246,11 @@ struct SelahGlassCommandBar: View {
                         .frame(width: 20, height: 20)
                 } else {
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(tint)
                 }
                 Text(label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(isLoading ? .secondary : tint.opacity(0.85))
             }
             .frame(maxWidth: .infinity)
@@ -325,10 +325,10 @@ struct SelahContextPill: View {
         HStack(spacing: 4) {
             if let icon {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
             }
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
         }
         .foregroundStyle(tint)
         .padding(.horizontal, 10)

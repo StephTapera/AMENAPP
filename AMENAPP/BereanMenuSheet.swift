@@ -113,11 +113,11 @@ struct BereanMenuSheet: View {
     private var headerTitle: some View {
         HStack(spacing: 7) {
             Image(systemName: "graduationcap")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundColor(.black.opacity(0.62))
             Text("Berean")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(.black)
+                .font(.systemScaled(17, weight: .semibold))
+                .foregroundStyle(.primary)
         }
     }
 
@@ -147,15 +147,15 @@ struct BereanMenuSheet: View {
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .regular))
+                .font(.systemScaled(14, weight: .regular))
                 .foregroundColor(.secondary)
             TextField("Search conversations", text: $searchText)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundColor(.primary)
             if !searchText.isEmpty {
                 Button { searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -182,12 +182,12 @@ struct BereanMenuSheet: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(.black.opacity(0.68))
                     .frame(width: 22)
                 Text(label)
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundColor(.black)
+                    .font(.systemScaled(16, weight: .regular))
+                    .foregroundStyle(.primary)
                 Spacer()
             }
             .padding(.horizontal, 14)
@@ -201,7 +201,7 @@ struct BereanMenuSheet: View {
 
     private func sectionLabel(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.systemScaled(13, weight: .semibold))
             .foregroundColor(.black.opacity(0.42))
             .padding(.horizontal, 30)
             .padding(.top, 22)
@@ -218,12 +218,12 @@ struct BereanMenuSheet: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundColor(.black.opacity(0.48))
                     .frame(width: 20)
                 Text(session.displayTitle)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(.black)
+                    .font(.systemScaled(15, weight: .regular))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                 Spacer()
             }
@@ -239,10 +239,10 @@ struct BereanMenuSheet: View {
     private var emptySessionsHint: some View {
         VStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 28, weight: .light))
+                .font(.systemScaled(28, weight: .light))
                 .foregroundColor(.black.opacity(0.28))
             Text("No conversations yet.\nTap New Chat to get started.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundColor(.black.opacity(0.42))
                 .multilineTextAlignment(.center)
                 .lineSpacing(3)
@@ -259,9 +259,9 @@ struct BereanMenuSheet: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Text("New Chat")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundColor(.white)
             .padding(.horizontal, 24)
@@ -287,7 +287,7 @@ struct BereanMenuSheet: View {
 
     private func glassCircleIcon(_ name: String) -> some View {
         Image(systemName: name)
-            .font(.system(size: 14, weight: .semibold))
+            .font(.systemScaled(14, weight: .semibold))
             .foregroundColor(.black.opacity(0.72))
             .frame(width: 36, height: 36)
             .background(

@@ -102,7 +102,7 @@ public struct MessagingThreadSearchView: View {
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
             TextField("Search this conversation", text: $query)
                 .focused($searchFocused)
@@ -115,7 +115,7 @@ public struct MessagingThreadSearchView: View {
                     query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -162,9 +162,9 @@ public struct MessagingThreadSearchView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: filter.symbol)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(filter.title)
-                    .font(.system(size: 14, weight: isActive ? .semibold : .medium))
+                    .font(.systemScaled(14, weight: isActive ? .semibold : .medium))
             }
             .foregroundStyle(isActive ? Color.white : Color.primary)
             .padding(.horizontal, 14)
@@ -195,10 +195,10 @@ public struct MessagingThreadSearchView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: query.isEmpty ? "tray" : "magnifyingglass")
-                .font(.system(size: 28, weight: .light))
+                .font(.systemScaled(28, weight: .light))
                 .foregroundStyle(.tertiary)
             Text(query.isEmpty ? "No messages for this filter" : "No matches for \"\(query)\"")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -239,24 +239,24 @@ public struct MessagingThreadSearchView: View {
     private func resultRow(_ message: AppMessage) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: rowIcon(for: message))
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 4) {
                 Text(message.senderName ?? "Someone")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(displayLine(for: message))
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                 Text(message.formattedTimestamp)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14)

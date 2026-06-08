@@ -64,24 +64,24 @@ struct SuggestedAccountPeekSheet: View {
             VStack(spacing: 3) {
                 HStack(spacing: 4) {
                     Text(vm.displayName)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .foregroundStyle(.primary)
 
                     if vm.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(Color.accentColor)
                     }
                 }
 
                 Text("@\(vm.handle)")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             }
 
             if vm.isPrivateAccount {
                 Label("This account is private", systemImage: "lock.fill")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
@@ -166,10 +166,10 @@ struct SuggestedAccountPeekSheet: View {
     private func bioSection(_ bio: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("About")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(bio)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.primary)
                 .lineLimit(4)
         }
@@ -187,10 +187,10 @@ struct SuggestedAccountPeekSheet: View {
     private func statItem(count: Int, label: String) -> some View {
         VStack(spacing: 2) {
             Text(formatCount(count))
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
                 .foregroundStyle(.primary)
             Text(label)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
     }
@@ -198,16 +198,16 @@ struct SuggestedAccountPeekSheet: View {
     private var mutualContextSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Mutual context")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             ForEach(vm.mutualSignals.prefix(3)) { signal in
                 HStack(spacing: 6) {
                     Image(systemName: signalIcon(for: signal.type))
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                     Text(signalLabel(for: signal.type))
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.primary)
                 }
             }
@@ -243,13 +243,13 @@ struct SuggestedAccountPeekSheet: View {
     private var sharedTopicsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Shared interests")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             AMENFlowLayout(spacing: 6) {
                 ForEach(vm.sharedTopics.prefix(6), id: \.self) { topic in
                     Text(topic)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
@@ -263,13 +263,13 @@ struct SuggestedAccountPeekSheet: View {
     private var prayerThemesSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Prayer heart")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             AMENFlowLayout(spacing: 6) {
                 ForEach(vm.prayerThemes.prefix(5), id: \.self) { theme in
                     Text(theme)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
@@ -283,18 +283,18 @@ struct SuggestedAccountPeekSheet: View {
     private var recentPostsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Recent posts")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             ForEach(vm.recentPosts.prefix(2)) { preview in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(preview.content)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.primary)
                         .lineLimit(3)
 
                     Text(preview.createdAt.formatted(.relative(presentation: .named)))
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.tertiary)
                 }
                 .padding(10)
@@ -318,10 +318,12 @@ struct SuggestedAccountPeekSheet: View {
             onViewFullProfile(vm.userId)
         } label: {
             Text("View full profile")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.primary)
+                .minimumScaleFactor(0.7)
+                .lineLimit(2)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(minHeight: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(.ultraThinMaterial)

@@ -67,15 +67,15 @@ struct CatalogTimelineView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("\(year)")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Spacer()
                 Text("\(works.count) works")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
-            .glassEffect(.regular.tint(.clear), in: Rectangle())
+            .amenGlassEffect(in: Rectangle())
 
             VStack(spacing: 0) {
                 ForEach(works) { work in
@@ -101,24 +101,24 @@ struct CatalogTimelineView: View {
                         .fill(.secondary.opacity(0.1))
                         .frame(width: 36, height: 36)
                     Image(systemName: work.type.icon)
-                        .font(.system(size: 15, weight: .light))
+                        .font(.systemScaled(15, weight: .light))
                         .foregroundStyle(.primary)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(work.title)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     HStack(spacing: 6) {
                         Text(work.type.displayName)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                         if let date = work.publishedAt {
                             Text("·")
                                 .foregroundStyle(.tertiary)
                             Text(date, style: .date)
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -131,7 +131,7 @@ struct CatalogTimelineView: View {
                         .fill(.secondary.opacity(0.08))
                         .frame(width: 40, height: 40)
                     Image(systemName: work.type.icon)
-                        .font(.system(size: 14, weight: .light))
+                        .font(.systemScaled(14, weight: .light))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -146,7 +146,7 @@ struct CatalogTimelineView: View {
         VStack(spacing: 12) {
             ProgressView()
             Text("Loading timeline...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -156,12 +156,12 @@ struct CatalogTimelineView: View {
     private var emptyView: some View {
         VStack(spacing: 12) {
             Image(systemName: "clock")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(.secondary)
             Text("No timeline yet")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
             Text("Published works will appear here in chronological order.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -173,7 +173,7 @@ struct CatalogTimelineView: View {
         VStack(spacing: 12) {
             ProgressView()
             Text("Syncing works...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -183,12 +183,12 @@ struct CatalogTimelineView: View {
     private func errorView(message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(.secondary)
             Text("Couldn't load timeline")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Button("Try Again") {
                 Task { await vm.load() }

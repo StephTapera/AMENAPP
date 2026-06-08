@@ -1,4 +1,5 @@
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -21,10 +22,10 @@ const RESERVED_USERNAMES = new Set([
 
 function requireAppAuth(context: functions.https.CallableContext): string {
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Authentication required.");
+        throw new HttpsError("unauthenticated", "Authentication required.");
     }
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -35,7 +36,7 @@ function requireAppAuth(context: functions.https.CallableContext): string {
 function cleanUsername(value: unknown): string {
     const username = typeof value === "string" ? value.trim().toLowerCase() : "";
     if (!USERNAME_REGEX.test(username) || RESERVED_USERNAMES.has(username)) {
-        throw new functions.https.HttpsError("invalid-argument", "Choose a different username.");
+        throw new HttpsError("invalid-argument", "Choose a different username.");
     }
     return username;
 }
@@ -43,7 +44,7 @@ function cleanUsername(value: unknown): string {
 function cleanDisplayName(value: unknown): string {
     const displayName = typeof value === "string" ? value.trim() : "";
     if (displayName.length === 0 || displayName.length > 100) {
-        throw new functions.https.HttpsError("invalid-argument", "Display name is required.");
+        throw new HttpsError("invalid-argument", "Display name is required.");
     }
     return displayName;
 }
@@ -69,7 +70,9 @@ function nameKeywords(displayName: string): string[] {
     }))).slice(0, 80);
 }
 
-export const createAmenUserProfile = functions.https.onCall(async (data, context) => {
+export const createAmenUserProfile = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAppAuth(context);
     const username = cleanUsername(data?.username);
     const displayName = cleanDisplayName(data?.displayName);
@@ -87,10 +90,10 @@ export const createAmenUserProfile = functions.https.onCall(async (data, context
         ]);
 
         if (userSnap.exists) {
-            throw new functions.https.HttpsError("already-exists", "User profile already exists.");
+            throw new HttpsError("already-exists", "User profile already exists.");
         }
         if (lookupSnap.exists && lookupSnap.data()?.uid !== uid) {
-            throw new functions.https.HttpsError("already-exists", "Username is already taken.");
+            throw new HttpsError("already-exists", "Username is already taken.");
         }
 
         const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
@@ -151,7 +154,9 @@ export const createAmenUserProfile = functions.https.onCall(async (data, context
     return { success: true, uid, username };
 });
 
-export const deactivateAccount = functions.https.onCall(async (data, context) => {
+export const deactivateAccount = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAppAuth(context);
     const reason = typeof data?.reason === "string" ? data.reason.slice(0, 80) : "user_requested";
     await db.collection("users").doc(uid).set({
@@ -167,7 +172,10 @@ export const deactivateAccount = functions.https.onCall(async (data, context) =>
     return { success: true };
 });
 
-export const reactivateAccount = functions.https.onCall(async (_data, context) => {
+export const reactivateAccount = onCall(async (request) => {
+    const _data = request.data as any;
+    const data = _data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAppAuth(context);
     await db.collection("users").doc(uid).set({
         accountStatus: "active",
@@ -183,7 +191,9 @@ export const reactivateAccount = functions.https.onCall(async (_data, context) =
     return { success: true };
 });
 
-export const requestAccountDeletion = functions.https.onCall(async (data, context) => {
+export const requestAccountDeletion = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAppAuth(context);
     const reason = typeof data?.reason === "string" ? data.reason.slice(0, 120) : "user_requested";
     const requestRef = db.collection("deletionRequests").doc(uid);

@@ -375,7 +375,7 @@ private struct SpiritualPostCard: View {
                 .frame(width: 42, height: 42)
                 .overlay(
                     Image(systemName: "person.fill")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.systemScaled(16, weight: .medium))
                         .foregroundStyle(Color.black.opacity(0.55))
                 )
 
@@ -392,7 +392,7 @@ private struct SpiritualPostCard: View {
             Spacer()
 
             Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.4))
         }
     }
@@ -690,7 +690,7 @@ private struct SpiritualReactionButton: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: reaction.symbol)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(reaction.title)
                     .font(.footnote.weight(.semibold))
                 Text("\(count)")

@@ -54,7 +54,7 @@ private struct SuggestionChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: suggestion.action.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                 Text(suggestion.label)
                     .font(.caption.weight(.medium))

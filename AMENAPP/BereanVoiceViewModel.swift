@@ -109,6 +109,34 @@ final class BereanVoiceViewModel: ObservableObject {
         dlog("BereanVoiceViewModel: session stopped")
     }
 
+    /// Pause the microphone without ending the session.
+    func pauseSession() async {
+        guard voiceState == .listening || voiceState == .speaking || voiceState == .thinking else { return }
+        responseTask?.cancel()
+        responseTask = nil
+        await streamManager.stopRecording()
+        voiceState = .paused
+        if let session = currentSession {
+            await sessionService.updateEmotionalState(emotionalState, sessionId: session.id)
+            let event = BereanVoiceEvent(sessionId: session.id, type: .pause)
+            await sessionService.logEvent(event)
+        }
+        dlog("BereanVoiceViewModel: session paused")
+    }
+
+    /// Resume listening after a pause.
+    func resumeSession() async {
+        guard voiceState == .paused, currentSession != nil else { return }
+        do {
+            try await streamManager.startRecording()
+            voiceState = .listening
+            dlog("BereanVoiceViewModel: session resumed")
+        } catch {
+            errorMessage = error.localizedDescription
+            voiceState = .error
+        }
+    }
+
     // -------------------------------------------------------------------------
     // MARK: Barge-in
     // -------------------------------------------------------------------------

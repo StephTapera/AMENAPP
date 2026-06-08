@@ -547,22 +547,24 @@ struct UserSelectionRow: View {
                 
                 Spacer()
                 
-                // Selection Indicator
+                // Selection Indicator — visual 24pt, hit target 44pt
                 ZStack {
                     Circle()
                         .stroke(isSelected ? Color.blue : Color(.systemGray4), lineWidth: 2)
                         .frame(width: 24, height: 24)
-                    
+
                     if isSelected {
                         Circle()
                             .fill(Color.blue)
                             .frame(width: 24, height: 24)
-                        
+
                         Image(systemName: "checkmark")
                             .font(.systemScaled(12, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

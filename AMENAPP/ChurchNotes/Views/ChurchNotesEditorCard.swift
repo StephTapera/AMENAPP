@@ -14,12 +14,12 @@ struct ChurchNotesEditorCard<EditorContent: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TextField("Note Title", text: .constant(title))
-                .font(.system(size: 28, weight: .semibold))
+                .font(.systemScaled(28, weight: .semibold))
                 .disabled(true)
                 .padding(.horizontal, 16)
                 .padding(.top, 20)
             TextField("Sermon title (optional)", text: $sermonTitle)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
             ChurchNoteTagTray(appliedTags: $noteTags, noteContent: noteContent)
@@ -30,7 +30,7 @@ struct ChurchNotesEditorCard<EditorContent: View>: View {
                 Divider().padding(.leading, 16)
                 Spacer()
                 Button(isReviewMode ? "Edit" : "Review", action: onReviewToggle)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .padding(.trailing, 16)
             }
             .padding(.vertical, 4)

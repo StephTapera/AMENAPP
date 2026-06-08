@@ -37,7 +37,7 @@ struct AmenInlineObjectHubActionCluster: View {
                 HStack(spacing: 8) {
                     ForEach(actions, id: \.self) { action in
                         actionButton(for: action)
-                            .glassEffect(in: Capsule())  // must be last modifier on each button
+                            .amenGlassEffect(in: Capsule())  // must be last modifier on each button
                     }
                 }
             }
@@ -64,7 +64,7 @@ struct AmenInlineObjectHubActionCluster: View {
             onAction(action)
         }
         .buttonStyle(AmenHubGlassButtonStyle(reduceMotion: reduceMotion))
-        .font(.system(size: 14, weight: .semibold))
+        .font(.systemScaled(14, weight: .semibold))
         .foregroundStyle(.primary)
         .padding(.horizontal, 14)
         .padding(.vertical, 9)

@@ -114,7 +114,7 @@ struct PrayerMatchView: View {
     private var emptyView: some View {
         VStack(spacing: 20) {
             Image(systemName: "hands.sparkles")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
@@ -138,7 +138,7 @@ struct PrayerMatchView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 

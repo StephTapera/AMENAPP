@@ -106,7 +106,7 @@ struct WitnessCameraView: View {
             }
 
             Text(viewModel.surfaceMode == .photo ? "Photo" : "Video")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(liquidBackground(cornerRadius: 18))
@@ -117,7 +117,7 @@ struct WitnessCameraView: View {
         VStack(spacing: 14) {
             if let reason = viewModel.lastFallbackReason, viewModel.surfaceMode == .video {
                 Text(reason)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.86))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
@@ -226,7 +226,7 @@ struct WitnessCameraView: View {
     private func liquidButton(icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 42, height: 42)
                 .background(liquidBackground(cornerRadius: 21))
@@ -237,7 +237,7 @@ struct WitnessCameraView: View {
     private func modePill(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(selected ? .black : .white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
@@ -316,10 +316,8 @@ private final class WitnessSinglePreviewHostView: UIView {
     }
 
     var previewLayer: AVCaptureVideoPreviewLayer {
-        guard let previewLayer = layer as? AVCaptureVideoPreviewLayer else {
-            fatalError("WitnessSinglePreviewHostView.layer is not AVCaptureVideoPreviewLayer — layerClass override failed")
-        }
-        return previewLayer
+        // layerClass override guarantees this cast succeeds
+        layer as! AVCaptureVideoPreviewLayer
     }
 
     override init(frame: CGRect) {
@@ -328,7 +326,7 @@ private final class WitnessSinglePreviewHostView: UIView {
     }
 
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        super.init(coder: coder)
     }
 }
 
@@ -374,7 +372,7 @@ private struct WitnessReviewView: View {
     private func reviewButton(title: String, filled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(filled ? .black : .white)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)

@@ -297,14 +297,14 @@ struct LiquidGlassUploadCapsule: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.black)
+                        .font(.systemScaled(14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
 
                     Text(meta)
-                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color.black.opacity(0.58))
+                        .font(.systemScaled(11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
                 }
@@ -315,7 +315,7 @@ struct LiquidGlassUploadCapsule: View {
                 HStack(spacing: 8) {
                     if let onRetry, isFailure {
                         Button("Retry", action: onRetry)
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .font(.systemScaled(12, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color.red.opacity(0.78))
                             .padding(.horizontal, 12)
                             .frame(height: 32)
@@ -327,7 +327,7 @@ struct LiquidGlassUploadCapsule: View {
                     if let onCancel, isExpanded, isActive {
                         Button(action: onCancel) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.systemScaled(11, weight: .bold))
                                 .foregroundStyle(Color.black.opacity(0.65))
                                 .frame(width: 30, height: 30)
                                 .background(.ultraThinMaterial, in: Circle())
@@ -355,7 +355,7 @@ struct LiquidGlassUploadCapsule: View {
                 .stroke(Color.white.opacity(0.80), lineWidth: 0.8)
 
             Image(systemName: statusIconName)
-                .font(.system(size: 14, weight: .bold))
+                .font(.systemScaled(14, weight: .bold))
                 .foregroundStyle(statusIconColor)
                 .rotationEffect(isActive && !reduceMotion ? .degrees(amenPulse ? 360 : 0) : .zero)
                 .animation(isActive && !reduceMotion ? .linear(duration: 2.2).repeatForever(autoreverses: false) : .default, value: amenPulse)
@@ -382,9 +382,9 @@ struct LiquidGlassUploadCapsule: View {
                     .stroke(Color.white.opacity(0.82), lineWidth: 0.8)
 
                 Text("A")
-                    .font(.system(size: 18, weight: .black, design: .rounded))
+                    .font(.systemScaled(18, weight: .black, design: .rounded))
                     .tracking(-1.2)
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(.primary)
             }
             .frame(width: 36, height: 36)
             .scaleEffect(isActive && !reduceMotion ? (amenPulse ? 1.04 : 0.98) : 1)
@@ -395,10 +395,10 @@ struct LiquidGlassUploadCapsule: View {
 
             if case .success = state {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white)
+                    .font(.systemScaled(9, weight: .bold))
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(width: 15, height: 15)
-                    .background(Color.black, in: Circle())
+                    .background(Color(.label), in: Circle())
                     .offset(x: 2, y: -2)
                     .transition(.scale.combined(with: .opacity))
             }
@@ -410,21 +410,21 @@ struct LiquidGlassUploadCapsule: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(UploadCapsuleMetrics.percent(normalizedProgress))%")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.black)
+                    .font(.systemScaled(24, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
                     .monospacedDigit()
 
                 Text(expandedCaption)
-                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.black.opacity(0.46))
+                    .font(.systemScaled(10.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.tertiary)
                     .textCase(.uppercase)
             }
             .frame(width: 72, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(expandedDetail)
-                    .font(.system(size: 12.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.black.opacity(0.60))
+                    .font(.systemScaled(12.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if !mediaItems.isEmpty {
@@ -434,8 +434,8 @@ struct LiquidGlassUploadCapsule: View {
                                 HStack(spacing: 6) {
                                     UploadCapsuleThumbnail(item: item, reduceMotion: reduceMotion)
                                     Text(item.status.accessibilityLabel)
-                                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                                        .foregroundStyle(Color.black.opacity(0.52))
+                                        .font(.systemScaled(11, weight: .medium, design: .rounded))
+                                        .foregroundStyle(.secondary)
                                 }
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 6)
@@ -594,8 +594,8 @@ private struct UploadCapsuleThumbnail: View {
                         .scaledToFill()
                 } else {
                     Image(systemName: item.kind == .video ? "video.fill" : "photo.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.black.opacity(0.58))
+                        .font(.systemScaled(14, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
             }
             .frame(width: 32, height: 32)
@@ -625,7 +625,7 @@ private struct UploadCapsuleThumbnail: View {
 
             if let statusBadgeName {
                 Image(systemName: statusBadgeName)
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.systemScaled(8, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 14, height: 14)
                     .background(statusColor, in: Circle())

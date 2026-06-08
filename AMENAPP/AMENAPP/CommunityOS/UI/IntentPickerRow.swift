@@ -56,12 +56,12 @@ struct IntentChip: View {
             HStack(spacing: 6) {
                 if let meta {
                     Image(systemName: meta.systemImage)
-                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                     Text(meta.displayName)
-                        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
                 } else {
                     Text(intent)
-                        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                        .font(.systemScaled(14, weight: isSelected ? .semibold : .regular))
                 }
             }
             .foregroundStyle(

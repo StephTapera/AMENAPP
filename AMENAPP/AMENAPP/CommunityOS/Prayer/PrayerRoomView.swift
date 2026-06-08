@@ -33,7 +33,7 @@ private struct PrayerUpdateCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: updateType.systemImage)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.accentColor)
                 Text(updateType.displayName)
                     .font(.caption)
@@ -89,6 +89,7 @@ struct PrayerRoomView: View {
     @State private var stubUpdates: [PrayerUpdateStub] = []
     @State private var isPraying = false
     @State private var hasPrayed = false
+    @State private var didFinishLoading = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -123,6 +124,8 @@ struct PrayerRoomView: View {
                             prayForThisButton(prayer)
                             updatesSection
                             secondaryActions(prayer)
+                        } else if didFinishLoading {
+                            prayerNotFoundState
                         } else {
                             loadingState
                         }
@@ -207,6 +210,13 @@ struct PrayerRoomView: View {
             }
         }
         .task { await loadPrayer() }
+        .onChange(of: prayer?.id) { _, newId in
+            guard newId != nil, let prayer, !PrayerSessionManager.shared.isActive else { return }
+            Task { await PrayerSessionManager.shared.start(title: prayer.title) }
+        }
+        .onDisappear {
+            Task { await PrayerSessionManager.shared.end() }
+        }
     }
 
     // MARK: - Provenance Banner
@@ -264,7 +274,7 @@ struct PrayerRoomView: View {
             if prayer.status != .active {
                 HStack(spacing: 6) {
                     Image(systemName: prayer.status.systemImage)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                     Text(prayer.status.displayName)
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -299,7 +309,7 @@ struct PrayerRoomView: View {
     private func privacyBadge(_ prayer: PrayerRequest) -> some View {
         HStack(spacing: 5) {
             Image(systemName: prayer.privacyLevel.systemImage)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
             Text(prayer.privacyLevel.displayName)
                 .font(.caption)
                 .fontWeight(.semibold)
@@ -326,7 +336,7 @@ struct PrayerRoomView: View {
                 if hasPrayed {
                     HStack(spacing: 8) {
                         Image(systemName: "hands.sparkles.fill")
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.systemScaled(16, weight: .regular))
                         Text("Praying")
                             .font(.callout)
                             .fontWeight(.semibold)
@@ -350,7 +360,7 @@ struct PrayerRoomView: View {
                 } else {
                     HStack(spacing: 8) {
                         Image(systemName: "hands.sparkles")
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.systemScaled(16, weight: .regular))
                         Text("Pray for this")
                             .font(.callout)
                             .fontWeight(.semibold)
@@ -486,12 +496,36 @@ struct PrayerRoomView: View {
         .accessibilityLabel("Loading prayer room")
     }
 
+    // MARK: - Prayer Not Found
+
+    private var prayerNotFoundState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.systemScaled(36, weight: .light))
+                .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                .accessibilityHidden(true)
+            Text("Couldn't load this prayer.")
+                .font(.callout)
+                .foregroundStyle(Color(uiColor: .secondaryLabel))
+            Button("Try Again") {
+                didFinishLoading = false
+                Task { await loadPrayer() }
+            }
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(Color.accentColor)
+        }
+        .padding(.top, 60)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Prayer could not be loaded. Tap Try Again to reload.")
+    }
+
     // MARK: - Feature Unavailable
 
     private var featureUnavailableView: some View {
         VStack(spacing: 16) {
             Image(systemName: "hands.sparkles")
-                .font(.system(size: 40, weight: .ultraLight))
+                .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Prayer rooms are coming soon.")
@@ -509,6 +543,9 @@ struct PrayerRoomView: View {
     private func loadPrayer() async {
         // Stub: load from Firestore /prayers/{prayerId} once PrayerService is built.
         // For now, populate with a placeholder so the layout renders correctly.
+        // When PrayerService is wired, replace with a real async throw call and
+        // remove the stub; errors will naturally leave `prayer` nil and surface
+        // `prayerNotFoundState` to the user.
         prayer = PrayerRequest(
             id: prayerId,
             authorId: "uid_author",
@@ -523,6 +560,7 @@ struct PrayerRoomView: View {
             createdAt: Date(),
             softDeleted: false
         )
+        didFinishLoading = true
     }
 }
 

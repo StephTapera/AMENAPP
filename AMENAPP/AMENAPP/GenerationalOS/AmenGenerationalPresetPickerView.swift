@@ -78,7 +78,7 @@ struct AmenGenerationalPresetPickerView: View {
     private var headerSection: some View {
         VStack(spacing: 8) {
             Image(systemName: "person.badge.shield.checkmark.fill")
-                .font(.system(size: 44, weight: .semibold))
+                .font(.systemScaled(44, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
                 .opacity(cardsVisible ? 1 : 0)
                 .scaleEffect(cardsVisible ? 1 : 0.85)
@@ -148,7 +148,7 @@ struct AmenGenerationalPresetPickerView: View {
                         .frame(width: 52, height: 52)
 
                     Image(systemName: preset.symbolName)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(
                             isSelected
                                 ? Color.accentColor
@@ -165,13 +165,13 @@ struct AmenGenerationalPresetPickerView: View {
                 // Text block
                 VStack(alignment: .leading, spacing: 4) {
                     Text(preset.displayName)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(
                             isSelected ? Color(white: 0.97) : Color(white: 0.85)
                         )
 
                     Text(preset.description)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(white: 0.50))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -181,7 +181,7 @@ struct AmenGenerationalPresetPickerView: View {
 
                 // Checkmark
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22, weight: .regular))
+                    .font(.systemScaled(22, weight: .regular))
                     .foregroundStyle(
                         isSelected
                             ? Color.accentColor
@@ -261,7 +261,7 @@ struct AmenGenerationalPresetPickerView: View {
             }
         } label: {
             Text("Continue")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(
                     selectedPreset != nil
                         ? Color(white: 0.06)

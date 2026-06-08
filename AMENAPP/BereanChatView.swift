@@ -128,6 +128,7 @@ final class BereanChatViewModel: ObservableObject {
                 if self.isStudyModeEnabled {
                     self.resolveReasoning()
                 }
+                validateCitations(in: assistantIndex)
                 saveConversation()
             } catch is CancellationError {
                 messages[assistantIndex].isStreaming = false
@@ -153,6 +154,36 @@ final class BereanChatViewModel: ObservableObject {
     func cancelStreaming() {
         streamTask?.cancel()
         streamTask = nil
+    }
+
+    /// Scans the completed assistant message for scripture references and flags
+    /// any that fail ScriptureReferenceValidator, appending a caution note.
+    private func validateCitations(in index: Int) {
+        guard index < messages.count else { return }
+        let text = messages[index].content
+        // Extract patterns like "John 3:16", "1 Cor 13:4", "Genesis 1:1-3"
+        let pattern = #"(?:[1-3]?\s?[A-Za-z]+(?:\s[A-Za-z]+)*)\s+\d+:\d+(?:-\d+)?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, range: range)
+        var invalidRefs: [String] = []
+        for match in matches {
+            guard let r = Range(match.range, in: text) else { continue }
+            let candidate = String(text[r])
+            // Only flag references that parse as plausible book+chapter:verse but fail bounds
+            let result = ScriptureReferenceValidator.validate(candidate)
+            switch result {
+            case .unknownBook, .outOfRange:
+                invalidRefs.append(candidate)
+            default:
+                break
+            }
+        }
+        if !invalidRefs.isEmpty {
+            let warning = "\n\n⚠️ *One or more scripture references could not be verified (\(invalidRefs.joined(separator: ", "))). Please confirm these in your Bible.*"
+            messages[index].content += warning
+            dlog("⚠️ [Berean] Unverified references appended to response: \(invalidRefs)")
+        }
     }
 
     func setStudyModeEnabled(_ enabled: Bool) {
@@ -391,7 +422,7 @@ struct BereanChatView: View {
             .overlay(alignment: .top) {
                 if showSavedToNotesToast {
                     Text("Saved to Church Notes")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 9)
@@ -532,15 +563,15 @@ struct BereanChatView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: vm.currentMode.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(vm.currentMode.rawValue)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 if vm.isStudyModeEnabled {
                     Image(systemName: "graduationcap.fill")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                 }
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .opacity(0.5)
             }
             .foregroundStyle(contrastStyle.foregroundColor)
@@ -567,9 +598,9 @@ struct BereanChatView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "graduationcap.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text("Study")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(vm.isStudyModeEnabled ? Color.white : contrastStyle.foregroundColor.opacity(0.7))
             .padding(.horizontal, 10)
@@ -881,7 +912,7 @@ struct BereanChatView: View {
                 
                 // "B" icon
                 Text("B")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.systemScaled(32, weight: .bold, design: .rounded))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [
@@ -901,12 +932,12 @@ struct BereanChatView: View {
             // Premium editorial typography
             VStack(spacing: 6) {
                 Text("Berean")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.systemScaled(28, weight: .bold, design: .rounded))
                     .foregroundColor(BereanColor.textPrimary)
                     .tracking(-0.5)
 
                 Text("Understand Scripture, explore context, and respond with clarity.")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundColor(BereanColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
@@ -974,12 +1005,12 @@ struct BereanChatView: View {
                         .frame(width: 42, height: 42)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundColor(accentColor)
                 }
                 
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundColor(BereanColor.textPrimary)
                     .lineLimit(2)
                     .lineSpacing(1)
@@ -1051,7 +1082,7 @@ struct BereanChatView: View {
     private var modeChipsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Response Style")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(BereanColor.textSecondary)
                 .padding(.horizontal, 18)
             
@@ -1081,9 +1112,9 @@ struct BereanChatView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
             }
             .foregroundColor(isSelected ? Color.white : BereanColor.textPrimary)
             .padding(.horizontal, 14)
@@ -1139,7 +1170,7 @@ struct BereanChatView: View {
     private var modeDrawerTrigger: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Response Style")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(BereanColor.textSecondary)
                 .padding(.horizontal, 18)
 
@@ -1148,7 +1179,7 @@ struct BereanChatView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: vm.currentMode.icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                     Text(vm.currentMode.rawValue)
                         .font(AMENFont.semiBold(15))
                     Spacer()
@@ -1189,7 +1220,7 @@ struct BereanChatView: View {
     private var quickActionsRow: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Quick Actions")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundColor(BereanColor.textSecondary)
             
             ScrollView(.horizontal, showsIndicators: false) {
@@ -1210,9 +1241,9 @@ struct BereanChatView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
             }
             .foregroundColor(BereanColor.textPrimary)
             .padding(.horizontal, 14)
@@ -1318,9 +1349,9 @@ struct BereanChatView: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: source.icon)
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                             Text(source.label)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                         }
                         .foregroundStyle(isSelected
                             ? Color.black
@@ -1392,9 +1423,9 @@ struct BereanChatView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(Color.black.opacity(0.76))
             .padding(.horizontal, 13)
@@ -1446,7 +1477,7 @@ struct BereanChatView: View {
                 dlog("Berean: attach tapped")
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundColor(BereanColor.textSecondary)
                     .frame(width: 32, height: 32)
             }
@@ -1456,7 +1487,7 @@ struct BereanChatView: View {
 
             // Text input (center - clean, no nested capsule)
             TextField("", text: $vm.inputText, axis: .vertical)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundColor(BereanColor.textPrimary)
                 .lineLimit(1...4)
                 .focused($inputFocused)
@@ -1464,7 +1495,7 @@ struct BereanChatView: View {
                 .overlay(alignment: .leading) {
                     if vm.inputText.isEmpty {
                         Text("Ask Berean...")
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.systemScaled(16, weight: .regular))
                             .foregroundColor(BereanColor.textTertiary)
                             .allowsHitTesting(false)
                     }
@@ -1478,7 +1509,7 @@ struct BereanChatView: View {
                         dlog("Berean: mic tapped")
                     } label: {
                         Image(systemName: "mic.fill")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.systemScaled(18, weight: .medium))
                             .foregroundColor(BereanColor.textSecondary)
                             .frame(width: 32, height: 32)
                     }
@@ -1511,7 +1542,7 @@ struct BereanChatView: View {
                             .frame(width: 32, height: 32)
                         
                         Image(systemName: vm.isThinking ? "stop.fill" : "arrow.up")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }
@@ -1646,13 +1677,13 @@ struct BereanChatView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(Color(red: 0.788, green: 0.659, blue: 0.298))
                         Text(result.verse.reference)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(Color.black.opacity(0.78))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(Color.black.opacity(0.30))
                     }
                     .padding(.horizontal, 12)
@@ -1680,7 +1711,7 @@ struct BereanChatView: View {
             Spacer(minLength: 60)
             
             Text(message.content)
-                .font(.system(size: 16, weight: .regular))
+                .font(.systemScaled(16, weight: .regular))
                 .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 11)
@@ -1724,7 +1755,7 @@ struct BereanChatView: View {
                     bereanAvatar
                     
                     Text(message.content)
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.systemScaled(16, weight: .regular))
                         .foregroundColor(BereanColor.textPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
@@ -1756,15 +1787,15 @@ struct BereanChatView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundColor(Color(red: 0.30, green: 0.65, blue: 0.55))
                     Text("Direct Answer")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundColor(BereanColor.textSecondary)
                 }
                 
                 Text(text)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundColor(BereanColor.textPrimary)
             }
             .padding(14)
@@ -1789,15 +1820,15 @@ struct BereanChatView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: icon)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundColor(accentColor)
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundColor(BereanColor.textPrimary)
                 }
                 
                 Text(content)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.systemScaled(15, weight: .regular))
                     .foregroundColor(BereanColor.textPrimary)
                     .lineSpacing(3)
             }
@@ -1828,7 +1859,7 @@ struct BereanChatView: View {
             
             VStack(alignment: .leading, spacing: 8) {
                 Text("Next Steps")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundColor(BereanColor.textSecondary)
                 
                 BereanFollowUpFlowLayout(spacing: 8) {
@@ -1838,9 +1869,9 @@ struct BereanChatView: View {
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: action.icon)
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.systemScaled(11, weight: .medium))
                                 Text(action.title)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                             }
                             .foregroundColor(BereanColor.textPrimary)
                             .padding(.horizontal, 12)
@@ -1869,7 +1900,7 @@ struct BereanChatView: View {
                 .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
                 .frame(width: 28, height: 28)
             Text("B")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .font(.systemScaled(11, weight: .bold, design: .rounded))
                 .foregroundColor(Color(red: 0.788, green: 0.659, blue: 0.298))
         }
     }
@@ -1887,7 +1918,7 @@ struct BereanChatView: View {
                         .frame(width: 16, height: 16)
                     
                     Text(vm.messages.last?.processingState ?? "Reading passage...")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundColor(BereanColor.textSecondary)
                 }
                 .padding(.horizontal, 14)
@@ -1954,14 +1985,14 @@ struct BereanVersePreviewSheet: View {
                     // Reference header
                     HStack(spacing: 8) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(Color(red: 0.788, green: 0.659, blue: 0.298))
                         Text(verse.reference)
-                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .font(.systemScaled(20, weight: .bold, design: .serif))
                             .foregroundStyle(.primary)
                         Spacer()
                         Text(verse.translation)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.systemScaled(12, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -1973,7 +2004,7 @@ struct BereanVersePreviewSheet: View {
                     // Verse text (only if we have it)
                     if !verse.text.isEmpty {
                         Text(verse.text)
-                            .font(.system(size: 17, weight: .regular, design: .serif))
+                            .font(.systemScaled(17, weight: .regular, design: .serif))
                             .foregroundStyle(.primary)
                             .lineSpacing(6)
                             .padding(18)
@@ -1994,7 +2025,7 @@ struct BereanVersePreviewSheet: View {
                     } else {
                         // Reference only — invite to open in Selah
                         Text("Tap Open in Selah to read the full passage.")
-                            .font(.system(size: 15, weight: .regular))
+                            .font(.systemScaled(15, weight: .regular))
                             .foregroundStyle(.secondary)
                     }
 
@@ -2004,7 +2035,7 @@ struct BereanVersePreviewSheet: View {
                             dismiss()
                         } label: {
                             Label("Open in Selah", systemImage: "arrow.up.right.square")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color.white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
@@ -2022,7 +2053,7 @@ struct BereanVersePreviewSheet: View {
                                 : "\(verse.reference) — \(verse.text)"
                         } label: {
                             Label("Copy", systemImage: "doc.on.doc")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                                 .foregroundStyle(Color.black.opacity(0.65))
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)

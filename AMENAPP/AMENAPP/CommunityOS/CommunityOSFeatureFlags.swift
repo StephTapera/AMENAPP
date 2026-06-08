@@ -33,8 +33,8 @@ enum CommunityOSFlag: String, CaseIterable {
     case autoChurchLibrary          = "church_worship_library_enabled"
     case realWorldImpactEngine      = "real_world_impact_engine_enabled"
 
-    /// All Community OS features default to false — enable via Remote Config.
-    var defaultValue: Bool { false }
+    /// All Community OS features default to true; Remote Config can override.
+    var defaultValue: Bool { true }
 
     var displayName: String {
         switch self {
@@ -75,7 +75,7 @@ enum CommunityOSFlag: String, CaseIterable {
 // MARK: - CommunityOSFlagService
 
 /// @MainActor service that wraps Firebase Remote Config for all Community OS flags.
-/// All flags default to `false` until Remote Config has been successfully fetched and activated.
+/// All flags default to `true`; Remote Config can lower them for staged rollouts.
 @MainActor
 final class CommunityOSFlagService: ObservableObject {
 
@@ -96,8 +96,7 @@ final class CommunityOSFlagService: ObservableObject {
 
     // MARK: Public API
 
-    /// Returns `true` only if Remote Config explicitly enables the flag.
-    /// Returns `flag.defaultValue` (false) if Remote Config has not yet been fetched.
+    /// Returns the Remote Config value for the flag, or `flag.defaultValue` (true) before first fetch.
     func isEnabled(_ flag: CommunityOSFlag) -> Bool {
         resolvedValues[flag] ?? flag.defaultValue
     }

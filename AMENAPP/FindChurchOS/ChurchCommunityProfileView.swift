@@ -223,6 +223,8 @@ struct ChurchCommunityProfileView: View {
                     }
                     Spacer()
                     Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        // TODO: implement add to calendar action
                     } label: {
                         Label("Add", systemImage: "calendar.badge.plus")
                             .font(.caption.weight(.semibold))
@@ -326,6 +328,8 @@ private struct SpacePlaceholderRow: View {
             }
             Spacer()
             Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                // TODO: implement join group action
             } label: {
                 Text("Join")
                     .font(.caption.weight(.bold))

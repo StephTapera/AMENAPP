@@ -10,7 +10,7 @@
 //
 // Design: Liquid Glass on light system background.
 //   Pre-iOS 26: .ultraThinMaterial + strokeBorder(.black.opacity(0.08), lineWidth: 0.8)
-//   iOS 26+:    .glassEffect() on card surfaces
+//   iOS 26+:    .amenGlassEffect() on card surfaces
 //
 // Rules:
 //   - Suggest before posting, never over-block.
@@ -123,7 +123,7 @@ struct AmenPrePostReviewSheet: View {
     private var bannerBackground: some View {
         if #available(iOS 26, *) {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .glassEffect(.regular.tint(tierColor.opacity(0.08)))
+                .amenGlassEffect()
         } else if reduceTransparency {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(.secondarySystemBackground))
@@ -283,7 +283,7 @@ struct AmenPrePostReviewSheet: View {
     @ViewBuilder
     private var postAnywayBackground: some View {
         if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: 14, style: .continuous).glassEffect()
+            RoundedRectangle(cornerRadius: 14, style: .continuous).amenGlassEffect()
         } else if reduceTransparency {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(.secondarySystemBackground))
@@ -534,7 +534,7 @@ struct AmenCrisisInterventionView: View {
     private var resourceCardBackground: some View {
         if #available(iOS 26, *) {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .glassEffect(.regular.tint(Color(red: 0.85, green: 0.20, blue: 0.20).opacity(0.04)))
+                .amenGlassEffect()
         } else if reduceTransparency {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(.secondarySystemBackground))
@@ -575,7 +575,7 @@ struct AmenCrisisInterventionView: View {
     @ViewBuilder
     private var iAmOkayBackground: some View {
         if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: 14, style: .continuous).glassEffect()
+            RoundedRectangle(cornerRadius: 14, style: .continuous).amenGlassEffect()
         } else if reduceTransparency {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(.secondarySystemBackground))

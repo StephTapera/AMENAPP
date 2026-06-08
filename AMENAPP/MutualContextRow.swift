@@ -47,14 +47,14 @@ struct MutualContextRow: View {
                 // Primary signal text
                 if let primary = viewModel.primarySignal {
                     signalText(primary)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
 
                 if viewModel.signals.count > 1 {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
 
@@ -110,7 +110,7 @@ struct MutualContextRow: View {
             .frame(width: Self.avatarDiameter, height: Self.avatarDiameter)
             .overlay(
                 Text(String(name.prefix(1)).uppercased())
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.white)
             )
             .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 2))
@@ -193,7 +193,7 @@ private struct MutualContextDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                 }
             }
         }
@@ -211,10 +211,10 @@ private struct MutualContextDetailSheet: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 signalTitle(signal)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.primary)
                 signalSubtitle(signal)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
         }
@@ -226,15 +226,15 @@ private struct MutualContextDetailSheet: View {
         switch signal.type {
         case .mutualFollowers:
             Image(systemName: "person.2.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         case .sharedChurch:
             Image(systemName: "building.columns.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         case .sharedInterests:
             Image(systemName: "heart.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
     }

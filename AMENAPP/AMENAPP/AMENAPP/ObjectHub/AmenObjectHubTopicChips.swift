@@ -30,7 +30,7 @@ struct AmenObjectHubTopicChips: View {
     private func chipButton(label: String, selected: Bool, onTap: @escaping () -> Void) -> some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(glass.primaryText)
                 .lineLimit(1)
                 .padding(.horizontal, 14)

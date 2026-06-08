@@ -342,7 +342,7 @@ private struct PrepSectionCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(completed ? .secondary : .primary)
                     .accessibilityHidden(true)
                 Text(title)
@@ -352,7 +352,7 @@ private struct PrepSectionCard<Content: View>: View {
                 if completed {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .accessibilityLabel("Completed")
                 }
             }

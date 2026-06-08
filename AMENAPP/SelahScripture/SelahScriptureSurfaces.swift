@@ -126,20 +126,20 @@ struct SelahScriptureTimelineView: View {
             ZStack {
                 Circle().fill(Color.primary.opacity(0.05)).frame(width: 32, height: 32)
                 Image(systemName: item.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(item.subtitle)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Text(item.date, format: .relative(presentation: .named))
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 10)
@@ -148,12 +148,12 @@ struct SelahScriptureTimelineView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "book.pages")
-                .font(.system(size: 30, weight: .light))
+                .font(.systemScaled(30, weight: .light))
                 .foregroundStyle(.secondary.opacity(0.5))
             Text("No scripture moments yet")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
             Text("Read, save, react, or pray a verse\nand it will appear here.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -193,7 +193,7 @@ struct SelahTopicExplorationView: View {
                         sectionHeader("Real moments on \(topic.lowercased())")
                         if filteredSessions.isEmpty {
                             Text("Nothing matched yet. Try another topic — or open this in scripture search.")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 16)
                         } else {
@@ -201,7 +201,7 @@ struct SelahTopicExplorationView: View {
                         }
                     } else {
                         Text("Pick a spiritual state to explore real moments from your own reading and reflection.")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 16)
                     }
@@ -239,7 +239,7 @@ struct SelahTopicExplorationView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(.system(size: 10, weight: .semibold))
+            .font(.systemScaled(10, weight: .semibold))
             .tracking(1.5)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 16)
@@ -252,20 +252,20 @@ struct SelahTopicExplorationView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(session.title.isEmpty ? (session.scriptureRefs.first ?? "Study") : session.title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                         Spacer()
                         Text(session.createdAt, format: .relative(presentation: .named))
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.secondary)
                     }
                     if let ref = session.scriptureRefs.first {
                         Text(ref)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color.accentColor)
                     }
                     if !session.responsePreview.isEmpty {
                         Text(session.responsePreview)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
@@ -288,12 +288,12 @@ struct SelahScriptureShareCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("AMEN · SELAH")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
                 .tracking(3)
                 .foregroundStyle(.secondary)
 
             Text(text)
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(.systemScaled(22, weight: .semibold, design: .serif))
                 .foregroundStyle(.primary)
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
@@ -301,11 +301,11 @@ struct SelahScriptureShareCardView: View {
 
             HStack {
                 Text(reference.displayString)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                 Spacer()
                 Text(translationAbbreviation)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .tracking(1.2)
                     .foregroundStyle(.secondary)
             }

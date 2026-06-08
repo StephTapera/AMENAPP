@@ -540,9 +540,10 @@ exports.getVoicePrayerPlaybackURL = onCall(
     async (request) => {
       requireAuth(request);
 
-      const {storagePath} = request.data;
+      const uid = request.auth.uid;
+      const {voiceCommentId, storagePath} = request.data;
 
-      // ── Validate path (prevent traversal) ─────────────────────────────────
+      // ── Validate inputs ────────────────────────────────────────────────────
       if (typeof storagePath !== "string" || storagePath.trim() === "") {
         throw new HttpsError("invalid-argument", "storagePath is required.");
       }
@@ -552,16 +553,41 @@ exports.getVoicePrayerPlaybackURL = onCall(
             "storagePath must begin with 'voice_comments/'.",
         );
       }
-      // Reject any path traversal attempts.
       if (storagePath.includes("..")) {
         throw new HttpsError(
             "invalid-argument",
             "storagePath contains invalid path components.",
         );
       }
+      if (typeof voiceCommentId !== "string" || voiceCommentId.trim() === "") {
+        throw new HttpsError("invalid-argument", "voiceCommentId is required.");
+      }
+
+      // ── Access control: verify the voice comment exists, is active, and
+      //    the requester is either the author or the comment is not private ──
+      const vcSnap = await db().collection("voiceComments").doc(voiceCommentId).get();
+      if (!vcSnap.exists) {
+        throw new HttpsError("not-found", "Voice comment not found.");
+      }
+
+      const vc = vcSnap.data();
+
+      if (vc.status !== "active") {
+        throw new HttpsError(
+            "permission-denied",
+            "This voice comment is not available for playback.",
+        );
+      }
+
+      if (vc.visibility === "private" && vc.authorId !== uid) {
+        throw new HttpsError(
+            "permission-denied",
+            "You do not have permission to play this voice comment.",
+        );
+      }
 
       // ── Generate signed URL valid for 1 hour ──────────────────────────────
-      const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour from now
+      const expiresAt = Date.now() + 60 * 60 * 1000;
 
       let url;
       try {

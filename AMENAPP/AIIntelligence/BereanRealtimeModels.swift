@@ -91,6 +91,9 @@ struct BereanRealtimeClientSecret: Equatable {
     let expiresAt: Date
     let providerSessionId: String?
     let model: String?
+    /// WebSocket endpoint issued by the server-side broker. Must be set by the
+    /// server; the client never falls over to a hardcoded provider URL.
+    let endpoint: URL?
 }
 
 struct BereanCaptionChunk: Identifiable, Equatable {

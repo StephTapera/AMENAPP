@@ -145,7 +145,7 @@ struct OrgProfileView: View {
         Color(uiColor: .secondarySystemBackground)
             .overlay(
                 Image(systemName: profile.orgType.systemImage)
-                    .font(.system(size: 40))
+                    .font(.systemScaled(40))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             )
     }
@@ -180,7 +180,7 @@ struct OrgProfileView: View {
         ZStack {
             Color(uiColor: .secondarySystemBackground)
             Image(systemName: profile.orgType.systemImage)
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }
     }
@@ -235,7 +235,7 @@ struct OrgProfileView: View {
 
                 if profile.verificationState == .verified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(Color.accentColor)
                         .accessibilityLabel("Verified organization")
                 }
@@ -313,7 +313,9 @@ struct OrgProfileView: View {
 
             // Message button — solid capsule
             Button {
-                // Message flow routes through AMEN inbox
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                MessagingCoordinator.shared.conversationToOpen = profile.id
+                MessagingCoordinator.shared.shouldOpenMessagesTab = true
             } label: {
                 Text("Message")
                     .font(.subheadline.weight(.semibold))
@@ -371,7 +373,7 @@ private struct CommunityOSOpportunityCardRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: post.type.icon)
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 36, height: 36)
                 .background(

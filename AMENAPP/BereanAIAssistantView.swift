@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PhotosUI
 import Foundation
 import Combine
 import FirebaseFirestore
@@ -177,6 +178,9 @@ struct BereanAIAssistantView: View {
     @State private var fileAttachmentPickerPresented = false
     @State private var showCamera = false
     @State private var showVerseLookup = false
+    @State private var selectedAttachmentItem: PhotosPickerItem? = nil
+    @State private var selectedCameraItem: PhotosPickerItem? = nil
+    @State private var verseLookupQuery = ""
 
     // Sermon Snap
     @State private var snapDraft: ChurchNote?
@@ -732,20 +736,37 @@ struct BereanAIAssistantView: View {
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showProjectsSheet) { BereanProjectsView() }
-        .sheet(isPresented: $fileAttachmentPickerPresented) {
-            Text("Document picker coming soon")
-                .padding()
-                .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showCamera) {
-            Text("Camera capture coming soon")
-                .padding()
-                .presentationDetents([.medium])
-        }
+        .photosPicker(isPresented: $fileAttachmentPickerPresented, selection: $selectedAttachmentItem, matching: .images)
+        .photosPicker(isPresented: $showCamera, selection: $selectedCameraItem, matching: .images)
         .sheet(isPresented: $showVerseLookup) {
-            Text("Verse lookup coming soon")
-                .padding()
-                .presentationDetents([.medium])
+            NavigationStack {
+                Form {
+                    Section("Enter a verse reference") {
+                        TextField("e.g. John 3:16 or Romans 8", text: $verseLookupQuery)
+                            .autocorrectionDisabled()
+                    }
+                }
+                .navigationTitle("Verse Lookup")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { showVerseLookup = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Add to Message") {
+                            guard !verseLookupQuery.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                            let ref = verseLookupQuery.trimmingCharacters(in: .whitespaces)
+                            messageText = messageText.isEmpty
+                                ? "Please explain \(ref)"
+                                : "\(messageText)\n\nAlso, please explain \(ref)"
+                            verseLookupQuery = ""
+                            showVerseLookup = false
+                        }
+                        .disabled(verseLookupQuery.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                }
+            }
+            .presentationDetents([.medium])
         }
         // ✅ CONSOLIDATED MODAL PRESENTATIONS (prevents "only presenting a single sheet" warnings)
         .sheet(item: $activeModal) { modal in
@@ -3935,8 +3956,8 @@ struct BereanMessageBubbleView: View {
 
         private var bodyFont: Font {
             intentStyle.useItalicBody
-                ? .system(size: 15, weight: .regular).italic()
-                : .system(size: 15, weight: .regular)
+                ? .systemScaled(15, weight: .regular).italic()
+                : .systemScaled(15, weight: .regular)
         }
 
         var body: some View {

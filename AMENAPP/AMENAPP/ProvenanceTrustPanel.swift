@@ -17,6 +17,7 @@ struct ProvenanceTrustPanel: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab: Tab = .authenticity
+    @State private var showReport = false
 
     enum Tab: String, CaseIterable {
         case authenticity = "Authenticity"
@@ -49,6 +50,13 @@ struct ProvenanceTrustPanel: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.12), radius: 20, y: -4)
+        .sheet(isPresented: $showReport) {
+            AmenReportContentSheet(
+                contentType: "media",
+                contentId: provenance?.mediaId ?? provenance?.postId ?? "",
+                covenantId: nil
+            )
+        }
     }
 
     // MARK: Handle
@@ -189,7 +197,8 @@ struct ProvenanceTrustPanel: View {
 
     private var reportButton: some View {
         Button {
-            // Wires to existing report flow
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            showReport = true
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "flag.fill")
@@ -266,7 +275,7 @@ private struct ProvenanceLabelRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: label.systemIcon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(label.kind == .syntheticWarning ? .orange : .green)
                 .frame(width: 24)
                 .accessibilityHidden(true)
@@ -307,7 +316,7 @@ private struct ProvenanceMetadataCard: View {
     private func metaRow(_ label: String, value: String, icon: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
                 .accessibilityHidden(true)
@@ -341,7 +350,7 @@ private struct ProvenanceEditChain: View {
                 ForEach(Array(editEvents.enumerated()), id: \.offset) { _, event in
                     HStack(spacing: 10) {
                         Image(systemName: event.aiAssisted ? "wand.and.stars" : "pencil")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
@@ -381,7 +390,7 @@ private struct AIDisclosureRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "wand.and.stars")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.blue)
                     .accessibilityHidden(true)
                 Text(disclosure.userVisibleLabel)
@@ -412,7 +421,7 @@ private struct AIEventRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: event.userApproved ? "checkmark.circle.fill" : "clock.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(event.userApproved ? .green : .orange)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {

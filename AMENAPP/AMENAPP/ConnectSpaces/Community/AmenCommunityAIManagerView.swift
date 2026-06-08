@@ -99,7 +99,7 @@ private struct DigestTopicPill: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(Color(hex: "D9A441"))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -130,17 +130,17 @@ private struct DigestStatRow: View {
                     .fill(tint.opacity(0.15))
                     .frame(width: 36, height: 36)
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(tint)
             }
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(count)")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .foregroundStyle(.white)
                 Text(label)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.60))
             }
             Spacer()
@@ -171,17 +171,17 @@ private struct MemberInsightRow: View {
                             .strokeBorder(Color(hex: "6E4BB5").opacity(0.3), lineWidth: 1)
                     }
                 Text(initials(for: insight.displayName))
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(Color(hex: "6E4BB5"))
             }
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(insight.displayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
                 Text(insight.reason)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.60))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -192,9 +192,9 @@ private struct MemberInsightRow: View {
             Button(action: onAction) {
                 HStack(spacing: 4) {
                     Image(systemName: insight.recommendedAction.icon)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                     Text(insight.recommendedAction.label)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                 }
                 .foregroundStyle(Color(hex: "D9A441"))
                 .padding(.horizontal, 10)
@@ -214,7 +214,7 @@ private struct MemberInsightRow: View {
             // Dismiss
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.35))
             }
             .buttonStyle(.plain)
@@ -244,10 +244,10 @@ private struct GlassSectionCard<Content: View>: View {
             // Glass section header pill
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(accent)
                 Text(title.uppercased())
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .kerning(1.0)
                     .foregroundStyle(accent)
             }
@@ -287,17 +287,17 @@ private struct QuestionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(question.text)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Text("\(question.authorFirstName) · \(daysAgoLabel(question.askedDaysAgo))")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.50))
                 Spacer()
                 Button(action: onReply) {
                     Text("Reply")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
@@ -330,18 +330,18 @@ private struct PrayerRequestRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(request.text)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Text("\(request.authorFirstName) · \(daysAgoLabel(request.postedDaysAgo))")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.50))
                 Spacer()
                 HStack(spacing: 8) {
                     Button(action: onPray) {
                         Label("Pray", systemImage: "hands.sparkles")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color(hex: "6E4BB5"))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -355,7 +355,7 @@ private struct PrayerRequestRow: View {
 
                     Button(action: onRespond) {
                         Text("Respond")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color(hex: "D9A441"))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -424,7 +424,7 @@ struct AmenCommunityAIManagerView: View {
                         Task { await vm.loadDigest() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(Color(hex: "D9A441"))
                     }
                     .accessibilityLabel("Refresh digest")
@@ -498,13 +498,13 @@ struct AmenCommunityAIManagerView: View {
     private func errorBody(_ message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 36, weight: .semibold))
+                .font(.systemScaled(36, weight: .semibold))
                 .foregroundStyle(Color(hex: "D9A441"))
             Text("Couldn't load digest")
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
                 .foregroundStyle(.white)
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.60))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -512,7 +512,7 @@ struct AmenCommunityAIManagerView: View {
                 Task { await vm.loadDigest() }
             } label: {
                 Text("Try Again")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.systemScaled(15, weight: .bold))
                     .foregroundStyle(Color(hex: "070607"))
                     .padding(.horizontal, 28)
                     .padding(.vertical, 12)
@@ -559,7 +559,7 @@ struct AmenCommunityAIManagerView: View {
     private func digestCard(_ digest: CommunityDigest) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Since Your Last Visit")
-                .font(.system(size: 16, weight: .bold))
+                .font(.systemScaled(16, weight: .bold))
                 .foregroundStyle(.white)
                 .accessibilityAddTraits(.isHeader)
 
@@ -591,7 +591,7 @@ struct AmenCommunityAIManagerView: View {
                 Divider().opacity(0.12)
 
                 Text("Active Topics")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.50))
                     .textCase(.uppercase)
                     .kerning(0.8)
@@ -685,10 +685,10 @@ struct AmenCommunityAIManagerView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: "hands.sparkles")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(hex: "6E4BB5"))
                 Text("PRAYER REQUESTS")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .kerning(1.0)
                     .foregroundStyle(Color(hex: "6E4BB5"))
             }

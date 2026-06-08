@@ -6692,7 +6692,7 @@ struct UserProfileViewWrapper: View {
                     .font(AMENFont.bold(20))
                     .padding()
                 
-                Text("User profile view coming soon...")
+                Text("Full profile coming soon.")
                     .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 
@@ -6722,7 +6722,7 @@ struct HashtagSearchViewWrapper: View {
                     .font(AMENFont.bold(20))
                     .padding()
                 
-                Text("Hashtag search view coming soon...")
+                Text("Hashtag search coming soon.")
                     .font(AMENFont.regular(14))
                     .foregroundStyle(.secondary)
                 

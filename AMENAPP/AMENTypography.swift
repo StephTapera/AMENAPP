@@ -34,7 +34,7 @@ import SwiftUI
 public struct AnimatedHeadlineView: View {
 
     public let text: String
-    public var font: Font = .system(size: 42, weight: .black)
+    public var font: Font = .systemScaled(42, weight: .black)
     public var color: Color = Color(.label)
     public var lineSpacing: CGFloat = 1
     public var lineDelay: Double = 0.09   // stagger per additional line
@@ -46,7 +46,7 @@ public struct AnimatedHeadlineView: View {
 
     public init(
         _ text: String,
-        font: Font = .system(size: 42, weight: .black),
+        font: Font = .systemScaled(42, weight: .black),
         color: Color = Color(.label),
         lineSpacing: CGFloat = 1,
         lineDelay: Double = 0.09,
@@ -109,12 +109,12 @@ public struct AnimatedHeadlineView: View {
 //
 // Example:
 //   StaggeredWordRevealView("Ask with clarity.")
-//   StaggeredWordRevealView("Good morning.", font: .system(size: 20))
+//   StaggeredWordRevealView("Good morning.", font: .systemScaled(20))
 
 public struct StaggeredWordRevealView: View {
 
     public let text: String
-    public var font: Font = .system(size: 36, weight: .bold)
+    public var font: Font = .systemScaled(36, weight: .bold)
     public var color: Color = Color(.label)
     public var wordInterval: Double = 0.07   // delay between consecutive words
     public var initialDelay: Double = 0.0
@@ -140,7 +140,7 @@ public struct StaggeredWordRevealView: View {
 
     public init(
         _ text: String,
-        font: Font = .system(size: 36, weight: .bold),
+        font: Font = .systemScaled(36, weight: .bold),
         color: Color = Color(.label),
         wordInterval: Double = 0.07,
         delay: Double = 0.0
@@ -205,13 +205,13 @@ public struct StaggeredWordRevealView: View {
 //   - Any single line where maximum intentionality is needed
 //
 // Example:
-//   MaskedSlideUpText("You're All Caught Up", font: .system(size: 20, weight: .bold))
+//   MaskedSlideUpText("You're All Caught Up", font: .systemScaled(20, weight: .bold))
 //   MaskedSlideUpText("Note Title", delay: 0.1)
 
 public struct MaskedSlideUpText: View {
 
     public let text: String
-    public var font: Font = .system(size: 20, weight: .bold)
+    public var font: Font = .systemScaled(20, weight: .bold)
     public var color: Color = Color(.label)
     public var delay: Double = 0.0
     public var liftDistance: CGFloat = 20   // how far the text starts below its resting place
@@ -222,7 +222,7 @@ public struct MaskedSlideUpText: View {
 
     public init(
         _ text: String,
-        font: Font = .system(size: 20, weight: .bold),
+        font: Font = .systemScaled(20, weight: .bold),
         color: Color = Color(.label),
         delay: Double = 0.0,
         liftDistance: CGFloat = 20,
@@ -272,7 +272,7 @@ struct ONBAnimatedHeadline: View {
     var body: some View {
         AnimatedHeadlineView(
             text,
-            font: .system(size: 42, weight: .black),
+            font: .systemScaled(42, weight: .black),
             color: Color(UIColor.label),
             lineSpacing: 2,
             delay: delay
@@ -287,7 +287,7 @@ struct ONBAnimatedHeadline: View {
 
 struct ReflectionRevealCard<Content: View>: View {
     let headline: String
-    var headlineFont: Font = .system(size: 20, weight: .bold)
+    var headlineFont: Font = .systemScaled(20, weight: .bold)
     var headlineDelay: Double = 0.0
     @ViewBuilder var body_: () -> Content
 
@@ -337,20 +337,20 @@ struct ReflectionRevealCard<Content: View>: View {
 
 #Preview("StaggeredWordRevealView") {
     VStack(spacing: 20) {
-        StaggeredWordRevealView("Ask with clarity.", font: .system(size: 36, weight: .bold))
-        StaggeredWordRevealView("Good morning.", font: .system(size: 36, weight: .bold), wordInterval: 0.10)
-        StaggeredWordRevealView("You're All Caught Up", font: .system(size: 20, weight: .bold), wordInterval: 0.06)
+        StaggeredWordRevealView("Ask with clarity.", font: .systemScaled(36, weight: .bold))
+        StaggeredWordRevealView("Good morning.", font: .systemScaled(36, weight: .bold), wordInterval: 0.10)
+        StaggeredWordRevealView("You're All Caught Up", font: .systemScaled(20, weight: .bold), wordInterval: 0.06)
     }
     .padding(24)
 }
 
 #Preview("MaskedSlideUpText") {
     VStack(spacing: 24) {
-        MaskedSlideUpText("You're All Caught Up", font: .system(size: 20, weight: .bold))
-        MaskedSlideUpText("Romans 8", font: .system(size: 32, weight: .medium), delay: 0.12)
+        MaskedSlideUpText("You're All Caught Up", font: .systemScaled(20, weight: .bold))
+        MaskedSlideUpText("Romans 8", font: .systemScaled(32, weight: .medium), delay: 0.12)
         MaskedSlideUpText(
             "Consider spending a few minutes in prayer.",
-            font: .system(size: 15, weight: .regular),
+            font: .systemScaled(15, weight: .regular),
             color: Color(.secondaryLabel),
             delay: 0.22,
             softBlur: false

@@ -15,9 +15,9 @@ private struct FormationSectionLabel: View {
     let text: String
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 10)).foregroundStyle(Color.accentColor)
+            Image(systemName: icon).font(.systemScaled(10)).foregroundStyle(Color.accentColor)
             Text(text.uppercased())
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
                 .tracking(1.5)
         }
@@ -57,9 +57,9 @@ private struct FormationStrengthBar: View {
     var body: some View {
         VStack(spacing: 6) {
             HStack {
-                Text(label).font(.system(size: 11)).foregroundStyle(Color.secondary)
+                Text(label).font(.systemScaled(11)).foregroundStyle(Color.secondary)
                 Spacer()
-                Text("\(pct)%").font(.system(size: 11)).foregroundStyle(Color.accentColor)
+                Text("\(pct)%").font(.systemScaled(11)).foregroundStyle(Color.accentColor)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -89,7 +89,7 @@ struct BereanVerseReflectionCard: View {
             FormationSectionLabel(icon: "sparkle", text: "Daily Verse")
 
             Text(passageRange)
-                .font(.system(size: 11)).foregroundStyle(Color.secondary).tracking(1)
+                .font(.systemScaled(11)).foregroundStyle(Color.secondary).tracking(1)
 
             FormationVerseBlock(text: verse.text)
 
@@ -107,7 +107,7 @@ struct BereanVerseReflectionCard: View {
                     .foregroundStyle(Color.secondary)
                     .lineSpacing(3)
                 Text("This reflection is an invitation, not instruction. It does not represent any doctrinal position.")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(Color.secondary.opacity(0.6))
                     .lineSpacing(2)
             }
@@ -146,7 +146,7 @@ struct BereanReadingPlanCard: View {
                 .foregroundStyle(Color.primary)
 
             Text("Day \(plan.currentDay) of \(plan.totalDays) — today's passage")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.secondary)
 
             FormationStrengthBar(pct: pct, label: "\(pct)% complete · \(remaining) days remaining")
@@ -154,15 +154,20 @@ struct BereanReadingPlanCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Today's reading")
-                        .font(.system(size: 10)).foregroundStyle(Color.secondary)
+                        .font(.systemScaled(10)).foregroundStyle(Color.secondary)
                     BereanVerseChip(reference: plan.todayPassageRange)
                 }
                 Spacer()
                 Button {
-                    // Open reading
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    NotificationCenter.default.post(
+                        name: Notification.Name("amenOpenScripture"),
+                        object: nil,
+                        userInfo: ["reference": plan.todayPassageRange]
+                    )
                 } label: {
                     Text("Read now")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(Color.primary)
                         .padding(.horizontal, 14).padding(.vertical, 7)
                         .background(Color(.secondarySystemGroupedBackground))
@@ -215,13 +220,13 @@ struct BereanPrayerCard: View {
                     .foregroundStyle(Color.primary)
                     .lineSpacing(2)
                 Text("For \(prayer.forWhom) · \(daysSince == 0 ? "today" : "\(daysSince) day\(daysSince == 1 ? "" : "s") ago")")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.secondary)
             }
 
             if prayer.sensitivity == .tender {
                 Text("This is a tender request. Berean is holding it gently. Consider reaching out to \(prayer.forWhom), or sharing this with your pastor or a trusted friend in community.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color(hex: "#4A9ECC"))
                     .lineSpacing(2)
                     .padding(12)
@@ -237,7 +242,7 @@ struct BereanPrayerCard: View {
                 Text(confirmed == "prayed" ? "✓ Marked as prayed today."
                      : confirmed == "answered" ? "✓ Celebrated as answered. Glory be."
                      : "✓ Reminder added to check in.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(hex: "#3DAA6E"))
                     .padding(12)
                     .background(Color(hex: "#3DAA6E").opacity(0.08))
@@ -265,7 +270,7 @@ struct BereanPrayerCard: View {
     private func prayerActionButton(_ label: String, id: String, primary: Bool) -> some View {
         Button { action = id } label: {
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(primary ? Color(.systemBackground) : Color.primary)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(primary ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color(.secondarySystemGroupedBackground)))
@@ -304,10 +309,15 @@ struct BereanSanctuaryCard: View {
             }
 
             Button {
-                // Navigate to sanctuary
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                NotificationCenter.default.post(
+                    name: Notification.Name("amenNavigate"),
+                    object: nil,
+                    userInfo: ["destination": "sanctuary"]
+                )
             } label: {
                 Text("Visit Sanctuary")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -327,7 +337,7 @@ struct BereanSanctuaryCard: View {
                 .font(.title.bold())
                 .foregroundStyle(Color.accentColor)
             Text(label)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(Color.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -366,7 +376,7 @@ struct BereanStudyCard: View {
             if !h.note.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Your note · \(h.savedOn)")
-                        .font(.system(size: 10)).foregroundStyle(Color.white.opacity(0.25))
+                        .font(.systemScaled(10)).foregroundStyle(Color.white.opacity(0.25))
                     Text(verbatim: "\u{201C}" + h.note + "\u{201D}")
                         .font(.custom("Georgia", size: 15).italic())
                         .foregroundStyle(Color.white.opacity(0.55))
@@ -382,10 +392,19 @@ struct BereanStudyCard: View {
             }
 
             Button {
-                // Continue studying
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                NotificationCenter.default.post(
+                    name: Notification.Name("amenOpenBerean"),
+                    object: nil,
+                    userInfo: [
+                        "verseRef": h.verseRef,
+                        "note": h.note,
+                        "context": "study"
+                    ]
+                )
             } label: {
                 Text("Continue studying")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color(hex: "#F5F0E8"))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -420,7 +439,7 @@ struct BereanMemoryCard: View {
                 FormationSectionLabel(icon: "brain", text: "Memory Verse")
                 Spacer()
                 Text("🔥 \(mv.streak)-day streak")
-                    .font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.30))
+                    .font(.systemScaled(11)).foregroundStyle(Color.white.opacity(0.30))
             }
 
             Text(mv.verseRef)
@@ -432,10 +451,10 @@ struct BereanMemoryCard: View {
             if !revealed {
                 VStack(spacing: 12) {
                     Text("Try to recall this verse before revealing it.")
-                        .font(.system(size: 13)).foregroundStyle(Color.white.opacity(0.45))
+                        .font(.systemScaled(13)).foregroundStyle(Color.white.opacity(0.45))
                     Button { withAnimation { revealed = true } } label: {
                         Text("Reveal verse")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(Color(hex: "#0A0A0F"))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -472,7 +491,7 @@ struct BereanMemoryCard: View {
                             }
                         } label: {
                             Text(memorized ? "Memorized!" : "✓ I remembered it")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color(hex: "#0A0A0F"))
                                 .frame(maxWidth: .infinity).padding(.vertical, 10)
                                 .background(
@@ -486,7 +505,7 @@ struct BereanMemoryCard: View {
                         .disabled(memorized)
                         Button { withAnimation { revealed = false } } label: {
                             Text("Practice again")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color(hex: "#F5F0E8"))
                                 .frame(maxWidth: .infinity).padding(.vertical, 10)
                                 .background(Color.white.opacity(0.06))
@@ -517,7 +536,7 @@ struct BereanSeasonalCard: View {
         VStack(alignment: .leading, spacing: 16) {
             FormationSectionLabel(icon: "leaf", text: "Seasonal Rhythm")
             Text(s.liturgicalSeason)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(Color(hex: "#3DAA6E"))
                 .tracking(1)
                 .padding(.horizontal, 10).padding(.vertical, 4)
@@ -548,8 +567,8 @@ struct BereanFormationCardRenderer: View {
                 onWhyTapped?()
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: "info.circle").font(.system(size: 10))
-                    Text("Why am I seeing this?").font(.system(size: 10))
+                    Image(systemName: "info.circle").font(.systemScaled(10))
+                    Text("Why am I seeing this?").font(.systemScaled(10))
                 }
                 .foregroundStyle(Color.white.opacity(0.28))
             }
@@ -580,9 +599,9 @@ struct BereanFormationCrisisCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 6) {
-                Image(systemName: "shield.fill").font(.system(size: 10)).foregroundStyle(Color(hex: "#D93025"))
+                Image(systemName: "shield.fill").font(.systemScaled(10)).foregroundStyle(Color(hex: "#D93025"))
                 Text("YOU'RE NOT ALONE")
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(Color(hex: "#D93025")).tracking(1.5)
+                    .font(.systemScaled(10, weight: .semibold)).foregroundStyle(Color(hex: "#D93025")).tracking(1.5)
             }
 
             Text("You've been carrying something heavy. Berean can't carry it with you — but people can.")
@@ -591,7 +610,7 @@ struct BereanFormationCrisisCard: View {
                 .lineSpacing(3)
 
             Text("If you're in crisis, please reach out to someone who loves you — your pastor, a trusted friend, or a professional counselor. You don't have to be alone in this.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.50))
                 .lineSpacing(3)
 
@@ -632,11 +651,11 @@ struct BereanFormationCrisisCard: View {
     private func crisisResourceButton(title: String, subtitle: String) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(hex: "#F5F0E8"))
-                Text(subtitle).font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.35))
+                Text(title).font(.systemScaled(13, weight: .semibold)).foregroundStyle(Color(hex: "#F5F0E8"))
+                Text(subtitle).font(.systemScaled(11)).foregroundStyle(Color.white.opacity(0.35))
             }
             Spacer()
-            Image(systemName: "arrow.up.right").font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.35))
+            Image(systemName: "arrow.up.right").font(.systemScaled(11)).foregroundStyle(Color.white.opacity(0.35))
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color(hex: "#D93025").opacity(0.08))
@@ -662,9 +681,9 @@ struct BereanWhySheet: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 6) {
-                    Image(systemName: "lightbulb").font(.system(size: 10)).foregroundStyle(NotifGlassTokens.goldPrimary)
+                    Image(systemName: "lightbulb").font(.systemScaled(10)).foregroundStyle(NotifGlassTokens.goldPrimary)
                     Text("WHY AM I SEEING THIS?")
-                        .font(.system(size: 10, weight: .semibold)).foregroundStyle(NotifGlassTokens.goldPrimary).tracking(1.5)
+                        .font(.systemScaled(10, weight: .semibold)).foregroundStyle(NotifGlassTokens.goldPrimary).tracking(1.5)
                 }
 
                 Text(card.typeLabel)
@@ -672,14 +691,14 @@ struct BereanWhySheet: View {
                     .foregroundStyle(Color(hex: "#F5F0E8"))
 
                 Text(BereanFormationSafetyEngine.whySeeingThis(card))
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white.opacity(0.55))
                     .lineSpacing(4)
 
                 HStack { Spacer()
                     Button { onClose() } label: {
                         Text("Close")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(Color(hex: "#F5F0E8"))
                             .padding(.horizontal, 24).padding(.vertical, 10)
                             .background(Color.white.opacity(0.08))

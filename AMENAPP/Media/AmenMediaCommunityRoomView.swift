@@ -108,7 +108,7 @@ struct AmenMediaCommunityRoomView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(.white)
                     }
                 }
@@ -117,7 +117,7 @@ struct AmenMediaCommunityRoomView: View {
                         showRules = true
                     } label: {
                         Image(systemName: "info.circle")
-                            .font(.system(size: 16))
+                            .font(.systemScaled(16))
                             .foregroundStyle(.white.opacity(0.7))
                     }
                 }
@@ -142,7 +142,7 @@ struct AmenMediaCommunityRoomView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Image(systemName: room.iconName)
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .foregroundStyle(.white)
 
                 Text(room.name)
@@ -156,7 +156,7 @@ struct AmenMediaCommunityRoomView: View {
 
                 HStack(spacing: 4) {
                     Image(systemName: "person.2")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                     Text("\(room.memberCount.formatted()) members")
                         .font(.custom("OpenSans-SemiBold", size: 12))
                 }
@@ -334,7 +334,7 @@ private struct PinnedMediaCard: View {
                     .fill(accentColor.opacity(0.2))
                     .frame(width: 160, height: 100)
                 Image(systemName: item.mediaType.icon)
-                    .font(.system(size: 28, weight: .light))
+                    .font(.systemScaled(28, weight: .light))
                     .foregroundStyle(accentColor)
                 if let dur = item.duration {
                     Text(dur)
@@ -389,7 +389,7 @@ private struct CommunityPostCard: View {
                 Spacer()
                 if let mediaType = post.mediaType {
                     Image(systemName: mediaType.icon)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.white.opacity(0.4))
                 }
             }
@@ -401,7 +401,7 @@ private struct CommunityPostCard: View {
 
             HStack {
                 Image(systemName: "bubble.left")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                 Text("\(post.replyCount) repl\(post.replyCount == 1 ? "y" : "ies")")
                     .font(.custom("OpenSans-Regular", size: 12))
             }

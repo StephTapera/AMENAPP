@@ -45,7 +45,7 @@ struct SelahContinueView: View {
     private func contextBanner(_ window: SelahContextWindow) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "sparkles")
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
                 Text(window.sessionSummary)
@@ -114,7 +114,7 @@ struct SelahContinueView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "arrow.forward.circle")
-                .font(.system(size: 48, weight: .ultraLight))
+                .font(.systemScaled(48, weight: .ultraLight))
                 .foregroundStyle(.secondary)
             Text("All caught up")
                 .font(.headline)
@@ -168,7 +168,7 @@ struct SelahContinuationCard: View {
                         .fill(accentColor.opacity(0.14))
                         .frame(width: 40, height: 40)
                     Image(systemName: continuation.actionEnum.icon)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.systemScaled(18, weight: .medium))
                         .foregroundStyle(accentColor)
                 }
 
@@ -260,7 +260,7 @@ struct SelahOutcomeSheet: View {
                 if let cont = continuation {
                     HStack(spacing: 12) {
                         Image(systemName: cont.actionEnum.icon)
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(.purple)
                         Text(cont.promptText)
                             .font(.subheadline)

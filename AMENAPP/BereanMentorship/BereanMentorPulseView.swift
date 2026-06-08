@@ -10,7 +10,7 @@ import FirebaseAuth
 
 struct BereanMentorPulseView: View {
     @StateObject private var service = BereanMentorshipService.shared
-    @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = false
+    @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedMentorship: BereanMentorship?
@@ -113,15 +113,15 @@ struct BereanMentorPulseView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.accentColor)
                 Text("YOUR MENTEES")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .tracking(2)
                 if menteeCount > 0 {
                     Text("\(menteeCount)")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(Color(.systemGroupedBackground))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -178,10 +178,10 @@ struct BereanMentorPulseView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.accentColor)
                 Text("UPCOMING SESSIONS")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .tracking(2)
                 Spacer()
@@ -192,7 +192,7 @@ struct BereanMentorPulseView: View {
 
             if upcoming.isEmpty {
                 Text("No sessions in the next 7 days.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 16)
@@ -242,7 +242,7 @@ struct MentorPulseItemRow: View {
                     .fill(Color.accentColor.opacity(0.15))
                     .frame(width: 40, height: 40)
                 Text(initialsText)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
             }
             .accessibilityHidden(true)
@@ -250,27 +250,27 @@ struct MentorPulseItemRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(item.menteeName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color.primary)
                     Text("·")
                         .foregroundStyle(Color.secondary.opacity(0.5))
                     Text(item.signal.displayName)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(item.signal.color)
                 }
                 Text(item.detail)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.65))
                     .lineLimit(2)
                 Text(relativeDateText)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(Color.secondary)
             }
 
             Spacer()
 
             Image(systemName: item.signal.systemImage)
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(item.signal.color)
                 .accessibilityHidden(true)
         }
@@ -297,16 +297,16 @@ private struct UpcomingSessionRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(mentorship.menteeDisplayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.primary)
                 Text(formattedDate)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.5))
             }
             Spacer()
             Button(action: onLogTap) {
                 Text("Log Session")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(Color.accentColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -323,14 +323,14 @@ private struct BereanMentorEmptyPulseView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 32, weight: .ultraLight))
+                .font(.systemScaled(32, weight: .ultraLight))
                 .foregroundStyle(Color.accentColor.opacity(0.6))
             Text("Your mentees are doing great!")
                 .font(.title3).bold()
                 .foregroundStyle(Color.primary)
                 .multilineTextAlignment(.center)
             Text("No items need your attention right now.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -350,7 +350,7 @@ struct BereanMentorshipFeaturePlaceholder: View {
             Color(.systemGroupedBackground).ignoresSafeArea()
             VStack(spacing: 16) {
                 Image(systemName: icon)
-                    .font(.system(size: 40, weight: .ultraLight))
+                    .font(.systemScaled(40, weight: .ultraLight))
                     .foregroundStyle(Color.accentColor.opacity(0.6))
                     .accessibilityHidden(true)
                 Text(message)
@@ -358,7 +358,7 @@ struct BereanMentorshipFeaturePlaceholder: View {
                     .foregroundStyle(Color.primary)
                     .multilineTextAlignment(.center)
                 Text(detail)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -394,13 +394,13 @@ struct LogSessionSheet: View {
                     VStack(alignment: .leading, spacing: 24) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Session with")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(Color.secondary)
                             Text(mentorship.menteeDisplayName)
                                 .font(.title2).bold()
                                 .foregroundStyle(Color.primary)
                             Text(mentorship.focus)
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(Color.accentColor)
                         }
                         .padding(.horizontal, 24)
@@ -413,7 +413,7 @@ struct LogSessionSheet: View {
                         // Notes field
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Session Notes")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(Color.secondary)
                                 .accessibilityAddTraits(.isHeader)
 
@@ -426,13 +426,13 @@ struct LogSessionSheet: View {
                                     .scrollContentBackground(.hidden)
                                     .background(Color.clear)
                                     .foregroundStyle(Color.primary)
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .padding(12)
                                     .frame(minHeight: 120)
 
                                 if notes.isEmpty {
                                     Text("What did you discuss? Key scripture, takeaways, follow-ups...")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(Color.secondary.opacity(0.5))
                                         .padding(16)
                                         .allowsHitTesting(false)
@@ -446,13 +446,13 @@ struct LogSessionSheet: View {
                         // Duration stepper
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Duration")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(Color.secondary)
                                 .accessibilityAddTraits(.isHeader)
 
                             HStack {
                                 Text("\(durationMinutes) minutes")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.systemScaled(16, weight: .medium))
                                     .foregroundStyle(Color.primary)
                                 Spacer()
                                 Stepper(value: $durationMinutes, in: durationMin...durationMax, step: durationStep) {
@@ -483,7 +483,7 @@ struct LogSessionSheet: View {
                                     ProgressView().tint(Color(.systemGroupedBackground))
                                 } else {
                                     Text(didLog ? "Logged!" : "Log Session")
-                                        .font(.system(size: 16, weight: .semibold))
+                                        .font(.systemScaled(16, weight: .semibold))
                                         .foregroundStyle(Color(.systemGroupedBackground))
                                 }
                             }

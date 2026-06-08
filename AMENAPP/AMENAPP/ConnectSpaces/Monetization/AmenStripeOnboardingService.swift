@@ -167,16 +167,16 @@ struct AmenStripeOnboardingSheet: View {
     private var stripeLockup: some View {
         VStack(spacing: 10) {
             Image(systemName: "creditcard.and.123")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .accessibilityHidden(true)
 
             Text("Connect Stripe")
-                .font(.system(size: 22, weight: .bold))
+                .font(.systemScaled(22, weight: .bold))
                 .foregroundStyle(.white)
 
             Text("Set up payouts to start receiving membership revenue from your Space.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.60))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -192,7 +192,7 @@ struct AmenStripeOnboardingSheet: View {
                 .accessibilityHidden(true)
 
             Text("Connecting to Stripe...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.55))
                 .accessibilityLabel("Loading Stripe onboarding, please wait")
         }
@@ -202,7 +202,7 @@ struct AmenStripeOnboardingSheet: View {
     private func errorState(message: String) -> some View {
         VStack(spacing: 16) {
             Label(message, systemImage: "exclamationmark.triangle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.red.opacity(0.85))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -212,7 +212,7 @@ struct AmenStripeOnboardingSheet: View {
                 Task { await service.fetchOnboardingURL(spaceId: spaceId) }
             } label: {
                 Text("Try Again")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
@@ -235,10 +235,10 @@ struct AmenStripeOnboardingSheet: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.up.forward.app")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .accessibilityHidden(true)
                 Text("Open Stripe Onboarding")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
@@ -254,7 +254,7 @@ struct AmenStripeOnboardingSheet: View {
     private var dismissButton: some View {
         Button(action: onDismiss) {
             Text("Not now")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.45))
         }
         .accessibilityLabel("Dismiss Stripe onboarding sheet")

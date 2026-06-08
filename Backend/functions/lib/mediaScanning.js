@@ -74,6 +74,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.scanUploadedMedia = void 0;
 const functions = __importStar(require("firebase-functions"));
+const storage_1 = require("firebase-functions/v2/storage");
 const admin = __importStar(require("firebase-admin"));
 const vision_1 = require("@google-cloud/vision");
 const db = admin.firestore();
@@ -205,9 +206,8 @@ async function flagOriginatingDocument(filePath) {
     }
 }
 // ── Core enforcement ───────────────────────────────────────────────────────
-exports.scanUploadedMedia = functions.storage
-    .object()
-    .onFinalize(async (object) => {
+exports.scanUploadedMedia = (0, storage_1.onObjectFinalized)(async (event) => {
+    const object = event.data;
     const filePath = object.name ?? "";
     const contentType = object.contentType ?? "";
     const bucket = object.bucket;

@@ -768,7 +768,7 @@ struct ChurchExperienceComposer: View {
             .padding(.horizontal, 20)
             .padding(.top, 12)
             .padding(.bottom, 28)
-            .background(Color.white)
+            .background(Color(.systemBackground))
         }
     }
 

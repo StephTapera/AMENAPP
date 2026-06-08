@@ -170,7 +170,7 @@ struct AmenReadingCompanionView: View {
                     .frame(width: 52, height: 52)
                     .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 1))
                 Image(systemName: vm.state == .expanded ? "xmark" : "brain")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(.white)
             }
         }

@@ -41,7 +41,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.retryFailedPush = exports.cleanupInvalidTokens = exports.closeStaleGroups = exports.cleanupOldNotifications = exports.reconcileUnreadCounts = void 0;
-const functions = __importStar(require("firebase-functions"));
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));
 const types_1 = require("./types");
 const db = admin.firestore();
@@ -53,9 +53,7 @@ const db = admin.firestore();
  * This catches edge cases where increments/decrements were lost
  * due to transient failures or race conditions.
  */
-exports.reconcileUnreadCounts = functions.pubsub
-    .schedule("every 6 hours")
-    .onRun(async () => {
+exports.reconcileUnreadCounts = (0, scheduler_1.onSchedule)({ schedule: "every 6 hours" }, async () => {
     const stateQuery = await db
         .collectionGroup("notificationState")
         .limit(500)
@@ -93,9 +91,7 @@ exports.reconcileUnreadCounts = functions.pubsub
  * Daily: archive notifications older than NOTIFICATION_RETENTION_DAYS.
  * Deletes in batches to avoid timeout.
  */
-exports.cleanupOldNotifications = functions.pubsub
-    .schedule("every 24 hours")
-    .onRun(async () => {
+exports.cleanupOldNotifications = (0, scheduler_1.onSchedule)({ schedule: "every 24 hours" }, async () => {
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - types_1.NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     // Process users with notification state docs
     const stateQuery = await db
@@ -134,9 +130,7 @@ exports.cleanupOldNotifications = functions.pubsub
  * "Closing" a group = removing the groupId so new events create a fresh group.
  * This is optional — it just keeps groups tidy.
  */
-exports.closeStaleGroups = functions.pubsub
-    .schedule("every 2 hours")
-    .onRun(async () => {
+exports.closeStaleGroups = (0, scheduler_1.onSchedule)({ schedule: "every 2 hours" }, async () => {
     const windowCutoff = admin.firestore.Timestamp.fromMillis(Date.now() - types_1.GROUPING_WINDOW_MS * 2 // 2x window for safety margin
     );
     // Find grouped notifications older than the window
@@ -180,9 +174,7 @@ exports.closeStaleGroups = functions.pubsub
  * These tokens were disabled by sendPush when FCM returned
  * registration-token-not-registered errors.
  */
-exports.cleanupInvalidTokens = functions.pubsub
-    .schedule("every 24 hours")
-    .onRun(async () => {
+exports.cleanupInvalidTokens = (0, scheduler_1.onSchedule)({ schedule: "every 24 hours" }, async () => {
     // Query for disabled tokens across all users
     const invalidTokens = await db
         .collectionGroup("deviceTokens")
@@ -206,9 +198,7 @@ exports.cleanupInvalidTokens = functions.pubsub
  * Only retries notifications created within the last 2 hours that
  * have pushDelivered === false and are not dismissed.
  */
-exports.retryFailedPush = functions.pubsub
-    .schedule("every 30 minutes")
-    .onRun(async () => {
+exports.retryFailedPush = (0, scheduler_1.onSchedule)({ schedule: "every 30 minutes" }, async () => {
     const twoHoursAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000);
     const stateQuery = await db
         .collectionGroup("notificationState")

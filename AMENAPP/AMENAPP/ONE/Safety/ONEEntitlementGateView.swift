@@ -59,16 +59,16 @@ struct ONEEntitlementGateView: View {
     private var heroHeader: some View {
         VStack(spacing: ONE.Spacing.sm) {
             Text("✦")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .accessibilityHidden(true)
             Text("ONE Subscriber")
-                .font(.system(size: 24, weight: .bold))
+                .font(.systemScaled(24, weight: .bold))
             Text("\(featureName) is a subscriber feature.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Text("No ads. No engagement scoring. Your subscription funds the service.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, ONE.Spacing.md)
@@ -104,7 +104,7 @@ struct ONEEntitlementGateView: View {
 
     private func tierHeader(_ title: String, accent: Color) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(accent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, ONE.Spacing.sm)
@@ -115,12 +115,12 @@ struct ONEEntitlementGateView: View {
             ForEach(items, id: \.0) { (label, included) in
                 HStack(spacing: ONE.Spacing.xs) {
                     Image(systemName: included ? "checkmark" : "minus")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(included ? accent : Color.secondary.opacity(0.4))
                         .frame(width: 12)
                         .accessibilityHidden(true)
                     Text(label)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(included ? .primary : .secondary)
                 }
                 .accessibilityLabel("\(label): \(included ? "included" : "not included")")
@@ -181,11 +181,11 @@ struct ONEEntitlementGateView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(isAnnual ? "Annual" : "Monthly")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(.primary)
                     if isAnnual {
                         Text("Save ~30% vs monthly")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.accentColor)
                     }
                 }
@@ -194,7 +194,7 @@ struct ONEEntitlementGateView: View {
                     ProgressView().controlSize(.small)
                 } else {
                     Text(product.displayPrice)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(isAnnual ? Color.accentColor : .primary)
                 }
             }
@@ -214,14 +214,14 @@ struct ONEEntitlementGateView: View {
     private func staticPricingCard(title: String, price: String, note: String?, isLoading: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 15, weight: .semibold))
-                if let n = note { Text(n).font(.system(size: 12)).foregroundStyle(Color.accentColor) }
+                Text(title).font(.systemScaled(15, weight: .semibold))
+                if let n = note { Text(n).font(.systemScaled(12)).foregroundStyle(Color.accentColor) }
             }
             Spacer()
             if isLoading {
                 ProgressView().controlSize(.small)
             } else {
-                Text(price).font(.system(size: 16, weight: .bold))
+                Text(price).font(.systemScaled(16, weight: .bold))
             }
         }
         .padding(ONE.Spacing.md)
@@ -240,7 +240,7 @@ struct ONEEntitlementGateView: View {
                     ProgressView().controlSize(.mini)
                 }
                 Text("Restore purchases")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             }
         }
@@ -254,9 +254,9 @@ struct ONEEntitlementGateView: View {
         HStack(alignment: .top, spacing: ONE.Spacing.sm) {
             Image(systemName: "lock.shield.fill")
                 .foregroundStyle(ONE.Colors.privateIndigo)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
             Text("Payments are handled by Apple IAP. We never see your payment details. Subscription status is verified on-device. Cancel anytime from iOS Settings → Subscriptions.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .padding(ONE.Spacing.md)

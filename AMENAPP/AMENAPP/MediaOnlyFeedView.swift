@@ -91,9 +91,9 @@ struct MediaOnlyFeedView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: filter.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(filter.rawValue)
-                    .font(.system(size: 12, weight: isActive ? .semibold : .medium))
+                    .font(.systemScaled(12, weight: isActive ? .semibold : .medium))
             }
             .foregroundColor(isActive ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
             .padding(.horizontal, 10)
@@ -174,17 +174,17 @@ struct MediaOnlyFeedView: View {
                     .frame(width: 72, height: 72)
 
                 Image(systemName: icon)
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(AmenTheme.Colors.iconSecondary)
             }
 
             VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
 
                 Text(message)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.systemScaled(13, weight: .regular))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)

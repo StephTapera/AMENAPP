@@ -169,14 +169,14 @@ struct OpenTableSuggestedRailView: View {
     private var hiddenBanner: some View {
         HStack(spacing: 10) {
             Text("Suggestions hidden")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Show again") {
                 HapticManager.impact(style: .light)
                 vm.restoreModule()
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(.systemScaled(13, weight: .medium))
             .foregroundStyle(.primary)
             .accessibilityLabel("Show suggestions again")
         }

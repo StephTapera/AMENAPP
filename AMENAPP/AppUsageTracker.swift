@@ -19,6 +19,7 @@ class AppUsageTracker: ObservableObject {
     @Published var dailyLimitMinutes: Int = 45
     @Published var showLimitReachedDialog: Bool = false
     @Published var hasShownLimitDialog: Bool = false
+    @Published var snoozeUntil: Date? = nil
     /// Frozen snapshot of todayUsageMinutes captured the moment the limit dialog fires.
     /// Used by DailyLimitReachedDialog so the displayed count doesn't tick live.
     @Published var snapshotUsageMinutes: Int = 0
@@ -27,6 +28,9 @@ class AppUsageTracker: ObservableObject {
     private var currentSessionStartTime: Date?  // Track current continuous session
     private var timer: Timer?
     private var lastSaveDate: Date?
+    /// Stored handle for the per-tick smart-break analysis task so it can be
+    /// cancelled in deinit rather than leaking into the next timer cycle.
+    private var smartBreakTask: Task<Void, Never>?
     
     private let usageKey = "app_usage_today"
     private let limitKey = "daily_time_limit"
@@ -132,28 +136,36 @@ class AppUsageTracker: ObservableObject {
         // spawning an async task + printing "limit reached" on every 1-minute tick
         // for users who have been using the app beyond their daily threshold.
         if smartBreakReminder.usageRemindersToday < 2 {
-            Task {
-                await smartBreakReminder.analyzeUsageAndRemind(
+            // Cancel any in-flight task from the previous tick before starting a new one.
+            smartBreakTask?.cancel()
+            smartBreakTask = Task { [weak self] in
+                guard let self else { return }
+                await self.smartBreakReminder.analyzeUsageAndRemind(
                     continuousMinutes: continuousMinutes,
-                    totalMinutesToday: todayUsageMinutes,
-                    dailyLimit: dailyLimitMinutes
+                    totalMinutesToday: self.todayUsageMinutes,
+                    dailyLimit: self.dailyLimitMinutes
                 )
             }
         }
         
-        // Check if we've JUST reached the limit and haven't shown dialog yet
-        // Only show dialog when we FIRST hit the exact limit
-        if todayUsageMinutes == dailyLimitMinutes && !hasShownLimitDialog {
+        // Show dialog when limit is reached (or re-reached after a snooze)
+        if todayUsageMinutes >= dailyLimitMinutes && !hasShownLimitDialog {
+            if let snoozeEnd = snoozeUntil, Date() < snoozeEnd { return }
             snapshotUsageMinutes = todayUsageMinutes
             showLimitReachedDialog = true
             hasShownLimitDialog = true
-            
-            // Haptic feedback
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.warning)
-            
             dlog("⏰ AppUsageTracker: Daily limit of \(dailyLimitMinutes) minutes reached! Showing dialog.")
         }
+    }
+
+    /// Hide the dialog and re-arm it after the given number of minutes.
+    func snooze(minutes: Int) {
+        snoozeUntil = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        hasShownLimitDialog = false
+        showLimitReachedDialog = false
+        dlog("⏰ AppUsageTracker: Snoozed for \(minutes) min")
     }
     
     private func loadUsageData() {
@@ -193,6 +205,7 @@ class AppUsageTracker: ObservableObject {
     
     deinit {
         timer?.invalidate()
+        smartBreakTask?.cancel()
     }
 }
 
@@ -200,242 +213,338 @@ class AppUsageTracker: ObservableObject {
 
 struct DailyLimitReachedDialog: View {
     @EnvironmentObject var tracker: AppUsageTracker
-    @Environment(\.scenePhase) private var scenePhase
+    @State private var orbPulse = false
+    @State private var appear = false
 
-    // Atmospheric orb animations — mirror the app's onboarding/Berean aesthetic
-    @State private var orbLeft = false
-    @State private var orbRight = false
+    private var usageFraction: Double {
+        guard tracker.dailyLimitMinutes > 0 else { return 0 }
+        return min(1.5, Double(tracker.snapshotUsageMinutes) / Double(tracker.dailyLimitMinutes))
+    }
+
+    private var contextHeading: String {
+        let h = Calendar.current.component(.hour, from: Date())
+        if h >= 22 || h < 5 { return "Rest your spirit" }
+        if h >= 18 { return "Evening wind-down" }
+        if h >= 12 { return "Afternoon pause" }
+        return "Time for a Break"
+    }
+
+    private var contextVerse: (text: String, ref: String) {
+        let h = Calendar.current.component(.hour, from: Date())
+        if h >= 22 || h < 5 { return ("He grants sleep to those he loves", "Psalm 127:2") }
+        if h >= 18 { return ("Be still, and know that I am God", "Psalm 46:10") }
+        if h >= 12 { return ("Come to me, all who are weary and burdened", "Matthew 11:28") }
+        return ("This is the day the Lord has made; rejoice in it", "Psalm 118:24")
+    }
 
     var body: some View {
         ZStack {
-            // MARK: Backdrop — matches app's near-white atmospheric background
-            Color(red: 0.949, green: 0.949, blue: 0.969)
-                .ignoresSafeArea()
+            // Warm amber background
+            Color(red: 0.99, green: 0.97, blue: 0.93).ignoresSafeArea()
 
-            // Atmospheric blobs (same palette as BereanOnboardingView)
-            ZStack {
-                // Bottom-left — warm red/coral
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(red: 1.0, green: 0.35, blue: 0.35).opacity(0.25),
-                                Color(red: 1.0, green: 0.45, blue: 0.30).opacity(0.10),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 220
-                        )
-                    )
-                    .frame(width: 440, height: 440)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                    .offset(x: -80, y: 100)
-                    .blur(radius: 70)
-                    .scaleEffect(orbLeft ? 1.06 : 1.0)
-                    .animation(.easeInOut(duration: 9).repeatForever(autoreverses: true), value: orbLeft)
-                    .allowsHitTesting(false)
+            ambientOrbs
 
-                // Bottom-right — violet/purple
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(red: 0.55, green: 0.35, blue: 1.0).opacity(0.20),
-                                Color(red: 0.40, green: 0.25, blue: 0.90).opacity(0.08),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 200
-                        )
-                    )
-                    .frame(width: 400, height: 400)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .offset(x: 80, y: 80)
-                    .blur(radius: 65)
-                    .scaleEffect(orbRight ? 1.05 : 1.0)
-                    .animation(.easeInOut(duration: 11).repeatForever(autoreverses: true), value: orbRight)
-                    .allowsHitTesting(false)
-            }
-            .ignoresSafeArea()
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 28) {
+                    Spacer(minLength: 56)
 
-            // MARK: Card content
-            VStack(spacing: 0) {
-                Spacer()
+                    progressRing
+                        .scaleEffect(appear ? 1.0 : 0.7)
+                        .opacity(appear ? 1.0 : 0)
 
-                VStack(spacing: 26) {
-                    // Icon — glass circle matching the app's icon treatment
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: 88, height: 88)
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.6),
-                                                Color.white.opacity(0.15)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                            )
-                            .shadow(color: .black.opacity(0.06), radius: 12, y: 6)
+                    mainCard
+                        .offset(y: appear ? 0 : 24)
+                        .opacity(appear ? 1.0 : 0)
 
-                        Image(systemName: "clock.badge.exclamationmark.fill")
-                            .font(.systemScaled(36, weight: .light))
-                            .foregroundStyle(.black.opacity(0.65))
-                    }
+                    snoozeRow
+                        .offset(y: appear ? 0 : 16)
+                        .opacity(appear ? 1.0 : 0)
 
-                    // Title
-                    Text("Time for a Break")
-                        .font(.systemScaled(30, weight: .light, design: .serif))
-                        .foregroundStyle(.primary)
-                        .tracking(0.3)
-
-                    // Message
-                    Text("You've spent **\(tracker.snapshotUsageMinutes) minutes** in the app today. We encourage a break to pray, reflect, or be with loved ones.")
-                        .font(.systemScaled(15, weight: .regular))
-                        .foregroundStyle(.black.opacity(0.65))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(5)
-                        .padding(.horizontal, 8)
-
-                    // Stats row — ultraThinMaterial pill
-                    HStack(spacing: 0) {
-                        VStack(spacing: 3) {
-                            Text("\(tracker.snapshotUsageMinutes)")
-                                .font(.systemScaled(26, weight: .thin, design: .rounded))
-                                .foregroundStyle(.primary)
-                            Text("Minutes Used")
-                                .font(.systemScaled(10, weight: .regular))
-                                .foregroundStyle(.black.opacity(0.45))
-                                .textCase(.uppercase)
-                                .tracking(0.6)
-                        }
-                        .frame(maxWidth: .infinity)
-
-                        Rectangle()
-                            .fill(Color.black.opacity(0.08))
-                            .frame(width: 1, height: 36)
-
-                        VStack(spacing: 3) {
-                            Text("\(tracker.dailyLimitMinutes)")
-                                .font(.systemScaled(26, weight: .thin, design: .rounded))
-                                .foregroundStyle(.primary)
-                            Text("Daily Limit")
-                                .font(.systemScaled(10, weight: .regular))
-                                .foregroundStyle(.black.opacity(0.45))
-                                .textCase(.uppercase)
-                                .tracking(0.6)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .padding(.vertical, 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18)
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.5),
-                                                Color.white.opacity(0.1)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                            )
-                    )
-
-                    // Bible verse
-                    VStack(spacing: 5) {
-                        Text("\"Be still, and know that I am God\"")
-                            .font(.systemScaled(13, weight: .light, design: .serif))
-                            .foregroundStyle(.black.opacity(0.75))
-                            .italic()
-                        Text("Psalm 46:10")
-                            .font(.systemScaled(10, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.4))
-                            .textCase(.uppercase)
-                            .tracking(1.2)
-                    }
-
-                    // Buttons
-                    VStack(spacing: 10) {
-                        // Primary — Take a Break
-                        Button {
-                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                tracker.showLimitReachedDialog = false
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                if UIApplication.shared.connectedScenes.first is UIWindowScene {
-                                    UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
-                                }
-                            }
-                        } label: {
-                            Text("Take a Break")
-                                .font(.systemScaled(16, weight: .medium))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .fill(.black)
-                                )
-                        }
-
-                        // Secondary — Continue Anyway (ghost/glass style)
-                        Button {
-                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                                tracker.showLimitReachedDialog = false
-                            }
-                        } label: {
-                            Text("Continue Anyway")
-                                .font(.systemScaled(15, weight: .regular))
-                                .foregroundStyle(.black.opacity(0.5))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
+                    Button("Continue Anyway") {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            tracker.showLimitReachedDialog = false
                         }
                     }
+                    .font(.systemScaled(14, weight: .regular))
+                    .foregroundStyle(.black.opacity(0.35))
+                    .padding(.vertical, 4)
+                    .opacity(appear ? 1.0 : 0)
+
+                    Spacer(minLength: 48)
                 }
-                .padding(.horizontal, 28)
-                .padding(.vertical, 36)
-                .background(
-                    RoundedRectangle(cornerRadius: 28)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 28)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.7),
-                                            Color.white.opacity(0.2)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(color: .black.opacity(0.08), radius: 40, y: 16)
-                )
                 .padding(.horizontal, 20)
-
-                Spacer()
             }
         }
         .ignoresSafeArea()
         .onAppear {
-            orbLeft = true
-            orbRight = true
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.72).delay(0.05)) {
+                appear = true
+            }
+            orbPulse = true
+        }
+    }
+
+    // MARK: - Ambient orbs
+
+    private var ambientOrbs: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(red: 0.93, green: 0.78, blue: 0.30).opacity(0.28), Color.clear],
+                        center: .center, startRadius: 0, endRadius: 220
+                    )
+                )
+                .frame(width: 440, height: 440)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .offset(x: 80, y: -60)
+                .blur(radius: 60)
+                .scaleEffect(orbPulse ? 1.07 : 1.0)
+                .animation(.easeInOut(duration: 8).repeatForever(autoreverses: true), value: orbPulse)
+                .allowsHitTesting(false)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(red: 1.0, green: 0.80, blue: 0.60).opacity(0.22), Color.clear],
+                        center: .center, startRadius: 0, endRadius: 200
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .offset(x: -60, y: 80)
+                .blur(radius: 70)
+                .scaleEffect(orbPulse ? 1.05 : 1.0)
+                .animation(.easeInOut(duration: 10).repeatForever(autoreverses: true), value: orbPulse)
+                .allowsHitTesting(false)
+        }
+        .ignoresSafeArea()
+    }
+
+    // MARK: - Progress ring
+
+    private var progressRing: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.black.opacity(0.07), lineWidth: 7)
+
+            Circle()
+                .trim(from: 0, to: min(1.0, usageFraction))
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.93, green: 0.78, blue: 0.30),
+                            Color(red: 0.97, green: 0.88, blue: 0.50)
+                        ],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .animation(.spring(response: 0.8, dampingFraction: 0.7), value: usageFraction)
+
+            // Overage arc shown in warm amber when past limit
+            if usageFraction > 1.0 {
+                Circle()
+                    .trim(from: 0, to: min(0.5, usageFraction - 1.0))
+                    .stroke(
+                        Color(red: 0.88, green: 0.44, blue: 0.22).opacity(0.55),
+                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+            }
+
+            VStack(spacing: 2) {
+                Text("\(tracker.snapshotUsageMinutes)")
+                    .font(.systemScaled(48, weight: .ultraLight, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text("min today")
+                    .font(.systemScaled(11, weight: .regular))
+                    .foregroundStyle(.black.opacity(0.40))
+                    .textCase(.uppercase)
+                    .tracking(1.0)
+            }
+        }
+        .frame(width: 168, height: 168)
+    }
+
+    // MARK: - Main glass card
+
+    private var mainCard: some View {
+        VStack(spacing: 0) {
+            // Heading
+            VStack(spacing: 10) {
+                Text(contextHeading)
+                    .font(.systemScaled(28, weight: .light, design: .serif))
+                    .foregroundStyle(.primary)
+                    .tracking(0.2)
+
+                Group {
+                    if usageFraction <= 1.0 {
+                        Text("You've reached your **\(tracker.dailyLimitMinutes)-min** daily goal — great time to step away.")
+                    } else {
+                        Text("You're **\(tracker.snapshotUsageMinutes - tracker.dailyLimitMinutes) min** over your \(tracker.dailyLimitMinutes)-min goal today.")
+                    }
+                }
+                .font(.systemScaled(14, weight: .regular))
+                .foregroundStyle(.black.opacity(0.55))
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+                .padding(.horizontal, 4)
+            }
+            .padding(.top, 26)
+            .padding(.horizontal, 20)
+
+            Divider()
+                .overlay(Color.black.opacity(0.06))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 20)
+
+            // Verse
+            VStack(spacing: 6) {
+                Text("\"\(contextVerse.text)\"")
+                    .font(.systemScaled(13, weight: .light, design: .serif))
+                    .foregroundStyle(.black.opacity(0.70))
+                    .italic()
+                    .multilineTextAlignment(.center)
+                Text(contextVerse.ref)
+                    .font(.systemScaled(10, weight: .regular))
+                    .foregroundStyle(.black.opacity(0.35))
+                    .textCase(.uppercase)
+                    .tracking(1.2)
+            }
+            .padding(.horizontal, 24)
+
+            Divider()
+                .overlay(Color.black.opacity(0.06))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 20)
+
+            // Inline daily limit adjuster
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Daily Limit")
+                        .font(.systemScaled(11, weight: .medium))
+                        .foregroundStyle(.black.opacity(0.38))
+                        .textCase(.uppercase)
+                        .tracking(0.7)
+                    Text("\(tracker.dailyLimitMinutes) min")
+                        .font(.systemScaled(17, weight: .regular, design: .rounded))
+                        .foregroundStyle(.primary)
+                }
+
+                Spacer()
+
+                HStack(spacing: 0) {
+                    Button {
+                        tracker.updateDailyLimit(max(15, tracker.dailyLimitMinutes - 15))
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        Image(systemName: "minus")
+                            .font(.systemScaled(13, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.65))
+                            .frame(width: 38, height: 36)
+                    }
+                    Rectangle()
+                        .fill(Color.black.opacity(0.07))
+                        .frame(width: 1, height: 18)
+                    Button {
+                        tracker.updateDailyLimit(min(240, tracker.dailyLimitMinutes + 15))
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.systemScaled(13, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.65))
+                            .frame(width: 38, height: 36)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                        )
+                )
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+
+            // Primary CTA
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    tracker.showLimitReachedDialog = false
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    if UIApplication.shared.connectedScenes.first is UIWindowScene {
+                        UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "hands.sparkles.fill")
+                        .font(.systemScaled(14, weight: .medium))
+                    Text("Take a Break")
+                        .font(.systemScaled(16, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color(red: 0.10, green: 0.10, blue: 0.12))
+                )
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.65), .white.opacity(0.18)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.07), radius: 32, y: 12)
+        )
+    }
+
+    // MARK: - Snooze options
+
+    private var snoozeRow: some View {
+        VStack(spacing: 10) {
+            Text("Snooze reminder")
+                .font(.systemScaled(11, weight: .regular))
+                .foregroundStyle(.black.opacity(0.35))
+                .textCase(.uppercase)
+                .tracking(0.9)
+
+            HStack(spacing: 10) {
+                ForEach([15, 30, 60], id: \.self) { minutes in
+                    Button {
+                        tracker.snooze(minutes: minutes)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        Text(minutes == 60 ? "1 hour" : "\(minutes) min")
+                            .font(.systemScaled(14, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.75))
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
+                                    .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+                            )
+                    }
+                }
+            }
         }
     }
 }

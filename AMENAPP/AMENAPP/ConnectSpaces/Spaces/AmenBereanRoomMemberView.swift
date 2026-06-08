@@ -53,9 +53,9 @@ private struct ProvenanceChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: layerIcon(ref.sourceLayer))
-                .font(.system(size: 8, weight: .semibold))
+                .font(.systemScaled(8, weight: .semibold))
             Text(chipLabel(ref))
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
                 .lineLimit(1)
         }
         .padding(.horizontal, 8)
@@ -131,7 +131,7 @@ private struct BereanAvatarBubble: View {
                 )
                 .shadow(color: Color(hex: "#D9A441").opacity(0.20), radius: 8, y: 0)
             Text("B")
-                .font(.system(size: 14, weight: .black))
+                .font(.systemScaled(14, weight: .black))
                 .foregroundStyle(Color(hex: "#D9A441"))
         }
         .frame(width: 36, height: 36)
@@ -146,9 +146,9 @@ private struct BereanAIBadge: View {
         // Glass pill — chrome, allowed
         HStack(spacing: 3) {
             Text("✦")
-                .font(.system(size: 8, weight: .bold))
+                .font(.systemScaled(8, weight: .bold))
             Text("AI")
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
                 .kerning(0.5)
         }
         .padding(.horizontal, 7)
@@ -193,12 +193,12 @@ struct AmenBereanRoomMemberView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("Berean")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(Color.white.opacity(0.92))
                         BereanAIBadge()
                     }
                     Text(message.createdAt.formatted(.relative(presentation: .named)))
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.white.opacity(0.38))
                 }
                 Spacer()
@@ -206,7 +206,7 @@ struct AmenBereanRoomMemberView: View {
 
             // Message body — always matte text, never glass-on-glass
             Text(message.body)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.88))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(12)

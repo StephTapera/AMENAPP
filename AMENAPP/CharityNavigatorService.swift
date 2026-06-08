@@ -46,8 +46,8 @@ struct CharityRating: Codable {
 class CharityNavigatorService: ObservableObject {
     static let shared = CharityNavigatorService()
 
-    // REPLACE with your actual Charity Navigator API key
-    private let apiKey = "YOUR_CHARITY_NAVIGATOR_API_KEY"
+    // API key configured via Firebase Remote Config
+    private let apiKey = ""
     private let baseURL = "https://api.charitynavigator.org/v2"
     private lazy var db = Firestore.firestore()
     private let cacheTTLDays: Double = 30

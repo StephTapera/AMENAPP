@@ -81,7 +81,7 @@ struct AMENCreatorHomeView: View {
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         }
     }
 

@@ -42,7 +42,7 @@ struct SextortionPanicFlowView: View {
             Spacer()
 
             Image(systemName: "shield.lefthalf.filled.slash")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(.red)
 
             VStack(spacing: 10) {
@@ -105,7 +105,7 @@ struct SextortionPanicFlowView: View {
             Spacer()
 
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 52))
+                .font(.systemScaled(52))
                 .foregroundStyle(.green)
 
             VStack(spacing: 10) {

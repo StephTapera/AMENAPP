@@ -84,6 +84,18 @@ struct GivingHomeView: View {
             TaxCenterView(store: vm.stewardshipStore)
         }
         .onAppear { vm.onAppear() }
+        .alert("Error", isPresented: Binding(
+            get: { vm.errorMessage != nil },
+            set: { if !$0 { vm.errorMessage = nil } }
+        )) {
+            Button("OK") { vm.errorMessage = nil }
+            Button("Retry") {
+                vm.errorMessage = nil
+                vm.onAppear()
+            }
+        } message: {
+            Text(vm.errorMessage ?? "")
+        }
     }
 
     // MARK: - Hero Banner
@@ -134,7 +146,7 @@ struct GivingHomeView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("GIVING")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.systemScaled(10, weight: .bold))
                             .tracking(3.2)
                             .foregroundStyle(.white.opacity(0.65))
                     }
@@ -145,9 +157,9 @@ struct GivingHomeView: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                             Text("Values")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                         }
                         .foregroundStyle(.white.opacity(0.85))
                         .padding(.horizontal, 12)
@@ -171,7 +183,7 @@ struct GivingHomeView: View {
                             .font(.custom("Georgia", size: 46))
                             .foregroundStyle(.white)
                         Text("Vetted. Transparent. Formative.")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(.white.opacity(0.78))
                             .padding(.top, 4)
                     }
@@ -205,7 +217,7 @@ struct GivingHomeView: View {
                         }
                     } label: {
                         Text(tab.rawValue)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(vm.selectedTab == tab ? .white : AmenTheme.Colors.textSecondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -305,11 +317,11 @@ struct GivingHomeView: View {
     private var trustExplainer: some View {
         HStack(spacing: 10) {
             Image(systemName: "shield.checkered")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.statusSuccess)
                 .accessibilityHidden(true)
             Text("Impact cards show program efficiency, verified field action, and what a concrete gift unlocks — no vanity metrics, no paid placement.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .lineSpacing(2)
         }
@@ -346,11 +358,11 @@ struct GivingHomeView: View {
             // Location context note
             HStack(spacing: 8) {
                 Image(systemName: "mappin.circle.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                     .accessibilityHidden(true)
                 Text(localContextLabel)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                 Spacer()
             }
@@ -441,13 +453,13 @@ struct GivingHomeView: View {
     private func emptyStateView(icon: String, title: String, body: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
             Text(body)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)

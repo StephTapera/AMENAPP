@@ -27,7 +27,7 @@ struct BereanFloatingActionTray: View {
                     )
             } else {
                 // iOS 26 native glass — GlassEffectContainer gives the tray one
-                // shared blur surface with a specular rim. .glassEffect() is the
+                // shared blur surface with a specular rim. .amenGlassEffect() is the
                 // LAST modifier on each chip so it renders above all other layers.
                 GlassEffectContainer {
                     trayChrome
@@ -74,7 +74,7 @@ struct BereanFloatingActionTray: View {
         } label: {
             Label(action.title, systemImage: action.systemImage)
                 .labelStyle(.titleAndIcon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .lineLimit(1)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
@@ -93,7 +93,7 @@ struct BereanFloatingActionTray: View {
                             .fill(AmenColor.accent.opacity(0.16))
                     }
                 }
-                // .glassEffect() must be LAST. Omit on solid-fallback path so chips
+                // .amenGlassEffect() must be LAST. Omit on solid-fallback path so chips
                 // don't nest glass inside the already-solid tray.
                 .modify { view in
                     if reduceTransparency {
@@ -108,8 +108,10 @@ struct BereanFloatingActionTray: View {
                                         lineWidth: 0.8
                                     )
                             )
+                    } else if #available(iOS 26.0, *) {
+                        view.amenGlassEffect(in: Capsule())
                     } else {
-                        view.glassEffect(in: Capsule())
+                        view.clipShape(Capsule())
                     }
                 }
         }

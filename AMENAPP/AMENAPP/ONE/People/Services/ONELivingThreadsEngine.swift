@@ -15,6 +15,7 @@ import FoundationModels
 
 // MARK: - Generable extraction type
 
+@available(iOS 26.0, *)
 @Generable
 struct ONEThreadExtractionResult {
     @Guide(description: "Key decisions explicitly made in the conversation, as short statements")
@@ -35,6 +36,7 @@ struct ONEThreadExtractionResult {
 
 // MARK: - ONELivingThreadsEngine
 
+@available(iOS 26.0, *)
 actor ONELivingThreadsEngine {
 
     private let model = SystemLanguageModel.default

@@ -29,9 +29,9 @@ private enum FeaturedCardTokens {
     static let vPad: CGFloat         = 16
 
     // Typography
-    static let categoryFont = Font.system(size: 10, weight: .semibold, design: .default)
-    static let titleFont    = Font.system(size: 24, weight: .bold,    design: .default)
-    static let metaFont     = Font.system(size: 11, weight: .medium,  design: .default)
+    static let categoryFont = Font.systemScaled(10, weight: .semibold, design: .default)
+    static let titleFont    = Font.systemScaled(24, weight: .bold,    design: .default)
+    static let metaFont     = Font.systemScaled(11, weight: .medium,  design: .default)
 }
 
 // MARK: - FeaturedResourceCard (base)

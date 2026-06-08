@@ -52,9 +52,9 @@ private struct SpaceIntentChip: View {
         Button(action: onTap) {
             HStack(spacing: 4) {
                 Text(meta.emoji)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text(meta.label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .lineLimit(1)
             }
             .padding(.horizontal, 10)
@@ -142,7 +142,7 @@ struct AmenMessageIntentChipRow: View {
             .overlay(alignment: .topTrailing) {
                 if routedIntents.contains(intent) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.accentColor)
                         .padding(2)
                 }

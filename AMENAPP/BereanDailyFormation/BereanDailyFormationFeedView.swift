@@ -15,6 +15,7 @@ struct BereanDailyFormationFeedView: View {
     @State private var arcIndex: Int = 0
     @State private var whyCard: BereanFormationCard? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     private var crisisItems: [BereanPrayerItem] {
         BereanFormationSafetyEngine.crisisItems(from: prayerList)
@@ -59,9 +60,9 @@ struct BereanDailyFormationFeedView: View {
                     if !cards.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "sparkle")
-                                .font(.system(size: 10)).foregroundStyle(Color.accentColor)
+                                .font(.systemScaled(10)).foregroundStyle(Color.accentColor)
                             Text("YOUR BEREAN TODAY")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.systemScaled(10, weight: .semibold))
                                 .foregroundStyle(Color.accentColor).tracking(2)
                         }
                         .padding(.horizontal, 20).padding(.bottom, 16)
@@ -113,27 +114,27 @@ struct BereanDailyFormationFeedView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkle")
-                        .font(.system(size: 10)).foregroundStyle(Color.accentColor)
+                        .font(.systemScaled(10)).foregroundStyle(Color.accentColor)
                     Text("Berean")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color.accentColor).tracking(1.5)
                 }
                 Text("Good morning, \(userName).")
                     .font(.title2.bold())
                     .foregroundStyle(Color.primary)
                 Text("\(dateLabel) · \(cards.count) card\(cards.count == 1 ? "" : "s") ready")
-                    .font(.system(size: 12)).foregroundStyle(Color.secondary)
+                    .font(.systemScaled(12)).foregroundStyle(Color.secondary)
             }
             Spacer()
-            // Gold emblem
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 40, height: 40)
-                Image(systemName: "sparkle")
-                    .font(.system(size: 15, weight: .light))
-                    .foregroundStyle(Color(.systemBackground))
+            // Close button
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.systemScaled(22))
+                    .foregroundStyle(Color.secondary)
             }
+            .accessibilityLabel("Close Berean Daily Formation")
         }
     }
 }
@@ -144,13 +145,13 @@ private struct BereanEmptyFeedView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "sparkle")
-                .font(.system(size: 36, weight: .ultraLight))
+                .font(.systemScaled(36, weight: .ultraLight))
                 .foregroundStyle(Color.accentColor.opacity(0.6))
             Text("Your Berean is being prepared overnight.")
                 .font(.title2.bold())
                 .foregroundStyle(Color.primary).multilineTextAlignment(.center).lineSpacing(4)
             Text("Come back in the morning.")
-                .font(.system(size: 13)).foregroundStyle(Color.secondary)
+                .font(.systemScaled(13)).foregroundStyle(Color.secondary)
         }
         .padding(32).glassSurface(cornerRadius: 20).padding(.horizontal, 32)
     }

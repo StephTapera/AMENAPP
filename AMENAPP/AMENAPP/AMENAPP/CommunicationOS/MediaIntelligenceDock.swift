@@ -148,7 +148,7 @@ struct MediaIntelligenceDock: View {
                     .fill(Color(.systemBackground))
             )
         } else {
-            // Liquid Glass shell — shadow must come before .glassEffect().
+            // Liquid Glass shell — shadow must come before .amenGlassEffect().
             GlassEffectContainer(spacing: 0) {
                 VStack(spacing: 0) {
                     // Header: plain content, no glass on text/icons.
@@ -167,8 +167,8 @@ struct MediaIntelligenceDock: View {
             }
             // Shadow before glassEffect — required by kit rules.
             .shadow(color: .black.opacity(0.15), radius: 20, y: 6)
-            // .glassEffect() is the absolute last modifier on the shell.
-            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            // .amenGlassEffect() is the absolute last modifier on the shell.
+            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
     }
 
@@ -247,7 +247,7 @@ struct MediaIntelligenceDock: View {
                     .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .foregroundStyle(.primary)
                 Text(action.rawValue)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .frame(maxWidth: 60)

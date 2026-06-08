@@ -94,7 +94,7 @@ private func highlightedText(_ text: String, query: String) -> AttributedString 
     while let range = lowercasedText.range(of: lowercasedQuery, range: searchRange) {
         if let attrRange = Range(range, in: attributed) {
             attributed[attrRange].foregroundColor = Color(hex: "D9A441")
-            attributed[attrRange].font = Font.system(size: 14, weight: .semibold)
+            attributed[attrRange].font = Font.systemScaled(14, weight: .semibold)
         }
         searchRange = range.upperBound..<lowercasedText.endIndex
     }
@@ -115,7 +115,7 @@ private struct TranscriptResultRow: View {
             HStack(alignment: .top, spacing: 12) {
                 // Timestamp badge — glass pill (chrome control)
                 Text(formatTimestamp(segment.startSecs))
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.systemScaled(11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -130,12 +130,12 @@ private struct TranscriptResultRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(segment.speakerId)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(Color(hex: "6E4BB5"))
                         .lineLimit(1)
 
                     Text(highlightedText(segment.text, query: query))
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.primary)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -144,7 +144,7 @@ private struct TranscriptResultRow: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "play.circle")
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(Color.white.opacity(0.35))
                     .accessibilityHidden(true)
             }
@@ -212,12 +212,12 @@ struct AmenTranscriptSearchView: View {
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(Color.white.opacity(0.5))
                 .accessibilityHidden(true)
 
             TextField("Search transcript…", text: $viewModel.query)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.primary)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
@@ -228,7 +228,7 @@ struct AmenTranscriptSearchView: View {
                     viewModel.query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color.white.opacity(0.4))
                 }
                 .buttonStyle(.plain)
@@ -250,14 +250,14 @@ struct AmenTranscriptSearchView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(Color.white.opacity(0.25))
                 .accessibilityHidden(true)
             Text("Search across the full transcript")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
             Text("Type a word or phrase to find moments in \(sourceTitle)")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -269,14 +269,14 @@ struct AmenTranscriptSearchView: View {
     private var noResultsState: some View {
         VStack(spacing: 14) {
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(Color.white.opacity(0.2))
                 .accessibilityHidden(true)
             Text("No results found")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text("Try different keywords or a shorter phrase.")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.tertiary)
         }
         .accessibilityLabel("No transcript results found for \(viewModel.query)")
@@ -287,7 +287,7 @@ struct AmenTranscriptSearchView: View {
             ProgressView()
                 .tint(Color(hex: "6E4BB5"))
             Text("Searching…")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
         }
         .accessibilityLabel("Searching transcript")
@@ -296,14 +296,14 @@ struct AmenTranscriptSearchView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundStyle(Color.orange.opacity(0.7))
                 .accessibilityHidden(true)
             Text("Search unavailable")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(message)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)

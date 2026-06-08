@@ -58,7 +58,7 @@ private struct SpaceEventCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
                     Image(systemName: event.type.systemImageName)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(hex: "D9A441"))
                     Spacer()
                     if event.isLive {
@@ -106,7 +106,7 @@ private struct SpaceEventCard: View {
                 .fill(Color(hex: "FF3B30"))
                 .frame(width: 5, height: 5)
             Text("LIVE")
-                .font(.system(size: 8, weight: .black))
+                .font(.systemScaled(8, weight: .black))
                 .foregroundStyle(.white)
         }
         .padding(.horizontal, 5)
@@ -117,10 +117,10 @@ private struct SpaceEventCard: View {
     private var dateChip: some View {
         HStack(spacing: 4) {
             Image(systemName: "calendar")
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
                 .foregroundStyle(.secondary)
             Text(event.scheduledAt.shortLabel)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .foregroundStyle(.secondary)
         }
     }

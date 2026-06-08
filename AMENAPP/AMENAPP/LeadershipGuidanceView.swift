@@ -104,7 +104,7 @@ struct LeadershipGuidanceView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: isCrisis ? "heart.fill" : "person.crop.circle.badge.checkmark")
-                    .font(.system(size: 28))
+                    .font(.systemScaled(28))
                     .foregroundStyle(isCrisis ? .red : .blue)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -250,7 +250,7 @@ struct LeadershipGuidanceView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "person.badge.plus")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(.blue)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -266,7 +266,7 @@ struct LeadershipGuidanceView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(14)
@@ -283,7 +283,7 @@ struct LeadershipGuidanceView: View {
     private var footerNote: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
             Text("Berean does not automatically share your conversations. Any sharing with a connected leader requires your explicit approval.")
                 .font(AMENFont.regular(11))
@@ -304,7 +304,7 @@ private struct LeadershipCrisisRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(accentColor)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(accentColor.opacity(0.12)))
@@ -336,7 +336,7 @@ private struct ScopeRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: can ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(can ? .green : Color.secondary.opacity(0.5))
 
             Text(text)
@@ -354,7 +354,7 @@ private struct LeaderConnectionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "person.circle.fill")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.blue.opacity(0.7))
 
             VStack(alignment: .leading, spacing: 2) {

@@ -187,6 +187,22 @@ extension AmenAccountTier {
     }
 }
 
+// MARK: - BereanCapabilityTier Bridge
+
+extension AmenAccountTier {
+    /// Maps the platform-level account tier to the Berean AI capability tier
+    /// used by BereanFaithOSContracts. Call sites that depend on BereanCapabilityTier
+    /// should derive it from this property rather than maintaining a parallel mapping.
+    var bereanCapabilityTier: BereanCapabilityTier {
+        switch self {
+        case .free:                     return .free
+        case .amenPlus:                 return .plus
+        case .amenPro, .creatorPro,
+             .churchPro, .enterprise:  return .pro
+        }
+    }
+}
+
 // MARK: - AmenLiveCapability
 
 /// Describes whether a user is eligible to go live and the reason if not.

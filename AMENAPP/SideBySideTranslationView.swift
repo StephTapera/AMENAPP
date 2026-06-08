@@ -19,7 +19,7 @@ struct SideBySideTranslationView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
                     Image(systemName: "globe")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                     Text(SupportedLanguage.displayName(for: sourceLanguage))
                         .font(AMENFont.bold(10))
                 }
@@ -43,7 +43,7 @@ struct SideBySideTranslationView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
                     Image(systemName: "text.bubble")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.systemScaled(9, weight: .medium))
                     Text(SupportedLanguage.displayName(for: targetLanguage))
                         .font(AMENFont.bold(10))
                 }

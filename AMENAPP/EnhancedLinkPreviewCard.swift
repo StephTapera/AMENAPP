@@ -304,7 +304,7 @@ private struct LinkSafetyInterstitialSheet: View {
                 .padding(.top, 12)
 
             Image(systemName: "exclamationmark.shield.fill")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.orange)
 
             Text("Be Careful")
@@ -333,7 +333,7 @@ private struct LinkSafetyInterstitialSheet: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.black))
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(.label)))
                 }
 
                 Button {
@@ -344,13 +344,13 @@ private struct LinkSafetyInterstitialSheet: View {
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.black.opacity(0.07)))
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.07)))
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }
 
@@ -362,11 +362,11 @@ private extension View {
         self
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.white)
+                    .fill(Color(.secondarySystemBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }

@@ -45,13 +45,13 @@ struct CatalogImportHubView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Connect Sources")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                 Spacer()
                 Button {
                     showManualAdd = true
                 } label: {
                     Label("Add Manually", systemImage: "plus")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                 }
                 .buttonStyle(.bordered)
             }
@@ -69,16 +69,16 @@ struct CatalogImportHubView: View {
         let isConnecting = connectingSourceId == source.id
         return HStack(spacing: 12) {
             Image(systemName: source.icon)
-                .font(.system(size: 18, weight: .light))
+                .font(.systemScaled(18, weight: .light))
                 .foregroundStyle(.primary)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(source.name)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                 if source.comingSoon {
                     Text("Coming soon")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -87,7 +87,7 @@ struct CatalogImportHubView: View {
 
             if source.comingSoon {
                 Text("Soon")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -96,9 +96,9 @@ struct CatalogImportHubView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                     Text("Connected")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.green)
                 }
             } else {
@@ -110,7 +110,7 @@ struct CatalogImportHubView: View {
                             .scaleEffect(0.8)
                     } else {
                         Text("Connect")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                     }
                 }
                 .buttonStyle(.bordered)
@@ -118,7 +118,7 @@ struct CatalogImportHubView: View {
             }
         }
         .padding(14)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: - Import Status
@@ -128,7 +128,7 @@ struct CatalogImportHubView: View {
         if !importJobs.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Import Progress")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
 
                 ForEach(importJobs) { job in
                     importJobRow(job: job)
@@ -141,17 +141,17 @@ struct CatalogImportHubView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(job.sourceName)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                 Spacer()
                 Text(job.status)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             ProgressView(value: job.progress)
                 .tint(.primary)
         }
         .padding(12)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     // MARK: - Review Queue
@@ -159,18 +159,18 @@ struct CatalogImportHubView: View {
     private var reviewQueueSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Review Queue")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
 
             if isLoadingReview {
                 HStack {
                     ProgressView()
                     Text("Loading...")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
             } else if reviewWorks.isEmpty {
                 Text("No works pending review.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
             } else {
                 VStack(spacing: 8) {
@@ -185,16 +185,16 @@ struct CatalogImportHubView: View {
     private func reviewWorkRow(work: CatalogWork) -> some View {
         HStack(spacing: 12) {
             Image(systemName: work.type.icon)
-                .font(.system(size: 16, weight: .light))
+                .font(.systemScaled(16, weight: .light))
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(work.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .lineLimit(1)
                 Text(work.reviewState.rawValue.capitalized)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -209,7 +209,7 @@ struct CatalogImportHubView: View {
                         }
                     }
                     .buttonStyle(.bordered)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                 }
                 if work.reviewState == .approved {
                     Button("Publish") {
@@ -219,12 +219,12 @@ struct CatalogImportHubView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                 }
             }
         }
         .padding(12)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     // MARK: - Actions
@@ -334,7 +334,7 @@ struct ManualWorkEntryView: View {
                     Section {
                         Text(error)
                             .foregroundStyle(.red)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                     }
                 }
             }

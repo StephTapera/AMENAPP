@@ -85,17 +85,17 @@ struct BereanGivingCounselView: View {
                         )
                     )
                 Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(.white)
             }
             .frame(width: 50, height: 50)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Berean Giving Counsel")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.systemScaled(17, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                 Text("Discernment guide, not a fundraiser.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
             Spacer()
@@ -113,7 +113,7 @@ struct BereanGivingCounselView: View {
     private var budgetSelector: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Monthly budget")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .textCase(.uppercase)
                 .tracking(1.2)
@@ -126,7 +126,7 @@ struct BereanGivingCounselView: View {
                         }
                     } label: {
                         Text("$\(amount)")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(vm.budgetDollars == amount ? AmenTheme.Colors.textInverse : AmenTheme.Colors.textSecondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
@@ -149,7 +149,7 @@ struct BereanGivingCounselView: View {
     private var promptInput: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Or ask something specific")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .textCase(.uppercase)
                 .tracking(1.2)
@@ -159,7 +159,7 @@ struct BereanGivingCounselView: View {
                 text: $vm.promptText,
                 axis: .vertical
             )
-            .font(.system(size: 15))
+            .font(.systemScaled(15))
             .focused($promptFocused)
             .padding(14)
             .background(AmenTheme.Colors.backgroundSecondary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -176,11 +176,11 @@ struct BereanGivingCounselView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text(vm.promptText.isEmpty
                      ? "Ask Berean about $\(vm.budgetDollars)"
                      : "Get counsel")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
             }
             .foregroundStyle(AmenTheme.Colors.textInverse)
             .frame(maxWidth: .infinity)
@@ -199,10 +199,10 @@ struct BereanGivingCounselView: View {
             ProgressView()
                 .scaleEffect(1.2)
             Text("Berean is thinking…")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
             Text("Checking verified organizations against your values.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .multilineTextAlignment(.center)
         }
@@ -217,11 +217,11 @@ struct BereanGivingCounselView: View {
             // Summary
             VStack(alignment: .leading, spacing: 6) {
                 Label("What Berean heard", systemImage: "ear")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .tracking(1.4)
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                 Text(response.summary)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                     .lineSpacing(3)
             }
@@ -236,16 +236,16 @@ struct BereanGivingCounselView: View {
             // Closing reflection
             VStack(alignment: .leading, spacing: 6) {
                 Label("A closing thought", systemImage: "bubble.left.and.text.bubble.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .tracking(1.4)
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
                 Text(response.closingReflection)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .italic()
                     .lineSpacing(2)
                 Text("Take your time.")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.textTertiary)
             }
             .padding(14)
@@ -258,13 +258,13 @@ struct BereanGivingCounselView: View {
             // Fit label
             HStack {
                 Text(rec.fitLabel.uppercased())
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.systemScaled(10, weight: .bold))
                     .tracking(1.8)
                     .foregroundStyle(Color.accentColor)
                 Spacer()
                 if rec.destinationType == .reflect {
                     Image(systemName: "moon.stars.fill")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                 }
             }
@@ -272,17 +272,17 @@ struct BereanGivingCounselView: View {
             // Org name or type
             if let org = rec.org {
                 Text(org.name)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
             } else if rec.destinationType == .reflect {
                 Text("Reflect first")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
             }
 
             // Reason
             Text(rec.reason)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .lineSpacing(2)
 
@@ -294,13 +294,13 @@ struct BereanGivingCounselView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "book.closed.fill")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                             Text(ref)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.systemScaled(12, weight: .medium))
                                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                             Image(systemName: vm.showScripture.contains(rec.id) ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                         }
                     }
@@ -326,7 +326,7 @@ struct BereanGivingCounselView: View {
                             UIApplication.shared.open(url)
                         } label: {
                             Text(rec.actionLabel)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(AmenTheme.Colors.textInverse)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
@@ -345,7 +345,7 @@ struct BereanGivingCounselView: View {
                             isSaved ? "Saved" : "Save for later",
                             systemImage: isSaved ? "checkmark" : "bookmark"
                         )
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(isSaved ? .green : AmenTheme.Colors.textSecondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
@@ -375,10 +375,10 @@ struct BereanGivingCounselView: View {
     private var guardrailNote: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "shield.fill")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
             Text("Berean never promises blessing or reward for giving. It only recommends organizations with verified transparency data. All recommendations are inspectable.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .lineSpacing(2)
         }

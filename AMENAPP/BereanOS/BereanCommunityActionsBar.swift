@@ -43,7 +43,7 @@ struct BereanCommunityActionsBar: View {
                 showActionSheet = true
             } label: {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(.secondary)
             }
             .accessibilityLabel("Add community action")
@@ -69,9 +69,9 @@ struct BereanCommunityActionsBar: View {
         let count = service.communityActions.filter { $0.actionType == actionType }.count
         return HStack(spacing: 4) {
             Image(systemName: actionType.systemIcon)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
             Text("\(count)")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -191,7 +191,7 @@ private struct BereanCommunityActionSheet: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: actionType.systemIcon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                 Text(actionType.displayName)
                     .font(.caption)
                     .multilineTextAlignment(.center)

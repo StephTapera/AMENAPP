@@ -108,8 +108,8 @@ struct BereanVoiceAssistantView: View {
         }
         .buttonStyle(.plain)
         .disabled(manager.isConnecting)
-        .accessibilityLabel(isListening ? "Stop listening" : "Start listening")
-        .accessibilityHint(isListening ? "Double tap to stop the voice assistant" : "Double tap to start the voice assistant")
+        .accessibilityLabel(isListening ? "End Session" : "Start listening")
+        .accessibilityHint(isListening ? "Double tap to end the voice assistant session" : "Double tap to start the voice assistant")
         .onChange(of: isListening) { _, newValue in
             guard !reduceMotion else { return }
             if newValue {
@@ -156,7 +156,7 @@ struct BereanVoiceAssistantView: View {
         VStack(alignment: .leading, spacing: 6) {
             Label("Berean", systemImage: "sparkles")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
             Text(lastResponse)
                 .font(.body)
                 .italic()

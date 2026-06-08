@@ -140,7 +140,7 @@ struct AmenCovenantActivityCenterView: View {
                     ProgressView().scaleEffect(0.8)
                 } else {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                 }
                 Text(catchUpLoading ? "Summarizing…" : "Catch me up")
                     .font(.subheadline.weight(.semibold))
@@ -164,7 +164,7 @@ struct AmenCovenantActivityCenterView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "tray")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.tertiary)
             Text("You're all caught up")
                 .font(.headline)
@@ -194,7 +194,7 @@ private struct CovenantActivityRow: View {
                 // Icon + unread indicator
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: activity.type.icon)
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(priorityColor)
                         .frame(width: 40, height: 40)
                         .background(Circle().fill(priorityColor.opacity(0.12)))

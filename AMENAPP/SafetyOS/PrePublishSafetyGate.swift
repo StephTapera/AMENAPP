@@ -54,7 +54,7 @@ struct PrePublishSafetyGate: View {
     private var clearView: some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color.green)
             Text("Looks Good")
                 .font(.headline)
@@ -96,7 +96,7 @@ struct PrePublishSafetyGate: View {
                 ForEach(flags, id: \.rawValue) { flag in
                     HStack(spacing: 8) {
                         Image(systemName: "circle.fill")
-                            .font(.system(size: 6))
+                            .font(.systemScaled(6))
                             .foregroundStyle(.orange)
                         Text(flagDescription(flag))
                             .font(.subheadline)

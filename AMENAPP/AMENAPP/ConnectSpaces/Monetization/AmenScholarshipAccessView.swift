@@ -68,7 +68,7 @@ struct AmenScholarshipAccessView: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: 24)
                 Text("Enter Access Code")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                     .foregroundStyle(Color.white)
                     .padding(.bottom, 20)
             }
@@ -83,7 +83,7 @@ struct AmenScholarshipAccessView: View {
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.70))
                     .padding(9)
                     .background(
@@ -101,7 +101,7 @@ struct AmenScholarshipAccessView: View {
 
     private var subtitleBlock: some View {
         Text("Churches, nonprofits, and ministry partners may provide free access codes to their community.")
-            .font(.system(size: 14))
+            .font(.systemScaled(14))
             .foregroundStyle(Color.white.opacity(0.55))
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -112,7 +112,7 @@ struct AmenScholarshipAccessView: View {
 
     private var codeEntryBlock: some View {
         TextField("ACCESS CODE", text: $code)
-            .font(.system(size: 24, weight: .bold))
+            .font(.systemScaled(24, weight: .bold))
             .tracking(4)
             .foregroundStyle(Color.white)
             .multilineTextAlignment(.center)
@@ -154,7 +154,7 @@ struct AmenScholarshipAccessView: View {
                         .tint(Color(hex: "D9A441"))
                 } else {
                     Text("Apply Code")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(Color(hex: "070607"))
                 }
             }
@@ -188,26 +188,26 @@ struct AmenScholarshipAccessView: View {
         case .success(let tierName, let expiresAt, _):
             VStack(spacing: 14) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 52, weight: .semibold))
+                    .font(.systemScaled(52, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .accessibilityHidden(true)
 
                 Text("Access Granted")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.systemScaled(22, weight: .bold))
                     .foregroundStyle(Color.white)
 
                 Text(tierName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
 
                 if let expiresAt {
                     Text("Valid until \(expiresAt.formatted(.dateTime.month(.wide).day().year()))")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.55))
                         .accessibilityLabel("Valid until \(expiresAt.formatted(.dateTime.month(.wide).day().year()))")
                 } else {
                     Text("No expiry date")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.white.opacity(0.55))
                 }
             }
@@ -227,7 +227,7 @@ struct AmenScholarshipAccessView: View {
 
         case .error(let message):
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.red.opacity(0.85))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -242,7 +242,7 @@ struct AmenScholarshipAccessView: View {
         VStack(spacing: 8) {
             Button(action: submitScholarshipRequest) {
                 Text("Request a scholarship")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(hex: "D9A441").opacity(requestSubmitted ? 0.50 : 1.0))
                     .underline()
             }
@@ -252,7 +252,7 @@ struct AmenScholarshipAccessView: View {
 
             if requestSubmitted {
                 Text("Request submitted")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.45))
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                     .accessibilityLabel("Scholarship request submitted successfully")

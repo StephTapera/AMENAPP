@@ -186,7 +186,7 @@ struct CommunityHealthDashboardView: View {
                         .animation(reduceMotion ? .none : .spring(response: 0.8), value: snapshot.overallScore)
                     VStack(spacing: 0) {
                         Text("\(Int(snapshot.overallScore * 100))")
-                            .font(.system(size: 36, weight: .bold))
+                            .font(.systemScaled(36, weight: .bold))
                         Text("Health Score")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -287,7 +287,7 @@ struct CommunityHealthDashboardView: View {
                                 .frame(height: CGFloat(pulse.requestRatio) * 40)
                         }
                         Text(pulse.dayLabel)
-                            .font(.system(size: 9))
+                            .font(.systemScaled(9))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)

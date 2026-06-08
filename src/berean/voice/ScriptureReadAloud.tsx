@@ -13,7 +13,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { tokens, VoicePersona, VoiceSpeed } from '../../contracts';
+import { tokens, VoicePersona, VoiceSpeed } from '../contracts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants

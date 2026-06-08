@@ -149,7 +149,12 @@ struct CreatePostView: View {
     
     // P0-2 FIX: Store delayed tasks for cancellation
     @State private var delayedTasks: [Task<Void, Never>] = []
-    
+
+    // MARK: - Music Attachment
+    @State private var attachedMusic: MusicAttachment? = nil
+    @State private var musicCardMode: MusicCardMode = .expanded
+    @State private var showingMusicBrowser = false
+
     // TRUST & SAFETY: Content moderation tracking
     @StateObject private var integrityTracker = ComposerIntegrityTracker()
     @ObservedObject private var rateLimiter = ComposerRateLimiter.shared
@@ -239,7 +244,10 @@ struct CreatePostView: View {
 
     // MARK: - Initializer
     
-    init(initialCategory: PostCategory? = nil) {
+    init(initialCategory: PostCategory? = nil, initialText: String = "") {
+        if !initialText.isEmpty {
+            _postText = State(initialValue: initialText)
+        }
         if let category = initialCategory {
             _selectedCategory = State(initialValue: category)
             // P1-3: Prayer posts default to followers-only comments + followers visibility for privacy
@@ -439,14 +447,32 @@ struct CreatePostView: View {
                 ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
             }
 
+            // Music attachment card preview
+            if let music = attachedMusic {
+                VStack(spacing: 4) {
+                    MusicCardContainer(track: music, displayMode: $musicCardMode)
+                    Button {
+                        attachedMusic = nil
+                        AudioPlaybackManager.shared.stop()
+                    } label: {
+                        Label("Remove music", systemImage: "xmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+
             // Document attachment chip — shown when a file is selected from Files
             if let docURL = attachedDocumentURL {
                 HStack(spacing: 6) {
                     Image(systemName: "doc.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                     Text(docURL.lastPathComponent)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(Color.primary)
@@ -457,7 +483,7 @@ struct CreatePostView: View {
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                             .foregroundStyle(Color.secondary)
                     }
                     .buttonStyle(.plain)
@@ -934,6 +960,9 @@ struct CreatePostView: View {
     // MARK: - Sheet Modifiers Group 2
     private func applySheetModifiers2<Content: View>(_ content: Content) -> some View {
         content
+            .sheet(isPresented: $showingMusicBrowser) {
+                MusicBrowseSheet(selectedMusic: $attachedMusic)
+            }
             .sheet(isPresented: $showThinkFirstPrompt) {
                 thinkFirstPromptSheetContent
             }
@@ -1710,7 +1739,7 @@ struct CreatePostView: View {
                 Image(systemName: showingAttachmentPicker ? "xmark" : "plus")
                     .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(showingAttachmentPicker ? Color.primary.opacity(0.75) : .secondary.opacity(0.65))
-                    .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
+                    .amenSymbolReplaceTransition()
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
@@ -1727,6 +1756,17 @@ struct CreatePostView: View {
             attachmentBarIcon("sparkles", recommended: recommended) {
                 showingCreatorDraftSheet = true
                 AMENAnalyticsService.shared.track(.commOSCreatorDraftRequested(draftType: selectedCategory.rawValue))
+            }
+
+            if AMENFeatureFlags.shared.musicAttachmentEnabled {
+                Button {
+                    showingMusicBrowser = true
+                } label: {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.primary)
+                }
+                .accessibilityLabel("Attach music")
             }
 
             Spacer()
@@ -1807,7 +1847,7 @@ struct CreatePostView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
-                    .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+                    .amenGlassEffect(in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1939,7 +1979,7 @@ struct CreatePostView: View {
         .frame(maxWidth: .infinity)
         .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
         .background { if reduceTransparency { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(.systemBackground)) } }
-        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .opacity(insightEngine.result.readinessState == .empty ? 0.85 : 1.0)
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
@@ -2009,7 +2049,7 @@ struct CreatePostView: View {
                                 .foregroundStyle(Color.primary.opacity(0.6))
                                 .frame(width: 32, height: 32)
                                 .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
-                                .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
+                                .amenSymbolReplaceTransition()
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(isToolbarExpanded ? "Collapse toolbar" : "Expand toolbar")
@@ -2165,7 +2205,7 @@ struct CreatePostView: View {
                             .frame(width: 38, height: 38)
                             .shadow(color: Color.black.opacity(canPost ? 0.10 : 0.04), radius: 6, x: 0, y: 2)
                             .background { if reduceTransparency { Circle().fill(Color(.systemBackground)) } }
-                            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Circle())
+                            .amenGlassEffect(in: Circle())
 
                         if isPublishing {
                             ProgressView()
@@ -2202,7 +2242,7 @@ struct CreatePostView: View {
             .padding(.vertical, 8)
             .shadow(color: .black.opacity(0.06), radius: 12, y: 3)
             .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
-            .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+            .amenGlassEffect(in: Capsule())
             .padding(.horizontal, 20)
             .padding(.bottom, 6)
         }
@@ -4182,6 +4222,19 @@ struct CreatePostView: View {
                     dlog("   📎 Document attached: \(capturedDocURL?.lastPathComponent ?? "unknown")")
                 }
 
+                // Music attachment — snapshot id/title/artists for feed rendering
+                let capturedMusic = await MainActor.run { attachedMusic }
+                if let music = capturedMusic {
+                    postData["musicAttachmentId"] = music.id
+                    postData["musicAttachmentTitle"] = music.title
+                    postData["musicAttachmentArtists"] = music.artists
+                    if let artURL = music.albumArtURL?.absoluteString { postData["musicAttachmentAlbumArtURL"] = artURL }
+                    postData["musicAttachmentPreviewURL"] = music.previewURL.absoluteString
+                    postData["musicAttachmentDurationMs"] = music.durationMs
+                    postData["musicAttachmentStartMs"] = music.startMs
+                    dlog("   🎵 Music attached: \(music.title)")
+                }
+
                 // SECURITY: Stamp every post with moderationStatus="pending" so the
                 // server-side Cloud Function trigger (posts/{postId} onCreate) always
                 // runs a second-pass moderation check. A modified client that bypasses
@@ -4307,6 +4360,11 @@ struct CreatePostView: View {
                     inFlightPostId = nil
                     postContentSource = nil  // reset source label for next post
                     attachedDocumentURL = nil  // clear document attachment after successful post
+                    // Music attachment cleanup
+                    if attachedMusic != nil {
+                        AudioPlaybackManager.shared.stop()
+                        attachedMusic = nil
+                    }
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                     shouldPersistDraftOnExit = false
                     
@@ -5108,7 +5166,7 @@ struct CreatePostView: View {
 
 /// Floating glass card shown when the user taps the `+` button in the
 /// inline attachment bar. Handles its own reduce-transparency branching so
-/// `.glassEffect()` is always the last modifier in the non-reduced path.
+/// `.amenGlassEffect()` is always the last modifier in the non-reduced path.
 private struct AttachmentPickerFloatingCard: View {
     let onCamera: () -> Void
     let onPhotos: () -> Void
@@ -5130,8 +5188,8 @@ private struct AttachmentPickerFloatingCard: View {
                 .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
         } else {
             cardRows
-                // .glassEffect() is last — iOS 26 glass surface for the card
-                .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                // .amenGlassEffect() is last — iOS 26 glass surface for the card
+                .amenGlassEffect(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .shadow(color: .black.opacity(0.10), radius: 20, y: 8)
         }
     }
@@ -5162,7 +5220,7 @@ private struct AttachmentPickerFloatingCard: View {
 }
 
 /// Single row inside `AttachmentPickerFloatingCard`.
-/// The icon circle uses `.glassEffect(in: .circle)` as a separate glass element.
+/// The icon circle uses `.amenGlassEffect(in: .circle)` as a separate glass element.
 private struct AttachmentPickerRow: View {
     let icon: String
     let label: String
@@ -5177,7 +5235,7 @@ private struct AttachmentPickerRow: View {
                 AttachmentPickerIconCircle(icon: icon)
 
                 Text(label)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.primary)
 
                 Spacer()
@@ -5192,7 +5250,7 @@ private struct AttachmentPickerRow: View {
 }
 
 /// Icon circle for each picker row.
-/// Uses `.glassEffect(in: .circle)` on iOS 26; falls back to a filled
+/// Uses `.amenGlassEffect(in: .circle)` on iOS 26; falls back to a filled
 /// secondary background when reduce-transparency is on.
 private struct AttachmentPickerIconCircle: View {
     let icon: String
@@ -5202,18 +5260,18 @@ private struct AttachmentPickerIconCircle: View {
     var body: some View {
         if reduceTransparency {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(.primary)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(Color(.secondarySystemBackground)))
                 .clipShape(Circle())
         } else {
-            // .glassEffect() is last — individual glass circle
+            // .amenGlassEffect() is last — individual glass circle
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(.primary)
                 .frame(width: 44, height: 44)
-                .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
+                .amenGlassEffect(in: Circle())
         }
     }
 }
@@ -5660,7 +5718,7 @@ struct GlassCategoryBar: View {
         // Outer pill — glass container
         .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
         .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
-        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+        .amenGlassEffect(in: Capsule())
         // Static neon-red border around the outer capsule
         .overlay(
             Capsule()
@@ -5695,7 +5753,7 @@ private struct GlassCategorySegment: View {
                         .fill(Color.clear)
                         .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 2)
                         .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
-                        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+                        .amenGlassEffect(in: Capsule())
                         .matchedGeometryEffect(id: "selectionLens", in: namespace)
                 }
 
@@ -5937,7 +5995,7 @@ struct TopicTagSheet: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background { if reduceTransparency { RoundedRectangle(cornerRadius: 12).fill(Color(.systemBackground)) } }
-                    .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .padding(.horizontal)
                     
                     if filteredTags.isEmpty {
@@ -6823,7 +6881,7 @@ struct ComposerSchedulePill: View {
         }
         .shadow(color: isScheduled ? Color.black.opacity(0.08) : Color.black.opacity(0.04), radius: isScheduled ? 8 : 4, x: 0, y: 2)
         .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
-        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+        .amenGlassEffect(in: Capsule())
         .scaleEffect(appeared ? 1.0 : 0.88)
         .opacity(appeared ? 1.0 : 0)
         .onAppear {
@@ -8641,13 +8699,13 @@ struct LiquidGlassPostButtonAnimated: View {
             }
             Text("Post")
                 .font(.systemScaled(min(max(height * 0.30, 17), 19), weight: .bold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
         }
         .frame(width: width, height: height)
         .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
         .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
         .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
-        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+        .amenGlassEffect(in: Capsule())
     }
 
     // MARK: - Uploading
@@ -8669,7 +8727,7 @@ struct LiquidGlassPostButtonAnimated: View {
         .frame(width: size, height: size)
         .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
         .background { if reduceTransparency { Circle().fill(Color(.systemBackground)) } }
-        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Circle())
+        .amenGlassEffect(in: Circle())
     }
 
     // MARK: - Success
@@ -8686,12 +8744,12 @@ struct LiquidGlassPostButtonAnimated: View {
             }
             Text("Posted")
                 .font(.systemScaled(min(max(height * 0.29, 16), 18), weight: .bold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
         }
         .frame(width: width, height: height)
         .shadow(color: .black.opacity(0.10), radius: 18, x: 0, y: 10)
         .background { if reduceTransparency { Capsule().fill(Color(.systemBackground)) } }
-        .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Capsule())
+        .amenGlassEffect(in: Capsule())
     }
 
     // MARK: - Shared Visual Layers

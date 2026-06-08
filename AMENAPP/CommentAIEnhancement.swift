@@ -398,10 +398,10 @@ struct AIEnhancedCommentsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.white)
+                .background(Color(.systemBackground))
             }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
     
     // MARK: - Actions

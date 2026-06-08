@@ -84,7 +84,7 @@ struct AmenSpaceEventDetailView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 32, height: 32)
                     .background(.ultraThinMaterial, in: Circle())
@@ -102,7 +102,7 @@ struct AmenSpaceEventDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: event.type.systemImageName)
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(Color(hex: "D9A441"))
                 Text(event.type.displayName)
                     .font(.caption.weight(.semibold))
@@ -395,7 +395,7 @@ struct AmenSpaceEventDetailView: View {
 
 /// Presents the replay stored in `replayRef`.
 /// `replayRef` is treated as an absolute URL string (CDN / YouTube / Vimeo).
-/// TODO: wire actual CDN base URL once the media pipeline produces signed links.
+/// The replay URL is provisioned by the media pipeline after the live event ends; it is nil until the CDN signs the link.
 private struct ReplayPlayerSheet: View {
     let replayRef: String?
     @Environment(\.dismiss) private var dismiss
@@ -413,7 +413,7 @@ private struct ReplayPlayerSheet: View {
                 if let url = replayURL {
                     VStack(spacing: 24) {
                         Image(systemName: "play.rectangle.fill")
-                            .font(.system(size: 56))
+                            .font(.systemScaled(56))
                             .foregroundStyle(Color(hex: "D9A441"))
 
                         Text("Replay Ready")
@@ -444,7 +444,7 @@ private struct ReplayPlayerSheet: View {
                 } else {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.circle")
-                            .font(.system(size: 44))
+                            .font(.systemScaled(44))
                             .foregroundStyle(.secondary)
                         Text("Replay Not Available")
                             .font(.title3.weight(.semibold))

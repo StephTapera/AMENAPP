@@ -352,7 +352,7 @@ struct FindFriendsView: View {
         VStack(spacing: 12) {
             Spacer(minLength: 60)
             Image(systemName: icon)
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(.tertiary)
             Text(title)
                 .font(.custom("OpenSans-Bold", size: 17))

@@ -15,7 +15,7 @@ struct AmenDailyDigestView: View {
     var userId: String
 
     // Feature flag — key must match Remote Config exactly
-    @AppStorage("spiritualOS_daily_enabled") private var isEnabled: Bool = false
+    @AppStorage("spiritualOS_daily_enabled") private var isEnabled: Bool = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -61,7 +61,7 @@ struct AmenDailyDigestView: View {
 
     private var greetingHeader: some View {
         Text(viewModel.greeting)
-            .font(.system(size: 28, weight: .light))
+            .font(.systemScaled(28, weight: .light))
             .foregroundStyle(Color.amenBlack)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityLabel(viewModel.greeting.isEmpty

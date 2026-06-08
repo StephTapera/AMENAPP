@@ -45,9 +45,9 @@ struct SmartActivityFilterBar: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.up.arrow.down")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                             Text(sortMode.rawValue)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -74,9 +74,9 @@ private struct SmartActivityFilterChip: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
             }
             .foregroundColor(isSelected ? .white : .primary)
             .padding(.horizontal, 12)
@@ -103,10 +103,10 @@ struct SmartSearchBar: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
 
             TextField(placeholder, text: $text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .focused($isFocused)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
@@ -118,7 +118,7 @@ struct SmartSearchBar: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                 }
                 .buttonStyle(.plain)
             }
@@ -229,10 +229,10 @@ struct SmartActivityDigestView: View {
     private func digestStat(value: String, label: String, systemImage: String, color: Color) -> some View {
         HStack(spacing: 5) {
             Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(color)
             Text("\(value) \(label)")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.primary)
         }
     }

@@ -12,7 +12,7 @@ struct KnowledgeIntegrityBadgeView: View {
                 showDetail = true
             } label: {
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.82))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -23,9 +23,9 @@ struct KnowledgeIntegrityBadgeView: View {
                 NavigationStack {
                     VStack(alignment: .leading, spacing: 16) {
                         Text(title)
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.systemScaled(22, weight: .semibold))
                         Text(summary)
-                            .font(.system(size: 15))
+                            .font(.systemScaled(15))
                         Spacer()
                     }
                     .padding(20)

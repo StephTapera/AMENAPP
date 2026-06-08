@@ -59,9 +59,9 @@ struct SmartActionPills: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: action.systemImage)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                 Text(action.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
@@ -73,9 +73,7 @@ struct SmartActionPills: View {
                         .fill(Color(.secondarySystemBackground))
                 }
             }
-            .glassEffect(
-                reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular,
-                in: Capsule()
+            .amenGlassEffect(in: Capsule()
             )
         }
         .buttonStyle(.plain)

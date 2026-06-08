@@ -20,7 +20,7 @@ struct CreationPromptBar: View {
                             ForEach(vm.refinementHistory.suffix(3), id: \.self) { prev in
                                 HStack(spacing: 5) {
                                     Image(systemName: "clock.fill")
-                                        .font(.system(size: 9))
+                                        .font(.systemScaled(9))
                                     Text(prev)
                                         .font(.custom("OpenSans-Regular", size: 11))
                                         .lineLimit(1)
@@ -42,7 +42,7 @@ struct CreationPromptBar: View {
                 HStack(spacing: 12) {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
 
                         TextField("Refine — e.g. \"Make it more hopeful\"", text: $vm.refinementInput)
@@ -80,7 +80,7 @@ struct CreationPromptBar: View {
                                     .fill(vm.refinementInput.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray.opacity(0.1) : Color.black)
                                     .frame(width: 44, height: 44)
                                 Image(systemName: "arrow.up")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.systemScaled(16, weight: .semibold))
                                     .foregroundStyle(vm.refinementInput.trimmingCharacters(in: .whitespaces).isEmpty ? Color.secondary : .white)
                             }
                         }
@@ -156,7 +156,7 @@ struct CreationRefinementSheet: View {
                             dismiss()
                         } label: {
                             Image(systemName: "arrow.up")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                                 .frame(width: 48, height: 48)
                                 .background(Circle().fill(Color.black))
                                 .foregroundStyle(.white)
@@ -176,7 +176,7 @@ struct CreationRefinementSheet: View {
                         ForEach(vm.refinementHistory.suffix(5).reversed(), id: \.self) { past in
                             HStack(spacing: 12) {
                                 Image(systemName: "clock.fill")
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.secondary)
                                 Text(past)
                                     .font(.custom("OpenSans-Regular", size: 14))
@@ -187,7 +187,7 @@ struct CreationRefinementSheet: View {
                                     dismiss()
                                 } label: {
                                     Image(systemName: "arrow.counterclockwise")
-                                        .font(.system(size: 13))
+                                        .font(.systemScaled(13))
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -221,7 +221,7 @@ struct RefinementChipTile: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: chip.icon)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                 Text(chip.label)
                     .font(.custom("OpenSans-SemiBold", size: 13))

@@ -36,7 +36,7 @@ struct UsernameGateView: View {
                             .frame(width: 64, height: 64)
                         
                         Image(systemName: "at")
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(.systemScaled(28, weight: .semibold))
                             .foregroundStyle(Color.black.opacity(0.7))
                     }
                     .padding(.top, 40)
@@ -57,11 +57,11 @@ struct UsernameGateView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Text("@")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.4))
                         
                         TextField("username", text: $username)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(Color.black.opacity(0.85))
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
@@ -135,7 +135,7 @@ struct UsernameGateView: View {
                                         username = suggestion
                                     } label: {
                                         Text("@\(suggestion)")
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(.systemScaled(14, weight: .medium))
                                             .foregroundStyle(Color.black.opacity(0.7))
                                             .padding(.horizontal, 12)
                                             .padding(.vertical, 8)
@@ -164,7 +164,7 @@ struct UsernameGateView: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         } else {
                             Text("Continue")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.systemScaled(16, weight: .semibold))
                         }
                     }
                     .frame(maxWidth: .infinity)

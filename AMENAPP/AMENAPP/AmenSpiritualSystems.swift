@@ -510,7 +510,7 @@ struct DiscernmentGateSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(title)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(.primary)
             Text(message)
                 .font(AMENFont.semiBold(15))
@@ -562,7 +562,7 @@ struct LivingThreadBadge: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: descriptor.icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
             Text(descriptor.title)
                 .font(AMENFont.semiBold(11))
         }
@@ -587,7 +587,7 @@ struct ThreadLifecycleStrip: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 12)
@@ -610,7 +610,7 @@ struct SilentReactionBar: View {
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: reaction.icon)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.systemScaled(11, weight: .semibold))
                             Text(reaction.title)
                                 .font(AMENFont.semiBold(11))
                         }
@@ -633,7 +633,7 @@ struct SilentReactionSummaryView: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "heart.text.square")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(summary.summaryText)
                 .font(AMENFont.regular(12))
@@ -649,9 +649,9 @@ struct PresenceStatePill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: state.icon)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
             Text(state.title)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
         }
         .foregroundStyle(.black.opacity(0.6))
         .padding(.horizontal, 10)
@@ -668,7 +668,7 @@ struct ContextualMemoryLayerSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text(sourceTitle)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                 memorySection("Scripture", items: layer.scriptureReferences, emptyText: "No scripture linked yet.")
                 memorySection("Related prayers/posts", items: layer.relatedPrayerIds + layer.relatedPostIds, emptyText: "No related follow-ups yet.")
                 memorySection("Saved notes", items: layer.savedNoteIds, emptyText: "No saved notes connected yet.")

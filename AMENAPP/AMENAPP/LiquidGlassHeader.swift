@@ -53,7 +53,7 @@ struct BereanLiquidGlassHeader: View {
             onMenu()
         } label: {
             Image(systemName: "line.3.horizontal")
-                .font(.system(size: 17, weight: .medium))
+                .font(.systemScaled(17, weight: .medium))
                 .foregroundColor(.black.opacity(0.78))
                 .frame(width: 44, height: 44)
                 .background(glassCircle)
@@ -67,10 +67,10 @@ struct BereanLiquidGlassHeader: View {
     private var bereanTitlePill: some View {
         HStack(spacing: 6) {
             Image(systemName: "graduationcap")
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundColor(.black.opacity(0.64))
             Text("Berean")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundColor(.black.opacity(0.76))
         }
         .padding(.horizontal, 14)
@@ -90,10 +90,10 @@ struct BereanLiquidGlassHeader: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "sparkle")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundColor(.black.opacity(0.68))
                 Text("Today's Pulse")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundColor(.black.opacity(0.68))
                     .lineLimit(1)
             }
@@ -115,7 +115,7 @@ struct BereanLiquidGlassHeader: View {
             ZStack {
                 glassCircle
                 Text("ST")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundColor(.black.opacity(0.72))
             }
             .frame(width: 36, height: 36)

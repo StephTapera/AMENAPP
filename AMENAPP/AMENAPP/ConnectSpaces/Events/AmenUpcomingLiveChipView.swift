@@ -90,7 +90,7 @@ struct AmenUpcomingLiveChipView: View {
         } else if isRSVPed {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(Color(hex: "D9A441"))
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .accessibilityLabel("RSVPed to \(event.title)")
         } else {
             Button(action: onRSVP) {

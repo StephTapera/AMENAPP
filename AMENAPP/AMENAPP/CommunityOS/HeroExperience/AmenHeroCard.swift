@@ -63,13 +63,13 @@ struct AmenHeroCard<Footer: View>: View {
                 EmptyView()
             }
 
-            // Footer content — white panel below the photo band
+            // Footer content — adaptive panel below the photo band
             VStack(alignment: .leading, spacing: 8) {
                 footer()
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
+            .background(Color(.secondarySystemBackground))
         }
         .amenCard()
         .contentShape(

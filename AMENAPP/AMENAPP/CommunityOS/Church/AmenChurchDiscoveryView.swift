@@ -208,7 +208,7 @@ struct AmenChurchDiscoveryView: View {
         } else if let err = searchError {
             VStack(spacing: 12) {
                 Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 32))
+                    .font(.systemScaled(32))
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
                 Text("Something went wrong")
                     .font(.headline)
@@ -225,7 +225,7 @@ struct AmenChurchDiscoveryView: View {
         } else if hasSearched && results.isEmpty {
             VStack(spacing: 12) {
                 Image(systemName: "building.columns")
-                    .font(.system(size: 36))
+                    .font(.systemScaled(36))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 Text("No churches found")
                     .font(.headline)
@@ -255,7 +255,7 @@ struct AmenChurchDiscoveryView: View {
             // Initial (no search yet)
             VStack(spacing: 14) {
                 Image(systemName: "mappin.circle.fill")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     .foregroundStyle(Color.accentColor.opacity(0.50))
                 Text("Discover Your Church Home")
                     .font(.title3.weight(.semibold))
@@ -356,7 +356,7 @@ struct AmenChurchCard: View {
                         .lineLimit(1)
                     if church.isVerified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.accentColor)
                             .accessibilityLabel("Verified")
                     }
@@ -403,7 +403,7 @@ struct AmenChurchCard: View {
         Color(uiColor: .secondarySystemBackground)
             .overlay(
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             )
     }

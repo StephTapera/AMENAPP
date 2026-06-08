@@ -8,11 +8,11 @@ struct AmenDiscoverReasonSheet: View {
             ScrollView {
                 Text(reason)
                     .font(.body)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(20)
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .navigationTitle("Why this?")
             .navigationBarTitleDisplayMode(.inline)
         }

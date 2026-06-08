@@ -34,26 +34,28 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.writeTrustSnapshot = exports.writeTrustEvent = exports.writeAgentExecutionLog = exports.writeAgentRecommendation = exports.writeAgentInsight = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 function requireAuth(context) {
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
     return context.auth.uid;
 }
 function requireAppCheck(context) {
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
 }
 function assertOwner(uid, userId) {
     if (uid !== userId) {
-        throw new functions.https.HttpsError("permission-denied", "User mismatch");
+        throw new https_1.HttpsError("permission-denied", "User mismatch");
     }
 }
-exports.writeAgentInsight = functions.https.onCall(async (data, context) => {
+exports.writeAgentInsight = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);
@@ -73,7 +75,9 @@ exports.writeAgentInsight = functions.https.onCall(async (data, context) => {
         .set(payload, { merge: true });
     return { ok: true, id: insightId };
 });
-exports.writeAgentRecommendation = functions.https.onCall(async (data, context) => {
+exports.writeAgentRecommendation = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);
@@ -92,7 +96,9 @@ exports.writeAgentRecommendation = functions.https.onCall(async (data, context) 
         .set(payload, { merge: true });
     return { ok: true, id: recId };
 });
-exports.writeAgentExecutionLog = functions.https.onCall(async (data, context) => {
+exports.writeAgentExecutionLog = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);
@@ -110,7 +116,9 @@ exports.writeAgentExecutionLog = functions.https.onCall(async (data, context) =>
         .set(payload, { merge: true });
     return { ok: true, id: logId };
 });
-exports.writeTrustEvent = functions.https.onCall(async (data, context) => {
+exports.writeTrustEvent = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);
@@ -129,7 +137,9 @@ exports.writeTrustEvent = functions.https.onCall(async (data, context) => {
         .set(payload, { merge: true });
     return { ok: true, id: eventId };
 });
-exports.writeTrustSnapshot = functions.https.onCall(async (data, context) => {
+exports.writeTrustSnapshot = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
     requireAppCheck(context);
     const userId = String(data?.userId ?? uid);

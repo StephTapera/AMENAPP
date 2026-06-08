@@ -129,7 +129,7 @@ struct AmenMentorMatchingView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Text(label)
-                            .font(.system(size: 14, weight: selectedTab == idx ? .bold : .medium))
+                            .font(.systemScaled(14, weight: selectedTab == idx ? .bold : .medium))
                             .foregroundStyle(selectedTab == idx ? Color(hex: "D9A441") : Color.white.opacity(0.50))
                         Rectangle()
                             .fill(selectedTab == idx ? Color(hex: "D9A441") : Color.clear)
@@ -201,9 +201,9 @@ struct AmenMentorMatchingView: View {
                                 .tint(Color(hex: "070607"))
                         } else {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                             Text("Find Matches")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.systemScaled(15, weight: .bold))
                         }
                     }
                     .foregroundStyle(Color(hex: "070607"))
@@ -222,7 +222,7 @@ struct AmenMentorMatchingView: View {
 
                 if let error = searchError {
                     Text(error)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color.red.opacity(0.80))
                         .padding(.horizontal, 4)
                 }
@@ -262,10 +262,10 @@ struct AmenMentorMatchingView: View {
                 VStack(spacing: 16) {
                     Spacer()
                     Image(systemName: "person.2.circle")
-                        .font(.system(size: 44, weight: .thin))
+                        .font(.systemScaled(44, weight: .thin))
                         .foregroundStyle(Color.white.opacity(0.25))
                     Text("No active mentorships yet.")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(Color.white.opacity(0.45))
                     Spacer()
                 }
@@ -302,7 +302,7 @@ struct AmenMentorMatchingView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .kerning(1.2)
             .foregroundStyle(Color.white.opacity(0.40))
     }
@@ -385,7 +385,7 @@ private struct MentorInterestPill: View {
     var body: some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color(hex: "D9A441") : Color.white.opacity(0.70))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -417,7 +417,7 @@ private struct MentorSelectablePill: View {
     var body: some View {
         Button(action: onTap) {
             Text(label)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color(hex: "6E4BB5") : Color.white.opacity(0.70))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -455,28 +455,28 @@ private struct MentorMatchCard: View {
                         .overlay { Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5) }
                         .frame(width: 44, height: 44)
                     Text(String(match.displayName.prefix(1)).uppercased())
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .foregroundStyle(Color.white)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(match.displayName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                     Text(match.matchLabel)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(match.matchColor)
                 }
                 Spacer()
 
                 if requestSent {
                     Label("Sent", systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                 } else {
                     Button(action: onConnect) {
                         Text("Connect")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(Color(hex: "070607"))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
@@ -491,7 +491,7 @@ private struct MentorMatchCard: View {
                 HStack(spacing: 6) {
                     ForEach(match.sharedInterests.prefix(3), id: \.self) { interest in
                         Text(interest)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(Color(hex: "6E4BB5"))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -505,7 +505,7 @@ private struct MentorMatchCard: View {
             }
 
             Text(match.availabilityNote)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.45))
         }
         .padding(16)
@@ -533,22 +533,22 @@ private struct ActiveMentorshipCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text(mentorship.partnerName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color.white)
                     Spacer()
                     Text("Started \(mentorship.startDate.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.white.opacity(0.40))
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Milestones")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.45))
                         Spacer()
                         Text("\(mentorship.milestonesCompleted)/\(mentorship.totalMilestones)")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(Color(hex: "D9A441"))
                     }
                     GeometryReader { geo in
@@ -568,7 +568,7 @@ private struct ActiveMentorshipCard: View {
                         "Next: \(nextCheckIn.formatted(date: .abbreviated, time: .shortened))",
                         systemImage: "calendar"
                     )
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.55))
                 }
             }
@@ -607,10 +607,10 @@ private struct MentorshipDetailSheet: View {
                             ForEach(mentorship.goals, id: \.self) { goal in
                                 HStack(spacing: 10) {
                                     Image(systemName: "checkmark.circle")
-                                        .font(.system(size: 16))
+                                        .font(.systemScaled(16))
                                         .foregroundStyle(Color(hex: "D9A441").opacity(0.70))
                                     Text(goal)
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(Color.white.opacity(0.85))
                                 }
                             }
@@ -628,7 +628,7 @@ private struct MentorshipDetailSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             sectionLabel("Session Notes")
                             TextEditor(text: $sessionNotes)
-                                .font(.system(size: 14))
+                                .font(.systemScaled(14))
                                 .foregroundStyle(Color.white)
                                 .scrollContentBackground(.hidden)
                                 .frame(minHeight: 100)
@@ -647,7 +647,7 @@ private struct MentorshipDetailSheet: View {
                             showEventComposer = true
                         } label: {
                             Label("Schedule Check-in", systemImage: "calendar.badge.plus")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.systemScaled(14, weight: .semibold))
                                 .foregroundStyle(Color(hex: "D9A441"))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 13)
@@ -690,7 +690,7 @@ private struct MentorshipDetailSheet: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .kerning(1.2)
             .foregroundStyle(Color.white.opacity(0.40))
     }

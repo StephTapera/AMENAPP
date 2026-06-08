@@ -820,7 +820,7 @@ struct EmptyStateGlassView: View {
                         .font(.systemScaled(64, weight: .light))
                         .foregroundStyle(.white.opacity(0.9))
                         .frame(width: 140, height: 140)
-                        .glassEffect(GlassEffectStyle.regular, in: Circle())
+                        .amenGlassEffect(in: Circle())
                 }
                 
                 // Message
@@ -1741,7 +1741,7 @@ struct NewChurchNoteView: View {
                             }
                         }
                         .padding(20)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
                         
                         // Scripture
                         GlassTextField(
@@ -1762,10 +1762,10 @@ struct NewChurchNoteView: View {
                                 placeholder: "Start writing your sermon notes...",
                                 minHeight: 200
                             )
-                            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+                            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16))
                         }
                         .padding(20)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
                         
                         // Tags Section
                         VStack(alignment: .leading, spacing: 12) {
@@ -1806,7 +1806,7 @@ struct NewChurchNoteView: View {
                             }
                         }
                         .padding(20)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
 
                         // ── Worship Music Section ──────────────────────────
                         VStack(alignment: .leading, spacing: 12) {
@@ -1883,7 +1883,7 @@ struct NewChurchNoteView: View {
                             }
                         }
                         .padding(20)
-                        .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 20))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
                         // ─────────────────────────────────────────────────
                     }
                     .padding(20)
@@ -2081,7 +2081,7 @@ struct GlassTextField: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, isLarge ? 16 : 14)
-        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -2104,7 +2104,7 @@ struct TagPill: View {
         .foregroundStyle(.cyan.opacity(0.9))
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .glassEffect(GlassEffectStyle.regular.tint(.cyan), in: Capsule())
+        .amenGlassEffect(in: Capsule())
     }
 }
 
@@ -2162,7 +2162,7 @@ struct ChurchNoteDetailView: View {
                             .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
-                            .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
+                            .amenGlassEffect(in: Circle())
                     }
                     
                     Spacer()
@@ -2179,7 +2179,7 @@ struct ChurchNoteDetailView: View {
                             .font(.systemScaled(20))
                             .foregroundStyle(note.isFavorite ? .yellow : .white)
                             .frame(width: 44, height: 44)
-                            .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
+                            .amenGlassEffect(in: Circle())
                     }
                     
                     // Menu Button
@@ -2222,7 +2222,7 @@ struct ChurchNoteDetailView: View {
                             .font(.systemScaled(20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
-                            .glassEffect(GlassEffectStyle.regular.interactive(), in: Circle())
+                            .amenGlassEffect(in: Circle())
                     }
                 }
                 .padding(.horizontal, 20)
@@ -2261,7 +2261,7 @@ struct ChurchNoteDetailView: View {
                             }
                         }
                         .padding(24)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 24))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 24))
                         
                         // Scripture
                         if let scripture = note.scripture, !scripture.isEmpty {
@@ -2276,7 +2276,7 @@ struct ChurchNoteDetailView: View {
                             }
                             .padding(20)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 20))
+                            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 20))
                         }
                         
                         // Content
@@ -2291,7 +2291,7 @@ struct ChurchNoteDetailView: View {
                                 .lineSpacing(8)
                         }
                         .padding(24)
-                        .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 24))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 24))
                         
                         // Tags
                         if !note.tags.isEmpty {
@@ -2307,12 +2307,12 @@ struct ChurchNoteDetailView: View {
                                             .foregroundStyle(.cyan.opacity(0.9))
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 10)
-                                            .glassEffect(GlassEffectStyle.regular.tint(.cyan), in: Capsule())
+                                            .amenGlassEffect(in: Capsule())
                                     }
                                 }
                             }
                             .padding(24)
-                            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 24))
+                            .amenGlassEffect(in: RoundedRectangle(cornerRadius: 24))
                         }
 
                         // Saved worship songs — always visible when the note has songs
@@ -2535,7 +2535,7 @@ struct MetadataPill: View {
         .foregroundStyle(.white.opacity(0.7))
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .glassEffect(GlassEffectStyle.regular, in: Capsule())
+        .amenGlassEffect(in: Capsule())
     }
 }
 
@@ -3791,9 +3791,10 @@ struct MonochromeNoteDetailView: View {
                     }
                     
                     Menu {
-                        Button {
-                            // Share functionality - handled by share button in footer
-                        } label: {
+                        ShareLink(
+                            item: "\(note.title)\n\(note.sermonTitle ?? note.content)",
+                            subject: Text(note.title)
+                        ) {
                             Label("Share", systemImage: "square.and.arrow.up")
                         }
                         
@@ -5291,7 +5292,6 @@ struct MinimalTypographyHeader: View {
     let isScrolled: Bool
     let onNewNote: () -> Void
     var notes: [ChurchNote] = []
-    @State private var isSearching = false
     @State private var showSemanticSearch = false
     @Namespace private var filterNS
 
@@ -5306,28 +5306,6 @@ struct MinimalTypographyHeader: View {
                     .animation(.spring(response: 0.36, dampingFraction: 0.82), value: isScrolled)
 
                 Spacer()
-
-                // Text search toggle
-                Button {
-                    withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
-                        isSearching.toggle()
-                        if !isSearching { searchText = "" }
-                    }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                } label: {
-                    Image(systemName: isSearching ? "xmark" : "magnifyingglass")
-                        .font(.systemScaled(15, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            Circle()
-                                .fill(.thinMaterial)
-                                .overlay(Circle().fill(Color.white.opacity(0.5)))
-                                .overlay(Circle().strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
-                        )
-                        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
-                }
-                .buttonStyle(.plain)
 
                 // Berean semantic (AI) search
                 Button {
@@ -5393,41 +5371,38 @@ struct MinimalTypographyHeader: View {
             }
 
             // ── Search bar ─────────────────────────────────────────────
-            if isSearching || !searchText.isEmpty {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.systemScaled(15, weight: .medium))
-                        .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.systemScaled(15, weight: .medium))
+                    .foregroundStyle(.secondary)
 
-                    TextField("Search notes, scriptures…", text: $searchText)
-                        .font(.systemScaled(16))
-                        .foregroundStyle(.primary)
-                        .tint(.primary)
+                TextField("Search notes, scriptures…", text: $searchText)
+                    .font(.systemScaled(16))
+                    .foregroundStyle(.primary)
+                    .tint(.primary)
 
-                    if !searchText.isEmpty {
-                        Button {
-                            searchText = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.systemScaled(16))
-                                .foregroundStyle(.secondary)
-                        }
-                        .transition(.scale.combined(with: .opacity))
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.systemScaled(16))
+                            .foregroundStyle(.secondary)
                     }
+                    .transition(.scale.combined(with: .opacity))
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 11)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.thinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.6)))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
-                )
-                .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
-                .transition(.move(edge: .top).combined(with: .opacity))
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.thinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.6)))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.black.opacity(0.07), lineWidth: 0.75))
+            )
+            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
 
             // ── Filter chips ───────────────────────────────────────────
             ScrollView(.horizontal, showsIndicators: false) {
@@ -5478,7 +5453,6 @@ struct MinimalTypographyHeader: View {
         }
         .background(.thinMaterial)
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isScrolled)
-        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isSearching)
     }
 }
 

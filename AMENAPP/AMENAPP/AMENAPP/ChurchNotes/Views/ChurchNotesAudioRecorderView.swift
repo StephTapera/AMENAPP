@@ -86,7 +86,7 @@ struct ChurchNotesAudioRecorderView: View {
     private var waveformArea: some View {
         VStack(spacing: 16) {
             Image(systemName: recorder.isRecording ? "waveform" : "mic.circle.fill")
-                .font(.system(size: 80))
+                .font(.systemScaled(80))
                 .foregroundStyle(recorder.isRecording ? Color.red : Color.secondary)
                 .symbolEffect(.variableColor, isActive: recorder.isRecording)
                 .accessibilityHidden(true)
@@ -162,7 +162,7 @@ struct ChurchNotesAudioRecorderView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "waveform.badge.plus")
-                                .font(.system(size: 17, weight: .medium))
+                                .font(.systemScaled(17, weight: .medium))
                             Text("Send for Transcription")
                                 .font(.subheadline.weight(.semibold))
                         }
@@ -171,18 +171,18 @@ struct ChurchNotesAudioRecorderView: View {
                     }
                     .accessibilityLabel("Send recording for AI transcription")
                     .accessibilityHint("Uploads recording and generates a transcript draft for your review")
-                    .glassEffect()
+                    .amenGlassEffect()
 
                     Button {
                         recorder.discard()
                         submitError = nil
                     } label: {
                         Image(systemName: "trash")
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.systemScaled(17, weight: .medium))
                             .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel("Discard recording and start again")
-                    .glassEffect()
+                    .amenGlassEffect()
                 }
             }
             .padding(.horizontal, 24)
@@ -223,7 +223,7 @@ struct ChurchNotesAudioRecorderView: View {
                                 .frame(width: 56, height: 56)
                         }
                         .accessibilityLabel(recorder.isPaused ? "Resume recording" : "Pause recording")
-                        .glassEffect(in: Circle())
+                        .amenGlassEffect(in: Circle())
                         .animation(.snappy, value: recorder.isPaused)
 
                         Button(action: { recorder.stop() }) {
@@ -233,7 +233,7 @@ struct ChurchNotesAudioRecorderView: View {
                                 .frame(width: 56, height: 56)
                         }
                         .accessibilityLabel("Stop recording")
-                        .glassEffect(in: Circle())
+                        .amenGlassEffect(in: Circle())
                     } else {
                         Button(action: { Task { await recorder.start() } }) {
                             Image(systemName: "mic.fill")

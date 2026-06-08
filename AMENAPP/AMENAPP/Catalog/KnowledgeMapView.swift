@@ -45,9 +45,9 @@ struct KnowledgeMapView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Knowledge Topics")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                     Text("Tap a topic to explore related works")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
 
@@ -86,7 +86,7 @@ struct KnowledgeMapView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(topic)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.systemScaled(15, weight: .semibold))
                 Spacer()
                 Button {
                     selectedTopic = nil
@@ -101,12 +101,12 @@ struct KnowledgeMapView: View {
                 HStack {
                     ProgressView()
                     Text("Loading works...")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
             } else if topicWorks.isEmpty {
                 Text("No published works in this topic.")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(topicWorks) { work in
@@ -115,21 +115,21 @@ struct KnowledgeMapView: View {
             }
         }
         .padding(14)
-        .glassEffect(.regular.tint(.clear), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func topicWorkRow(work: CatalogWork) -> some View {
         HStack(spacing: 10) {
             Image(systemName: work.type.icon)
-                .font(.system(size: 14, weight: .light))
+                .font(.systemScaled(14, weight: .light))
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(work.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .lineLimit(1)
                 Text(work.type.displayName)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -142,7 +142,7 @@ struct KnowledgeMapView: View {
         VStack(spacing: 12) {
             ProgressView()
             Text("Mapping knowledge...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -152,12 +152,12 @@ struct KnowledgeMapView: View {
     private var emptyView: some View {
         VStack(spacing: 12) {
             Image(systemName: "network")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(.secondary)
             Text("No topics yet")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
             Text("Topics will appear as this creator publishes more works.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -169,7 +169,7 @@ struct KnowledgeMapView: View {
         VStack(spacing: 12) {
             ProgressView()
             Text("Building knowledge map...")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -179,12 +179,12 @@ struct KnowledgeMapView: View {
     private func errorView(message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 32, weight: .light))
+                .font(.systemScaled(32, weight: .light))
                 .foregroundStyle(.secondary)
             Text("Couldn't load knowledge map")
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
             Button("Try Again") {
                 Task { await vm.load() }
@@ -206,7 +206,18 @@ struct FlowCapsuleLayout: View {
 
     var body: some View {
         if nodes.isEmpty {
-            EmptyView()
+            VStack(spacing: 8) {
+                Image(systemName: "map")
+                    .font(.systemScaled(36))
+                    .foregroundStyle(.secondary)
+                Text("No topics found")
+                    .font(.subheadline.bold())
+                Text("Try a different search or explore all content.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding()
         } else {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 10) {
                 ForEach(nodes) { node in
@@ -230,10 +241,10 @@ struct FlowCapsuleLayout: View {
         } label: {
             HStack(spacing: 4) {
                 Text(node.topic)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .lineLimit(1)
                 Text("\(node.workCount)")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
                     .background(Capsule().fill(isSelected ? Color(UIColor.systemBackground).opacity(0.25) : .secondary.opacity(0.15)))

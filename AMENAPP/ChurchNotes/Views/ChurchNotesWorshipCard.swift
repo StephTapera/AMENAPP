@@ -10,10 +10,10 @@ struct ChurchNotesWorshipCard: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Music")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("Attach one meaningful song or album without overpowering the note.")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
 
@@ -36,7 +36,7 @@ struct ChurchNotesWorshipCard: View {
                                 onRemove(song.id)
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 18, weight: .medium))
+                                    .font(.systemScaled(18, weight: .medium))
                                     .foregroundStyle(.secondary)
                                     .frame(width: 32, height: 32)
                             }
@@ -59,23 +59,23 @@ struct ChurchNotesWorshipCard: View {
                         .fill(Color.black.opacity(0.05))
                         .frame(width: 44, height: 44)
                     Image(systemName: "music.note")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.primary.opacity(0.7))
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Attach Music")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("Paste an Apple Music or Spotify song or album link.")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(.black)
             }
             .padding(14)

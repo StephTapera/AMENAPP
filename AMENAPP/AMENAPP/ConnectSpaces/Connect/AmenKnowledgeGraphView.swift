@@ -129,7 +129,7 @@ struct AmenKnowledgeGraphView: View {
         .padding(.vertical, 16)
         .background(
             Color(.systemBackground)
-                .glassEffect(in: .rect(cornerRadius: 0))
+                .amenGlassEffect(in: .rect(cornerRadius: 0))
         )
         .overlay(
             Rectangle()

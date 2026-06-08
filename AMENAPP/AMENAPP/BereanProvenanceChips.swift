@@ -13,9 +13,9 @@ struct BereanProvenanceChip: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: kind.icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                 Text(kind.label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
             }
             .foregroundStyle(kind.foreground)
             .padding(.horizontal, 10)
@@ -231,7 +231,7 @@ struct BereanProvenanceSheet: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 4) {
@@ -253,7 +253,7 @@ struct BereanProvenanceSheet: View {
     private var pastoralNote: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "heart.text.square")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(.secondary)
             Text("This is not a replacement for pastoral care. If something is weighing on you, consider talking to a trusted pastor, mentor, or counselor.")
                 .font(.caption)

@@ -33,11 +33,11 @@ struct ChurchNoteBlockView: View {
                 // Block type header
                 HStack(spacing: 5) {
                     Image(systemName: block.type.icon)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.systemScaled(11, weight: .medium))
                         .foregroundStyle(CNToken.BlockBorder.color(for: block.type))
 
                     Text(block.type.displayName)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .tracking(0.5)
@@ -46,7 +46,7 @@ struct ChurchNoteBlockView: View {
 
                     Button(action: onDelete) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.quaternary)
                     }
                     .buttonStyle(.plain)
@@ -54,7 +54,7 @@ struct ChurchNoteBlockView: View {
 
                 // Editable text
                 TextField("", text: $editingText, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.primary)
                     .lineLimit(1...10)
                     .onChange(of: editingText) { _, newValue in
@@ -70,7 +70,7 @@ struct ChurchNoteBlockView: View {
                             .fill(hl.fillColor)
                             .frame(width: 8, height: 8)
                         Text(hl.displayTitle)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.systemScaled(10, weight: .medium))
                             .foregroundStyle(.tertiary)
                     }
                 }

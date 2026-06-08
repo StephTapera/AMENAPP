@@ -264,9 +264,9 @@ struct AmenMinistryRoomDiscussionsTab: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "tray.2")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text("All")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(isActive ? .white : .white.opacity(0.55))
             .padding(.horizontal, 13)
@@ -297,9 +297,9 @@ struct AmenMinistryRoomDiscussionsTab: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: ch.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(ch.label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(isActive ? .white : ch.color)
             .padding(.horizontal, 13)
@@ -351,10 +351,10 @@ struct AmenMinistryRoomDiscussionsTab: View {
     private var aiSectionHeader: some View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color(hex: "6E4BB5"))
             Text("From Recent Content".uppercased())
-                .font(.system(size: 11, weight: .bold))
+                .font(.systemScaled(11, weight: .bold))
                 .kerning(1.1)
                 .foregroundStyle(Color(hex: "6E4BB5"))
         }
@@ -381,7 +381,7 @@ struct AmenMinistryRoomDiscussionsTab: View {
             ZStack(alignment: .topTrailing) {
                 HStack(spacing: 12) {
                     Image(systemName: thread.category.icon)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                         .foregroundStyle(thread.category.accentColor)
                         .frame(width: 38, height: 38)
                         .background { Circle().fill(thread.category.accentColor.opacity(0.12)) }
@@ -390,11 +390,11 @@ struct AmenMinistryRoomDiscussionsTab: View {
                         HStack(spacing: 6) {
                             if thread.isPinned {
                                 Image(systemName: "pin.fill")
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.systemScaled(10, weight: .semibold))
                                     .foregroundStyle(Color(hex: "D9A441"))
                             }
                             Text(thread.title)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
@@ -403,15 +403,15 @@ struct AmenMinistryRoomDiscussionsTab: View {
                         HStack(spacing: 10) {
                             if !thread.authorFirstName.isEmpty {
                                 Text(thread.authorFirstName)
-                                    .font(.system(size: 12))
+                                    .font(.systemScaled(12))
                                     .foregroundStyle(Color.white.opacity(0.45))
                             }
                             Label("\(thread.replyCount)", systemImage: "bubble.left")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(Color.white.opacity(0.45))
                             Spacer()
                             Text(relativeFormatter.localizedString(for: thread.lastActivityAt, relativeTo: Date()))
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(Color.white.opacity(0.35))
                         }
 
@@ -436,7 +436,7 @@ struct AmenMinistryRoomDiscussionsTab: View {
 
                 if isAIBadged || thread.isAIGenerated {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.systemScaled(10, weight: .semibold))
                         .foregroundStyle(Color(hex: "6E4BB5"))
                         .padding(5)
                         .background {
@@ -462,9 +462,9 @@ struct AmenMinistryRoomDiscussionsTab: View {
     private func categoryBadge(_ category: DiscussionCategory) -> some View {
         HStack(spacing: 4) {
             Image(systemName: category.icon)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.systemScaled(9, weight: .semibold))
             Text(category.displayLabel)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
         }
         .foregroundStyle(category.accentColor)
         .padding(.horizontal, 7)
@@ -478,17 +478,17 @@ struct AmenMinistryRoomDiscussionsTab: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 44, weight: .ultraLight))
+                .font(.systemScaled(44, weight: .ultraLight))
                 .foregroundStyle(Color(hex: "D9A441").opacity(0.5))
             Text("No discussions yet.")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.75))
             Text("Be the first to start one!")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Start Discussion") { showComposer = true }
-                .font(.system(size: 15, weight: .bold))
+                .font(.systemScaled(15, weight: .bold))
                 .foregroundStyle(Color(hex: "070607"))
                 .padding(.horizontal, 28)
                 .padding(.vertical, 12)
@@ -506,10 +506,10 @@ struct AmenMinistryRoomDiscussionsTab: View {
         Button { showComposer = true } label: {
             HStack(spacing: 8) {
                 Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(hex: "070607"))
                 Text("Start Discussion")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(Color(hex: "070607"))
             }
             .padding(.horizontal, 20)
@@ -550,11 +550,11 @@ struct NewSpaceThreadComposerSheet: View {
             VStack(spacing: 0) {
                 HStack {
                     Button("Cancel") { dismiss() }
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.white.opacity(0.75))
                     Spacer()
                     Text("New Discussion")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.white)
                     Spacer()
                     Button {
@@ -566,7 +566,7 @@ struct NewSpaceThreadComposerSheet: View {
                                 .tint(Color(hex: "D9A441"))
                         } else {
                             Text("Post")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.systemScaled(16, weight: .bold))
                                 .foregroundStyle(
                                     isFormValid ? Color(hex: "D9A441") : Color(hex: "D9A441").opacity(0.35)
                                 )
@@ -589,7 +589,7 @@ struct NewSpaceThreadComposerSheet: View {
                                 axis: .vertical
                             )
                             .lineLimit(2...4)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.systemScaled(16, weight: .medium))
                             .foregroundStyle(.white)
                             .padding(14)
                             .background {
@@ -622,13 +622,13 @@ struct NewSpaceThreadComposerSheet: View {
                             ZStack(alignment: .topLeading) {
                                 if threadBody.isEmpty {
                                     Text("Share more context, questions, or background...")
-                                        .font(.system(size: 14))
+                                        .font(.systemScaled(14))
                                         .foregroundStyle(.white.opacity(0.3))
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 14)
                                 }
                                 TextEditor(text: $threadBody)
-                                    .font(.system(size: 14))
+                                    .font(.systemScaled(14))
                                     .foregroundStyle(.white)
                                     .scrollContentBackground(.hidden)
                                     .frame(minHeight: 120)
@@ -647,7 +647,7 @@ struct NewSpaceThreadComposerSheet: View {
                                     }
                             }
                             Text("\(threadBody.count)/2000")
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }
@@ -657,7 +657,7 @@ struct NewSpaceThreadComposerSheet: View {
                                 Image(systemName: "exclamationmark.circle")
                                     .foregroundStyle(Color.red)
                                 Text(errorMessage)
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.white)
                             }
                             .padding(12)
@@ -691,9 +691,9 @@ struct NewSpaceThreadComposerSheet: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: cat.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(cat.displayLabel)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(isSelected ? Color(hex: "070607") : cat.accentColor)
             .padding(.horizontal, 13)
@@ -713,7 +713,7 @@ struct NewSpaceThreadComposerSheet: View {
 
     private func fieldLabel(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .kerning(0.8)
             .foregroundStyle(.secondary)
     }

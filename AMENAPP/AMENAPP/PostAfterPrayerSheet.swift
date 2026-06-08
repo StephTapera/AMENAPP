@@ -218,7 +218,7 @@ private struct PostTimingRow: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: timing.icon)
-                    .font(.system(size: 18, weight: .regular))
+                    .font(.systemScaled(18, weight: .regular))
                     .foregroundStyle(isSelected ? .white : .primary)
                     .frame(width: 28)
 
@@ -235,7 +235,7 @@ private struct PostTimingRow: View {
 
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             }

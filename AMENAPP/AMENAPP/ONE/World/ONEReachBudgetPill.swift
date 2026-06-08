@@ -10,9 +10,9 @@ struct ONEReachBudgetPill: View {
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.system(size: 9))
+                .font(.systemScaled(9))
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.systemScaled(10, weight: .medium))
                 .monospacedDigit()
         }
         .foregroundStyle(pillColor)

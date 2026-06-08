@@ -19,10 +19,10 @@ struct ONEEarnedPermanenceView: View {
         } label: {
             HStack(spacing: ONE.Spacing.xs) {
                 Image(systemName: isRemembered ? "heart.fill" : "heart")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .scaleEffect(isPulsing ? 1.25 : 1.0)
                 Text(isRemembered ? "Remembered" : "Remember")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
             }
             .foregroundStyle(isRemembered ? ONE.Colors.ephemeralRed : Color.secondary)
             .padding(.horizontal, ONE.Spacing.md)

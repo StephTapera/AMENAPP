@@ -39,11 +39,11 @@ struct AmenObjectHubActionDock: View {
         Button(action: onTap) {
             VStack(spacing: 7) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(glass.primaryText)
                     .frame(height: 20)
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(glass.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)

@@ -112,6 +112,8 @@ struct BereanProjectsView: View {
     @State private var showNewProject = false
     @State private var selectedProject: BereanAIProject? = nil
     @State private var showMemorySettings = false
+    @State private var showAllConversations = false
+    @State private var selectedCollection: BereanCollection? = nil
 
     private var filtered: [BereanAIProject] {
         searchQuery.isEmpty ? projects : projects.filter {
@@ -193,6 +195,91 @@ struct BereanProjectsView: View {
             .sheet(item: $selectedProject) { project in
                 BereanProjectDetailView(project: project)
             }
+            .sheet(isPresented: $showAllConversations) {
+                NavigationStack {
+                    List {
+                        ForEach(projects) { project in
+                            HStack(spacing: 14) {
+                                Image(systemName: project.iconSymbol)
+                                    .font(.systemScaled(15))
+                                    .foregroundStyle(Color.bereanProjectAccent(project.colorKey))
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(project.title)
+                                        .font(.systemScaled(15, weight: .semibold))
+                                        .foregroundStyle(Color.bpPrimary)
+                                    Text("\(project.chatCount) chats · \(relativeDate(project.lastUpdated))")
+                                        .font(.systemScaled(12))
+                                        .foregroundStyle(Color.bpSecondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .navigationTitle("All Conversations")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showAllConversations = false }
+                        }
+                    }
+                }
+            }
+            .sheet(item: $selectedCollection) { collection in
+                NavigationStack {
+                    VStack(spacing: 24) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(Color.bereanProjectAccent(collection.colorKey).opacity(0.12))
+                                .frame(width: 72, height: 72)
+                            Image(systemName: collection.icon)
+                                .font(.systemScaled(28, weight: .medium))
+                                .foregroundStyle(Color.bereanProjectAccent(collection.colorKey))
+                        }
+                        .padding(.top, 32)
+                        Text(collection.name)
+                            .font(.systemScaled(22, weight: .bold))
+                            .foregroundStyle(Color.bpPrimary)
+                        let collectionProjects = projects.filter {
+                            $0.title.localizedCaseInsensitiveContains(collection.name) ||
+                            collection.name.localizedCaseInsensitiveContains($0.title)
+                        }
+                        if collectionProjects.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "tray")
+                                    .font(.systemScaled(30))
+                                    .foregroundStyle(Color.bpTertiary)
+                                Text("No projects in this collection yet.")
+                                    .font(.systemScaled(14))
+                                    .foregroundStyle(Color.bpSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.top, 16)
+                        } else {
+                            List(collectionProjects) { project in
+                                HStack(spacing: 14) {
+                                    Image(systemName: project.iconSymbol)
+                                        .font(.systemScaled(14))
+                                        .foregroundStyle(Color.bereanProjectAccent(project.colorKey))
+                                        .frame(width: 24)
+                                    Text(project.title)
+                                        .font(.systemScaled(15))
+                                        .foregroundStyle(Color.bpPrimary)
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .navigationTitle(collection.name)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { selectedCollection = nil }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -233,7 +320,8 @@ struct BereanProjectsView: View {
     private var myConversationsRow: some View {
         VStack(spacing: 0) {
             Button {
-                // Navigate to all conversations
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showAllConversations = true
             } label: {
                 HStack(spacing: 14) {
                     ZStack {
@@ -353,7 +441,8 @@ struct BereanProjectsView: View {
     private func collectionChip(_ collection: BereanCollection) -> some View {
         let accent = Color.bereanProjectAccent(collection.colorKey)
         return Button {
-            // Navigate to collection
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            selectedCollection = collection
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: collection.icon)

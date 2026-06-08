@@ -29,7 +29,7 @@ struct PersonalDiscoveryAgentCard: View {
                         .frame(width: 52, height: 52)
 
                     Image(systemName: hasAccess ? "sparkles" : "lock.fill")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.systemScaled(22, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                 }
                 .accessibilityHidden(true)
@@ -68,7 +68,7 @@ struct PersonalDiscoveryAgentCard: View {
                 Spacer(minLength: 8)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
             .padding(16)

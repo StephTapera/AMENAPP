@@ -3208,7 +3208,8 @@ struct DonationCampaignCard: View {
             }
             
             Button {
-                // Donate action
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                // TODO: implement donate action
             } label: {
                 HStack {
                     Image(systemName: "heart.fill")
@@ -3888,6 +3889,8 @@ struct CommunityDetailView: View {
     @State private var messageText = ""
     @State private var messages: [ChatMessage] = sampleMessages
     @Namespace private var detailTabAnimation
+    @State private var showCommunityInfo = false
+    @State private var notificationsEnabled = false
     
     enum DetailTab: String, CaseIterable {
         case chat = "Chat"
@@ -3975,15 +3978,49 @@ struct CommunityDetailView: View {
                 
                 Menu {
                     Button {
-                        // Community info
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showCommunityInfo = true
                     } label: {
                         Label("Community Info", systemImage: "info.circle")
                     }
-                    
+                    .sheet(isPresented: $showCommunityInfo) {
+                        NavigationStack {
+                            List {
+                                Section("About") {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(community.name)
+                                            .font(.custom("OpenSans-Bold", size: 18))
+                                        Text(community.description)
+                                            .font(.custom("OpenSans-Regular", size: 15))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(.vertical, 4)
+                                    LabeledContent("Members", value: "\(community.memberCount)")
+                                }
+                                if !community.features.isEmpty {
+                                    Section("Features") {
+                                        ForEach(community.features) { feature in
+                                            Label(feature.name, systemImage: feature.icon)
+                                                .foregroundStyle(feature.color)
+                                        }
+                                    }
+                                }
+                            }
+                            .navigationTitle("Community Info")
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button("Done") { showCommunityInfo = false }
+                                }
+                            }
+                        }
+                    }
+
                     Button {
-                        // Notifications
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(.spring(response: 0.3)) { notificationsEnabled.toggle() }
                     } label: {
-                        Label("Notifications", systemImage: "bell")
+                        Label("Notifications", systemImage: notificationsEnabled ? "bell.fill" : "bell")
                     }
                     
                     Divider()

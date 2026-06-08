@@ -41,12 +41,12 @@ struct ChurchNotesScriptureSection: View {
 
     private func chip(_ ref: String, removable: Bool) -> some View {
         HStack(spacing: 4) {
-            Text(ref).font(.system(size: 12, weight: .medium))
+            Text(ref).font(.systemScaled(12, weight: .medium))
             if removable {
                 Button {
                     scriptureReferences.removeAll { $0 == ref }
                     onChanged()
-                } label: { Image(systemName: "xmark").font(.system(size: 8, weight: .bold)) }
+                } label: { Image(systemName: "xmark").font(.systemScaled(8, weight: .bold)) }
                 .buttonStyle(.plain)
             }
         }
@@ -58,7 +58,7 @@ struct ChurchNotesScriptureSection: View {
 
     private func suggestionRow(title: String, refs: [String]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(.tertiary)
+            Text(title).font(.systemScaled(11, weight: .medium)).foregroundStyle(.tertiary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(refs, id: \.self) { ref in
@@ -68,8 +68,8 @@ struct ChurchNotesScriptureSection: View {
                                 onChanged()
                             } label: {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "plus").font(.system(size: 9, weight: .bold))
-                                    Text(ref).font(.system(size: 12, weight: .medium))
+                                    Image(systemName: "plus").font(.systemScaled(9, weight: .bold))
+                                    Text(ref).font(.systemScaled(12, weight: .medium))
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)

@@ -2,7 +2,7 @@
 // AMEN App — Community Around Content OS › Dynamic Hero Experience
 //
 // The floating action tray pinned at the bottom of MediaHeroView.
-// One primary action gets .glassEffect() — all others are standard icon buttons.
+// One primary action gets .amenGlassEffect() — all others are standard icon buttons.
 
 import SwiftUI
 import Foundation
@@ -134,7 +134,7 @@ private struct TrayButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: isPrimary ? .semibold : .regular))
+                    .font(.systemScaled(20, weight: isPrimary ? .semibold : .regular))
                     .foregroundStyle(isPrimary ? Color.accentColor : Color(.secondaryLabel))
                 Text(label)
                     .font(.caption2)
@@ -147,7 +147,7 @@ private struct TrayButton: View {
                 if isPrimary {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.accentColor.opacity(0.08))
-                        .glassEffect()
+                        .amenGlassEffect()
                 }
             }
         }

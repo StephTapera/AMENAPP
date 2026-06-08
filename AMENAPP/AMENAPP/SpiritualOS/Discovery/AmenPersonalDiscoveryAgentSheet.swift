@@ -78,7 +78,7 @@ struct AmenPersonalDiscoveryAgentSheet: View {
                     .frame(width: 64, height: 64)
 
                 Image(systemName: "sparkles")
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.systemScaled(28, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
             }
             .accessibilityHidden(true)
@@ -185,7 +185,7 @@ struct AmenPersonalDiscoveryAgentSheet: View {
     private var emptyResultsView: some View {
         VStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
 
@@ -289,7 +289,7 @@ private struct DiscoverySuggestionRow: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: suggestion.iconName)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
             }
             .accessibilityHidden(true)

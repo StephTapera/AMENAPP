@@ -192,7 +192,7 @@ struct UserProfileViewMini: View {
         .overlay(alignment: .bottomTrailing) {
             if let badge = avatarSourceBadge {
                 Text(badge)
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.systemScaled(9, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
@@ -232,7 +232,7 @@ struct UserProfileViewMini: View {
 
             ForEach(vm.model.badges.prefix(1)) { badge in
                 Image(systemName: badge.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .accessibilityLabel(badge.label)
             }
@@ -250,7 +250,7 @@ struct UserProfileViewMini: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 44, height: 44)   // 44pt minimum tap target
                 .background(
@@ -295,7 +295,7 @@ struct UserProfileViewMini: View {
             // Explanation
             HStack(spacing: 6) {
                 Image(systemName: "sparkle")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                 Text(vm.priorityExplanation)
                     .font(.systemScaled(12, weight: .medium))
@@ -324,7 +324,7 @@ struct UserProfileViewMini: View {
                     Text(vm.isExpanded ? "Show less" : "Show more")
                         .font(.systemScaled(12))
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.systemScaled(9, weight: .semibold))
                         .rotationEffect(.degrees(vm.isExpanded ? 180 : 0))
                 }
                 .foregroundStyle(.tertiary)
@@ -346,7 +346,7 @@ struct UserProfileViewMini: View {
                             .fill(Color.black.opacity(0.08))
                             .overlay(
                                 Text(String(mutual.displayName.prefix(1)).uppercased())
-                                    .font(.system(size: 9, weight: .semibold))
+                                    .font(.systemScaled(9, weight: .semibold))
                                     .foregroundStyle(.secondary)
                             )
                     }
@@ -376,7 +376,7 @@ struct UserProfileViewMini: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: action.icon)
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                             .frame(width: 18)
                         Text(action.rawValue)
@@ -424,7 +424,7 @@ struct UserProfileViewMini: View {
     private func metadataItem(value: String, label: String, icon: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 10))
+                .font(.systemScaled(10))
                 .foregroundStyle(.secondary)
             Text("\(value) \(label)")
                 .font(.systemScaled(11))
@@ -479,7 +479,7 @@ struct UserProfileViewMini: View {
                 } else {
                     HStack(spacing: 5) {
                         Image(systemName: primaryActionIcon)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: vm.isFollowed)
                         Text(vm.followButtonLabel)
                             .font(.systemScaled(15, weight: .semibold))
@@ -538,7 +538,7 @@ struct UserProfileViewMini: View {
             vm.onTapMessage()
         } label: {
             Image(systemName: "bubble.left")
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.primary)
                 .frame(width: 44, height: 44)    // 44x44 minimum
                 .background(
@@ -558,7 +558,7 @@ struct UserProfileViewMini: View {
     private var hiddenState: some View {
         HStack(spacing: 10) {
             Image(systemName: "eye.slash")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.tertiary)
             Text("Suggestion hidden")
                 .font(.systemScaled(13))
@@ -646,7 +646,7 @@ private struct MiniReasonChip: View {
         HStack(spacing: 4) {
             if let icon = reason.icon {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
             }
             Text(reason.label)
                 .font(.systemScaled(11, weight: .medium))

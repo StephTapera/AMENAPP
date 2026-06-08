@@ -75,7 +75,7 @@ private struct AmenTaskStatusChip: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .foregroundStyle(chipColor)
             .padding(.horizontal, 9)
             .padding(.vertical, 3)
@@ -118,7 +118,7 @@ private struct AmenTaskRow: View {
                 }
             } label: {
                 Image(systemName: item.status == .done ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
+                    .font(.systemScaled(22))
                     .foregroundStyle(item.status == .done ? Color(hex: "D9A441") : Color.white.opacity(0.40))
             }
             .buttonStyle(.plain)
@@ -126,7 +126,7 @@ private struct AmenTaskRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(item.status == .done ? Color.white.opacity(0.40) : Color.white)
                     .strikethrough(item.status == .done, color: Color.white.opacity(0.40))
                     .fixedSize(horizontal: false, vertical: true)
@@ -134,17 +134,17 @@ private struct AmenTaskRow: View {
                 HStack(spacing: 8) {
                     if let owner = item.owner {
                         Text(owner)
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(Color.white.opacity(0.50))
                     }
 
                     if let due = item.due {
                         HStack(spacing: 3) {
                             Image(systemName: "calendar")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                                 .accessibilityHidden(true)
                             Text(Self.dueDateFormatter.string(from: due))
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                         }
                         .foregroundStyle(Color(hex: "D9A441").opacity(0.80))
                         .accessibilityLabel("Due \(Self.dueDateFormatter.string(from: due))")
@@ -176,12 +176,12 @@ private struct AmenTaskSectionHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(title)
-                .font(.system(size: 13, weight: .bold))
+                .font(.systemScaled(13, weight: .bold))
                 .foregroundStyle(Color.white.opacity(0.55))
                 .textCase(.uppercase)
                 .tracking(0.8)
             Text("\(count)")
-                .font(.system(size: 12, weight: .bold))
+                .font(.systemScaled(12, weight: .bold))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
@@ -201,7 +201,7 @@ private struct AmenTasksEmptyState: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(Color(hex: "D9A441").opacity(0.7))
                 .accessibilityHidden(true)
             Text("No tasks yet.\nTasks created in Chat appear here.")

@@ -138,7 +138,7 @@ struct AmenChurchProfileView: View {
         Color(uiColor: .secondarySystemBackground)
             .overlay(
                 Image(systemName: "building.columns.fill")
-                    .font(.system(size: 60))
+                    .font(.systemScaled(60))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             )
     }
@@ -164,12 +164,12 @@ struct AmenChurchProfileView: View {
 
         HStack(spacing: 8) {
             Text(church.name)
-                .font(.system(size: 26, weight: .bold))
+                .font(.systemScaled(26, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
             if church.isVerified {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .accessibilityLabel("Verified church")
             }
@@ -177,7 +177,7 @@ struct AmenChurchProfileView: View {
 
         if let denomination = church.denomination {
             Text(denomination)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.78))
                 .padding(.top, 2)
         }
@@ -185,7 +185,7 @@ struct AmenChurchProfileView: View {
         if let primary = church.campuses.first(where: { $0.isPrimary }) ?? church.campuses.first,
            !primary.city.isEmpty {
             Text("\(primary.city), \(primary.state)")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.55))
                 .padding(.top, 2)
         }
@@ -245,7 +245,7 @@ struct AmenChurchProfileView: View {
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(label, systemImage: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(tint)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 9)
@@ -385,7 +385,7 @@ struct AmenChurchProfileView: View {
     private func tabEmptyState(icon: String, title: String, message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
             Text(title)
                 .font(.headline)
@@ -455,7 +455,7 @@ private struct ChurchAmenServiceTimeCard: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: "clock")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 36, height: 36)
                 .background(

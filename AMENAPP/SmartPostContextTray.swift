@@ -97,7 +97,7 @@ struct SmartPostContextTray: View {
                 onAction(.dismiss, item)
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)

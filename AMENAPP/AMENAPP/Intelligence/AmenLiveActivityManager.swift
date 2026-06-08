@@ -21,6 +21,7 @@
 import Foundation
 import os
 import OSLog
+import FirebaseFunctions
 
 #if canImport(ActivityKit)
 import ActivityKit
@@ -396,12 +397,16 @@ final class AmenLiveActivityManager: ObservableObject {
             let tokenHex = tokenData.map { String(format: "%02x", $0) }.joined()
             logger.info("LiveActivity: push token for card \(cardId): \(tokenHex)")
 
-            // TODO: Send tokenHex to backend via Cloud Function
-            // CloudFunctions.functions().httpsCallable("registerLiveActivityToken").call([
-            //     "cardId": cardId,
-            //     "activityId": activity.id,
-            //     "pushToken": tokenHex
-            // ])
+            do {
+                let fn = Functions.functions().httpsCallable("registerLiveActivityToken")
+                _ = try await fn.call([
+                    "cardId": cardId,
+                    "activityId": activity.id,
+                    "pushToken": tokenHex
+                ])
+            } catch {
+                logger.warning("LiveActivity: failed to register push token for card \(cardId): \(error.localizedDescription)")
+            }
         }
     }
 }

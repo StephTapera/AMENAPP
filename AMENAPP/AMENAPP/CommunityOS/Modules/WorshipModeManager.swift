@@ -156,7 +156,7 @@ struct WorshipModeOverlayView: View {
                             .foregroundStyle(Color(.secondaryLabel))
                             .padding(20)
                     }
-                    .glassEffect(.regular.tint(.white.opacity(0.08)).interactive(), in: Circle())
+                    .amenGlassEffect(in: Circle())
                     .accessibilityLabel("Dismiss Worship Mode")
                     .padding(.trailing, 16)
                     .padding(.top, 8)
@@ -226,7 +226,7 @@ private struct WorshipModeActionButton: View {
             .frame(width: 72, height: 72)
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.tint(.white.opacity(0.10)).interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityLabel(label)
     }
 }

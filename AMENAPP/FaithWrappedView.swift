@@ -53,7 +53,7 @@ struct FaithWrappedView: View {
                 }
             }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .overlay(gestureOverlay)
         .task {
             await viewModel.loadStory(period: selectedPeriod)

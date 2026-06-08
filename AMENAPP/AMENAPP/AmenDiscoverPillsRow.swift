@@ -21,7 +21,7 @@ struct AmenDiscoverPillsRow: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                // Search entry pill
+                // Search entry pill — capped width so Ask Berean button is never pushed off-screen
                 Button(action: onSearchTap) {
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
@@ -29,6 +29,7 @@ struct AmenDiscoverPillsRow: View {
                         Text(searchPlaceholder)
                             .font(.systemScaled(13, weight: .medium))
                             .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
                     .padding(.horizontal, 14)
@@ -42,6 +43,7 @@ struct AmenDiscoverPillsRow: View {
                             .strokeBorder(Color(uiColor: .separator).opacity(0.35), lineWidth: 0.5)
                     )
                 }
+                .frame(maxWidth: 220)
                 .buttonStyle(.plain)
                 .accessibilityLabel("Search")
 

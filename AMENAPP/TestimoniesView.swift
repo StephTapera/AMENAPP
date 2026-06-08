@@ -1526,14 +1526,15 @@ struct TestimonyCommentRow: View {
     let postId: String
     @State private var hasAmened = false
     @State private var amenCount: Int
-    
+    @State private var showReplyComposer = false
+
     init(comment: TestimonyFeedComment, commentId: String, postId: String) {
         self.comment = comment
         self.commentId = commentId
         self.postId = postId
         _amenCount = State(initialValue: comment.amenCount)
     }
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Circle()
@@ -1544,23 +1545,23 @@ struct TestimonyCommentRow: View {
                         .font(AMENFont.bold(13))
                         .foregroundStyle(.black.opacity(0.7))
                 )
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(comment.authorName)
                         .font(AMENFont.bold(13))
                         .foregroundStyle(.black.opacity(0.9))
-                    
+
                     Text(comment.timeAgo)
                         .font(AMENFont.regular(11))
                         .foregroundStyle(.black.opacity(0.4))
                 }
-                
+
                 Text(comment.content)
                     .font(AMENFont.regular(13))
                     .foregroundStyle(.black.opacity(0.8))
                     .lineSpacing(2)
-                
+
                 // Comment actions
                 HStack(spacing: 16) {
                     Button {
@@ -1582,9 +1583,10 @@ struct TestimonyCommentRow: View {
                         .foregroundStyle(hasAmened ? .black : .black.opacity(0.5))
                     }
                     .buttonStyle(.plain)
-                    
+
                     Button {
-                        // Reply to comment
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showReplyComposer = true
                     } label: {
                         Text("Reply")
                             .font(AMENFont.semiBold(11))
@@ -1594,9 +1596,45 @@ struct TestimonyCommentRow: View {
                 }
                 .padding(.top, 4)
             }
-            
+
             Spacer()
         }
+        .sheet(isPresented: $showReplyComposer) {
+            ReplyComposerSheet(authorName: comment.authorName)
+        }
+    }
+}
+
+private struct ReplyComposerSheet: View {
+    let authorName: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Replying to \(authorName)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+                TextEditor(text: $text)
+                    .padding(.horizontal, 8)
+                    .frame(minHeight: 100)
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("Reply")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Send") { dismiss() }
+                        .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 
@@ -1734,9 +1772,7 @@ struct TestimonyCategoryDetailInlineView: View {
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        // Share category
-                    } label: {
+                    ShareLink(item: category.title, subject: Text("AMEN Testimonies"), message: Text("Check out \(category.title) testimonies on AMEN")) {
                         Image(systemName: "square.and.arrow.up")
                             .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.primary)

@@ -8,6 +8,12 @@
  *   - currentRoute: The policyKey string of the current route
  *                   (matches AmenRoute policyKey values in RestModeGate.swift).
  *   - uid:          Authenticated Firebase user ID.
+ *   - onSurfaceSelect: (optional) forwarded to SabbathWindowView when gate is
+ *                   active. If omitted a no-op is used so the guard is always
+ *                   renderable without a parent wiring handler.
+ *   - onStepOut:    (optional) forwarded to SabbathWindowView. Called after the
+ *                   BlessAndCloseSheet confirms the step-out intent; the guard
+ *                   also calls enterStepOut(true) internally.
  *
  * Invariants (from SabbathRouting.ts):
  *   - state === 'active':
@@ -24,7 +30,8 @@
  *           It imports SABBATH_ALWAYS_ALLOWED from contracts.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
+import type { SabbathSurface } from '../contracts/SabbathTypes';
 
 // ── Contract imports (never inline route ids) ────────────────────────────────
 import { SABBATH_ALWAYS_ALLOWED } from '../contracts/SabbathAllowList';
@@ -88,6 +95,18 @@ export interface SabbathRouteGuardProps {
   currentRoute: string;
   /** Authenticated Firebase user ID. */
   uid: string;
+  /**
+   * Called when the user selects a Sabbath surface inside SabbathWindowView.
+   * Optional — defaults to a no-op so the guard is self-contained without
+   * requiring parent wiring. The parent should wire this to its own router.
+   */
+  onSurfaceSelect?: (surface: SabbathSurface) => void;
+  /**
+   * Called after the user confirms step-out in BlessAndCloseSheet.
+   * Optional — the guard calls enterStepOut(true) internally; this gives
+   * the parent an opportunity to handle any additional routing logic.
+   */
+  onStepOut?: () => void;
 }
 
 /**
@@ -98,8 +117,31 @@ export interface SabbathRouteGuardProps {
 export function SabbathRouteGuard({
   children,
   currentRoute,
+  onSurfaceSelect,
+  onStepOut,
 }: SabbathRouteGuardProps): React.JSX.Element {
-  const { state } = useSabbath();
+  const { state, session, enterStepOut } = useSabbath();
+
+  // Stable no-op default for onSurfaceSelect so SabbathWindowView always
+  // receives a valid function regardless of parent wiring.
+  const handleSurfaceSelect = useCallback(
+    (surface: SabbathSurface) => {
+      onSurfaceSelect?.(surface);
+    },
+    [onSurfaceSelect],
+  );
+
+  // Step-out handler: call enterStepOut(true) on the engine, then notify parent.
+  const handleStepOut = useCallback(async () => {
+    try {
+      await enterStepOut(true);
+    } catch {
+      // enterStepOut throws SabbathStepOutError if already stepped out or
+      // confirmation was not provided — both are safe to swallow here because
+      // BlessAndCloseSheet already required explicit confirmation before calling.
+    }
+    onStepOut?.();
+  }, [enterStepOut, onStepOut]);
 
   // ── INACTIVE: full app, no restrictions ──────────────────────────────────
   if (state === 'inactive') {
@@ -108,9 +150,13 @@ export function SabbathRouteGuard({
 
   // ── STEPPED OUT: full app restored, SabbathBanner persists ───────────────
   if (state === 'steppedOut') {
+    // steppedOutAt comes from the session doc. Fall back to current time so
+    // the banner always receives a valid number (it uses the value for caller
+    // tracking only — never displays it).
+    const steppedOutAt = session?.steppedOutAt ?? Date.now();
     return (
       <>
-        <SabbathBanner />
+        <SabbathBanner steppedOutAt={steppedOutAt} />
         {children}
       </>
     );
@@ -131,7 +177,13 @@ export function SabbathRouteGuard({
   }
 
   // 3. All other routes → show the Sabbath window (Agent B's component).
-  return <SabbathWindowView />;
+  //    Pass required props so SabbathWindowView is fully wired.
+  return (
+    <SabbathWindowView
+      onSurfaceSelect={handleSurfaceSelect}
+      onStepOut={handleStepOut}
+    />
+  );
 }
 
 export default SabbathRouteGuard;

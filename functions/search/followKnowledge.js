@@ -28,7 +28,7 @@
 
 "use strict";
 
-const functions = require("firebase-functions");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin     = require("firebase-admin");
 
 // admin is already initialized in index.js — do not call initializeApp() again.
@@ -68,9 +68,9 @@ function normalizeTopicId(raw) {
 // CF: followTopic
 // ═════════════════════════════════════════════════════════════════════════════
 
-exports.followTopic = functions.https.onCall(async (data, context) => {
+exports.followTopic = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Sign in required.");
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = context.auth.uid;
 
@@ -78,10 +78,10 @@ exports.followTopic = functions.https.onCall(async (data, context) => {
   const topicName = (data.topicName ?? topicId).trim();
 
   if (!topicId) {
-    throw new functions.https.HttpsError("invalid-argument", "topicId is required.");
+    throw new HttpsError("invalid-argument", "topicId is required.");
   }
   if (topicName.length > 80) {
-    throw new functions.https.HttpsError("invalid-argument", "topicName too long (max 80 chars).");
+    throw new HttpsError("invalid-argument", "topicName too long (max 80 chars).");
   }
 
   // Enforce max 50 followed topics
@@ -96,7 +96,7 @@ exports.followTopic = functions.https.onCall(async (data, context) => {
     // Check if this topic already exists (re-follow is idempotent)
     const already = existingSnap.docs.some((d) => d.id === topicId);
     if (!already) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "resource-exhausted",
         `You can follow at most ${MAX_FOLLOWED_TOPICS} topics. Unfollow some before adding more.`
       );
@@ -124,15 +124,15 @@ exports.followTopic = functions.https.onCall(async (data, context) => {
 // CF: unfollowTopic
 // ═════════════════════════════════════════════════════════════════════════════
 
-exports.unfollowTopic = functions.https.onCall(async (data, context) => {
+exports.unfollowTopic = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Sign in required.");
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid     = context.auth.uid;
   const topicId = normalizeTopicId(data.topicId ?? "");
 
   if (!topicId) {
-    throw new functions.https.HttpsError("invalid-argument", "topicId is required.");
+    throw new HttpsError("invalid-argument", "topicId is required.");
   }
 
   await topicDocRef(uid, topicId).delete();
@@ -145,9 +145,9 @@ exports.unfollowTopic = functions.https.onCall(async (data, context) => {
 // CF: getFollowedTopics
 // ═════════════════════════════════════════════════════════════════════════════
 
-exports.getFollowedTopics = functions.https.onCall(async (data, context) => {
+exports.getFollowedTopics = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Sign in required.");
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = context.auth.uid;
 
@@ -201,9 +201,9 @@ exports.getFollowedTopics = functions.https.onCall(async (data, context) => {
 // CF: getTopicFeed
 // ═════════════════════════════════════════════════════════════════════════════
 
-exports.getTopicFeed = functions.https.onCall(async (data, context) => {
+exports.getTopicFeed = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Sign in required.");
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
   const uid = context.auth.uid;
 

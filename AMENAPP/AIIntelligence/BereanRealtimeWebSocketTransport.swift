@@ -16,6 +16,25 @@ final class BereanRealtimeWebSocketTransport: ObservableObject {
     @Published private(set) var receivedEvents: [[String: Any]] = []
     @Published private(set) var bufferedAudioBytes = 0
 
+    // MARK: - Translation bar helpers
+    // These computed properties map internal transport state to the two
+    // parameters consumed by BereanLiveTranslationBar, keeping call sites
+    // free of transport-state switch statements.
+
+    /// Non-nil when the transport has failed permanently (max retries exhausted).
+    /// Pass as `translationError` on `BereanLiveTranslationBar`.
+    var translationBarError: String? {
+        if case .failed(let reason) = state { return reason }
+        return nil
+    }
+
+    /// True while the transport is in a retry back-off loop.
+    /// Pass as `isReconnecting` on `BereanLiveTranslationBar`.
+    var translationBarIsReconnecting: Bool {
+        if case .reconnecting = state { return true }
+        return false
+    }
+
     private let functions = Functions.functions()
     private var task: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
@@ -82,6 +101,7 @@ final class BereanRealtimeWebSocketTransport: ObservableObject {
         startsAtMs: Int = 0,
         durationMs: Int = 0
     ) async throws {
+        // AUDIT A5-011: transcript should be sanitized via BereanContextCoordinator before persistence
         _ = try await functions.httpsCallable("persistRealtimeTranscriptChunk").call([
             "sessionId": sessionId,
             "text": text,
@@ -100,16 +120,26 @@ final class BereanRealtimeWebSocketTransport: ObservableObject {
 
     private func openSocket(clientSecret: BereanRealtimeClientSecret, model: String?) async throws {
         state = retryCount == 0 ? .connecting : .reconnecting(retryCount)
-        let resolvedModel = model ?? clientSecret.model ?? "gpt-realtime"
-        guard let encodedModel = resolvedModel.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "wss://api.openai.com/v1/realtime?model=\(encodedModel)") else {
-            state = .failed("Invalid realtime URL.")
+
+        guard let baseEndpoint = clientSecret.endpoint else {
+            state = .failed("No realtime endpoint in session secret.")
+            throw BereanRealtimeTransportError.invalidURL
+        }
+
+        var components = URLComponents(url: baseEndpoint, resolvingAgainstBaseURL: false)
+        if let resolvedModel = model ?? clientSecret.model {
+            var queryItems = components?.queryItems ?? []
+            queryItems.append(URLQueryItem(name: "model", value: resolvedModel))
+            components?.queryItems = queryItems
+        }
+
+        guard let url = components?.url else {
+            state = .failed("Could not construct realtime URL from endpoint.")
             throw BereanRealtimeTransportError.invalidURL
         }
 
         var request = URLRequest(url: url)
         request.setValue("Bearer \(clientSecret.value)", forHTTPHeaderField: "Authorization")
-        request.setValue("realtime=v1", forHTTPHeaderField: "OpenAI-Beta")
 
         let webSocketTask = URLSession.shared.webSocketTask(with: request)
         task = webSocketTask

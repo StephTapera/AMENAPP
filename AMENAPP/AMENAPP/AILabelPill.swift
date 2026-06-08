@@ -33,7 +33,7 @@ struct AILabelPill: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: iconName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .accessibilityHidden(true)
                 Text(disclosure.userVisibleLabel)
                     .font(.caption.weight(.semibold))

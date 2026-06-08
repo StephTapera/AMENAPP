@@ -36,6 +36,9 @@ struct BereanTabSwitcherView: View {
     // Removal animation
     @State private var removingIDs: Set<UUID> = []
 
+    // Grid layout toggle
+    @State private var isCompactGrid = false
+
     private let spring: Animation = .spring(response: 0.45, dampingFraction: 0.75)
     private let chipSpring: Animation = .spring(response: 0.28, dampingFraction: 0.72)
 
@@ -296,7 +299,10 @@ struct BereanTabSwitcherView: View {
 
                 Spacer()
 
-                toolbarButton(icon: "square.grid.2x2") { }
+                toolbarButton(icon: "square.grid.2x2") {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(spring) { isCompactGrid.toggle() }
+                }
 
                 Spacer()
 
@@ -353,7 +359,7 @@ struct BereanTabSwitcherView: View {
             .padding(.horizontal, 28)
             .padding(.top, 10)
             .padding(.bottom, 42)
-            .background(Color.white)
+            .background(Color(.systemBackground))
         }
     }
 
@@ -478,7 +484,7 @@ private struct FeaturedChatCard: View {
                 Text(session.displayTitle)
                     .font(.systemScaled(22, weight: .semibold, design: .serif))
                     .italic()
-                    .foregroundStyle(Color(hex: "#2A1A6E"))
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
 
                 // ── Preview ───────────────────────────────────────────────
@@ -510,11 +516,7 @@ private struct FeaturedChatCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(LinearGradient(
-                        colors: [Color(hex: "#F0EEFF"), Color(hex: "#E8F4FF")],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
+                    .fill(Color(.secondarySystemBackground))
                     .overlay(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .stroke(Color(hex: "#7A6FFF").opacity(0.2), lineWidth: 0.5)
@@ -580,10 +582,10 @@ private struct MiniChatCard: View {
             .frame(maxWidth: .infinity, maxHeight: 120, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(hex: "#F7F7FB"))
+                    .fill(Color(.secondarySystemBackground))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
+                            .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
                     )
             )
             .matchedGeometryEffect(id: session.id, in: namespace)
@@ -623,18 +625,18 @@ private struct BereanTopicChip: View {
         Button(action: onTap) {
             Text(label)
                 .font(.systemScaled(10, weight: .medium))
-                .foregroundStyle(isActive ? Color(hex: "#6450FF") : Color(hex: "#555555"))
+                .foregroundStyle(isActive ? Color(hex: "#6450FF") : Color.secondary)
                 .padding(.vertical, 5)
                 .padding(.horizontal, 11)
                 .background(
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(isActive ? Color(hex: "#EDE9FF") : Color(hex: "#F2F2F7"))
+                        .fill(isActive ? Color(hex: "#6450FF").opacity(0.12) : Color(.tertiarySystemBackground))
                         .overlay(
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
                                 .stroke(
                                     isActive
                                         ? Color(hex: "#7A6FFF").opacity(0.4)
-                                        : Color.black.opacity(0.08),
+                                        : Color.primary.opacity(0.08),
                                     lineWidth: 0.5
                                 )
                         )

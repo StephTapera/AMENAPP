@@ -20,6 +20,20 @@ struct AmenDiscoveryHeroCarousel: View {
     @State private var showCatchUpSheet = false
     @State private var showNotesSheet = false
 
+    // Fixed height for the horizontal carousel row.
+    //
+    // The card has three height phases:
+    //   • Collapsed : 228 (hero) + 36 (chevron)             = 264 pt
+    //   • Expanded  : 264 + ~56 (close bar + divider) + 420 = ~740 pt
+    //                 (420 is the scroll cap inside AmenUniversalHeroCard)
+    //
+    // By using a single fixed height (the expanded maximum) the outer vertical
+    // ScrollView sees a *constant* row height and is never displaced when a card
+    // expands or collapses.  The space reserved when collapsed is simply empty
+    // white-space below the card — a minor cosmetic trade-off that is far
+    // preferable to the screen getting "stuck" on an expanded card.
+    private let carouselFixedHeight: CGFloat = 740
+
     var body: some View {
         VStack(spacing: 10) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -75,6 +89,10 @@ struct AmenDiscoveryHeroCarousel: View {
             .scrollTargetBehavior(.viewAligned)
             .contentMargins(.horizontal, 20, for: .scrollContent)
             .scrollPosition(id: $scrolledID)
+            // Pin the horizontal scroll view to the fully-expanded card height so
+            // expansion / collapse never changes the outer vertical layout, preventing
+            // the page from appearing "stuck" with no visible way to scroll up.
+            .frame(height: carouselFixedHeight)
 
             // Page dot indicator
             HStack(spacing: 6) {
@@ -549,7 +567,7 @@ extension AmenChurchHeroData {
             ChurchHeroService(time: "9:00 AM"),
             ChurchHeroService(time: "11:00 AM")
         ],
-        pastor: "John Smith",
+        pastor: nil,
         atmosphere: ["Family", "Worship", "Bible Teaching", "Young Adults"],
         aiSummary: "Contemporary worship, strong kids ministry, active young adult community, casual dress environment.",
         aiMatchReasons: [

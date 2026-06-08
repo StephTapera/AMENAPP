@@ -59,7 +59,7 @@ struct AmenSyncDraftsView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                 }
             }
@@ -105,7 +105,7 @@ struct SyncProjectRow: View {
                         .fill(project.status.color.opacity(0.1))
                         .frame(width: 50, height: 50)
                     Image(systemName: project.mediaType.icon)
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(project.status.color)
                 }
 
@@ -139,7 +139,7 @@ struct SyncProjectRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .padding(14)
@@ -216,7 +216,7 @@ struct JobRow: View {
                     .fill(statusColor.opacity(0.1))
                     .frame(width: 44, height: 44)
                 Image(systemName: jobIcon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(statusColor)
             }
 

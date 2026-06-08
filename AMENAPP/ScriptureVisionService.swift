@@ -313,7 +313,7 @@ struct ScriptureVisionSheet: View {
                     .overlay {
                         VStack(spacing: 8) {
                             Image(systemName: "camera.viewfinder")
-                                .font(.system(size: 40))
+                                .font(.systemScaled(40))
                                 .foregroundStyle(.secondary)
                             Text("Photo a Bible verse")
                                 .font(.subheadline)

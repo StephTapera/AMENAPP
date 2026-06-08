@@ -155,7 +155,7 @@ struct AMENAccountTypeOnboardingView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white.ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
@@ -228,16 +228,16 @@ struct AMENAccountTypeOnboardingView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("ACCOUNT TYPE")
                 .font(AMENFont.semiBold(11))
-                .foregroundColor(Color(white: 0.55))
+                .foregroundStyle(.secondary)
                 .tracking(1.6)
 
             Text("How will you use AMEN?")
                 .font(AMENFont.bold(28))
-                .foregroundColor(.black)
+                .foregroundStyle(.primary)
 
             Text("Your selection unlocks a role-specific layer built on top of the same AMEN core. You can change this later in settings.")
                 .font(AMENFont.regular(14))
-                .foregroundColor(Color(white: 0.45))
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .lineSpacing(2)
         }
@@ -307,11 +307,11 @@ private struct AccountTypeCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(type.rawValue)
                         .font(AMENFont.semiBold(18))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.primary)
 
                     Text(type.tagline)
                         .font(AMENFont.regular(14))
-                        .foregroundColor(Color(white: 0.45))
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -422,10 +422,10 @@ private struct CapabilitiesCard: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("What you get")
                             .font(AMENFont.semiBold(15))
-                            .foregroundColor(.black)
+                            .foregroundStyle(.primary)
                         Text(type.operationalLayerDescription)
                             .font(AMENFont.regular(12))
-                            .foregroundColor(Color(white: 0.55))
+                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     // Type indicator chip
@@ -453,7 +453,7 @@ private struct CapabilitiesCard: View {
                 // Footer reinforcement line
                 Text("Same AMEN core · different operational layer")
                     .font(AMENFont.regular(11))
-                    .foregroundColor(Color(white: 0.62))
+                    .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 2)
             }
@@ -479,7 +479,7 @@ private struct CapabilityRow: View {
 
             Text(text)
                 .font(AMENFont.regular(14))
-                .foregroundColor(Color(white: 0.45))
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -565,7 +565,7 @@ private struct _AMENAccountTypeOnboardingViewInner: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white.ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {

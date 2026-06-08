@@ -90,7 +90,7 @@ private struct BlockChip: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(type.accent)
                 Text("+ \(type.displayName)")
                     .font(.caption.weight(.medium))

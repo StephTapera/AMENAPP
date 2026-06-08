@@ -367,7 +367,7 @@ private struct InterestButtonModifier: ViewModifier {
         if isActive {
             content
                 .background(Color(.label).opacity(0.06))
-                .glassEffect(.regular.tint(.white.opacity(0.12)).interactive(), in: Capsule())
+                .amenGlassEffect(in: Capsule())
         } else {
             content
                 .background(Color(.secondarySystemBackground))

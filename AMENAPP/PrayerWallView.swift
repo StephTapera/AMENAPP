@@ -414,9 +414,7 @@ struct PrayerWallMapView_DEPRECATED: View {
                         )
                     }
                     
-                    Button {
-                        // Share
-                    } label: {
+                    ShareLink(item: pin.content) {
                         Image(systemName: "square.and.arrow.up")
                             .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)

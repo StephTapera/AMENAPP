@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.logSuggestionFeedback = exports.getSuggestedAccountsRail = void 0;
 const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const rateLimit_1 = require("./rateLimit");
 const db = admin.firestore();
@@ -211,13 +212,15 @@ function diversify(candidates, limit) {
     return result;
 }
 // ─── 1. getSuggestedAccountsRail ─────────────────────────────────────
-exports.getSuggestedAccountsRail = functions.https.onCall(async (data, context) => {
+exports.getSuggestedAccountsRail = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
     // 5.1 FIX: App Check enforcement.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     // CRITICAL-CF FIX: Per-user rate limiting.
     // getSuggestedAccountsRail makes dozens of Firestore reads per call.
@@ -438,22 +441,24 @@ exports.getSuggestedAccountsRail = functions.https.onCall(async (data, context) 
     return diversified;
 });
 // ─── 2. logSuggestionFeedback ────────────────────────────────────────
-exports.logSuggestionFeedback = functions.https.onCall(async (data, context) => {
+exports.logSuggestionFeedback = (0, https_1.onCall)(async (request) => {
+    const data = request.data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
     // 5.1 FIX: App Check enforcement.
     if (context.app == undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
+        throw new https_1.HttpsError("failed-precondition", "The function must be called from an App Check verified app.");
     }
     const uid = context.auth.uid;
     const { targetUserId, action, surface, position } = data;
     if (!targetUserId || !action || !surface) {
-        throw new functions.https.HttpsError("invalid-argument", "targetUserId, action, and surface are required");
+        throw new https_1.HttpsError("invalid-argument", "targetUserId, action, and surface are required");
     }
     const validActions = ["dismiss", "follow", "ignore", "hide_rail", "show_fewer"];
     if (!validActions.includes(action)) {
-        throw new functions.https.HttpsError("invalid-argument", `Invalid action: ${action}`);
+        throw new https_1.HttpsError("invalid-argument", `Invalid action: ${action}`);
     }
     const feedbackRef = db.collection("users").doc(uid)
         .collection("suggestionFeedback").doc(targetUserId);

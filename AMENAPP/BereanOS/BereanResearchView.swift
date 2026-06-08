@@ -126,9 +126,9 @@ struct BereanResearchView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: mode.systemIcon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                 Text(mode.displayName)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(14, weight: .semibold, design: .rounded))
             }
             .foregroundStyle(isSelected ? .white : .primary)
             .padding(.horizontal, 14)
@@ -156,10 +156,10 @@ struct BereanResearchView: View {
                         .scaleEffect(0.85)
                 } else {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                 }
                 Text(service.isResearching ? "Researching..." : "Research")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
@@ -283,7 +283,7 @@ struct BereanResearchView: View {
                     .frame(width: 60, height: 60)
                     .animation(.easeOut(duration: 0.8), value: score)
                 Text("\(Int(score * 100))%")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.systemScaled(13, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -376,10 +376,10 @@ struct BereanResearchView: View {
                                     .scaleEffect(0.8)
                             } else {
                                 Image(systemName: "tray.and.arrow.down.fill")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.systemScaled(15, weight: .semibold))
                             }
                             Text(isSaving ? "Saving..." : "Save to Project")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -408,7 +408,7 @@ struct BereanResearchView: View {
     private var featureDisabledPlaceholder: some View {
         VStack(spacing: 16) {
             Image(systemName: "magnifyingglass.circle")
-                .font(.system(size: 60))
+                .font(.systemScaled(60))
                 .foregroundStyle(Color.secondary.opacity(0.4))
             Text("Research Engine")
                 .font(.title2.weight(.semibold))
@@ -481,14 +481,14 @@ struct BereanDisclosureGroupCard<Content: View>: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                         .animation(.spring(response: 0.3), value: isExpanded)

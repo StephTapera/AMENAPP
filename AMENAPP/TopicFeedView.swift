@@ -91,7 +91,7 @@ struct TopicFeedView: View {
                 }
             } label: {
                 Image(systemName: viewModel.activeSort.icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundColor(.black.opacity(0.6))
                     .frame(width: 32, height: 32)
                     .background(
@@ -143,7 +143,7 @@ struct TopicFeedView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundColor(.orange)
             Text("Something went wrong")
                 .font(AMENFont.semiBold(16))
@@ -165,7 +165,7 @@ struct TopicFeedView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "tray")
-                .font(.system(size: 32))
+                .font(.systemScaled(32))
                 .foregroundColor(.secondary)
             Text("No posts yet")
                 .font(AMENFont.semiBold(16))

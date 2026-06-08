@@ -137,7 +137,7 @@ struct ChurchObjectHub: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "building.columns")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
             Text("No content yet")
                 .font(.headline)
@@ -482,7 +482,7 @@ private struct ChurchHubSermonCard: View {
                                 Color(uiColor: .secondarySystemBackground)
                                     .overlay(
                                         Image(systemName: "play.rectangle.fill")
-                                            .font(.system(size: 24))
+                                            .font(.systemScaled(24))
                                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                                     )
                             }
@@ -491,7 +491,7 @@ private struct ChurchHubSermonCard: View {
                         Color(uiColor: .secondarySystemBackground)
                             .overlay(
                                 Image(systemName: "play.rectangle.fill")
-                                    .font(.system(size: 24))
+                                    .font(.systemScaled(24))
                                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
                             )
                     }
@@ -604,7 +604,7 @@ private struct DiscussionRoomRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 36, height: 36)
                 .background(
@@ -644,7 +644,7 @@ private struct PrayerRequestRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "hands.and.sparkles")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 32)
 
@@ -696,7 +696,7 @@ private struct VolunteerTeamCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Image(systemName: "heart.circle")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 120, alignment: .leading)
 
@@ -739,7 +739,7 @@ private struct ChurchNoteRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "note.text")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 32)
 

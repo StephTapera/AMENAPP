@@ -591,7 +591,8 @@ struct UserProfileSheet: View {
     let onMessage: () -> Void
     
     @State private var isFollowing = false
-    
+    @State private var showReportConfirm = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -718,7 +719,8 @@ struct UserProfileSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
-                            // Report user
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            showReportConfirm = true
                         } label: {
                             Label("Report", systemImage: "exclamationmark.triangle")
                         }
@@ -734,6 +736,18 @@ struct UserProfileSheet: View {
                     }
                 }
             }
+        }
+        .confirmationDialog("Report this user?", isPresented: $showReportConfirm, titleVisibility: .visible) {
+            Button("Report", role: .destructive) {
+                Task {
+                    try? await ModerationService.shared.reportUser(
+                        userId: user.id,
+                        reason: .inappropriateContent,
+                        additionalDetails: nil
+                    )
+                }
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 }

@@ -120,7 +120,7 @@ struct BereanAdvisoryBoardView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "person.3.sequence")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.secondary)
             Text("No Advisory Boards")
                 .font(.title3.weight(.semibold))

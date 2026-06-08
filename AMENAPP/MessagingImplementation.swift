@@ -314,6 +314,16 @@ extension FirebaseMessagingService {
             }
         }
 
+        // ── LOCAL CRISIS PRE-SCAN: instant, no network required ──────────────────
+        if CrisisDetectionService.shared.hasLocalCrisisSignal(in: text) {
+            NotificationCenter.default.post(
+                name: Notification.Name("showCrisisResources"),
+                object: nil,
+                userInfo: [:]
+            )
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
         // ── MODERATION GATE (hard rule: no message write without a decision record) ──
         let safetyResult = try await ModerationGatewayService.check(
             content: text,

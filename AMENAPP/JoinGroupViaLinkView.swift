@@ -46,7 +46,7 @@ struct JoinGroupViaLinkView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .font(.systemScaled(28))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.secondary)
                     }
@@ -85,7 +85,7 @@ struct JoinGroupViaLinkView: View {
                         .fill(Color.black.opacity(0.04))
                         .frame(width: 80, height: 80)
                     Image(systemName: preview.purpose.icon)
-                        .font(.system(size: 32, weight: .medium))
+                        .font(.systemScaled(32, weight: .medium))
                         .foregroundStyle(.black.opacity(0.8))
                 }
 
@@ -184,7 +184,7 @@ struct JoinGroupViaLinkView: View {
             HStack(spacing: 8) {
                 Image(systemName: preview.mutualMemberCount > 0
                       ? "person.2.circle.fill" : "eye.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(preview.mutualMemberCount > 0
                                     ? Color.black.opacity(0.6) : Color.black.opacity(0.3))
                 Text(signalText)
@@ -204,7 +204,7 @@ struct JoinGroupViaLinkView: View {
     private func glassBadge(icon: String, text: String) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
             Text(text)
                 .font(.custom("OpenSans-SemiBold", size: 12))
         }
@@ -357,7 +357,7 @@ struct JoinGroupViaLinkView: View {
     private func errorState(_ error: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.orange)
             Text("Couldn't load invite")
                 .font(.custom("OpenSans-Bold", size: 18))
@@ -372,7 +372,7 @@ struct JoinGroupViaLinkView: View {
     private func unavailableState(_ preview: GroupLinkPreview) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "link.badge.plus")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.secondary)
             Text("Invite No Longer Available")
                 .font(.custom("OpenSans-Bold", size: 18))
@@ -386,7 +386,7 @@ struct JoinGroupViaLinkView: View {
     private var pausedState: some View {
         VStack(spacing: 16) {
             Image(systemName: "pause.circle.fill")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.orange)
             Text("Invite Paused")
                 .font(.custom("OpenSans-Bold", size: 18))
@@ -401,7 +401,7 @@ struct JoinGroupViaLinkView: View {
     private func fullState(_ preview: GroupLinkPreview) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.xmark")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.orange)
             Text("Group Full")
                 .font(.custom("OpenSans-Bold", size: 18))

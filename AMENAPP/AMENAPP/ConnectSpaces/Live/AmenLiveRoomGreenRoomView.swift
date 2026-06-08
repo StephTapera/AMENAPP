@@ -64,9 +64,9 @@ struct AmenLiveRoomGreenRoomView: View {
             Button(action: onCancel) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                     Text("Cancel")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.systemScaled(15, weight: .medium))
                 }
                 .foregroundStyle(Color(hex: "D9A441"))
             }
@@ -76,10 +76,10 @@ struct AmenLiveRoomGreenRoomView: View {
 
             VStack(spacing: 2) {
                 Text("Green Room")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.systemScaled(15, weight: .bold))
                     .foregroundStyle(.white)
                 Text("Pre-show")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
             }
 
@@ -124,10 +124,10 @@ struct AmenLiveRoomGreenRoomView: View {
             } else {
                 VStack(spacing: 10) {
                     Image(systemName: "video.fill")
-                        .font(.system(size: 28, weight: .light))
+                        .font(.systemScaled(28, weight: .light))
                         .foregroundStyle(Color(hex: "D9A441").opacity(0.5))
                     Text("Camera Preview")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -163,10 +163,10 @@ struct AmenLiveRoomGreenRoomView: View {
     private func techCheckPill(icon: String, label: String, statusColor: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(statusColor)
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -188,14 +188,14 @@ struct AmenLiveRoomGreenRoomView: View {
     private var participantsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("In Green Room")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
 
             if room.participants.isEmpty {
                 Text("Waiting for participants…")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
@@ -231,20 +231,20 @@ struct AmenLiveRoomGreenRoomView: View {
                     .fill(Color(hex: "6E4BB5").opacity(0.35))
                     .frame(width: 44, height: 44)
                 Text(initials(for: participant.displayName))
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(.white)
             }
             .overlay(alignment: .bottomTrailing) {
                 if participant.isHost {
                     Image(systemName: "crown.fill")
-                        .font(.system(size: 9))
+                        .font(.systemScaled(9))
                         .foregroundStyle(Color(hex: "D9A441"))
                         .offset(x: 2, y: 2)
                 }
             }
 
             Text(participant.displayName)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.8))
                 .lineLimit(1)
         }
@@ -263,9 +263,9 @@ struct AmenLiveRoomGreenRoomView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                     Text("Go Live")
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.systemScaled(17, weight: .bold))
                 }
                 .foregroundStyle(Color(hex: "070607"))
                 .frame(maxWidth: .infinity)

@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct SelahScriptureReaderView: View {
 
@@ -34,6 +35,27 @@ struct SelahScriptureReaderView: View {
 
     // Toolbar selection state (single verse)
     @State private var selectedVerseNumber: Int?
+
+    // MARK: - Annotation State
+
+    /// The verse currently selected for context menu / annotation.
+    /// Hidden by default — only set when the user taps a verse.
+    @State private var selectedVerse: (number: Int, text: String, ref: String)? = nil
+
+    /// Controls visibility of the verse context menu (action sheet).
+    @State private var showVerseContextMenu: Bool = false
+
+    /// Controls visibility of the annotation bottom sheet.
+    @State private var showAnnotationSheet: Bool = false
+
+    /// Which annotation mode the sheet opens in.
+    @State private var annotationMode: SelahAnnotationMode = .highlight
+
+    /// Controls visibility of the discernment check sheet.
+    @State private var showDiscernmentSheet: Bool = false
+
+    /// The verse text forwarded to the discernment sheet.
+    @State private var discernmentInputVerse: String? = nil
 
     // MARK: - Init
 
@@ -77,7 +99,7 @@ struct SelahScriptureReaderView: View {
                 VStack {
                     Spacer()
                     Text(toast)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(.regularMaterial, in: Capsule())
@@ -107,6 +129,77 @@ struct SelahScriptureReaderView: View {
                 preferencesStore: preferencesStore
             )
         }
+        // Verse context menu — Liquid Glass action sheet
+        .confirmationDialog(
+            selectedVerse.map { "Verse \($0.number)" } ?? "",
+            isPresented: $showVerseContextMenu,
+            titleVisibility: .visible
+        ) {
+            Button("Highlight") {
+                annotationMode = .highlight
+                showAnnotationSheet = true
+            }
+            Button("Add Note") {
+                annotationMode = .note
+                showAnnotationSheet = true
+            }
+            Button("Add Question") {
+                annotationMode = .question
+                showAnnotationSheet = true
+            }
+            Button("Add Prayer") {
+                annotationMode = .prayer
+                showAnnotationSheet = true
+            }
+            Button("Check against Scripture") {
+                discernmentInputVerse = selectedVerse?.text
+                showDiscernmentSheet = true
+            }
+            Button("Dismiss", role: .cancel) {
+                selectedVerse = nil
+            }
+        }
+        // Annotation sheet (highlight / note / question / prayer)
+        .sheet(isPresented: $showAnnotationSheet) {
+            if let verse = selectedVerse {
+                SelahAnnotationSheet(
+                    verseRef: verse.ref,
+                    verseText: verse.text,
+                    mode: annotationMode,
+                    translationId: translation.id,
+                    onSave: { noteData in
+                        Task {
+                            guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+                            let note = SelahNote.new(
+                                userId: uid,
+                                verseRef: noteData.verseRef,
+                                translationRead: noteData.translationRead,
+                                kind: SelahNoteKind(rawValue: noteData.kind) ?? .note,
+                                color: noteData.color,
+                                body: noteData.body
+                            )
+                            try? await SelahNoteService.shared.createNote(note)
+                        }
+                    },
+                    onDelete: { noteId in
+                        Task {
+                            guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else { return }
+                            try? await SelahNoteService.shared.softDeleteNote(id: noteId, userId: uid)
+                        }
+                    }
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+        }
+        // Discernment check sheet — placeholder for Agent C's DiscernmentEntrySheet
+        .sheet(isPresented: $showDiscernmentSheet) {
+            if let verseText = discernmentInputVerse {
+                DiscernmentEntrySheet(inputText: verseText, sourceType: "verse", sourceRef: selectedVerse?.ref)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+            }
+        }
     }
 
     // MARK: - Top Bar (Liquid Glass)
@@ -118,7 +211,7 @@ struct SelahScriptureReaderView: View {
             } label: {
                 ZStack {
                     Circle().fill(.ultraThinMaterial).frame(width: 32, height: 32)
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                    Image(systemName: "xmark").font(.systemScaled(11, weight: .semibold)).foregroundStyle(.secondary)
                 }
             }
             .buttonStyle(.plain)
@@ -128,9 +221,9 @@ struct SelahScriptureReaderView: View {
 
             VStack(spacing: 1) {
                 Text(book?.displayName ?? currentBookId.capitalized)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 Text("Chapter \(currentChapter) · \(translation.abbreviation)")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -141,7 +234,7 @@ struct SelahScriptureReaderView: View {
             } label: {
                 ZStack {
                     Circle().fill(.ultraThinMaterial).frame(width: 32, height: 32)
-                    Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                    Image(systemName: "magnifyingglass").font(.systemScaled(12, weight: .semibold)).foregroundStyle(.secondary)
                 }
             }
             .buttonStyle(.plain)
@@ -163,7 +256,7 @@ struct SelahScriptureReaderView: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .indexViewStyle(.page(backgroundDisplayMode: .never))
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .gesture(
             DragGesture(minimumDistance: 60, coordinateSpace: .global)
                 .onEnded { value in
@@ -205,17 +298,17 @@ struct SelahScriptureReaderView: View {
                 }
             }
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 
     private func pageHeader(chapter: Int) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text((book?.displayName ?? currentBookId.capitalized).uppercased())
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .tracking(2)
                 .foregroundStyle(.secondary)
             Text("Chapter \(chapter)")
-                .font(.system(size: 26, weight: .bold, design: .serif))
+                .font(.systemScaled(26, weight: .bold, design: .serif))
                 .foregroundStyle(.primary)
         }
     }
@@ -232,7 +325,13 @@ struct SelahScriptureReaderView: View {
     }
 
     private func verseRow(_ verse: SelahBibleVerse) -> some View {
-        Button {
+        // Determine if this verse has a highlight note from SelahNoteService
+        let verseRef = buildVerseRef(verse)
+        let highlightNote = SelahNoteService.shared.notes[verseRef]?
+            .first(where: { $0.kind == .highlight && $0.deletedAt == nil })
+        let highlightHex = highlightNote?.color
+
+        return Button {
             if selectedVerseNumber == verse.number {
                 selectedVerseNumber = nil
             } else {
@@ -242,16 +341,18 @@ struct SelahScriptureReaderView: View {
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\(verse.number)")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(.systemScaled(10, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
                     .frame(width: 18, alignment: .trailing)
                     .padding(.top, 4)
                 Text(verse.text)
-                    .font(.system(size: preferencesStore.preferences.fontPointSize, design: .serif))
+                    .font(.systemScaled(preferencesStore.preferences.fontPointSize, design: .serif))
                     .foregroundStyle(.black)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
+                    // Show highlight background if note exists with kind == highlight
+                    .selahHighlight(colorHex: highlightHex)
             }
             .padding(8)
             .background(
@@ -262,10 +363,26 @@ struct SelahScriptureReaderView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Verse \(verse.number)")
-        .accessibilityHint("Tap to select")
+        .accessibilityHint("Tap to select, long press to annotate")
+        // Long-press opens annotation context menu
+        .onLongPressGesture(minimumDuration: 0.4) {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            selectedVerse = (
+                number: verse.number,
+                text: verse.text,
+                ref: verseRef
+            )
+            showVerseContextMenu = true
+        }
     }
 
-    @ViewBuilder
+    /// Builds a display verse reference string like "James 1:5" for use as
+    /// the `verseRef` key passed to SelahAnnotationSheet and SelahNoteService.
+    private func buildVerseRef(_ verse: SelahBibleVerse) -> String {
+        let bookName = book?.displayName ?? currentBookId.capitalized
+        return "\(bookName) \(currentChapter):\(verse.number)"
+    }
+
     private func footerActions(for chapter: SelahBibleChapter) -> [(title: String, view: AnyView)] {
         var actions: [(title: String, view: AnyView)] = []
         if let selected = selectedVerseNumber,
@@ -291,7 +408,7 @@ struct SelahScriptureReaderView: View {
                         preferencesStore.setFontPointSize(preferencesStore.preferences.fontPointSize - 1)
                     } label: {
                         Image(systemName: "textformat.size.smaller")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(8)
                             .background(Circle().fill(.ultraThinMaterial))
@@ -303,7 +420,7 @@ struct SelahScriptureReaderView: View {
                         preferencesStore.setFontPointSize(preferencesStore.preferences.fontPointSize + 1)
                     } label: {
                         Image(systemName: "textformat.size.larger")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(8)
                             .background(Circle().fill(.ultraThinMaterial))
@@ -315,7 +432,7 @@ struct SelahScriptureReaderView: View {
                         preferencesStore.setPageTurnSoundEnabled(!preferencesStore.preferences.pageTurnSoundEnabled)
                     } label: {
                         Image(systemName: preferencesStore.preferences.pageTurnSoundEnabled ? "speaker.wave.2.fill" : "speaker.slash")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.systemScaled(13, weight: .medium))
                             .foregroundStyle(preferencesStore.preferences.pageTurnSoundEnabled ? Color.accentColor : .secondary)
                             .padding(8)
                             .background(Circle().fill(.ultraThinMaterial))
@@ -333,12 +450,12 @@ struct SelahScriptureReaderView: View {
     private func chapterUnavailable(message: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: "book.closed")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(.secondary.opacity(0.5))
             Text("Chapter not available")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
             Text(message)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }

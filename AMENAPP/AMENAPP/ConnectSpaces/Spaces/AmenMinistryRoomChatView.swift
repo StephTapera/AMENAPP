@@ -268,7 +268,7 @@ struct AmenMinistryRoomChatView: View {
         HStack(spacing: 10) {
             // Glass input field
             TextField("Share with the room…", text: $viewModel.composerText, axis: .vertical)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .lineLimit(1...5)
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 14)
@@ -294,7 +294,7 @@ struct AmenMinistryRoomChatView: View {
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.systemScaled(15, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -324,7 +324,7 @@ struct AmenMinistryRoomChatView: View {
     private var convictionSheet: some View {
         VStack(spacing: 20) {
             Image(systemName: "pause.circle.fill")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
 
@@ -341,7 +341,7 @@ struct AmenMinistryRoomChatView: View {
                 Button("Send Anyway") {
                     viewModel.confirmSendAfterConviction()
                 }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(Color(red: 0.431, green: 0.294, blue: 0.710))
@@ -351,7 +351,7 @@ struct AmenMinistryRoomChatView: View {
                 Button("Keep editing") {
                     viewModel.dismissConviction()
                 }
-                .font(.system(size: 15, weight: .medium))
+                .font(.systemScaled(15, weight: .medium))
                 .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
@@ -376,7 +376,7 @@ struct AmenMinistryRoomMessageRow: View {
                     .frame(width: 32, height: 32)
                     .overlay {
                         Text(String(message.authorId.prefix(1)).uppercased())
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(.white)
                     }
                     .accessibilityHidden(true)
@@ -384,12 +384,12 @@ struct AmenMinistryRoomMessageRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     // Author name (stub: shows truncated userId)
                     Text(message.authorId.prefix(12).description)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.systemScaled(12, weight: .semibold))
                         .foregroundStyle(Color(red: 0.431, green: 0.294, blue: 0.710))
 
                     // Message body — matte text
                     Text(message.body)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
@@ -406,7 +406,7 @@ struct AmenMinistryRoomMessageRow: View {
 
                     // Timestamp
                     Text(message.createdAt.formatted(date: .omitted, time: .shortened))
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -433,7 +433,7 @@ struct AmenMinistryRoomMessageRow: View {
         MinistryFlowLayout(spacing: 4) {
             ForEach(intents, id: \.self) { intent in
                 Text(intent.displayLabel)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.systemScaled(10, weight: .semibold))
                     .foregroundStyle(intent.pillColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -453,10 +453,10 @@ struct AmenMinistryRoomMessageRow: View {
     private var careRoutedBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "heart.fill")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
             Text("Routed to Care Team")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
         }
         .padding(.horizontal, 10)

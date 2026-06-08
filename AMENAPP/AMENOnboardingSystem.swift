@@ -37,19 +37,19 @@ enum ONB {
 
     // Typography scale
     static func heroFont(size: CGFloat = 48) -> Font {
-        .system(size: size, weight: .black, design: .default)
+        .systemScaled(size, weight: .black, design: .default)
     }
     static func titleFont(size: CGFloat = 32) -> Font {
-        .system(size: size, weight: .bold, design: .default)
+        .systemScaled(size, weight: .bold, design: .default)
     }
     static func bodyFont(size: CGFloat = 16) -> Font {
-        .system(size: size, weight: .regular, design: .default)
+        .systemScaled(size, weight: .regular, design: .default)
     }
     static func labelFont(size: CGFloat = 13) -> Font {
-        .system(size: size, weight: .medium, design: .default)
+        .systemScaled(size, weight: .medium, design: .default)
     }
     static func ctaFont() -> Font {
-        .system(size: 16, weight: .semibold, design: .default)
+        .systemScaled(16, weight: .semibold, design: .default)
     }
 
     // Spacing

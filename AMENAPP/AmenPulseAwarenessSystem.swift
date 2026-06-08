@@ -256,11 +256,11 @@ struct AmenPulseBannerView: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: suggestion.icon)
-                .font(.system(size: 14, weight: .medium))
+                .font(.systemScaled(14, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.72))
 
             Text(suggestion.message)
-                .font(.system(size: 13, weight: .medium))
+                .font(.systemScaled(13, weight: .medium))
                 .foregroundStyle(.primary)
 
             Spacer()
@@ -270,13 +270,13 @@ struct AmenPulseBannerView: View {
                     onAction?()
                     onDismiss()
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(.blue)
             }
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)

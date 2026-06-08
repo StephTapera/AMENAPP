@@ -69,7 +69,7 @@ struct AmenUploadScanGateView: View {
                     .tint(Color.accentColor)                    .accessibilityLabel("Scanning in progress")
 
                 Text("Checking upload for family safety\u{2026}")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
             }
@@ -85,12 +85,12 @@ struct AmenUploadScanGateView: View {
         matteCard {
             VStack(spacing: 14) {
                 Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: 44))
+                    .font(.systemScaled(44))
                     .foregroundStyle(Color.green)
                     .accessibilityHidden(true)
 
                 Text("Upload cleared")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(.primary)
             }
             .padding(.vertical, 32)
@@ -107,16 +107,16 @@ struct AmenUploadScanGateView: View {
                 // Error header
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.shield.fill")
-                        .font(.system(size: 36))
+                        .font(.systemScaled(36))
                         .foregroundStyle(Color.red)
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Upload blocked")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.primary)
                         Text("Possible child safety concern detected.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -127,7 +127,7 @@ struct AmenUploadScanGateView: View {
                 if !decision.flags.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Detected signals:")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.systemScaled(13, weight: .semibold))
                             .foregroundStyle(.secondary)
 
                         ForEach(decision.flags) { flag in
@@ -138,7 +138,7 @@ struct AmenUploadScanGateView: View {
                                     .accessibilityHidden(true)
 
                                 Text(flagDisplayLabel(flag))
-                                    .font(.system(size: 13))
+                                    .font(.systemScaled(13))
                                     .foregroundStyle(.primary)
                             }
                             .accessibilityElement(children: .combine)
@@ -163,7 +163,7 @@ struct AmenUploadScanGateView: View {
                         onBlocked()
                     } label: {
                         Text("Remove this content")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -175,10 +175,13 @@ struct AmenUploadScanGateView: View {
                     .accessibilityLabel("Remove this content")
 
                     Button {
-                        // Stub navigation — wave D implementation
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        if let url = URL(string: "mailto:support@amenapp.com") {
+                            UIApplication.shared.open(url)
+                        }
                     } label: {
                         Text("Contact support")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -198,16 +201,16 @@ struct AmenUploadScanGateView: View {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.shield.fill")
-                        .font(.system(size: 36))
+                        .font(.systemScaled(36))
                         .foregroundStyle(Color.red)
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Upload blocked")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.primary)
                         Text("Safety scan could not be completed.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -219,7 +222,7 @@ struct AmenUploadScanGateView: View {
                         onBlocked()
                     } label: {
                         Text("Remove this content")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -231,10 +234,13 @@ struct AmenUploadScanGateView: View {
                     .accessibilityLabel("Remove this content")
 
                     Button {
-                        // Stub navigation — wave D implementation
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        if let url = URL(string: "mailto:support@amenapp.com") {
+                            UIApplication.shared.open(url)
+                        }
                     } label: {
                         Text("Contact support")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)

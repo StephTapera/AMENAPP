@@ -90,19 +90,19 @@ struct SuggestedAccountCard: View {
 
             HStack(spacing: 3) {
                 Text(item.displayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 if item.isVerified {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.accentColor)
                 }
             }
 
             Text("@\(item.handle)")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -127,13 +127,13 @@ struct SuggestedAccountCard: View {
         VStack(alignment: .leading, spacing: 3) {
             if let bio = item.bio, !bio.isEmpty {
                 Text(bio)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary.opacity(0.9))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text(item.reasonText)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary.opacity(0.9))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -141,7 +141,7 @@ struct SuggestedAccountCard: View {
 
             if item.followerCount > 0 {
                 Text("\(formatCount(item.followerCount)) followers")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.tertiary)
             }
 
@@ -156,13 +156,13 @@ struct SuggestedAccountCard: View {
         VStack(alignment: .leading, spacing: 3) {
             if !item.prayerThemes.isEmpty {
                 Text(item.prayerThemes.prefix(2).joined(separator: " · "))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary.opacity(0.9))
                     .lineLimit(1)
             }
 
             Text(item.reasonText)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary.opacity(0.8))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -178,7 +178,7 @@ struct SuggestedAccountCard: View {
         VStack(alignment: .leading, spacing: 3) {
             if let excerpt = item.recentTestimonyExcerpt, !excerpt.isEmpty {
                 Text("\u{201C}\(excerpt)\u{201D}")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary.opacity(0.9))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -186,7 +186,7 @@ struct SuggestedAccountCard: View {
             }
 
             Text(item.reasonText)
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary.opacity(0.8))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -199,7 +199,7 @@ struct SuggestedAccountCard: View {
 
     private func accountTypeBadge(_ badge: String) -> some View {
         Text(badge)
-            .font(.system(size: 10, weight: .medium))
+            .font(.systemScaled(10, weight: .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -217,12 +217,12 @@ struct SuggestedAccountCard: View {
 
             if let context = item.contextLine {
                 Text(context)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             } else if item.mutualCount > 0 {
                 Text("Mutuals · community")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
@@ -262,7 +262,7 @@ struct SuggestedAccountCard: View {
 
             Button(action: onView) {
                 Text("View")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.systemScaled(12, weight: .medium))
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 30)
@@ -289,7 +289,7 @@ struct SuggestedAccountCard: View {
     private var dismissPill: some View {
         Button(action: onDismiss) {
             Image(systemName: "xmark")
-                .font(.system(size: 9, weight: .bold))
+                .font(.systemScaled(9, weight: .bold))
                 .foregroundStyle(.primary.opacity(0.45))
                 .frame(width: 22, height: 22)
                 .background(

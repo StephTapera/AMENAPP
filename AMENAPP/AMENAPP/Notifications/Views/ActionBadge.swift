@@ -35,7 +35,7 @@ struct ActionBadge: View {
                 .allowsHitTesting(false)
 
             Image(systemName: action.systemImageName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color(uiColor: .systemBackground))
         }
         .overlay {

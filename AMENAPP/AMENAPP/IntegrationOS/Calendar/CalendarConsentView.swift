@@ -59,7 +59,7 @@ struct CalendarConsentView: View {
     private var permissionPrompt: some View {
         VStack(spacing: 24) {
             Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(.tint)
 
             VStack(spacing: 8) {

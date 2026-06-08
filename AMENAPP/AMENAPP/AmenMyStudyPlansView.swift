@@ -83,7 +83,7 @@ struct AmenMyStudyPlansView: View {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "book.closed")
-                .font(.system(size: 56, weight: .light))
+                .font(.systemScaled(56, weight: .light))
                 .foregroundStyle(.tertiary)
             Text("No Study Plans Yet")
                 .font(.title3.weight(.semibold))

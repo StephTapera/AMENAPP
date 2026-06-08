@@ -118,6 +118,22 @@ struct AmenStudiesDiscoveryView: View {
     @State private var selectedStudy: StudyItem?
     @State private var showDiscussionRoom = false
     @State private var selectedStudyForRoom: StudyItem?
+    @State private var searchQuery = ""
+
+    // MARK: - Filtered helpers
+
+    private var isSearching: Bool { !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    private func filtered(_ items: [StudyItem]) -> [StudyItem] {
+        guard isSearching else { return items }
+        let q = searchQuery.lowercased()
+        return items.filter {
+            $0.title.lowercased().contains(q)
+            || ($0.authorName?.lowercased().contains(q) ?? false)
+            || ($0.scripture?.lowercased().contains(q) ?? false)
+            || $0.tags.contains(where: { $0.lowercased().contains(q) })
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -130,16 +146,7 @@ struct AmenStudiesDiscoveryView: View {
             }
             .navigationTitle("Studies & Notes")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        // Search
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
-                    .accessibilityLabel("Search studies")
-                }
-            }
+            .searchable(text: $searchQuery, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search studies")
         }
         .task { await vm.load() }
         .sheet(isPresented: $showDiscussionRoom) {
@@ -160,70 +167,75 @@ struct AmenStudiesDiscoveryView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 0) {
                 // Continue Reading (pinned at top if present)
-                if !vm.continueReading.isEmpty {
+                let filteredContinue = filtered(vm.continueReading)
+                if !filteredContinue.isEmpty && !isSearching {
                     studiesRail(
                         title: "Continue Reading",
                         subtitle: "Pick up where you left off",
                         icon: "bookmark.fill",
                         color: .purple,
-                        items: vm.continueReading,
+                        items: filteredContinue,
                         cardStyle: .compact
                     )
                     Divider().padding(.horizontal, 20)
                 }
 
                 // Featured Studies
-                if !vm.trendingStudies.isEmpty {
+                let filteredTrending = filtered(vm.trendingStudies)
+                if !filteredTrending.isEmpty {
                     studiesRail(
                         title: "Featured Studies",
                         subtitle: "Recently added",
                         icon: "star.fill",
                         color: .orange,
-                        items: vm.trendingStudies,
+                        items: filteredTrending,
                         cardStyle: .featured
                     )
                     Divider().padding(.horizontal, 20)
                 }
 
                 // From Mentors
-                if !vm.fromMentors.isEmpty {
+                let filteredMentors = filtered(vm.fromMentors)
+                if !filteredMentors.isEmpty {
                     studiesRail(
                         title: "Notes from Mentors",
                         subtitle: "Teachings you follow",
                         icon: "person.2.fill",
                         color: .blue,
-                        items: vm.fromMentors,
+                        items: filteredMentors,
                         cardStyle: .compact
                     )
                     Divider().padding(.horizontal, 20)
                 }
 
                 // From Your Church
-                if !vm.fromChurch.isEmpty {
+                let filteredChurch = filtered(vm.fromChurch)
+                if !filteredChurch.isEmpty {
                     studiesRail(
                         title: "From Your Church",
                         subtitle: "Shared by your community",
                         icon: "building.columns.fill",
                         color: .teal,
-                        items: vm.fromChurch,
+                        items: filteredChurch,
                         cardStyle: .compact
                     )
                     Divider().padding(.horizontal, 20)
                 }
 
                 // New This Week
-                if !vm.newThisWeek.isEmpty {
+                let filteredNew = filtered(vm.newThisWeek)
+                if !filteredNew.isEmpty {
                     studiesRail(
                         title: "New This Week",
                         subtitle: "Fresh notes and studies",
                         icon: "sparkles",
                         color: .yellow,
-                        items: vm.newThisWeek,
+                        items: filteredNew,
                         cardStyle: .compact
                     )
                 }
 
-                if vm.trendingStudies.isEmpty && vm.fromMentors.isEmpty && vm.fromChurch.isEmpty {
+                if filteredTrending.isEmpty && filteredMentors.isEmpty && filteredChurch.isEmpty {
                     emptyState
                 }
 
@@ -251,7 +263,7 @@ struct AmenStudiesDiscoveryView: View {
                 ZStack {
                     Circle().fill(color.opacity(0.12)).frame(width: 32, height: 32)
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(color)
                 }
                 VStack(alignment: .leading, spacing: 1) {
@@ -325,7 +337,7 @@ struct AmenStudiesDiscoveryView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "books.vertical")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(.tertiary)
             Text("No studies yet.")
                 .font(.headline)
@@ -375,9 +387,9 @@ private struct FeaturedStudyCard: View {
                 Button(action: onDiscuss) {
                     HStack(spacing: 4) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                         Text("Study Group")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
@@ -453,7 +465,7 @@ private struct CompactStudyCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 } else {
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 26))
+                        .font(.systemScaled(26))
                         .foregroundStyle(.purple.opacity(0.3))
                 }
             }

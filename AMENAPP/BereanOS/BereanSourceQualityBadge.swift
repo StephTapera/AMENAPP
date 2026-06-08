@@ -35,7 +35,7 @@ struct BereanSourceQualityBadge: View {
             HStack(spacing: 2) {
                 ForEach(1...5, id: \.self) { index in
                     Image(systemName: index <= starCount ? "star.fill" : "star")
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.systemScaled(8, weight: .semibold))
                         .foregroundStyle(index <= starCount ? badgeColor : Color.secondary.opacity(0.4))
                 }
             }
@@ -43,7 +43,7 @@ struct BereanSourceQualityBadge: View {
             // Source type label (optional)
             if let sourceType {
                 Text(sourceType.displayName)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.systemScaled(9, weight: .medium))
                     .foregroundStyle(badgeColor)
                     .lineLimit(1)
             }

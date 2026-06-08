@@ -49,7 +49,7 @@ struct DiscussionProvenanceBanner: View {
         HStack(spacing: 6) {
             // Source type icon
             Image(systemName: provenance.sourceTypeSystemImage)
-                .font(.system(size: 11, weight: .regular))
+                .font(.systemScaled(11, weight: .regular))
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
 
             // "From [SourceType]" label
@@ -66,7 +66,7 @@ struct DiscussionProvenanceBanner: View {
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.systemScaled(9, weight: .semibold))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     .frame(width: 20, height: 20)
                     .contentShape(Rectangle())

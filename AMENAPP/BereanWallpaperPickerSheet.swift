@@ -32,7 +32,7 @@ struct BereanWallpaperPickerSheet: View {
                 .padding(.horizontal, 16)
 
                 Text("Your wallpaper never overrides readability. Berean auto-protects contrast.")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.systemScaled(12, weight: .regular))
                     .foregroundStyle(Color(white: 0.55))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -46,7 +46,7 @@ struct BereanWallpaperPickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                 }
             }
         }
@@ -73,11 +73,11 @@ struct BereanWallpaperPickerSheet: View {
 
                 HStack(spacing: 6) {
                     Text(title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(white: 0.12))
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.primary)
                     }
                 }

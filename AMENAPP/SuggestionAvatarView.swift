@@ -42,7 +42,7 @@ struct SuggestionAvatarView: View {
 
     private var initialsView: some View {
         Text(item.initials)
-            .font(.system(size: size * 0.34, weight: .semibold))
+            .font(.systemScaled(size * 0.34, weight: .semibold))
             .foregroundStyle(.white)
     }
 

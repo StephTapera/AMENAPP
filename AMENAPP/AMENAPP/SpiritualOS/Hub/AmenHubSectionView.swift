@@ -26,7 +26,7 @@ struct AmenHubSectionView: View {
     var userId: String
 
     // MARK: Feature flag
-    @AppStorage("spiritualOS_hub_enabled") private var isEnabled = false
+    @AppStorage("spiritualOS_hub_enabled") private var isEnabled = true
 
     // MARK: Navigation
     @State private var showFullHub = false
@@ -60,7 +60,7 @@ struct AmenHubSectionView: View {
     private var headerRow: some View {
         HStack(spacing: 8) {
             Text("Amen Hub")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.systemScaled(17, weight: .semibold))
                 .foregroundStyle(Color.amenBlack)
                 .accessibilityAddTraits(.isHeader)
 
@@ -265,7 +265,7 @@ private struct HubSectionItemRow: View {
                 .fill(tagTint(for: item.tag).opacity(0.18))
                 .frame(width: 40, height: 40)
             Image(systemName: item.type.fallbackIcon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.systemScaled(16, weight: .medium))
                 .foregroundStyle(tagTint(for: item.tag))
         }
         .accessibilityHidden(true)
@@ -277,19 +277,19 @@ private struct HubSectionItemRow: View {
         VStack(alignment: .leading, spacing: 3) {
             if let name = item.senderName {
                 Text(name)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(Color.amenBlack)
                     .lineLimit(1)
             } else {
                 Text(item.title)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.systemScaled(14, weight: .bold))
                     .foregroundStyle(Color.amenBlack)
                     .lineLimit(1)
             }
 
             if let preview = item.preview {
                 Text(preview)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.amenSlate)
                     .lineLimit(2)
             }
@@ -309,13 +309,13 @@ private struct HubSectionItemRow: View {
     private var trailingColumn: some View {
         VStack(alignment: .trailing, spacing: 6) {
             Text(relativeTimestamp(for: item.createdAt))
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.amenSlate.opacity(0.7))
                 .accessibilityLabel("Received \(relativeTimestamp(for: item.createdAt))")
 
             Button(action: onPin) {
                 Image(systemName: item.isPinned ? "heart.fill" : "heart")
-                    .font(.system(size: 16))
+                    .font(.systemScaled(16))
                     .foregroundStyle(item.isPinned ? Color.accentColor : Color.amenSlate.opacity(0.6))
             }
             .buttonStyle(.plain)

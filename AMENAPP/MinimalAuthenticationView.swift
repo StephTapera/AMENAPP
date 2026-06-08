@@ -19,6 +19,8 @@ struct MinimalAuthenticationView: View {
     var initialMode: AppLaunchView.AuthMode = .login
     var showsEmailFormOnAppear: Bool = false
 
+    @EnvironmentObject private var authViewModel: AuthenticationViewModel
+
     @State private var isLogin = true
     @State private var email = ""
     @State private var password = ""
@@ -386,6 +388,19 @@ struct MinimalAuthenticationView: View {
                     .foregroundStyle(Color(white: 0.30))
                 }
                 Spacer()
+
+#if DEBUG
+                // Debug-only skip — bypasses Firebase entirely
+                Button {
+                    authViewModel.bypassAuthForTesting()
+                } label: {
+                    Text("Skip")
+                        .font(.systemScaled(13, weight: .regular))
+                        .foregroundStyle(Color(white: 0.48))
+                }
+                .padding(.trailing, 10)
+#endif
+
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
                         .font(.systemScaled(14, weight: .regular))
@@ -1009,7 +1024,7 @@ struct MinimalAuthenticationView: View {
         isResettingPassword = true
         Task {
             do {
-                try await Auth.auth().sendPasswordReset(withEmail: trimmedEmail)
+                try await authViewModel.sendPasswordReset(email: trimmedEmail)
                 await MainActor.run {
                     isResettingPassword = false
                     showResetConfirmation = true
@@ -1086,7 +1101,9 @@ struct MinimalAuthenticationView: View {
                 }
             case .failure(let error):
                 let nsError = error as NSError
-                if nsError.code != 1001 { showError(error.localizedDescription) }
+                // 1000 = unknown (simulator / no Apple ID), 1001 = user cancelled — both silent
+                let silentCodes = [1000, 1001]
+                if !silentCodes.contains(nsError.code) { showError(error.localizedDescription) }
             }
         }
         appleSignInCoordinator = coordinator

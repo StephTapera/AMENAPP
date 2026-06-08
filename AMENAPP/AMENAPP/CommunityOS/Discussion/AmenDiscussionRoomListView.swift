@@ -119,7 +119,7 @@ struct AmenDiscussionRoomListView: View {
                 showCreateSheet = true
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(Color.accentColor)
             }
             .accessibilityLabel("Start a new discussion room")
@@ -169,9 +169,9 @@ struct AmenDiscussionRoomListView: View {
         Button(action: onTap) {
             HStack(spacing: 4) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                 Text(label)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
             }
             .foregroundStyle(isSelected ? Color.accentColor : Color(uiColor: .secondaryLabel))
             .padding(.horizontal, 12)
@@ -219,7 +219,7 @@ struct AmenDiscussionRoomListView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.systemScaled(13, weight: .semibold))
             .foregroundStyle(Color(uiColor: .secondaryLabel))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 12)
@@ -248,7 +248,7 @@ struct AmenDiscussionRoomListView: View {
                     .fill(Color.accentColor.opacity(0.10))
                     .frame(width: 44, height: 44)
                 Image(systemName: room.type.systemImage)
-                    .font(.system(size: 18, weight: .regular))
+                    .font(.systemScaled(18, weight: .regular))
                     .foregroundStyle(Color.accentColor)
             }
             .accessibilityHidden(true)
@@ -257,14 +257,14 @@ struct AmenDiscussionRoomListView: View {
                 // Title + pinned badge
                 HStack(spacing: 6) {
                     Text(room.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(Color(uiColor: .label))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
                     if room.isPinned {
                         Image(systemName: "pin.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
                     }
@@ -273,7 +273,7 @@ struct AmenDiscussionRoomListView: View {
                 // Description or last activity preview
                 if !room.description.isEmpty {
                     Text(room.description)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(Color(uiColor: .secondaryLabel))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -282,20 +282,20 @@ struct AmenDiscussionRoomListView: View {
                 // Footer: room type + privacy + last active
                 HStack(spacing: 8) {
                     Label(room.type.displayName, systemImage: room.type.systemImage)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
 
                     Spacer()
 
                     // Privacy indicator
                     Image(systemName: room.privacyLevel.systemImage)
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
 
                     // Last active (not a count — just relative timestamp)
                     if let lastAt = room.lastMessageAt {
                         Text(relativeTime(from: lastAt))
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     }
                 }
@@ -304,9 +304,9 @@ struct AmenDiscussionRoomListView: View {
                 if room.hasProvenance, let prov = room.provenance {
                     HStack(spacing: 4) {
                         Image(systemName: "link")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                         Text("From \(prov.sourceTypeDisplayName)")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                     }
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 }
@@ -339,7 +339,7 @@ struct AmenDiscussionRoomListView: View {
             ProgressView()
                 .tint(Color.accentColor)
             Text("Loading discussions…")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
             Spacer()
         }
@@ -352,7 +352,7 @@ struct AmenDiscussionRoomListView: View {
         VStack(spacing: 14) {
             Spacer()
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 38, weight: .ultraLight))
+                .font(.systemScaled(38, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
 
@@ -409,7 +409,7 @@ struct AmenDiscussionRoomListView: View {
                 NavigationStack {
                     VStack(spacing: 24) {
                         Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 36, weight: .ultraLight))
+                            .font(.systemScaled(36, weight: .ultraLight))
                             .foregroundStyle(Color(uiColor: .tertiaryLabel))
                             .accessibilityHidden(true)
                         Text("Discussion creation is coming soon.")
@@ -438,7 +438,7 @@ struct AmenDiscussionRoomListView: View {
     private var featureUnavailableView: some View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 40, weight: .ultraLight))
+                .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Discussions are coming soon.")

@@ -225,7 +225,7 @@ struct CommunityWeeklyRecapView: View {
                         .rotationEffect(.degrees(-90))
                     VStack(spacing: 2) {
                         Text("\(Int(recap.healthScore * 100))")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.systemScaled(28, weight: .bold))
                         Text("/ 100")
                             .font(.caption)
                             .foregroundStyle(.secondary)

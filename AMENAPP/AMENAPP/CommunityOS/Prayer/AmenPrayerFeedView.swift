@@ -110,7 +110,7 @@ struct AmenPrayerFeedView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "hands.sparkles")
-                .font(.system(size: 44, weight: .ultraLight))
+                .font(.systemScaled(44, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
 
@@ -150,7 +150,7 @@ struct AmenPrayerFeedView: View {
     private var featureUnavailableView: some View {
         VStack(spacing: 16) {
             Image(systemName: "hands.sparkles")
-                .font(.system(size: 44, weight: .ultraLight))
+                .font(.systemScaled(44, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
             Text("Prayer is coming soon.")
@@ -250,7 +250,7 @@ struct AmenPrayerCard: View {
                     .frame(width: 32, height: 32)
 
                 Image(systemName: prayer.isAnonymous ? "person.fill.questionmark" : "person.fill")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color(uiColor: .tertiaryLabel))
             }
             .accessibilityHidden(true)
@@ -271,7 +271,7 @@ struct AmenPrayerCard: View {
             // Privacy badge
             HStack(spacing: 4) {
                 Image(systemName: prayer.privacyLevel.systemImage)
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                 Text(prayer.privacyLevel.displayName)
                     .font(.caption2)
                     .fontWeight(.medium)
@@ -323,7 +323,7 @@ struct AmenPrayerCard: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: hasPrayed ? "hands.sparkles.fill" : "hands.sparkles")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .symbolEffect(
                             .bounce,
                             options: .nonRepeating,
@@ -356,7 +356,7 @@ struct AmenPrayerCard: View {
             if !prayer.followUps.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                     Text("Updated")
                         .font(.caption2)
                 }
@@ -372,7 +372,7 @@ struct AmenPrayerCard: View {
     private var answeredBadge: some View {
         if prayer.isAnswered {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.green)
                 .padding(10)
                 .accessibilityLabel("This prayer was answered")
@@ -558,7 +558,7 @@ private struct AmenPrayerComposeStubView: View {
             }
             .padding(.bottom, 30)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 
     var body: some View {

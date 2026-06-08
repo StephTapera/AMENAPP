@@ -210,7 +210,7 @@ struct AMENChurchBusinessOnboardingView: View {
                         Button(action: { vm.previousStep() }) {
                             Image(systemName: "chevron.left")
                                 .font(.systemScaled(17, weight: .semibold))
-                                .foregroundColor(.black)
+                                .foregroundStyle(.primary)
                         }
                     }
                 }
@@ -218,7 +218,7 @@ struct AMENChurchBusinessOnboardingView: View {
                 ToolbarItem(placement: .principal) {
                     Text(vm.accountType == .church ? "Church Setup" : "Business Setup")
                         .font(AMENFont.semiBold(17))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.primary)
                 }
             }
         }
@@ -255,7 +255,7 @@ private struct BasicInfoStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(vm.accountType == .church ? "Tell us about your church" : "Tell us about your organization")
                     .font(AMENFont.bold(26))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("This information helps members find and connect with you.")
                     .font(AMENFont.regular(15))
@@ -307,7 +307,7 @@ private struct LocationStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Where are you located?")
                     .font(AMENFont.bold(26))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("Help people in your community discover you.")
                     .font(AMENFont.regular(15))
@@ -365,7 +365,7 @@ private struct AdditionalInfoStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Almost done!")
                     .font(AMENFont.bold(26))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
                 
                 Text("Add a few more details to complete your profile.")
                     .font(AMENFont.regular(15))
@@ -408,7 +408,7 @@ private struct FormField: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
                 .font(AMENFont.semiBold(14))
-                .foregroundColor(.black)
+                .foregroundStyle(.primary)
             
             TextField(placeholder, text: $text)
                 .font(AMENFont.regular(16))
@@ -430,7 +430,7 @@ private struct FormTextEditor: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
                 .font(AMENFont.semiBold(14))
-                .foregroundColor(.black)
+                .foregroundStyle(.primary)
             
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
@@ -468,7 +468,7 @@ private struct InfoCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(AMENFont.semiBold(15))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
                 
                 Text(description)
                     .font(AMENFont.regular(14))
@@ -494,7 +494,7 @@ private struct VerificationNoticeCard: View {
                 
                 Text("Verification")
                     .font(AMENFont.semiBold(16))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
             }
             
             Text(accountType == .church 

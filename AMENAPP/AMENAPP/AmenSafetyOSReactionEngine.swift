@@ -578,9 +578,9 @@ struct AmenSpiritualTriggerChip: View {
                 AmenSafetyLaneBadge(lane: trigger.lane)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(trigger.title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                     Text(trigger.message)
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.black.opacity(0.58))
                         .lineLimit(1)
                 }
@@ -665,9 +665,9 @@ struct AmenReactionButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: reaction.symbolName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                 Text(reaction.title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
             }
             .foregroundStyle(.black.opacity(0.82))
             .padding(.horizontal, 12)
@@ -694,35 +694,35 @@ struct AmenDiscernmentSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text(sheetTitle)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.systemScaled(22, weight: .semibold))
                     .foregroundStyle(.black)
 
                 Text(trigger.message)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.74))
 
                 Text("Your words are still yours. Amen is offering a pause before they reach someone else.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(.black.opacity(0.7))
 
                 if let suggestedRewrite, !suggestedRewrite.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Rewrite preview")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.5))
 
                         Text("Original")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.45))
                         Text("“\(originalText)”")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.black.opacity(0.84))
 
                         Text("Suggested")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.black.opacity(0.45))
                         Text("“\(suggestedRewrite)”")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundStyle(.black.opacity(0.84))
                     }
                     .padding(18)
@@ -738,7 +738,7 @@ struct AmenDiscernmentSheet: View {
                             onAction(action)
                         } label: {
                             Text(action.title)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.systemScaled(15, weight: .semibold))
                                 .foregroundStyle(primaryAction == action ? Color.white : Color.black.opacity(0.82))
                                 .frame(maxWidth: .infinity)
                                 .frame(minHeight: 48)
@@ -783,7 +783,7 @@ struct AmenComposerDiscernmentOverlay: View {
 
                 if triggers.contains(where: { $0.type == .conflictTone || $0.type == .shameTone }) {
                     Text("Pause stays available, but Amen is slowing the moment down.")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.systemScaled(12, weight: .medium))
                         .foregroundStyle(.black.opacity(0.58))
                         .accessibilityLabel("Discernment moment detected")
                 }
@@ -836,7 +836,7 @@ struct AmenMicrocopyToast: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(.black.opacity(0.82))
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
@@ -862,7 +862,7 @@ struct AmenSafetyLaneBadge: View {
                 .fill(fillColor)
                 .frame(width: 8, height: 8)
             Text(lane.accessibilityLabel)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
         }
         .foregroundStyle(.black.opacity(0.66))
         .accessibilityElement(children: .combine)
@@ -918,7 +918,7 @@ private struct PrayerThreadGlowEffect: View {
 
             if reduceMotion {
                 Text("Prayer")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.black.opacity(0.54))
             } else {
                 HStack(spacing: 8) {

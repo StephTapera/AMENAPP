@@ -24,6 +24,18 @@ enum ConversationMemoryType {
         case .memory: return "brain"
         }
     }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .link:   return "Link"
+        case .date:   return "Date"
+        case .music:  return "Music"
+        case .note:   return "Note"
+        case .task:   return "Task"
+        case .event:  return "Event"
+        case .memory: return "Memory"
+        }
+    }
 }
 
 // MARK: - View
@@ -118,6 +130,7 @@ struct ConversationMemoryCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(width: 28, height: 28)
+                .accessibilityLabel(item.type.accessibilityLabel)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)

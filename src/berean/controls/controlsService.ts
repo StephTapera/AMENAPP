@@ -17,7 +17,7 @@ import {
   BereanCapabilities,
   Visibility,
   HumanGatePayload,
-} from '../../contracts';
+} from '../contracts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SAFE DEFAULTS

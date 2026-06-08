@@ -399,6 +399,7 @@ struct PrayerIntentSheet: View {
 struct DisasterDetailSheet: View {
     let disaster: DisasterAlert
     @Environment(\.dismiss) var dismiss
+    @State private var showCompose = false
 
     var body: some View {
         NavigationView {
@@ -460,7 +461,8 @@ struct DisasterDetailSheet: View {
                                 .foregroundStyle(.white.opacity(0.7))
 
                             Button {
-                                // Post with disaster tag — future deep link
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                showCompose = true
                             } label: {
                                 Label("Post a Prayer or Update", systemImage: "plus.bubble")
                                     .font(.systemScaled(14, weight: .semibold))
@@ -483,6 +485,12 @@ struct DisasterDetailSheet: View {
                     Button("Done") { dismiss() }
                         .foregroundStyle(.white.opacity(0.6))
                 }
+            }
+            .sheet(isPresented: $showCompose) {
+                CreatePostView(
+                    initialCategory: .prayer,
+                    initialText: "🙏 Praying for those affected by \(disaster.name) in \(disaster.location). #prayer #\(disaster.type.replacingOccurrences(of: " ", with: ""))"
+                )
             }
         }
     }

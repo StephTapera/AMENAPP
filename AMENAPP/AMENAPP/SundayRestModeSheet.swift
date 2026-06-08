@@ -64,7 +64,7 @@ struct SundayRestModeSheet: View {
     private var header: some View {
         VStack(spacing: 10) {
             Image(systemName: "moon.stars")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(.primary)
 
             Text(gate.activeName)
@@ -185,7 +185,7 @@ private struct RestModeActionRow: View {
         Button(action: action) {
             HStack(spacing: 16) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.systemScaled(20, weight: .regular))
                     .foregroundStyle(.primary)
                     .frame(width: 32)
 
@@ -201,7 +201,7 @@ private struct RestModeActionRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 14)
@@ -274,7 +274,7 @@ private struct OverrideReasonButton: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: reason.icon)
-                    .font(.system(size: 18))
+                    .font(.systemScaled(18))
                     .foregroundStyle(.primary)
                     .frame(width: 28)
 

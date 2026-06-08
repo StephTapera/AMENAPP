@@ -14,7 +14,7 @@ struct AmenCommunityOSView: View {
     var spaceName: String
 
     // MARK: Feature flag
-    @AppStorage("spiritualOS_community_os_enabled") private var isEnabled = false
+    @AppStorage("spiritualOS_community_os_enabled") private var isEnabled = true
 
     // MARK: State
     @StateObject private var viewModel: AmenCommunityOSViewModel
@@ -46,7 +46,7 @@ struct AmenCommunityOSView: View {
     private var featureGateBody: some View {
         VStack(spacing: 20) {
             Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(Color.amenPurple)
             Text("Community OS")
                 .font(.title2.weight(.bold))
@@ -116,7 +116,7 @@ struct AmenCommunityOSView: View {
                         .rotationEffect(.degrees(-90))
                         .animation(.spring(response: 0.7, dampingFraction: 0.75), value: viewModel.healthScore)
                     Text("\(viewModel.healthScore)")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.systemScaled(18, weight: .bold))
                         .foregroundStyle(Color.amenBlack)
                 }
                 .accessibilityLabel("Community health score: \(viewModel.healthScore) out of 100")
@@ -200,7 +200,7 @@ struct AmenCommunityOSView: View {
         GlassCard(tint: tint) {
             VStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     .foregroundStyle(tint)
                 Text("\(value)")
                     .font(.title2.weight(.bold))

@@ -75,7 +75,7 @@ struct AmenCovenantDiscoveryView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text("Search communities…")
                     .font(.subheadline)
@@ -320,7 +320,7 @@ private struct LargeCreatorCard: View {
     private func memberCountBadge(_ count: Int) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "person.2.fill")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
             Text(formatCount(count))
                 .font(.caption.weight(.medium))
@@ -332,7 +332,7 @@ private struct LargeCreatorCard: View {
         HStack(spacing: 6) {
             ForEach(topics.prefix(3), id: \.self) { topic in
                 Text(topic)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.purple)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -390,7 +390,7 @@ private struct CompactCreatorRow: View {
                         .lineLimit(1)
                     HStack(spacing: 4) {
                         Image(systemName: "person.2.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(.tertiary)
                         Text(formatCount(creator.memberCount))
                             .font(.caption2)
@@ -496,7 +496,7 @@ private struct TeachingSeriesCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Text(item.postType)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(.purple)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -516,7 +516,7 @@ private struct TeachingSeriesCard: View {
 
             HStack(spacing: 5) {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.indigo)
                 Text(item.scriptureRef)
                     .font(.caption.weight(.medium))

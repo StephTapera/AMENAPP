@@ -89,7 +89,7 @@ private struct ActionStyleRow: View {
                     .frame(width: 32, height: 32)
 
                 Image(systemName: action.systemImageName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color(uiColor: .systemBackground))
             }
             .accessibilityHidden(true)

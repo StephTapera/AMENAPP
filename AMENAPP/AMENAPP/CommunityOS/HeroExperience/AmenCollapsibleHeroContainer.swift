@@ -300,7 +300,7 @@ struct AmenCollapsibleHeroContainer<Content: View>: View {
                 badgePill(badge)
             }
             Text(title)
-                .font(.system(size: 34, weight: .bold))
+                .font(.systemScaled(34, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -374,7 +374,7 @@ struct AmenCollapsibleHeroContainer<Content: View>: View {
 
                 if isNavBarVisible {
                     Text(title)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(Color(.label))
                         .lineLimit(1)
                         .transition(.opacity.animation(.easeInOut(duration: 0.2)))
@@ -396,7 +396,7 @@ struct AmenCollapsibleHeroContainer<Content: View>: View {
     private func navGlassButton(icon: String, a11yLabel: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(
@@ -429,9 +429,9 @@ private struct HeroActionButton: View {
         Button(action: heroAction.action) {
             HStack(spacing: 6) {
                 Image(systemName: heroAction.icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                 Text(heroAction.label)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
             }
             .foregroundStyle(labelColor)
             .padding(.horizontal, 16)

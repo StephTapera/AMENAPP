@@ -1,0 +1,281 @@
+{
+  "parameters": {
+    "conversation_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Master kill switch for the Intelligent Conversation OS. Set false to disable all ConversationOS features instantly.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_summaries_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable AI summary generation for spaces.",
+      "valueType": "BOOLEAN"
+    },
+    "catch_up_recaps_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Show the catch-up recap banner and sheet when users have unread messages.",
+      "valueType": "BOOLEAN"
+    },
+    "topic_clustering_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable semantic topic cluster extraction (Phase 3).",
+      "valueType": "BOOLEAN"
+    },
+    "action_extraction_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable action item and decision extraction from threads (Phase 3).",
+      "valueType": "BOOLEAN"
+    },
+    "organizational_memory_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable org-level weekly memory persistence and query (Phase 4).",
+      "valueType": "BOOLEAN"
+    },
+    "personalized_insights_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable role-aware personalized summaries (Phase 4).",
+      "valueType": "BOOLEAN"
+    },
+    "ambient_conversation_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Show the ambient top banner with catch-up / topic / action chips.",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_liquid_glass_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable Liquid Glass rendering for ConversationOS cards (Phase 5).",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_debug_telemetry_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enable verbose debug telemetry for ConversationOS (staff/QA only).",
+      "valueType": "BOOLEAN"
+    },
+    "conversation_os_sensitive_space_restrictions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Block AI access to prayer_room, leadership_room, and admin_channel unless explicitly opted in. MUST default true.",
+      "valueType": "BOOLEAN"
+    },
+    "find_a_church_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 1 master-run: Find a Church — MapKit map, clustering, filter chips, bottom sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "posts_liquid_glass_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 2 master-run: Posts Liquid Glass migration — switches Posts surfaces to AmenGlassKit components.",
+      "valueType": "BOOLEAN"
+    },
+    "why_seeing_this_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 3 master-run: 'Why this is in your feed' provenance disclosure sheet + agency actions.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_stories_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 5 master-run: Selah Stories free composer — ephemeral formation stories with private audience only.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_stories_premium_ai_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Phase 5 master-run: Selah Stories premium AI features (subscription-gated) — verse recognition, Berean reflection prompts, semantic audio matching.",
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_projects_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_onboarding_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_memory_brain_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_research_engine_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_truth_labels_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_source_explorer_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_knowledge_graph_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_wisdom_engine_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_multi_perspective_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_debate_engine_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_social_projects_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_mentor_os_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_living_documents_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_action_planner_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_social_knowledge_feed_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_advisory_boards_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "berean_os_community_intelligence_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "discussion_actions_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "discussion_command_center_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "community_memory_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "discussion_health_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "discussion_mediator_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "discussion_modes_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "discussion_summary_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "valueType": "BOOLEAN"
+    },
+    "selah_personal_corpus_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables SelahNote → Pinecone corpus indexing (indexSelahNote CF). Corresponds to selah.personalCorpus feature gate.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_discernment_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables the Berean Check against Scripture feature (runDiscernmentCheck CF). Corresponds to selah.discernment feature gate.",
+      "valueType": "BOOLEAN"
+    },
+    "selah_discernment_sharing_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Enables sharing discernment checks to thread participants. Corresponds to selah.discernmentSharing feature gate.",
+      "valueType": "BOOLEAN"
+    }
+  }
+}

@@ -63,7 +63,7 @@ struct BereanExternalContextSheet: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "globe")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(.secondary)
             Text("Couldn't load external context")
                 .font(.headline)
@@ -99,7 +99,7 @@ struct BereanExternalContextSheet: View {
     private var externalWarningBanner: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "globe")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text("External context — not Scripture")

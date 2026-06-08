@@ -58,7 +58,7 @@ struct ReflectionSaveSheet: View {
     private var reflectionTextBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(draft.text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(DesignTokens.textSecondary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -85,10 +85,10 @@ struct ReflectionSaveSheet: View {
     private func glassInfoPill(icon: String, text: String) -> some View {
         HStack(spacing: DesignTokens.spacingXS) {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
+                .font(.systemScaled(11, weight: .medium))
                 .foregroundStyle(DesignTokens.textTertiary)
             Text(text)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(DesignTokens.textSecondary)
                 .lineLimit(1)
         }
@@ -109,11 +109,11 @@ struct ReflectionSaveSheet: View {
     private var privateNotice: some View {
         HStack(alignment: .top, spacing: DesignTokens.spacingS) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(DesignTokens.textTertiary)
                 .padding(.top, 1)
             Text("This reflection is saved only to your device and is never shared.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(DesignTokens.textSecondary)
                 .multilineTextAlignment(.leading)
         }
@@ -128,10 +128,10 @@ struct ReflectionSaveSheet: View {
             // Brief success confirmation before the sheet auto-dismisses
             HStack(spacing: DesignTokens.spacingS) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.systemScaled(18, weight: .medium))
                     .foregroundStyle(.green)
                 Text("Reflection saved.")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(DesignTokens.textPrimary)
             }
             .frame(maxWidth: .infinity)
@@ -143,7 +143,7 @@ struct ReflectionSaveSheet: View {
                     handleSave()
                 } label: {
                     Text("Save reflection")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
@@ -159,7 +159,7 @@ struct ReflectionSaveSheet: View {
                     onCancel()
                 } label: {
                     Text("Not now")
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(DesignTokens.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)

@@ -10,6 +10,7 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {logger} = require("firebase-functions");
 const crypto = require("crypto");
+const {checkRateLimit: sharedCheckRateLimit} = require("./rateLimiter");
 
 // OTP Configuration
 const OTP_LENGTH = 6;
@@ -197,6 +198,9 @@ exports.verify2FAOTP = onCall({
           "OTP ID and code are required",
       );
     }
+
+    // Rate-limit verify attempts to deter brute-force OTP guessing (X1-004)
+    await sharedCheckRateLimit(userId, "verify_2fa", 10, 900);
 
     const db = admin.firestore();
 

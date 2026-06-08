@@ -368,7 +368,7 @@ struct AmenMinistryMemorySearchView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 40, weight: .light))
+                .font(.systemScaled(40, weight: .light))
                 .foregroundStyle(Color.accentColor.opacity(0.6))
             Text("Nothing found. Try a different phrasing.")
                 .font(.subheadline)
@@ -387,7 +387,7 @@ struct AmenMinistryMemorySearchView: View {
     private var errorState: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 36, weight: .light))
+                .font(.systemScaled(36, weight: .light))
                 .foregroundStyle(Color.amenBlack.opacity(0.25))
             Text("Search unavailable right now.")
                 .font(.subheadline)

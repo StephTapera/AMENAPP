@@ -134,7 +134,7 @@ struct ChurchNotesSearchView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
         }
     }
 

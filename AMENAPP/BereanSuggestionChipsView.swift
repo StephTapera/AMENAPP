@@ -35,7 +35,7 @@ struct BereanSuggestionChipsView: View {
             HStack(spacing: 6) {
                 if let icon = chip.icon {
                     Image(systemName: icon)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.systemScaled(13, weight: .medium))
                         .foregroundStyle(.primary.opacity(0.7))
                 }
                 
@@ -70,6 +70,6 @@ extension BereanLiquidSuggestionChip {
             onTap: { print("Tapped: \($0.text)") },
             isVisible: true
         )
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }

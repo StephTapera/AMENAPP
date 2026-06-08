@@ -67,15 +67,15 @@ private struct UpcomingEventCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: eventTypeIcon(event.type))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
                 Text(event.type.rawValue.capitalized)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441").opacity(0.85))
             }
 
             Text(event.title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -85,21 +85,21 @@ private struct UpcomingEventCard: View {
                     event.scheduledAt.formatted(date: .abbreviated, time: .shortened),
                     systemImage: "calendar"
                 )
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.55))
 
                 Label(
                     "\(event.rsvpUserIds.count) going",
                     systemImage: "person.2"
                 )
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(Color.white.opacity(0.55))
             }
 
             if event.isLive, let join = onJoinLive {
                 Button(action: join) {
                     Label("Join Live", systemImage: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.systemScaled(12, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -133,20 +133,20 @@ private struct SpacePostRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
                 Text(post.title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 Text(relativeFormatter.localizedString(for: post.timestamp, relativeTo: Date()))
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.45))
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.28))
         }
         .padding(14)
@@ -178,22 +178,22 @@ private struct PaywallOverlay: View {
 
             VStack(spacing: 12) {
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.systemScaled(28, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
 
                 Text("Members only")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.systemScaled(18, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text("Join this Space to read posts, attend events, and connect with the community.")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white.opacity(0.70))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
 
                 Button(action: onJoin) {
                     Text("Join to unlock")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color(hex: "070607"))
                         .padding(.horizontal, 32)
                         .padding(.vertical, 13)
@@ -209,7 +209,7 @@ private struct PaywallOverlay: View {
                     onGiftCode()
                 } label: {
                     Text("Enter Access Code")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(hex: "D9A441"))
                 }
                 .buttonStyle(.plain)
@@ -224,7 +224,7 @@ private struct PaywallOverlay: View {
 
 private func sectionHeader(title: String, accent: Color) -> some View {
     Text(title.uppercased())
-        .font(.system(size: 11, weight: .bold))
+        .font(.systemScaled(11, weight: .bold))
         .kerning(1.2)
         .foregroundStyle(accent)
         .padding(.horizontal, 14)
@@ -382,14 +382,14 @@ struct AmenSpaceDetailView: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: "waveform.path.ecg")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(Color(hex: "6E4BB5"))
                                         Text("Community Insights")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(.white)
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(Color.white.opacity(0.4))
                                     }
                                     .padding(.horizontal, 16)
@@ -412,14 +412,14 @@ struct AmenSpaceDetailView: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: "calendar.badge.plus")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(Color(hex: "D9A441"))
                                         Text("Smart Event Composer")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(.white)
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(Color.white.opacity(0.4))
                                     }
                                     .padding(.horizontal, 16)
@@ -442,14 +442,14 @@ struct AmenSpaceDetailView: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: "shield.checkerboard")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(Color(hex: "E05A5A"))
                                         Text("Moderation Dashboard")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(.white)
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(Color.white.opacity(0.4))
                                     }
                                     .padding(.horizontal, 16)
@@ -472,14 +472,14 @@ struct AmenSpaceDetailView: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: "giftcard.fill")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(Color(hex: "6E4BB5"))
                                         Text("Gift a Membership")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(.white)
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(Color.white.opacity(0.4))
                                     }
                                     .padding(.horizontal, 16)
@@ -502,14 +502,14 @@ struct AmenSpaceDetailView: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: "doc.text.fill")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(Color.white.opacity(0.6))
                                         Text("Legal & Agreements")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(.white)
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(Color.white.opacity(0.4))
                                     }
                                     .padding(.horizontal, 16)
@@ -535,14 +535,14 @@ struct AmenSpaceDetailView: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: "person.line.dotted.person.fill")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(Color(hex: "D9A441"))
                                         Text("Find a Mentor")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.systemScaled(14, weight: .semibold))
                                             .foregroundStyle(.white)
                                         Spacer()
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12))
+                                            .font(.systemScaled(12))
                                             .foregroundStyle(Color.white.opacity(0.4))
                                     }
                                     .padding(.horizontal, 16)
@@ -589,10 +589,10 @@ struct AmenSpaceDetailView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "person.wave.2.fill")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(Color(hex: "D9A441"))
                         Text("Open Room")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.systemScaled(14, weight: .bold))
                             .foregroundStyle(.white)
                     }
                     .padding(.horizontal, 22)

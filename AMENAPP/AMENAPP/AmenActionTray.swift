@@ -133,19 +133,19 @@ struct AmenActionTray: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: action.systemImage)
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.systemScaled(20, weight: .regular))
                     .foregroundStyle(.primary)
                     .frame(width: 28)
 
                 Text(action.title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(.primary)
 
                 Spacer(minLength: 0)
 
                 if wasBlocked {
                     Text("Safety check failed")
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.systemScaled(12, weight: .regular))
                         .foregroundStyle(DesignTokens.accentBlue.opacity(0.9))
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 } else if isBeingModerated {
@@ -155,7 +155,7 @@ struct AmenActionTray: View {
                         .transition(.opacity)
                 } else if action.requiresModeration {
                     Image(systemName: "checkmark.shield")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.systemScaled(14, weight: .regular))
                         .foregroundStyle(DesignTokens.accentBlue.opacity(0.7))
                 }
             }

@@ -163,9 +163,9 @@ struct ONEEmotionalSafetyModeView: View {
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Safety Mode")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                         Text("Opt-in friction. Turn off instantly at any time.")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                     }
                 } icon: {
@@ -241,9 +241,9 @@ struct ONEEmotionalSafetyModeView: View {
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Thread paused")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.systemScaled(14, weight: .medium))
                             Text("Incoming muted until you resume.")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(.secondary)
                         }
                     } icon: {
@@ -256,7 +256,7 @@ struct ONEEmotionalSafetyModeView: View {
                             store.threadPaused = false
                         }
                     }
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(ONE.Colors.repairGreen)
                     .accessibilityLabel("Resume thread")
                 }
@@ -285,7 +285,7 @@ struct ONEEmotionalSafetyModeView: View {
                 Section {
                     ForEach(lines, id: \.self) { line in
                         Label(line, systemImage: "checkmark.circle.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(.secondary)
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                     }
@@ -310,9 +310,9 @@ struct ONEEmotionalSafetyModeView: View {
             HStack(alignment: .top, spacing: ONE.Spacing.sm) {
                 Image(systemName: "info.circle")
                     .foregroundStyle(.secondary)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                 Text("Safety mode turns off instantly. Block or sever is always available from the profile, independent of this setting.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)

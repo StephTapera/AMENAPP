@@ -60,9 +60,9 @@ private enum WLBannerTokens {
     static let bookCorner: CGFloat    = 6
 
     // Typography
-    static let titleFont   = Font.system(size: 20, weight: .bold, design: .default)
-    static let badgeFont   = Font.system(size: 10, weight: .medium, design: .default)
-    static let sectionFont = Font.system(size: 9, weight: .semibold, design: .default)
+    static let titleFont   = Font.systemScaled(20, weight: .bold, design: .default)
+    static let badgeFont   = Font.systemScaled(10, weight: .medium, design: .default)
+    static let sectionFont = Font.systemScaled(9, weight: .semibold, design: .default)
 }
 
 // MARK: - Environment Key for press state

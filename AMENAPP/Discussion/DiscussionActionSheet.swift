@@ -19,10 +19,10 @@ struct DiscussionActionSheet: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(comment.authorDisplayName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                 Text(comment.body)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.75))
                     .lineLimit(3)
             }
@@ -75,15 +75,15 @@ struct DiscussionActionSheet: View {
                         ProgressView().tint(Color.accentColor).scaleEffect(0.7)
                     } else if state == .done {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.systemScaled(18, weight: .bold))
                             .foregroundStyle(.green)
                     } else if state == .failed {
                         Image(systemName: "xmark")
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(.red)
                     } else {
                         Image(systemName: action.icon)
-                            .font(.system(size: 20))
+                            .font(.systemScaled(20))
                             .foregroundStyle(Color.accentColor)
                     }
                 }
@@ -92,7 +92,7 @@ struct DiscussionActionSheet: View {
                 .accessibilityHidden(true)
 
                 Text(action.label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.systemScaled(10, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.7))
                     .multilineTextAlignment(.center)
             }

@@ -272,7 +272,7 @@ struct AmenCovenantPostComposerView: View {
     private var covenantRequiredPlaceholder: some View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 40))
+                .font(.systemScaled(40))
                 .foregroundStyle(.tertiary)
             Text("Select a community above to get started.")
                 .font(.subheadline)
@@ -320,7 +320,7 @@ struct AmenCovenantPostComposerView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: type.icon)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.systemScaled(13, weight: .medium))
                                 Text(type.displayName)
                                     .font(.subheadline.weight(.medium))
                             }
@@ -509,7 +509,7 @@ struct AmenCovenantPostComposerView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: option.icon)
-                                .font(.system(size: 16))
+                                .font(.systemScaled(16))
                                 .foregroundStyle(.purple)
                                 .frame(width: 28)
 
@@ -556,7 +556,7 @@ struct AmenCovenantPostComposerView: View {
                             .scaleEffect(0.85)
                     } else {
                         Image(systemName: "wand.and.stars")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.purple)
                     }
                     Text(composerVM.isCheckingTone ? "Checking tone…" : "Check tone before posting")

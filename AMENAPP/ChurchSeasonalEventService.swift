@@ -403,6 +403,11 @@ final class ChurchSeasonalEventService: ObservableObject {
     }
 
     /// Deletes a seasonal event (for church admin use).
+    ///
+    /// `churchSeasonalEvents` documents carry no subcollections — follow-up
+    /// records live in `users/{uid}/serviceFollowUps` keyed by eventId and are
+    /// cleaned up via `userAccountDeletionCascade` when the attendee's account
+    /// is deleted.  No additional cascade is required here.
     func deleteEvent(_ eventId: String) async -> Bool {
         do {
             try await db.collection("churchSeasonalEvents")

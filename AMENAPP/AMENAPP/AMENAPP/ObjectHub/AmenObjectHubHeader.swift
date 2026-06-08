@@ -25,7 +25,7 @@ struct AmenObjectHubHeader: View {
                     artwork
                     VStack(alignment: .leading, spacing: 8) {
                         Text(objectEyebrow)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(glass.secondaryText)
 
                         Text(canonicalObject.title)
@@ -36,7 +36,7 @@ struct AmenObjectHubHeader: View {
 
                         if let subtitle = canonicalObject.subtitle ?? canonicalObject.creatorName {
                             Text(subtitle)
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.systemScaled(16, weight: .medium))
                                 .foregroundStyle(glass.secondaryText)
                                 .lineLimit(2)
                         }
@@ -122,7 +122,7 @@ struct AmenObjectHubHeader: View {
     private var placeholderArtwork: some View {
         RoundedRectangle(cornerRadius: artworkCornerRadius, style: .continuous)
             .fill(Color(.systemGray5))
-            .overlay(Image(systemName: "photo").font(.system(size: 28)).foregroundStyle(.black.opacity(0.45)))
+            .overlay(Image(systemName: "photo").font(.systemScaled(28)).foregroundStyle(.black.opacity(0.45)))
     }
 
     private var fallbackAmbient: some View {
@@ -135,7 +135,7 @@ struct AmenObjectHubHeader: View {
 
     private func hubPill(text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.systemScaled(12, weight: .semibold))
             .foregroundStyle(glass.primaryText)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)

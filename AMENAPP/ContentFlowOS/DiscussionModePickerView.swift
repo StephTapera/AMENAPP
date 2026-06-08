@@ -18,7 +18,7 @@ struct DiscussionModePickerView: View {
                 } label: {
                     HStack(spacing: 14) {
                         Image(systemName: mode.icon)
-                            .font(.system(size: 18))
+                            .font(.systemScaled(18))
                             .foregroundStyle(Color.accentColor)
                             .frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {

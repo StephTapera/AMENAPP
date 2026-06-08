@@ -22,6 +22,6 @@ struct CreatorTemplatePickerView: View {
             }
             .padding(20)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }

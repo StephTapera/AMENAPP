@@ -266,7 +266,7 @@ struct PostStreamRecapView: View {
                 ForEach(recap.keyPoints, id: \.self) { point in
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "circle.fill")
-                            .font(.system(size: 6))
+                            .font(.systemScaled(6))
                             .foregroundStyle(Color.accentColor)
                             .padding(.top, 6)
                         Text(point)
@@ -334,7 +334,7 @@ struct PostStreamRecapView: View {
             ForEach(recap.prayerPoints, id: \.self) { point in
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "cross.fill")
-                        .font(.system(size: 10))
+                        .font(.systemScaled(10))
                         .foregroundStyle(Color.accentColor)
                         .padding(.top, 4)
                     Text(point)

@@ -49,12 +49,14 @@ final class BereanRealtimeSessionManager: ObservableObject {
         }
 
         let expiresAtMs = data["expiresAtMs"] as? Double ?? Date().addingTimeInterval(60).timeIntervalSince1970 * 1000
+        let endpointURL: URL? = (data["endpoint"] as? String).flatMap(URL.init(string:))
         let secret = BereanRealtimeClientSecret(
             sessionId: sessionId,
             value: clientSecret,
             expiresAt: Date(timeIntervalSince1970: expiresAtMs / 1000),
             providerSessionId: data["providerSessionId"] as? String,
-            model: data["model"] as? String
+            model: data["model"] as? String,
+            endpoint: endpointURL
         )
 
         listen(to: sessionId)

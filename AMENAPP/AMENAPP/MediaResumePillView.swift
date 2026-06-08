@@ -20,13 +20,13 @@ struct MediaResumePillView: View {
                     .rotationEffect(.degrees(-90))
 
                 Image(systemName: "play.fill")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.systemScaled(7, weight: .bold))
                     .foregroundColor(AmenTheme.Colors.iconPrimary)
             }
             .frame(width: 16, height: 16)
 
             Text("Resume \(state.formattedPosition)")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
                 .foregroundColor(AmenTheme.Colors.textPrimary)
         }
         .padding(.horizontal, 8)

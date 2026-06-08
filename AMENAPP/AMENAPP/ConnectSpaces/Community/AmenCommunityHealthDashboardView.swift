@@ -90,21 +90,21 @@ private struct VitalityGauge: View {
                 // Score text
                 VStack(spacing: 2) {
                     Text("\(score)")
-                        .font(.system(size: 34, weight: .bold))
+                        .font(.systemScaled(34, weight: .bold))
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
                     Text("/ 100")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.45))
                 }
             }
 
             VStack(spacing: 3) {
                 Text("Community Vitality")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.80))
                 Text(scoreLabel)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(arcColor)
             }
         }
@@ -147,21 +147,21 @@ private struct MetricCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.systemScaled(24, weight: .bold))
                     .foregroundStyle(.white)
                 Image(systemName: trend.icon)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.systemScaled(11, weight: .bold))
                     .foregroundStyle(trend.color)
                     .accessibilityHidden(true)
             }
 
             Text(label)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color.white.opacity(0.65))
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("This Month")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(Color.white.opacity(0.35))
         }
         .padding(14)
@@ -221,7 +221,7 @@ struct AmenCommunityHealthDashboardView: View {
                         Task { await vm.load() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(Color(hex: "D9A441"))
                     }
                     .accessibilityLabel("Refresh health metrics")
@@ -276,13 +276,13 @@ struct AmenCommunityHealthDashboardView: View {
     private func errorBody(_ message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(Color(hex: "D9A441"))
             Text("Couldn't load metrics")
-                .font(.system(size: 17, weight: .bold))
+                .font(.systemScaled(17, weight: .bold))
                 .foregroundStyle(.white)
             Text(message)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.60))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -290,7 +290,7 @@ struct AmenCommunityHealthDashboardView: View {
                 Task { await vm.load() }
             } label: {
                 Text("Try Again")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.systemScaled(15, weight: .bold))
                     .foregroundStyle(Color(hex: "070607"))
                     .padding(.horizontal, 28)
                     .padding(.vertical, 12)
@@ -306,10 +306,10 @@ struct AmenCommunityHealthDashboardView: View {
     private var emptyBody: some View {
         VStack(spacing: 12) {
             Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(Color.white.opacity(0.25))
             Text("No metrics yet")
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(Color.white.opacity(0.45))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -324,10 +324,10 @@ struct AmenCommunityHealthDashboardView: View {
                 // Privacy disclaimer — always at top
                 HStack(spacing: 6) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(Color.white.opacity(0.40))
                     Text("These analytics are visible only to you.")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color.white.opacity(0.40))
                 }
                 .accessibilityLabel("These analytics are private and visible only to you.")
@@ -374,7 +374,7 @@ struct AmenCommunityHealthDashboardView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             Text("ENGAGEMENT QUALITY")
-                .font(.system(size: 11, weight: .bold))
+                .font(.systemScaled(11, weight: .bold))
                 .kerning(1.0)
                 .foregroundStyle(Color.white.opacity(0.40))
                 .padding(.horizontal, 2)
@@ -424,7 +424,7 @@ struct AmenCommunityHealthDashboardView: View {
     private func sourceBreakdownCard(_ metrics: SpaceHealthMetrics) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("SCORE COMPOSITION")
-                .font(.system(size: 11, weight: .bold))
+                .font(.systemScaled(11, weight: .bold))
                 .kerning(1.0)
                 .foregroundStyle(Color.white.opacity(0.40))
                 .accessibilityAddTraits(.isHeader)
@@ -453,11 +453,11 @@ struct AmenCommunityHealthDashboardView: View {
         return VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text(label)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.white.opacity(0.70))
                 Spacer()
                 Text("\(Int((clamped * 100).rounded()))%")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(tint)
             }
             GeometryReader { geo in

@@ -383,7 +383,7 @@ struct BereanCommunicationHubView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Communication that remembers where prayer, study, and care left off.")
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
+                .font(.systemScaled(28, weight: .semibold, design: .rounded))
                 .foregroundStyle(.primary)
 
             Text("A calm operating layer for threads, prayer follow-up, retrieval, and sacred collaboration.")
@@ -663,7 +663,7 @@ struct BereanCommunicationHubView: View {
                     showingAttachmentMenu = true
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 26, weight: .regular))
+                        .font(.systemScaled(26, weight: .regular))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -721,7 +721,7 @@ struct BereanCommunicationHubView: View {
             }
         }
         .shadow(color: .black.opacity(0.08), radius: 18, y: 8)
-        .glassEffect(reduceTransparency ? .identity : GlassEffectStyle.regular, in: Capsule(style: .continuous))
+        .amenGlassEffect(in: Capsule(style: .continuous))
         .padding(.horizontal, 18)
         .padding(.bottom, 20)
     }

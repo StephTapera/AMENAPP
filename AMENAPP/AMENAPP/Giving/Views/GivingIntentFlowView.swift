@@ -74,7 +74,7 @@ struct GivingIntentFlowView: View {
                     Spacer()
                     Button(action: onSkip) {
                         Text("Skip")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(.white.opacity(0.80))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
@@ -94,7 +94,7 @@ struct GivingIntentFlowView: View {
                         .font(.custom("Georgia", size: 38))
                         .foregroundStyle(.white)
                     Text("Tell us what moves you.")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(.white.opacity(0.80))
                 }
                 .padding(.horizontal, 24)
@@ -167,10 +167,10 @@ struct GivingIntentFlowView: View {
             // Privacy note
             HStack(spacing: 8) {
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.secondary)
                 Text("These preferences stay on your device and shape rankings — never shared for ads.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
                     .lineSpacing(2)
             }
@@ -190,7 +190,7 @@ struct GivingIntentFlowView: View {
             }
             Spacer()
             Text("Step \(vm.step.rawValue + 1) of \(GivingIntentProfileViewModel.IntentStep.allCases.count)")
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(.secondary)
         }
     }
@@ -218,10 +218,10 @@ struct GivingIntentFlowView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: cause.icon)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(selected ? AmenTheme.Colors.textInverse : AmenTheme.Colors.textTertiary)
                 Text(cause.rawValue)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(selected ? AmenTheme.Colors.textInverse : AmenTheme.Colors.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -277,23 +277,23 @@ struct GivingIntentFlowView: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.systemScaled(20, weight: .medium))
                     .foregroundStyle(selected ? AmenTheme.Colors.textInverse : AmenTheme.Colors.textTertiary)
                     .frame(width: 36)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(pref.rawValue)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.systemScaled(15, weight: .semibold))
                         .foregroundStyle(selected ? AmenTheme.Colors.textInverse : AmenTheme.Colors.textPrimary)
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(selected ? AmenTheme.Colors.textInverse.opacity(0.75) : AmenTheme.Colors.textTertiary)
                         .lineSpacing(1)
                 }
                 Spacer()
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.systemScaled(18))
                         .foregroundStyle(AmenTheme.Colors.textInverse.opacity(0.80))
                 }
             }
@@ -317,7 +317,7 @@ struct GivingIntentFlowView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Theological alignment")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .tracking(1.2)
@@ -335,7 +335,7 @@ struct GivingIntentFlowView: View {
                 }
 
                 Text("Giving style")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .tracking(1.2)
@@ -359,10 +359,10 @@ struct GivingIntentFlowView: View {
     private func stepHeader(_ title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
             Text(subtitle)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
                 .lineSpacing(2)
         }
@@ -375,7 +375,7 @@ struct GivingIntentFlowView: View {
             if !vm.step.isFirst {
                 Button(action: vm.retreat) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                         .frame(width: 44, height: 44)
                         .background(AmenTheme.Colors.backgroundSecondary, in: Circle())
@@ -392,7 +392,7 @@ struct GivingIntentFlowView: View {
                 }
             } label: {
                 Text(vm.step.isLast ? "Show my feed →" : "Continue")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textInverse)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)

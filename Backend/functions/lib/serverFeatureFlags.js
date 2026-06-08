@@ -78,6 +78,7 @@ exports.invalidateServerFlagCache = void 0;
 exports.getServerSafetyFlags = getServerSafetyFlags;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const db = admin.firestore();
 // ─── Safe Defaults (all safety features ON) ──────────────────────────────────
 /**
@@ -161,14 +162,17 @@ async function getServerSafetyFlags() {
  * This is useful immediately after updating flags via the console.
  * Only callable by admin-level callers (Firebase Admin SDK or custom claims check).
  */
-exports.invalidateServerFlagCache = functions.https.onCall(async (_data, context) => {
+exports.invalidateServerFlagCache = (0, https_1.onCall)(async (request) => {
+    const _data = request.data;
+    const data = _data;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Auth required");
+        throw new https_1.HttpsError("unauthenticated", "Auth required");
     }
     // Only allow users with the "admin" custom claim to flush the cache.
     const tokenClaims = context.auth.token;
     if (!tokenClaims.admin) {
-        throw new functions.https.HttpsError("permission-denied", "Only admins can invalidate the server flag cache");
+        throw new https_1.HttpsError("permission-denied", "Only admins can invalidate the server flag cache");
     }
     flagsCache = null;
     cacheExpiresAt = 0;

@@ -3,6 +3,7 @@
 // Extended monetization callables for AMEN Spaces.
 //
 // Callables:
+//   createStripeConnectLink   — creates a Stripe Connect onboarding link for space hosts
 //   createGiftMembership      — purchases a gift membership for another user
 //   redeemScholarshipCode     — redeems a scholarship access code
 //   submitScholarshipRequest  — requests scholarship access from space host
@@ -12,8 +13,23 @@
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import Stripe from "stripe";
+
+// ── Stripe client (lazy singleton) ───────────────────────────────────────────
+
+function getStripe(): Stripe {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new HttpsError("internal", "Stripe is not configured.");
+    return new Stripe(key, { apiVersion: "2024-12-18.acacia" });
+}
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
+
+interface CreateStripeConnectLinkInput {
+    entityName: string;
+    entityEmail: string;
+    hostType: string;
+}
 
 interface CreateGiftMembershipInput {
     spaceId: string;
@@ -68,12 +84,80 @@ interface EarningsSummary {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function validateEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function validateSpaceId(spaceId: unknown): string {
     if (typeof spaceId !== "string" || !spaceId.trim()) {
         throw new HttpsError("invalid-argument", "spaceId is required.");
     }
     return spaceId.trim();
 }
+
+// ── createStripeConnectLink ───────────────────────────────────────────────────
+
+export const createStripeConnectLink = onCall(
+    { region: "us-central1" },
+    async (request): Promise<{ url: string }> => {
+        const { uid } = request.auth ?? {};
+        if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
+
+        const data = (request.data ?? {}) as Partial<CreateStripeConnectLinkInput>;
+
+        const entityName = data.entityName?.trim() ?? "";
+        const entityEmail = data.entityEmail?.trim() ?? "";
+
+        if (!entityName) {
+            throw new HttpsError("invalid-argument", "entityName is required.");
+        }
+        if (!entityEmail || !validateEmail(entityEmail)) {
+            throw new HttpsError("invalid-argument", "A valid entityEmail is required.");
+        }
+
+        const stripe = getStripe();
+        const db = getFirestore();
+        const hostRef = db.doc(`users/${uid}/stripeConnect/account`);
+        const hostSnap = await hostRef.get();
+
+        let stripeAccountId: string;
+
+        if (hostSnap.exists && hostSnap.data()?.stripeAccountId) {
+            stripeAccountId = hostSnap.data()!.stripeAccountId as string;
+        } else {
+            // Create a new Express account
+            const account = await stripe.accounts.create({
+                type: "express",
+                email: entityEmail,
+                business_profile: { name: entityName },
+                capabilities: {
+                    card_payments: { requested: true },
+                    transfers: { requested: true },
+                },
+                metadata: { uid, hostType: data.hostType ?? "" },
+            });
+            stripeAccountId = account.id;
+            await hostRef.set({
+                stripeAccountId,
+                createdAt: Timestamp.now(),
+                entityName,
+                entityEmail,
+                hostType: data.hostType ?? "",
+            });
+        }
+
+        // Use the app's universal link as return/refresh URL
+        const baseUrl = "https://amenapp.page.link/stripe-connect";
+        const accountLink = await stripe.accountLinks.create({
+            account: stripeAccountId,
+            refresh_url: `${baseUrl}?status=refresh`,
+            return_url: `${baseUrl}?status=return`,
+            type: "account_onboarding",
+        });
+
+        return { url: accountLink.url };
+    }
+);
 
 // ── createSpaceGiftMembership ─────────────────────────────────────────────────
 

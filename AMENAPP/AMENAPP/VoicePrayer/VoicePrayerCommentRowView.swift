@@ -73,7 +73,7 @@ struct VoicePrayerCommentRowView: View {
 
             // Duration
             Text(comment.durationString)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(.systemScaled(12, weight: .medium, design: .monospaced))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .monospacedDigit()
                 .accessibilityLabel("Duration \(comment.durationString)")
@@ -122,7 +122,7 @@ struct VoicePrayerCommentRowView: View {
                 }
             } label: {
                 Image(systemName: playerState.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                    .font(.system(size: 34, weight: .medium))
+                    .font(.systemScaled(34, weight: .medium))
                     .foregroundStyle(Color(uiColor: .label))
                     .symbolEffect(.bounce, value: playerState.isPlaying)
             }

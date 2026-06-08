@@ -36,18 +36,41 @@ class YouVersionBibleService: ObservableObject {
         }
     }
     
+    // MARK: - Licensing
+
+    /// Set to `true` only when a commercial API licence is confirmed for the
+    /// current billing surface (Spaces, paid Catalog, monetised creator content).
+    /// Free/personal use surfaces are allowed regardless of this flag.
+    /// Callers on monetised surfaces MUST pass `requiresCommercialLicense: true`;
+    /// the service will throw `.licenseRequired` if the key isn't approved for
+    /// commercial use (i.e., `YOUVERSION_COMMERCIAL_LICENSE` bundle key absent).
+    private var hasCommercialLicense: Bool {
+        !(BundleConfig.string(forKey: "YOUVERSION_COMMERCIAL_LICENSE") ?? "").isEmpty
+    }
+
     // MARK: - Fetch Scripture
-    
-    /// Fetch verse from YouVersion API
-    func fetchVerse(reference: String, version: ScripturePassage.BibleVersion = .esv) async throws -> ScripturePassage {
+
+    /// Fetch verse from YouVersion API.
+    /// - Parameter requiresCommercialLicense: Pass `true` when calling from a
+    ///   monetised surface. The call will throw `.licenseRequired` if the bundle
+    ///   doesn't include a commercial licence key.
+    func fetchVerse(
+        reference: String,
+        version: ScripturePassage.BibleVersion = .esv,
+        requiresCommercialLicense: Bool = false
+    ) async throws -> ScripturePassage {
+        if requiresCommercialLicense && !hasCommercialLicense {
+            dlog("⚠️ YouVersionBibleService: commercial licence required for this surface but not configured")
+            throw YouVersionError.licenseRequired
+        }
         dlog("📖 YouVersion: Fetching \(reference) (\(version.rawValue))...")
-        
+
         // Check cache first
         let cacheKey = "\(reference)_\(version.rawValue)"
         if let cached = verseCache[cacheKey] {
             return convertToScripturePassage(cached, reference: reference, version: version)
         }
-        
+
         // Circuit breaker: stop calling if API key is missing or repeatedly rejected
         guard !circuitOpen else {
             throw YouVersionError.apiError
@@ -118,12 +141,19 @@ class YouVersionBibleService: ObservableObject {
     }
     
     /// Fetch multiple verses in parallel for faster response
-    func fetchVerses(references: [String], version: ScripturePassage.BibleVersion = .esv) async throws -> [ScripturePassage] {
+    func fetchVerses(
+        references: [String],
+        version: ScripturePassage.BibleVersion = .esv,
+        requiresCommercialLicense: Bool = false
+    ) async throws -> [ScripturePassage] {
+        if requiresCommercialLicense && !hasCommercialLicense {
+            throw YouVersionError.licenseRequired
+        }
         guard !references.isEmpty else { return [] }
-        
+
         // Deduplicate references before fetching
         let uniqueRefs = Array(NSOrderedSet(array: references)) as? [String] ?? references
-        
+
         // Fetch all verses in parallel using a task group
         return await withTaskGroup(of: (Int, ScripturePassage?).self) { group in
             for (index, reference) in uniqueRefs.enumerated() {
@@ -384,7 +414,8 @@ enum YouVersionError: Error {
     case invalidURL
     case apiError
     case parsingError
-    
+    case licenseRequired
+
     var localizedDescription: String {
         switch self {
         case .invalidReference:
@@ -393,6 +424,8 @@ enum YouVersionError: Error {
             return "Invalid API URL"
         case .apiError:
             return "YouVersion API error"
+        case .licenseRequired:
+            return "A commercial YouVersion API licence is required for this feature."
         case .parsingError:
             return "Failed to parse response"
         }

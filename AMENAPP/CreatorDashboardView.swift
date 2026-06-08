@@ -55,9 +55,7 @@ struct CreatorDashboardView: View {
                             verificationStatus: vm.profile.verificationStatus
                         )
                     }
-                    Button {
-                        // share profile
-                    } label: {
+                    ShareLink(item: "Check out my Creator Studio on Amen!") {
                         Image(systemName: "square.and.arrow.up")
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white)

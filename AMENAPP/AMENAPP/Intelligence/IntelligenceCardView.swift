@@ -51,7 +51,7 @@ struct IntelligenceNotImplementedSheet: View {
         NavigationStack {
             VStack(spacing: 20) {
                 Image(systemName: "hammer.circle")
-                    .font(.system(size: 52))
+                    .font(.systemScaled(52))
                     .foregroundStyle(.secondary)
 
                 Text(cardTitle)
@@ -59,13 +59,13 @@ struct IntelligenceNotImplementedSheet: View {
                     .fontWeight(.semibold)
                     .multilineTextAlignment(.center)
 
-                Text("\(actionLabel) — coming soon.")
+                Text("\(actionLabel)")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .padding(32)
-            .navigationTitle("Coming Soon")
+            .navigationTitle(cardTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

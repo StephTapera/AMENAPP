@@ -80,9 +80,9 @@ struct BereanResearchReportCard: View {
     private var modeBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: report.researchMode.systemIcon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.systemScaled(11, weight: .semibold))
             Text(report.researchMode.displayName)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(.systemScaled(12, weight: .semibold, design: .rounded))
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
@@ -144,7 +144,7 @@ struct BereanResearchReportCard: View {
 
     private var chevron: some View {
         Image(systemName: "chevron.down")
-            .font(.system(size: 13, weight: .semibold))
+            .font(.systemScaled(13, weight: .semibold))
             .foregroundStyle(.secondary)
             .rotationEffect(.degrees(isExpanded ? 180 : 0))
             .animation(.spring(response: 0.3), value: isExpanded)

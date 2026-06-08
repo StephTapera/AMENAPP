@@ -322,13 +322,13 @@ struct AmenMediaSessionView: View {
         HStack(spacing: 12) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 36, height: 36)
                     .background {
                         if reduceTransparency { Circle().fill(Color(.systemBackground)) }
                     }
-                    .glassEffect(reduceTransparency ? GlassEffectStyle.identity : GlassEffectStyle.regular, in: Circle())
+                    .amenGlassEffect(in: Circle())
             }
             .accessibilityLabel("Close session")
 
@@ -365,7 +365,7 @@ struct AmenMediaSessionView: View {
                     .overlay(
                         VStack(spacing: 8) {
                             Image(systemName: "play.rectangle.fill")
-                                .font(.system(size: 40, weight: .light))
+                                .font(.systemScaled(40, weight: .light))
                                 .foregroundStyle(.secondary)
                             Text(postId)
                                 .font(.caption2)
@@ -413,14 +413,14 @@ struct AmenMediaSessionView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "chevron.up")
-                            .font(.system(size: 18, weight: .regular))
+                            .font(.systemScaled(18, weight: .regular))
                         Text("Prev")
                             .font(.caption2)
                     }
                     .foregroundStyle(.primary)
                     .frame(width: 48, height: 52)
                 }
-                .glassEffect()
+                .amenGlassEffect()
                 .accessibilityLabel("Previous item")
                 .disabled(vm.session.currentIndex == 0)
 
@@ -435,14 +435,14 @@ struct AmenMediaSessionView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "moon.stars.fill")
-                            .font(.system(size: 18, weight: .regular))
+                            .font(.systemScaled(18, weight: .regular))
                         Text("Reflect")
                             .font(.caption2)
                     }
                     .foregroundStyle(.primary)
                     .frame(width: 52, height: 52)
                 }
-                .glassEffect()
+                .amenGlassEffect()
                 .accessibilityLabel("Reflect on this item")
 
                 // Save
@@ -451,14 +451,14 @@ struct AmenMediaSessionView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "bookmark.fill")
-                            .font(.system(size: 18, weight: .regular))
+                            .font(.systemScaled(18, weight: .regular))
                         Text("Save")
                             .font(.caption2)
                     }
                     .foregroundStyle(.primary)
                     .frame(width: 48, height: 52)
                 }
-                .glassEffect()
+                .amenGlassEffect()
                 .accessibilityLabel("Save this item")
 
                 // End session
@@ -467,14 +467,14 @@ struct AmenMediaSessionView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "xmark.circle")
-                            .font(.system(size: 18, weight: .regular))
+                            .font(.systemScaled(18, weight: .regular))
                         Text("End")
                             .font(.caption2)
                     }
                     .foregroundStyle(.secondary)
                     .frame(width: 44, height: 52)
                 }
-                .glassEffect()
+                .amenGlassEffect()
                 .accessibilityLabel("End session")
 
                 // Next — intentional continuation pill
@@ -501,7 +501,7 @@ struct AmenMediaSessionView: View {
                 Text("Next")
                     .font(.subheadline.weight(.semibold))
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 18)
@@ -518,7 +518,7 @@ struct AmenMediaSessionView: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.systemScaled(20, weight: .regular))
                     .foregroundStyle(.primary)
                 Text(label)
                     .font(.caption2)
@@ -584,7 +584,7 @@ struct AmenMediaSessionView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: option.icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.systemScaled(16, weight: .medium))
                     .foregroundStyle(option.action == .endSession ? .secondary : .primary)
                     .accessibilityHidden(true)
                 Text(option.label)
@@ -624,7 +624,7 @@ struct AmenMediaSessionView: View {
 
                 // Completion icon
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 64, weight: .light))
+                    .font(.systemScaled(64, weight: .light))
                     .foregroundStyle(.green)
                     .accessibilityHidden(true)
 
@@ -675,7 +675,7 @@ struct AmenMediaSessionView: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 22, weight: .regular))
+                    .font(.systemScaled(22, weight: .regular))
                     .foregroundStyle(.primary)
                     .frame(width: 28)
                     .accessibilityHidden(true)
@@ -773,7 +773,7 @@ private struct MediaSessionIntentCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
                 Image(systemName: type.systemIcon)
-                    .font(.system(size: 24, weight: .regular))
+                    .font(.systemScaled(24, weight: .regular))
                     .foregroundStyle(.primary)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {

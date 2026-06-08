@@ -68,7 +68,7 @@ struct ONERepairFlowView: View {
                             .fill(stepColor(step))
                             .frame(width: 10, height: 10)
                         Text(step.stepLabel)
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.systemScaled(9, weight: .medium))
                             .foregroundStyle(step == phase ? Color.accentColor : .secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -124,7 +124,7 @@ struct ONERepairFlowView: View {
                 text: "Waiting for \(otherDisplayName) to accept. They'll see your name and this note."
             )
             Text("Request sent just now")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Simulate: Other Party Accepted") {
@@ -132,7 +132,7 @@ struct ONERepairFlowView: View {
                     phase = .active
                 }
             }
-            .font(.system(size: 13))
+            .font(.systemScaled(13))
             .foregroundStyle(ONE.Colors.repairGreen)
             .accessibilityLabel("Simulate other party accepting the repair flow")
         }
@@ -158,7 +158,7 @@ struct ONERepairFlowView: View {
                             phase = .toneCheck
                         }
                     }
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.accentColor)
                     .accessibilityLabel("Enable AI tone checking for messages")
                 )
@@ -199,7 +199,7 @@ struct ONERepairFlowView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(ONE.Colors.decayAmber)
                     Text(warning)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.primary)
                 }
             } else {
@@ -207,12 +207,12 @@ struct ONERepairFlowView: View {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(ONE.Colors.repairGreen)
                     Text("Tone looks good.")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.primary)
                 }
             }
             Text("Sending is always your choice.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
             HStack(spacing: ONE.Spacing.sm) {
                 Button("Edit message") {
@@ -220,7 +220,7 @@ struct ONERepairFlowView: View {
                         showTonePreview = false
                     }
                 }
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 Spacer()
                 Button("Send anyway") {
@@ -231,7 +231,7 @@ struct ONERepairFlowView: View {
                     }
                     showTonePreview = false
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
             }
         }
@@ -250,17 +250,17 @@ struct ONERepairFlowView: View {
         VStack(spacing: ONE.Spacing.md) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.systemScaled(56))
                 .foregroundStyle(ONE.Colors.repairGreen)
             Text("Both parties resolved")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.systemScaled(20, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("This flow is archived. No further messages can be sent.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Close") { onDismiss(); dismiss() }
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, ONE.Spacing.xl)
                 .padding(.vertical, ONE.Spacing.sm)
@@ -277,13 +277,13 @@ struct ONERepairFlowView: View {
         VStack(spacing: ONE.Spacing.md) {
             Spacer()
             Image(systemName: "arrow.left.circle.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.secondary)
             Text("You left this flow")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("That's okay. You can start a new request if you'd like to try again.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Start new request") {
@@ -292,7 +292,7 @@ struct ONERepairFlowView: View {
                     messages = []
                 }
             }
-            .font(.system(size: 14, weight: .medium))
+            .font(.systemScaled(14, weight: .medium))
             .foregroundStyle(Color.accentColor)
             Spacer()
         }
@@ -311,13 +311,13 @@ struct ONERepairFlowView: View {
                             phase = .exited
                         }
                     }
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(ONE.Colors.ephemeralRed.opacity(0.8))
                     .accessibilityLabel("Exit repair flow. You can leave at any time.")
                 }
                 Spacer()
                 Text("Block or sever is always available from your profile.")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.trailing)
             }
@@ -335,7 +335,7 @@ struct ONERepairFlowView: View {
                 HStack {
                     if msg.isOutgoing { Spacer() }
                     Text(msg.text)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, ONE.Spacing.md)
                         .padding(.vertical, ONE.Spacing.sm)
@@ -362,7 +362,7 @@ struct ONERepairFlowView: View {
             if let extra = extraButton { extra }
             HStack(spacing: ONE.Spacing.sm) {
                 TextField(placeholder, text: $messageText)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .padding(.horizontal, ONE.Spacing.md)
                     .padding(.vertical, ONE.Spacing.sm)
                     .background(
@@ -374,7 +374,7 @@ struct ONERepairFlowView: View {
                     onSend()
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.systemScaled(28))
                         .foregroundStyle(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                          ? Color.secondary.opacity(0.4)
                                          : Color.accentColor)
@@ -388,10 +388,10 @@ struct ONERepairFlowView: View {
     private func infoRow(icon: String, color: Color, text: String) -> some View {
         HStack(alignment: .top, spacing: ONE.Spacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(color)
             Text(text)
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

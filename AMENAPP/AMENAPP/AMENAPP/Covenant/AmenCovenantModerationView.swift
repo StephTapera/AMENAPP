@@ -118,7 +118,7 @@ struct AmenCovenantModerationView: View {
         VStack(spacing: 8) {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(color)
                     .frame(maxWidth: .infinity, alignment: .center)
 
@@ -462,7 +462,7 @@ struct AmenCovenantModerationView: View {
     private var escalationInfoRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "shield.lefthalf.filled.badge.checkmark")
-                .font(.system(size: 20))
+                .font(.systemScaled(20))
                 .foregroundStyle(.blue)
                 .frame(width: 28)
 

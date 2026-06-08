@@ -31,6 +31,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import { getDeviceTokens } from "./helpers";
 
@@ -40,10 +41,7 @@ const db = admin.firestore();
 // the quiet window. Conservative buffer to avoid delivering before the window ends.
 const STALENESS_THRESHOLD_MINUTES = 30;
 
-export const deliverQuietHoursDigest = functions.pubsub
-    .schedule("every 30 minutes")
-    .timeZone("UTC")
-    .onRun(async () => {
+export const deliverQuietHoursDigest = onSchedule({ schedule: "every 30 minutes", timeZone: "UTC" }, async () => {
         const cutoff = admin.firestore.Timestamp.fromMillis(
             Date.now() - STALENESS_THRESHOLD_MINUTES * 60 * 1000
         );

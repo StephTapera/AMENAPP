@@ -217,20 +217,20 @@ private struct ReportsTabView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(report.reason)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
                     Text("Reported by \(report.reportedBy.prefix(12))")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text(report.reportedAt.formatted(date: .abbreviated, time: .omitted))
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.tertiary)
             }
 
             Text(report.contentPreview)
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .padding(10)
@@ -244,7 +244,7 @@ private struct ReportsTabView: View {
                     showActionSheet = true
                 } label: {
                     Text("Review")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(Color(hex: "6E4BB5"))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -312,17 +312,17 @@ private struct JoinRequestsTabView: View {
                 .frame(width: 40, height: 40)
                 .overlay {
                     Text(String(request.displayName.prefix(1)).uppercased())
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(.white)
                 }
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(request.displayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(request.requestedAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(.system(size: 11))
+                    .font(.systemScaled(11))
                     .foregroundStyle(.tertiary)
             }
 
@@ -368,7 +368,7 @@ private struct JoinRequestsTabView: View {
     private func actionButton(label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(color)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -429,11 +429,11 @@ private struct MembersTabView: View {
             // Glass search bar
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white.opacity(0.45))
                     .accessibilityHidden(true)
                 TextField("Search members…", text: $searchText)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .autocorrectionDisabled()
                     .accessibilityLabel("Search members")
             }
@@ -495,17 +495,17 @@ private struct MembersTabView: View {
                 .frame(width: 38, height: 38)
                 .overlay {
                     Text(String(member.displayName.prefix(1)).uppercased())
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.systemScaled(14, weight: .bold))
                         .foregroundStyle(.white)
                 }
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(member.displayName)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(.primary)
                 Text("Joined \(member.joinedAt.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.system(size: 10))
+                    .font(.systemScaled(10))
                     .foregroundStyle(.tertiary)
             }
 
@@ -513,7 +513,7 @@ private struct MembersTabView: View {
 
             // Role badge
             Text(member.role.displayText)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.systemScaled(10, weight: .semibold))
                 .foregroundStyle(member.role.badgeColor)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
@@ -535,7 +535,7 @@ private struct MembersTabView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 16))
+                        .font(.systemScaled(16))
                         .foregroundStyle(Color.white.opacity(0.45))
                         .frame(width: 28, height: 28)
                 }
@@ -562,7 +562,7 @@ private func loadingView() -> some View {
         ProgressView()
             .tint(Color(hex: "6E4BB5"))
         Text("Loading…")
-            .font(.system(size: 13))
+            .font(.systemScaled(13))
             .foregroundStyle(.secondary)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -572,11 +572,11 @@ private func loadingView() -> some View {
 private func emptyView(icon: String, message: String) -> some View {
     VStack(spacing: 14) {
         Image(systemName: icon)
-            .font(.system(size: 36))
+            .font(.systemScaled(36))
             .foregroundStyle(Color.white.opacity(0.2))
             .accessibilityHidden(true)
         Text(message)
-            .font(.system(size: 14))
+            .font(.systemScaled(14))
             .foregroundStyle(.tertiary)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 32)
@@ -701,7 +701,7 @@ struct AmenSpaceModerationDashboardView: View {
                     selectedTab = tab
                 } label: {
                     Text(tab.rawValue)
-                        .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
+                        .font(.systemScaled(13, weight: selectedTab == tab ? .semibold : .regular))
                         .foregroundStyle(selectedTab == tab ? Color(hex: "D9A441") : Color.white.opacity(0.5))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)

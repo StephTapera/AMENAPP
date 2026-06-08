@@ -89,7 +89,7 @@ struct ScriptureGraphExplorerView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "star.fill")
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(.yellow)
 
                 Text("Central Passage")
@@ -112,7 +112,7 @@ struct ScriptureGraphExplorerView: View {
                christConn.confidence >= 0.6 {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "cross")
-                        .font(.system(size: 12))
+                        .font(.systemScaled(12))
                         .foregroundStyle(Color(red: 0.52, green: 0.26, blue: 0.73))
                     Text(christConn.connectionStatement)
                         .font(AMENFont.regular(13))
@@ -196,7 +196,7 @@ struct ScriptureGraphExplorerView: View {
     private var emptyCrossRefsNote: some View {
         VStack(spacing: 12) {
             Image(systemName: "network")
-                .font(.system(size: 28))
+                .font(.systemScaled(28))
                 .foregroundStyle(.secondary)
             Text("Cross-references for this passage are being built.")
                 .font(AMENFont.regular(14))
@@ -212,7 +212,7 @@ struct ScriptureGraphExplorerView: View {
     private var graphFooter: some View {
         HStack(spacing: 6) {
             Image(systemName: "info.circle")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
             Text("Scripture connections are based on recognized hermeneutical traditions and the Berean semantic graph.")
                 .font(AMENFont.regular(11))
@@ -356,7 +356,7 @@ private struct CrossRefCard: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
 

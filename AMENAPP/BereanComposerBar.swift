@@ -172,7 +172,7 @@ struct BereanComposerBar: View {
             HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: interpolate(19, 17, progress), weight: .semibold))
+                .font(.systemScaled(interpolate(19, 17, progress), weight: .semibold))
                 .foregroundStyle(BereanColor.textPrimary)
                 .frame(width: 40, height: 40)
                 .background(
@@ -217,7 +217,7 @@ struct BereanComposerBar: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: action.icon)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(action.color)
                             .frame(width: 20)
 
@@ -276,7 +276,7 @@ struct BereanComposerBar: View {
             HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "slider.horizontal.3")
-                .font(.system(size: interpolate(16, 14, progress), weight: .semibold))
+                .font(.systemScaled(interpolate(16, 14, progress), weight: .semibold))
                 .foregroundStyle(BereanColor.textPrimary.opacity(0.7))
                 .frame(width: 34, height: 34)
                 .background(
@@ -300,7 +300,7 @@ struct BereanComposerBar: View {
             HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "mic.fill")
-                .font(.system(size: interpolate(18, 16, progress), weight: .medium))
+                .font(.systemScaled(interpolate(18, 16, progress), weight: .medium))
                 .foregroundStyle(BereanColor.textPrimary.opacity(0.72))
                 .frame(width: 38, height: 38)
                 .background(
@@ -330,7 +330,7 @@ struct BereanComposerBar: View {
                     .frame(width: interpolate(38, 34, progress), height: interpolate(38, 34, progress))
 
                 Image(systemName: "arrow.up")
-                    .font(.system(size: interpolate(15, 14, progress), weight: .bold))
+                    .font(.systemScaled(interpolate(15, 14, progress), weight: .bold))
                     .foregroundStyle(Color.white)
             }
         }
@@ -351,7 +351,7 @@ struct BereanComposerBar: View {
                     .frame(width: interpolate(38, 34, progress), height: interpolate(38, 34, progress))
 
                 Image(systemName: "stop.fill")
-                    .font(.system(size: interpolate(13, 12, progress), weight: .semibold))
+                    .font(.systemScaled(interpolate(13, 12, progress), weight: .semibold))
                     .foregroundStyle(Color.white)
             }
         }
@@ -375,7 +375,7 @@ struct BereanComposerBar: View {
     private func floatingStatusPill(_ type: BereanStatusPillType) -> some View {
         HStack(spacing: 8) {
             Image(systemName: type.icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.systemScaled(12, weight: .semibold))
                 .foregroundStyle(BereanColor.textPrimary)
 
             Text(type.text)
@@ -450,5 +450,5 @@ private struct ComposerVoiceWaveformBar: View {
         )
     }
     .padding(.bottom, 16)
-    .background(Color.white)
+    .background(Color(.systemBackground))
 }

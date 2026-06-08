@@ -70,13 +70,13 @@ struct AmenAccountPaywallView: View {
                 Spacer().frame(height: 28)
                 upgradeIcon
                 Text("Upgrade to \(requiredTier.displayName)")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.systemScaled(24, weight: .bold))
                     .foregroundStyle(Color(hex: "D9A441"))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
                     .accessibilityAddTraits(.isHeader)
                 Text("Unlock \(feature) and more with \(requiredTier.displayName).")
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                     .foregroundStyle(Color.white.opacity(0.65))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -104,7 +104,7 @@ struct AmenAccountPaywallView: View {
                 )
                 .frame(width: 60, height: 60)
             Image(systemName: "arrow.up.circle.fill")
-                .font(.system(size: 26, weight: .semibold))
+                .font(.systemScaled(26, weight: .semibold))
                 .foregroundStyle(Color(hex: "D9A441"))
         }
         .accessibilityHidden(true)
@@ -113,7 +113,7 @@ struct AmenAccountPaywallView: View {
     private var dismissButton: some View {
         Button(action: onDismiss) {
             Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.70))
                 .padding(9)
                 .background(
@@ -133,7 +133,7 @@ struct AmenAccountPaywallView: View {
     private var featuresSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("What you get")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.50))
                 .textCase(.uppercase)
                 .kerning(0.8)
@@ -161,15 +161,15 @@ struct AmenAccountPaywallView: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(requiredTier.displayName)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.systemScaled(16, weight: .bold))
                     .foregroundStyle(Color.white)
                 Text("Billed monthly. Cancel anytime.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(Color.white.opacity(0.50))
             }
             Spacer(minLength: 12)
             Text(requiredTier.monthlyPrice)
-                .font(.system(size: 22, weight: .black))
+                .font(.systemScaled(22, weight: .black))
                 .foregroundStyle(Color(hex: "D9A441"))
         }
         .padding(18)
@@ -193,7 +193,7 @@ struct AmenAccountPaywallView: View {
                 // Enterprise subscriptions are handled manually — open contact URL.
                 Button(action: openContactUs) {
                     Text("Contact Us")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.systemScaled(16, weight: .bold))
                         .foregroundStyle(Color(hex: "070607"))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -218,7 +218,7 @@ struct AmenAccountPaywallView: View {
                                 .padding(.vertical, 16)
                         } else {
                             Text("Upgrade to \(requiredTier.displayName)")
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.systemScaled(16, weight: .bold))
                                 .foregroundStyle(Color(hex: "070607"))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
@@ -244,7 +244,7 @@ struct AmenAccountPaywallView: View {
 
             if let purchaseError {
                 Text(purchaseError)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color.red.opacity(0.85))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
@@ -256,7 +256,7 @@ struct AmenAccountPaywallView: View {
 
             Button(action: onDismiss) {
                 Text("Maybe later")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.systemScaled(15, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.55))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -268,7 +268,7 @@ struct AmenAccountPaywallView: View {
 
     private var iapDisclosureText: some View {
         Text("Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Manage or cancel subscriptions in your Apple ID Account Settings.")
-            .font(.system(size: 11))
+            .font(.systemScaled(11))
             .foregroundStyle(Color.white.opacity(0.35))
             .multilineTextAlignment(.center)
             .padding(.horizontal, 4)
@@ -313,13 +313,13 @@ private struct PaywallFeatureRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.systemScaled(14, weight: .semibold))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .frame(width: 18, height: 18)
                 .offset(y: 1)
                 .accessibilityHidden(true)
             Text(text)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color.white.opacity(0.80))
                 .fixedSize(horizontal: false, vertical: true)
         }

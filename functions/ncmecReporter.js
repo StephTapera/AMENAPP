@@ -29,8 +29,7 @@
  *   in the ncmecReports document alongside the local reportId.
  */
 
-const functions = require("firebase-functions/v1");
-const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
@@ -97,20 +96,18 @@ async function fileNCMECReport(payload) {
  * Fails closed: all errors are caught and logged; the trigger is never re-thrown
  * (avoids Cloud Function retry loops on a poisoned document).
  */
-exports.onCSAMDetected = functions.region("us-central1").firestore
-  .document("ncmecSubmissionQueue/{entryId}")
-  .onCreate(async (snap, context) => {
-    const queueEntryId = context.params.entryId;
+exports.onCSAMDetected = onDocumentCreated(
+  { document: "ncmecSubmissionQueue/{entryId}", region: "us-central1" },
+  async (event) => {
+    const queueEntryId = event.params.entryId;
 
     try {
-      const entry = snap.data();
+      const entry = event.data?.data();
       if (!entry) {
         console.error("[NCMEC] onCSAMDetected: empty document — entryId:", queueEntryId);
         return null;
       }
 
-      // Find all users with admin: true custom claim.
-      // We store a mirror in users/{uid}.isAdmin so we can query without listing all Auth users.
       const adminsSnap = await db.collection("users")
         .where("isAdmin", "==", true)
         .get();
@@ -138,14 +135,9 @@ exports.onCSAMDetected = functions.region("us-central1").firestore
               },
               apns: {
                 payload: {
-                  aps: {
-                    sound: "default",
-                    "content-available": 1,
-                  },
+                  aps: { sound: "default", "content-available": 1 },
                 },
-                headers: {
-                  "apns-priority": "10",
-                },
+                headers: { "apns-priority": "10" },
               },
             }).catch((err) =>
               console.error(`[NCMEC] FCM send failed for token ${token.slice(0, 10)}…:`, err.message)
@@ -171,7 +163,8 @@ exports.onCSAMDetected = functions.region("us-central1").firestore
     }
 
     return null;
-  });
+  }
+);
 
 exports.fileNCMECReport = fileNCMECReport;
 

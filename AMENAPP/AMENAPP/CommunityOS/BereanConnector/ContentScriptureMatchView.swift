@@ -59,17 +59,17 @@ struct ContentScriptureMatchView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "book.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color(.secondaryLabel))
 
                 Text("Scripture Connections")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.systemScaled(14, weight: .medium))
                     .foregroundStyle(Color(.secondaryLabel))
 
                 Spacer()
 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.systemScaled(12, weight: .semibold))
                     .foregroundStyle(Color(.secondaryLabel))
                     .animation(reduceMotion ? .none : AppAnimation.stateChange, value: isExpanded)
             }
@@ -115,7 +115,7 @@ struct ContentScriptureMatchView: View {
                 .accessibilityHidden(true)
 
             Text("Berean is discovering connections\u{2026}")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(.secondaryLabel))
 
             Spacer()
@@ -129,11 +129,11 @@ struct ContentScriptureMatchView: View {
     private var emptyState: some View {
         HStack(spacing: 10) {
             Image(systemName: "book.closed")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(.secondaryLabel))
 
             Text("No connections found")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(.secondaryLabel))
 
             Spacer()
@@ -163,14 +163,14 @@ private struct ScriptureChipRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 8) {
                 Text(chip.reference)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.systemScaled(13, weight: .bold))
                     .foregroundStyle(Color.accentColor)
 
                 Spacer()
 
                 if !chip.translation.isEmpty {
                     Text(chip.translation)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.systemScaled(10, weight: .medium))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
@@ -180,7 +180,7 @@ private struct ScriptureChipRow: View {
 
             if !chip.text.isEmpty {
                 Text(chip.text)
-                    .font(.system(size: 13))
+                    .font(.systemScaled(13))
                     .foregroundStyle(Color(.secondaryLabel))
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: false)
@@ -210,7 +210,7 @@ private struct RotatingSpinner: View {
 
     var body: some View {
         Image(systemName: "sparkle")
-            .font(.system(size: 14))
+            .font(.systemScaled(14))
             .foregroundStyle(Color(.secondaryLabel))
             .rotationEffect(.degrees(reduceMotion ? 0 : angle))
             .onAppear {

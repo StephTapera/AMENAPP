@@ -110,7 +110,7 @@ private struct UserBubble: View {
         HStack {
             Spacer(minLength: 48)
             Text(text)
-                .font(.system(size: 15))
+                .font(.systemScaled(15))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -127,7 +127,7 @@ private struct AssistantBubble: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "sparkles")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .frame(width: 28, height: 28)
                 .background {
@@ -140,31 +140,31 @@ private struct AssistantBubble: View {
                 // Hard rule: if no citations, never show the answer text
                 if message.citations.isEmpty {
                     Text("This answer could not be grounded in the source material.")
-                        .font(.system(size: 14).italic())
+                        .font(.systemScaled(14).italic())
                         .foregroundStyle(.secondary)
                         .accessibilityLabel("Answer could not be grounded in source material")
                 } else {
                     // Content is matte per glass design rule
                     Text(message.text)
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     // Citation provenance footer
                     VStack(alignment: .leading, spacing: 4) {
                         Text("From this teaching:")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.systemScaled(10, weight: .semibold))
                             .textCase(.uppercase)
                             .kerning(0.5)
                             .foregroundStyle(.tertiary)
                         ForEach(message.citations, id: \.self) { citation in
                             HStack(spacing: 4) {
                                 Image(systemName: "clock")
-                                    .font(.system(size: 10))
+                                    .font(.systemScaled(10))
                                     .foregroundStyle(Color(hex: "D9A441").opacity(0.8))
                                     .accessibilityHidden(true)
                                 Text(citation)
-                                    .font(.system(size: 11))
+                                    .font(.systemScaled(11))
                                     .foregroundStyle(Color(hex: "D9A441").opacity(0.85))
                             }
                             .accessibilityLabel("Source citation: \(citation)")
@@ -202,7 +202,7 @@ private struct ThinkingBubble: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "sparkles")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .frame(width: 28, height: 28)
                 .background {
@@ -213,7 +213,7 @@ private struct ThinkingBubble: View {
             HStack(spacing: 6) {
                 if reduceMotion {
                     Text("Thinking…")
-                        .font(.system(size: 14).italic())
+                        .font(.systemScaled(14).italic())
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(0..<3, id: \.self) { i in
@@ -256,14 +256,14 @@ private struct StudyCompanionDisabledView: View {
     var body: some View {
         VStack(spacing: 18) {
             Image(systemName: "books.vertical")
-                .font(.system(size: 44))
+                .font(.systemScaled(44))
                 .foregroundStyle(Color.white.opacity(0.2))
                 .accessibilityHidden(true)
             Text("Study Companion Not Available")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text("The host has not enabled the study companion for this content.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -321,15 +321,15 @@ struct AmenStudyCompanionSheet: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Study Companion")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text("Grounded in \(hostName)'s teaching")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "sparkles")
-                .font(.system(size: 18))
+                .font(.systemScaled(18))
                 .foregroundStyle(Color(hex: "D9A441"))
                 .accessibilityHidden(true)
         }
@@ -342,11 +342,11 @@ struct AmenStudyCompanionSheet: View {
     private var disclaimerBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "info.circle")
-                .font(.system(size: 13))
+                .font(.systemScaled(13))
                 .foregroundStyle(Color(hex: "D9A441").opacity(0.8))
                 .accessibilityHidden(true)
             Text("Answers are grounded in \(hostName)'s teaching only. Not a substitute for scripture study.")
-                .font(.system(size: 11))
+                .font(.systemScaled(11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -413,11 +413,11 @@ struct AmenStudyCompanionSheet: View {
     private var emptyConversationState: some View {
         VStack(spacing: 14) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 36))
+                .font(.systemScaled(36))
                 .foregroundStyle(Color.white.opacity(0.2))
                 .accessibilityHidden(true)
             Text("Ask a question about this teaching")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
@@ -442,7 +442,7 @@ struct AmenStudyCompanionSheet: View {
 
             HStack(spacing: 10) {
                 TextField("Ask about this teaching…", text: $viewModel.inputText, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.systemScaled(15))
                     .foregroundStyle(.primary)
                     .lineLimit(1...4)
                     .padding(.horizontal, 14)
@@ -469,7 +469,7 @@ struct AmenStudyCompanionSheet: View {
                                 .scaleEffect(0.8)
                         } else {
                             Image(systemName: "arrow.up")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.systemScaled(15, weight: .bold))
                                 .foregroundStyle(.white)
                         }
                     }

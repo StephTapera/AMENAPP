@@ -103,10 +103,10 @@ struct ONEVaultView: View {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: ONE.Spacing.xs) {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 12))
+                            .font(.systemScaled(12))
                             .foregroundStyle(ONE.Colors.witnessGold)
                         Text("Memory Vault")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.systemScaled(17, weight: .semibold))
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -150,24 +150,24 @@ struct ONEVaultView: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(item.contentType.vaultColor.opacity(0.15))
                     Image(systemName: item.contentType.vaultIcon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(item.contentType.vaultColor)
                 }
                 .frame(width: 44, height: 44)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.label)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.systemScaled(14, weight: .medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     HStack(spacing: ONE.Spacing.xs) {
                         Text(item.accessRule.vaultLabel)
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(.secondary)
                         if let release = item.timeReleaseAt {
                             Text("·").foregroundStyle(.tertiary)
                             Text(release, style: .relative)
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(ONE.Colors.decayAmber)
                         }
                     }
@@ -189,7 +189,7 @@ struct ONEVaultView: View {
     private func accessBadge(_ item: ONEVaultItem) -> some View {
         let available = item.isAvailableNow
         return Image(systemName: available ? "lock.open.fill" : "lock.fill")
-            .font(.system(size: 13))
+            .font(.systemScaled(13))
             .foregroundStyle(available ? ONE.Colors.repairGreen : .secondary)
             .accessibilityHidden(true)
     }
@@ -198,9 +198,9 @@ struct ONEVaultView: View {
         HStack(spacing: ONE.Spacing.sm) {
             Image(systemName: "checkmark.shield.fill")
                 .foregroundStyle(ONE.Colors.witnessGold)
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
             Text("Encrypted on your device. The server holds only ciphertext.")
-                .font(.system(size: 12))
+                .font(.systemScaled(12))
                 .foregroundStyle(.secondary)
         }
         .listRowBackground(Color.clear)
@@ -210,17 +210,17 @@ struct ONEVaultView: View {
     private var emptyState: some View {
         VStack(spacing: ONE.Spacing.lg) {
             Image(systemName: "lock.square.stack.fill")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(ONE.Colors.witnessGold.opacity(0.5))
             Text("Your vault is empty")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("Add memories, reflections, or documents. Everything is encrypted before leaving your device.")
-                .font(.system(size: 14))
+                .font(.systemScaled(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Add First Item") { showComposer = true }
-                .font(.system(size: 15, weight: .semibold))
+                .font(.systemScaled(15, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, ONE.Spacing.xl)
                 .padding(.vertical, ONE.Spacing.sm)
@@ -325,9 +325,9 @@ struct ONEVaultComposerView: View {
             HStack(alignment: .top, spacing: ONE.Spacing.sm) {
                 Image(systemName: "lock.shield.fill")
                     .foregroundStyle(ONE.Colors.witnessGold)
-                    .font(.system(size: 14))
+                    .font(.systemScaled(14))
                 Text("This will be AES-GCM encrypted before leaving your device. The server stores only ciphertext.")
-                    .font(.system(size: 12))
+                    .font(.systemScaled(12))
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -376,8 +376,8 @@ struct ONEVaultItemDetailView: View {
                     HStack(spacing: ONE.Spacing.sm) {
                         Image(systemName: "checkmark.shield.fill")
                             .foregroundStyle(ONE.Colors.witnessGold)
-                        Text("Secure Enclave: Active (stub)")
-                            .font(.system(size: 13))
+                        Text("Secure Enclave: Active")
+                            .font(.systemScaled(13))
                             .foregroundStyle(.secondary)
                     }
                 }

@@ -169,7 +169,7 @@ struct SuggestedUserRow: View {
                 } else if burstCoordinator.frictionState == .cooldown && !isFollowing {
                     // Show locked state visually during cooldown
                     Image(systemName: "hourglass")
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundStyle(.orange)
                         .frame(width: 60, height: 30)
                 } else {

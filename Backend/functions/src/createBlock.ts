@@ -28,20 +28,23 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 
-export const createBlock = functions.https.onCall(async (data, context) => {
+export const createBlock = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "unauthenticated",
             "Must be signed in to block a user."
         );
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -51,14 +54,14 @@ export const createBlock = functions.https.onCall(async (data, context) => {
     const blockedId: unknown = data?.blockedId;
 
     if (typeof blockedId !== "string" || blockedId.trim() === "") {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "blockedId must be a non-empty string."
         );
     }
 
     if (blockerId === blockedId) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "Cannot block yourself."
         );
@@ -97,16 +100,18 @@ export const createBlock = functions.https.onCall(async (data, context) => {
 //
 // Removes block from both stores atomically. Mirror of createBlock.
 
-export const createUnblock = functions.https.onCall(async (data, context) => {
+export const createUnblock = onCall(async (request) => {
+    const data = request.data as any;
+    const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "unauthenticated",
             "Must be signed in to unblock a user."
         );
     }
 
     if (context.app == undefined) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "failed-precondition",
             "The function must be called from an App Check verified app."
         );
@@ -116,7 +121,7 @@ export const createUnblock = functions.https.onCall(async (data, context) => {
     const blockedId: unknown = data?.blockedId;
 
     if (typeof blockedId !== "string" || blockedId.trim() === "") {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "blockedId must be a non-empty string."
         );

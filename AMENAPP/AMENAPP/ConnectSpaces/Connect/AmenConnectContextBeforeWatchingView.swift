@@ -64,7 +64,7 @@ struct AmenConnectContextBeforeWatchingView: View {
                     // MARK: Teacher identity
                     sectionBlock(label: "TEACHER") {
                         Text("@\(video.teacherId)")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.systemScaled(14, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.90))
                     }
 
@@ -72,9 +72,9 @@ struct AmenConnectContextBeforeWatchingView: View {
                     if video.sponsored {
                         HStack(spacing: 6) {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 10))
+                                .font(.systemScaled(10))
                             Text("Sponsored")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.systemScaled(11, weight: .bold))
                         }
                         .foregroundStyle(Color(hex: "D9A441"))
                         .padding(.horizontal, 10)
@@ -91,10 +91,10 @@ struct AmenConnectContextBeforeWatchingView: View {
                     sectionBlock(label: "AI DISCLOSURE") {
                         HStack(spacing: 8) {
                             Image(systemName: "waveform.badge.magnifyingglass")
-                                .font(.system(size: 13))
+                                .font(.systemScaled(13))
                                 .foregroundStyle(Color(hex: "6E4BB5"))
                             Text(aiDisclosureText)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.white.opacity(0.85))
                         }
                         .padding(10)
@@ -108,7 +108,7 @@ struct AmenConnectContextBeforeWatchingView: View {
                     // MARK: Summary stub
                     sectionBlock(label: "SUMMARY") {
                         Text("This message explores the foundational themes of the passage and their relevance to everyday faith. The teaching draws from careful exegesis of the original text.")
-                            .font(.system(size: 13))
+                            .font(.systemScaled(13))
                             .foregroundStyle(Color.white.opacity(0.80))
                             .lineSpacing(4)
                             .padding(10)
@@ -127,14 +127,14 @@ struct AmenConnectContextBeforeWatchingView: View {
                             } label: {
                                 HStack {
                                     Text("\(video.claims.count) claim\(video.claims.count == 1 ? "" : "s")")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(Color.white.opacity(0.85))
                                     Spacer()
                                     Image(systemName: viewModel.showClaims ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.systemScaled(11, weight: .semibold))
                                         .foregroundStyle(Color.white.opacity(0.50))
                                     Text("Review claims")
-                                        .font(.system(size: 11, weight: .medium))
+                                        .font(.systemScaled(11, weight: .medium))
                                         .foregroundStyle(Color(hex: "245B8F"))
                                 }
                             }
@@ -152,10 +152,10 @@ struct AmenConnectContextBeforeWatchingView: View {
                     sectionBlock(label: "VERIFIED SCRIPTURE REFERENCES") {
                         HStack(spacing: 6) {
                             Image(systemName: "book.closed.fill")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(Color(hex: "D9A441"))
                             Text("\(video.scriptureRefs.count) verified reference\(video.scriptureRefs.count == 1 ? "" : "s")")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.white.opacity(0.80))
                         }
                     }
@@ -165,10 +165,10 @@ struct AmenConnectContextBeforeWatchingView: View {
                     sectionBlock(label: "ESTIMATED TIME") {
                         HStack(spacing: 6) {
                             Image(systemName: "clock")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(Color.white.opacity(0.50))
                             Text("42 min")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.systemScaled(13, weight: .medium))
                                 .foregroundStyle(Color.white.opacity(0.80))
                         }
                     }
@@ -180,14 +180,14 @@ struct AmenConnectContextBeforeWatchingView: View {
                                 .progressViewStyle(.circular)
                                 .tint(Color(hex: "6E4BB5"))
                             Text("Loading additional context…")
-                                .font(.system(size: 12))
+                                .font(.systemScaled(12))
                                 .foregroundStyle(Color.white.opacity(0.50))
                         }
                     }
 
                     if let err = viewModel.errorMessage {
                         Text("Could not load context: \(err)")
-                            .font(.system(size: 11))
+                            .font(.systemScaled(11))
                             .foregroundStyle(Color.red.opacity(0.80))
                     }
                 }
@@ -206,7 +206,7 @@ struct AmenConnectContextBeforeWatchingView: View {
                     onDismiss?()
                 } label: {
                     Text("Watch with intention")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.systemScaled(15, weight: .bold))
                         .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -235,7 +235,7 @@ struct AmenConnectContextBeforeWatchingView: View {
     private func sectionBlock<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 10, weight: .bold))
+                .font(.systemScaled(10, weight: .bold))
                 .kerning(1.0)
                 .foregroundStyle(Color.white.opacity(0.35))
             content()
@@ -246,20 +246,20 @@ struct AmenConnectContextBeforeWatchingView: View {
     private func claimRow(_ claim: AmenConnectSpacesTeachingClaim) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(claim.text)
-                .font(.system(size: 12, weight: .medium))
+                .font(.systemScaled(12, weight: .medium))
                 .foregroundStyle(Color.white.opacity(0.85))
 
             if !claim.opposingFaithfulViews.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Opposing faithful views")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.systemScaled(10, weight: .bold))
                         .foregroundStyle(Color.white.opacity(0.40))
                     ForEach(claim.opposingFaithfulViews, id: \.self) { view in
                         HStack(alignment: .top, spacing: 5) {
                             Text("•")
                                 .foregroundStyle(Color(hex: "D9A441"))
                             Text(view)
-                                .font(.system(size: 11))
+                                .font(.systemScaled(11))
                                 .foregroundStyle(Color.white.opacity(0.65))
                         }
                     }

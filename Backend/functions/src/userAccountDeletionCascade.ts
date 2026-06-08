@@ -35,6 +35,7 @@
  */
 
 import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -42,15 +43,16 @@ const ALGOLIA_APP_ID = "182SCN7O9S";
 
 // ─── Callable ─────────────────────────────────────────────────────────────────
 
-export const userAccountDeletionCascade = functions
-    .runWith({ timeoutSeconds: 540, memory: "512MB" })
-    .https.onCall(async (_data, context) => {
+export const userAccountDeletionCascade = onCall(async (request) => {
+    const _data = request.data as any;
+    const data = _data;
+    const context = { auth: request.auth, app: request.app };
         if (!context.auth) {
-            throw new functions.https.HttpsError("unauthenticated", "Must be signed in");
+            throw new HttpsError("unauthenticated", "Must be signed in");
         }
 
         if (context.app == undefined) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "failed-precondition",
                 "The function must be called from an App Check verified app."
             );
@@ -96,6 +98,12 @@ export const userAccountDeletionCascade = functions
 
         // ── Phase 7: Delete user subcollections ──────────────────────────────
         await deleteUserSubcollections(userId);
+
+        // ── Phase 7b: Delete event RSVPs authored by this user ───────────────
+        // amenEvents/{eventId}/rsvps/{uid} documents are keyed on the user's UID.
+        // A collection-group query finds all of them regardless of which event they
+        // belong to, then deletes them in pages to avoid orphaning stale RSVP data.
+        await deleteEventRsvpsForUser(userId);
 
         // ── Phase 8: Delete Firebase Auth account ────────────────────────────
         try {
@@ -282,5 +290,35 @@ async function deleteSubcollection(
         await batch.commit();
 
         if (snap.size < 500) break;
+    }
+}
+
+/**
+ * Deletes all RSVP documents the user has left inside any amenEvent.
+ *
+ * Each RSVP is stored at amenEvents/{eventId}/rsvps/{userId}, so the
+ * document ID equals the user's UID. A collection-group query on "rsvps"
+ * filtered by "userId" field finds every one of them, regardless of which
+ * event they belong to, without requiring a full scan of all events.
+ *
+ * This ensures no orphan RSVP documents remain after account deletion.
+ */
+async function deleteEventRsvpsForUser(userId: string): Promise<void> {
+    // The RSVP document ID is the user's UID, and the userId field is also
+    // stored on the document for querying.
+    const rsvpsQuery = db
+        .collectionGroup("rsvps")
+        .where("userId", "==", userId)
+        .limit(400);
+
+    while (true) {
+        const snap = await rsvpsQuery.get();
+        if (snap.empty) break;
+
+        const batch = db.batch();
+        snap.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+
+        if (snap.size < 400) break;
     }
 }

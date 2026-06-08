@@ -15,7 +15,7 @@ struct CrisisInterventionView: View {
             // Header
             VStack(spacing: 12) {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 48))
+                    .font(.systemScaled(48))
                     // PURGED: Color.amenGold → Color.accentColor per C3 design contract
                     .foregroundStyle(Color.accentColor)
 
@@ -41,7 +41,12 @@ struct CrisisInterventionView: View {
                     icon: "message.fill",
                     title: "Crisis Text Line",
                     detail: "Text HOME to 741741",
-                    action: {}
+                    action: {
+                        // Open SMS to Crisis Text Line (741741)
+                        if let url = URL(string: "sms:741741&body=HOME") {
+                            UIApplication.shared.open(url)
+                        }
+                    }
                 )
                 CrisisInterventionResourceRow(
                     icon: "hands.sparkles.fill",
@@ -104,7 +109,7 @@ private struct CrisisInterventionResourceRow: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.systemScaled(20))
                     // PURGED: Color.amenGold → Color.accentColor per C3 design contract
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 36)

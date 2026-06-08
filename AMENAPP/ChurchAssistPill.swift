@@ -86,7 +86,7 @@ struct ChurchAssistPill: View {
                 // Main pill
                 HStack(spacing: 10) {
                     Image(systemName: pillIcon)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.systemScaled(13, weight: .semibold))
                         .foregroundStyle(.primary)
 
                     Text(pillLabel)
@@ -101,7 +101,7 @@ struct ChurchAssistPill: View {
                         dismissPill()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.systemScaled(11, weight: .medium))
                             .foregroundStyle(.secondary)
                             .padding(6)
                             .contentShape(Rectangle())

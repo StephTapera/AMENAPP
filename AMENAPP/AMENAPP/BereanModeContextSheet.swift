@@ -30,10 +30,10 @@ struct BereanModeContextSheet: View {
                     // Header
                     VStack(spacing: 6) {
                         Text("Choose Your Mode")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.systemScaled(22, weight: .bold))
                             .foregroundColor(.black)
                         Text("Each mode shapes how Berean listens and responds.")
-                            .font(.system(size: 14))
+                            .font(.systemScaled(14))
                             .foregroundColor(.black.opacity(0.50))
                             .multilineTextAlignment(.center)
                     }
@@ -53,7 +53,7 @@ struct BereanModeContextSheet: View {
                         dismiss()
                     } label: {
                         Text("Apply")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -86,16 +86,16 @@ struct BereanModeContextSheet: View {
                         .fill(mode.auraColor1)
                         .frame(width: 48, height: 48)
                     Image(systemName: modeIcon(mode))
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.systemScaled(20, weight: .medium))
                         .foregroundColor(.black.opacity(0.70))
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(mode.rawValue)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundColor(.black)
                     Text(mode.contextHelper)
-                        .font(.system(size: 13))
+                        .font(.systemScaled(13))
                         .foregroundColor(.black.opacity(0.52))
                         .lineSpacing(1.5)
                         .fixedSize(horizontal: false, vertical: true)

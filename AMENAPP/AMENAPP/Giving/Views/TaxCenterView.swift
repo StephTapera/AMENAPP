@@ -52,7 +52,7 @@ struct TaxCenterView: View {
                         }
                     } label: {
                         Text(String(year))
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.systemScaled(14, weight: .medium))
                             .foregroundStyle(selectedYear == year ? AmenTheme.Colors.textInverse : AmenTheme.Colors.textSecondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -73,7 +73,7 @@ struct TaxCenterView: View {
     private var summaryCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Tax year \(selectedYear)")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.systemScaled(13, weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textTertiary)
                 .textCase(.uppercase)
                 .tracking(1.2)
@@ -81,37 +81,38 @@ struct TaxCenterView: View {
             HStack(spacing: 24) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Total deductible")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     Text(totalForYear)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textPrimary)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Organizations")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     Text("\(Set(receiptsForYear.map(\.destinationId)).count)")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textPrimary)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Receipts")
-                        .font(.system(size: 11))
+                        .font(.systemScaled(11))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     Text("\(receiptsForYear.count)")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.systemScaled(24, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textPrimary)
                 }
             }
 
             Button {
-                // Export CSV
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                // TODO: implement CSV export
             } label: {
                 Label("Export \(selectedYear) receipts", systemImage: "square.and.arrow.up")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.textPrimary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -135,13 +136,13 @@ struct TaxCenterView: View {
             if receiptsForYear.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "doc.text")
-                        .font(.system(size: 36))
+                        .font(.systemScaled(36))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                     Text("No receipts for \(selectedYear)")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.systemScaled(16, weight: .semibold))
                         .foregroundStyle(AmenTheme.Colors.textSecondary)
                     Text("Receipts will appear here after you give through AMEN-connected payment rails.")
-                        .font(.system(size: 14))
+                        .font(.systemScaled(14))
                         .foregroundStyle(AmenTheme.Colors.textTertiary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)

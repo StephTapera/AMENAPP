@@ -15,7 +15,7 @@ struct AmenGeneratedDraftPreview: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .amenSpatialMicrodepth(isFocused: true, cornerRadius: 18)
     }
 }

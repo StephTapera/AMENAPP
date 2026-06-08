@@ -116,7 +116,7 @@ struct AmenCovenantContentCalendarView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 48))
+                .font(.systemScaled(48))
                 .foregroundStyle(.tertiary)
             Text("No Scheduled Content")
                 .font(.headline)
@@ -148,7 +148,7 @@ private struct ScheduledContentRow: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: typeIcon)
-                .font(.system(size: 16))
+                .font(.systemScaled(16))
                 .foregroundStyle(typeColor)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(typeColor.opacity(0.1)))

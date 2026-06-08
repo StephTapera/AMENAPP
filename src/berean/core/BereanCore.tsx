@@ -47,12 +47,12 @@ import type {
   Domain,
   Plan,
   SafetyLevel,
-} from '../../berean/contracts';
+} from '../contracts';
 
 import {
   DOMAIN_TO_TASK,
   MINOR_BLOCKED_DOMAINS,
-} from '../../berean/contracts';
+} from '../contracts';
 
 import { callBerean } from './callBerean';
 import { memoryService } from './memory';

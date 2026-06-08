@@ -130,7 +130,7 @@ struct CreationDraftsView: View {
                         showStudio = true
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                 }
             }
@@ -159,7 +159,7 @@ struct DraftRow: View {
                         .fill(Color.gray.opacity(0.08))
                         .frame(width: 50, height: 50)
                     Image(systemName: "doc.text.fill")
-                        .font(.system(size: 22))
+                        .font(.systemScaled(22))
                         .foregroundStyle(.secondary)
                 }
 
@@ -184,7 +184,7 @@ struct DraftRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.systemScaled(13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .padding(14)

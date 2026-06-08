@@ -103,6 +103,15 @@ struct PrayerRecapCardView: View {
                             Text("Your Prayer Recap")
                                 .font(.systemScaled(22, weight: .bold))
                                 .foregroundColor(.white)
+                            HStack(spacing: 3) {
+                                Image(systemName: "sparkles")
+                                    .font(.systemScaled(9, weight: .medium))
+                                    .accessibilityHidden(true)
+                                Text("AI-generated")
+                                    .font(.systemScaled(9, weight: .medium))
+                            }
+                            .foregroundColor(Color(hex: "C9A84C").opacity(0.6))
+                            .accessibilityLabel("AI-generated recap")
                         }
                         Spacer()
                         if vm.recap != nil {
@@ -111,6 +120,7 @@ struct PrayerRecapCardView: View {
                                     .font(.systemScaled(14, weight: .medium))
                                     .foregroundColor(Color.white.opacity(0.4))
                             }
+                            .accessibilityLabel("Regenerate recap")
                         }
                     }
                     .padding(.horizontal, 20)
@@ -222,9 +232,10 @@ struct PrayerRecapCardView: View {
                 }
             }
 
-            Button {
-                // Share sheet
-            } label: {
+            ShareLink(
+                item: "\(recap.greeting)\n\n\(recap.themesSummary)\n\n\(recap.word)",
+                subject: Text("My Weekly Prayer Recap")
+            ) {
                 HStack(spacing: 8) {
                     Image(systemName: "square.and.arrow.up").font(.systemScaled(14, weight: .semibold))
                     Text("Share This Week").font(.systemScaled(15, weight: .semibold))
