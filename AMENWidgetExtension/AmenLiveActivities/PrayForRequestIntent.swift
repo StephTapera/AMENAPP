@@ -29,7 +29,7 @@ struct PrayForRequestIntent: LiveActivityIntent {
         }
         let appCheckToken = defaults?.string(forKey: "cachedAppCheckToken") ?? ""
 
-        guard let url = URL(string: "https://us-central1-amen-5e359.cloudfunctions.net/prayForRequest") else {
+        guard let url = URL(string: "https://us-east1-amen-5e359.cloudfunctions.net/prayForRequest") else {
             return .result()
         }
 

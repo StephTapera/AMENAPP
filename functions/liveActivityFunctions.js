@@ -33,7 +33,7 @@ const APNS_SECRETS = [APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID];
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const REGION = "us-central1";
+const REGION = "us-east1"; // us-central1 quota exhausted; mirrors restoredFunctionsOverflow.js
 
 // ─── prayForRequest ────────────────────────────────────────────────────────────
 
