@@ -24,6 +24,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
     @State private var showingImagePicker: Bool = false
     @State private var selectedCoverImage: UIImage? = nil
     @State private var memberPresentingRolePicker: String? = nil  // member id
+    @State private var showMemberSearch: Bool = false
 
     // MARK: - Expand/collapse state per section
     @State private var expandedSpaceType: Bool = true
@@ -62,6 +63,13 @@ struct AmenCreateSpaceEnhancedSheet: View {
             CreateSpaceImagePickerRepresentable(image: $selectedCoverImage)
                 .ignoresSafeArea()
         }
+        .sheet(isPresented: $showMemberSearch) {
+            SpaceMemberSearchSheet(
+                onAdd: { draft in
+                    viewModel.addMember(draft)
+                }
+            )
+        }
         .onChange(of: selectedCoverImage) { _, newImage in
             viewModel.coverImageData = newImage?.jpegData(compressionQuality: 0.8)
         }
@@ -70,12 +78,12 @@ struct AmenCreateSpaceEnhancedSheet: View {
     // MARK: - Expandable section helper
 
     @ViewBuilder
-    private func expandableSection(
+    private func expandableSection<C: View>(
         title: String,
         icon: String,
         isExpanded: Binding<Bool>,
         badge: String? = nil,
-        @ViewBuilder content: () -> some View
+        @ViewBuilder content: @escaping () -> C
     ) -> some View {
         GlassCard(tint: .accentColor) {
             VStack(alignment: .leading, spacing: 0) {
@@ -278,7 +286,7 @@ struct AmenCreateSpaceEnhancedSheet: View {
                     HStack(alignment: .top, spacing: 14) {
                         // Add-member button as first item
                         Button {
-                            // TODO: present member search sheet
+                            showMemberSearch = true
                         } label: {
                             VStack(spacing: 6) {
                                 ZStack {
@@ -597,6 +605,139 @@ struct AmenCreateSpaceEnhancedSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
         }
+    }
+}
+
+// MARK: - SpaceMemberSearchSheet
+
+struct SpaceMemberSearchSheet: View {
+    var onAdd: (SpaceMemberDraft) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+    @FocusState private var focused: Bool
+
+    // Simulated search results — replaced by a real Firestore query in production
+    private var searchResults: [SpaceMemberDraft] {
+        guard query.count >= 2 else { return [] }
+        let q = query.lowercased()
+        return sampleUsers.filter {
+            $0.displayName.lowercased().contains(q)
+        }
+    }
+
+    private let sampleUsers: [SpaceMemberDraft] = [
+        SpaceMemberDraft(id: UUID().uuidString, displayName: "Alex Johnson", avatarURL: nil, role: .member),
+        SpaceMemberDraft(id: UUID().uuidString, displayName: "Maria Santos", avatarURL: nil, role: .member),
+        SpaceMemberDraft(id: UUID().uuidString, displayName: "David Kim", avatarURL: nil, role: .member),
+        SpaceMemberDraft(id: UUID().uuidString, displayName: "Grace Williams", avatarURL: nil, role: .member),
+        SpaceMemberDraft(id: UUID().uuidString, displayName: "Samuel Okafor", avatarURL: nil, role: .member),
+    ]
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // Search field
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("Search by name or username…", text: $query)
+                        .focused($focused)
+                        .submitLabel(.search)
+                    if !query.isEmpty {
+                        Button { query = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(.white.opacity(0.3), lineWidth: 0.5)
+                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                if query.count < 2 {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 42, weight: .light))
+                            .foregroundStyle(Color.accentColor.opacity(0.6))
+                        Text("Search for members")
+                            .font(.systemScaled(16, weight: .semibold))
+                        Text("Type at least 2 characters to find people")
+                            .font(.systemScaled(13))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    Spacer()
+                } else if searchResults.isEmpty {
+                    Spacer()
+                    Text("No results for "\(query)"")
+                        .font(.systemScaled(14))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                } else {
+                    List(searchResults) { member in
+                        HStack(spacing: 14) {
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.15))
+                                .frame(width: 44, height: 44)
+                                .overlay(
+                                    Text(String(member.displayName.prefix(1)))
+                                        .font(.systemScaled(18, weight: .semibold))
+                                        .foregroundStyle(Color.accentColor)
+                                )
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(member.displayName)
+                                    .font(.systemScaled(15, weight: .semibold))
+                                Text("Member")
+                                    .font(.systemScaled(12))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Button {
+                                onAdd(SpaceMemberDraft(
+                                    id: member.id,
+                                    displayName: member.displayName,
+                                    avatarURL: member.avatarURL,
+                                    role: .member
+                                ))
+                                dismiss()
+                            } label: {
+                                Text("Add")
+                                    .font(.systemScaled(14, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 7)
+                                    .background(Color.accentColor, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Add \(member.displayName) to Space")
+                        }
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Add Members")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onAppear { focused = true }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

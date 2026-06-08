@@ -401,8 +401,8 @@ struct AmenUniversalComposerView: View {
             .padding(.vertical, 10)
             .background(
                 isActive
-                    ? AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray4) : .thickMaterial)
-                    : AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray6) : .regularMaterial),
+                    ? AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray4) : Material.thickMaterial)
+                    : AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray6) : Material.regularMaterial),
                 in: Capsule(style: .continuous)
             )
             .overlay(
@@ -456,10 +456,7 @@ struct AmenUniversalComposerView: View {
             // Scripture Reference — Study mode
             if showStudyField {
                 glassField(label: "Scripture Reference", icon: "book.closed") {
-                    TextField("e.g. John 3:16, Romans 8:28", text: Binding(
-                        get: { vm.draft.scriptureReference ?? "" },
-                        set: { vm.draft.scriptureReference = $0.isEmpty ? nil : $0 }
-                    ))
+                    TextField("e.g. John 3:16, Romans 8:28", text: $vm.draft.scriptureReference)
                     .font(.subheadline)
                     .submitLabel(.done)
                 }
@@ -599,7 +596,7 @@ struct AmenUniversalComposerView: View {
             .padding(.vertical, 9)
             .background(
                 isSelected
-                    ? AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray4) : .thickMaterial)
+                    ? AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray4) : Material.thickMaterial)
                     : AnyShapeStyle(Color.clear),
                 in: Capsule(style: .continuous)
             )

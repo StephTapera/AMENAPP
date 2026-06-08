@@ -309,6 +309,7 @@ struct ProfileView: View {
         profileScrollView
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar { profileToolbarContent }
     }
 
@@ -410,10 +411,20 @@ struct ProfileView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Color(white: 0.975))
+        .background(Color(uiColor: .systemBackground))
         .overlay(refreshToastOverlay)
         .overlay(digestBrainBanner, alignment: .top)
-        .background(Color(white: 0.975).ignoresSafeArea())
+        .background(
+            ZStack(alignment: .top) {
+                Color(uiColor: .systemBackground)
+                LinearGradient(
+                    colors: [Color.accentColor.opacity(0.18), Color.clear],
+                    startPoint: .top,
+                    endPoint: UnitPoint(x: 0.5, y: 0.30)
+                )
+            }
+            .ignoresSafeArea()
+        )
     }
 
     @ViewBuilder
@@ -1727,50 +1738,59 @@ struct ProfileView: View {
         }
     }
     
-    // MARK: - Segmented Glass Tab Rail
+    // MARK: - Liquid Glass Tab Pills
     private var stickyTabBar: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
             ForEach(ProfileTab.allCases, id: \.self) { tab in
                 Button {
                     HapticManager.impact(style: .light)
-                    
                     withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
                         selectedTab = tab
                     }
-                    
-                    // Analytics tracking
                     dlog("📊 Tab switched to: \(tab.rawValue)")
                 } label: {
-                    VStack(spacing: 4) {
+                    HStack(spacing: 5) {
                         Image(systemName: tab.icon)
-                            .font(.systemScaled(15, weight: selectedTab == tab ? .bold : .medium))
-                            .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.35))
-
+                            .font(.systemScaled(13, weight: selectedTab == tab ? .bold : .medium))
                         Text(tab.rawValue)
-                            .font(AMENFont.semiBold(11))
-                            .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.35))
+                            .font(AMENFont.semiBold(12))
                     }
-                    .frame(maxWidth: .infinity)
+                    .foregroundStyle(selectedTab == tab ? .primary : .secondary)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(
-                        Group {
-                            if selectedTab == tab {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.white.opacity(0.90))
-                                    .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-                                    .matchedGeometryEffect(id: "tabBackground", in: tabNamespace)
-                            }
+                    .background {
+                        if selectedTab == tab {
+                            Capsule(style: .continuous)
+                                .fill(.thinMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.65), Color.white.opacity(0.12)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 0.75
+                                        )
+                                )
+                                .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+                                .matchedGeometryEffect(id: "tabBackground", in: tabNamespace)
+                        } else {
+                            Capsule(style: .continuous)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                                )
                         }
-                    )
+                    }
+                    .clipShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel(tab.rawValue)
+                .accessibilityAddTraits(selectedTab == tab ? [.isSelected, .isButton] : .isButton)
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.black.opacity(0.04))
-        )
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 4)
@@ -1786,39 +1806,12 @@ struct ProfileView: View {
         return profileChurchVisibility != "private" || isViewingOwnProfile
     }
     
-    // MARK: - Profile Header (Liquid Glass)
+    // MARK: - Profile Header (Hero Layout)
     private var profileHeaderViewWithoutTabs: some View {
-        VStack(spacing: 10) {
-            // Top Section: Avatar and Name
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 3) {
-                    // Name with verified badge
-                    HStack(spacing: 6) {
-                        Text(profileData.name)
-                            .font(AMENFont.bold(24))
-                            .foregroundStyle(.primary)
-
-                        // Verified badge for specific user
-                        if let userId = Auth.auth().currentUser?.uid,
-                           VerifiedBadgeHelper.shared.isVerified(userId: userId) {
-                            VerifiedBadge(
-                                type: VerifiedBadgeHelper.shared.getVerificationType(userId: userId),
-                                size: 18
-                            )
-                        }
-                    }
-
-                    // Username directly under name — hide when empty (loading state)
-                    if !profileData.username.isEmpty {
-                        Text("@\(profileData.username)")
-                            .font(AMENFont.regular(14))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-
+        VStack(spacing: 0) {
+            // ── Avatar — centered hero ─────────────────────────
+            HStack {
                 Spacer()
-                
-                // Avatar with bounce animation + ring
                 Button {
                     withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.7))) {
                         avatarPressed = true
@@ -1842,34 +1835,61 @@ struct ProfileView: View {
                             Circle()
                                 .strokeBorder(
                                     LinearGradient(
-                                        colors: [Color.white.opacity(0.8), Color.white.opacity(0.3)],
+                                        colors: [Color.white.opacity(0.85), Color.white.opacity(0.30)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     ),
-                                    lineWidth: 2.5
+                                    lineWidth: 3
                                 )
-                                .frame(width: 82, height: 82)
+                                .frame(width: 84, height: 84)
                         )
-                        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+                        .shadow(color: .black.opacity(0.10), radius: 12, y: 4)
                         .scaleEffect(avatarPressed ? 0.92 : 1.0)
                 }
                 .buttonStyle(PlainButtonStyle())
+                Spacer()
             }
-            
-            // Bio with Link Detection
+            .padding(.top, 24)
+
+            // ── Name + Verified badge + Username ───────────────
+            VStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(profileData.name)
+                        .font(AMENFont.bold(24))
+                        .foregroundStyle(.primary)
+                    if let userId = Auth.auth().currentUser?.uid,
+                       VerifiedBadgeHelper.shared.isVerified(userId: userId) {
+                        VerifiedBadge(
+                            type: VerifiedBadgeHelper.shared.getVerificationType(userId: userId),
+                            size: 18
+                        )
+                    }
+                }
+                if !profileData.username.isEmpty {
+                    Text("@\(profileData.username)")
+                        .font(AMENFont.regular(14))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .padding(.top, 12)
+
+            // ── Bio ────────────────────────────────────────────
             if !profileData.bio.isEmpty {
                 BioLinkText(text: profileData.bio)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 8)
             }
-            
-            // Bio URL — clean glass chip
+
+            // ── Bio URL chip ───────────────────────────────────
             if let bioURL = profileData.bioURL, !bioURL.isEmpty, let bioURLParsed = URL(string: bioURL) {
                 Link(destination: bioURLParsed) {
                     HStack(spacing: 5) {
                         Image(systemName: "link")
                             .font(.systemScaled(10, weight: .semibold))
                             .foregroundStyle(.secondary)
-
                         Text(bioURL
                                 .replacingOccurrences(of: "https://", with: "")
                                 .replacingOccurrences(of: "http://", with: "")
@@ -1880,54 +1900,43 @@ struct ProfileView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(
-                        Capsule()
-                            .fill(Color.white.opacity(AmenOpacity.glassFill))
-                    )
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5)
-                    )
+                    .background(Capsule().fill(Color.white.opacity(AmenOpacity.glassFill)))
+                    .overlay(Capsule().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 6)
             }
-            
+
             if shouldShowProfileChurchCapsule {
                 ChurchNameCapsulePill(churchName: profileChurchName, onTap: {})
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
             }
-            
-            // Tags row: topics + interests unified
+
+            // ── Topics + Interests ─────────────────────────────
             if !profileData.profileTopics.isEmpty || !profileData.interests.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        // Topic chips — tappable, navigate to topic feed
                         ForEach(profileData.profileTopics, id: \.self) { topic in
                             TopicPillView(rawTopic: topic)
                         }
-
-                        // Interest chips — tappable, navigate to topic feed
                         ForEach(profileData.interests, id: \.self) { interest in
                             TopicPillView(rawTopic: interest)
                         }
                     }
+                    .padding(.horizontal, 16)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 8)
             }
-            
-            // Social Links — compact inline
+
+            // ── Social Links ───────────────────────────────────
             if !profileData.socialLinks.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(profileData.socialLinks) { link in
-                            Button {
-                                openSocialLink(link)
-                            } label: {
+                            Button { openSocialLink(link) } label: {
                                 HStack(spacing: 5) {
                                     Image(systemName: link.platform.icon)
                                         .font(.systemScaled(12))
                                         .foregroundStyle(link.platform.color)
-                                    
                                     Text(link.username)
                                         .font(AMENFont.regular(12))
                                         .foregroundStyle(.secondary)
@@ -1935,22 +1944,18 @@ struct ProfileView: View {
                                 }
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.white.opacity(0.7))
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
-                                )
+                                .background(Capsule().fill(Color.white.opacity(0.7)))
+                                .overlay(Capsule().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
                     }
+                    .padding(.horizontal, 16)
                 }
+                .padding(.top, 6)
             }
-            
-            // Follower/Following Stats — number-forward, clean
+
+            // ── Followers / Following ──────────────────────────
             HStack(spacing: 20) {
                 Button {
                     dlog("Opening followers list...")
@@ -1967,7 +1972,7 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
-                
+
                 Button {
                     showFollowingList = true
                     HapticManager.impact(style: .light)
@@ -1982,88 +1987,65 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
-                
-                Spacer()
             }
-            .padding(.top, 2)
-            
-            // Action Buttons — liquid glass
+            .padding(.top, 14)
+
+            // ── Action Buttons (Liquid Glass capsules) ─────────
             HStack(spacing: 8) {
-                Button {
-                    showEditProfile = true
-                } label: {
+                Button { showEditProfile = true } label: {
                     Text("Edit profile")
                         .font(AMENFont.bold(14))
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.80))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.6), Color.black.opacity(0.06)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 0.75
+                            Capsule(style: .continuous)
+                                .fill(.thinMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.65), Color.white.opacity(0.12)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 0.75
+                                        )
                                 )
+                                .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
                         )
-                        .shadow(color: .black.opacity(0.04), radius: 3, y: 1)
+                        .clipShape(Capsule(style: .continuous))
                 }
-                
-                Button {
-                    shareProfile()
-                } label: {
+
+                Button { shareProfile() } label: {
                     Text("Share profile")
                         .font(AMENFont.bold(14))
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.80))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.6), Color.black.opacity(0.06)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 0.75
+                            Capsule(style: .continuous)
+                                .fill(.thinMaterial)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.65), Color.white.opacity(0.12)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 0.75
+                                        )
                                 )
+                                .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
                         )
-                        .shadow(color: .black.opacity(0.04), radius: 3, y: 1)
+                        .clipShape(Capsule(style: .continuous))
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 20)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.white.opacity(AmenOpacity.glassFillFocused))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.7), Color.white.opacity(0.15)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 0.75
-                )
-        )
-        .shadow(color: .black.opacity(0.06), radius: 16, y: 6)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
     }
 
 
