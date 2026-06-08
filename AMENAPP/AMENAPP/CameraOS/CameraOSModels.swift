@@ -76,6 +76,30 @@ enum CameraIntent: String, CaseIterable, Codable, Identifiable {
         }
     }
 
+    /// Whether this intent requires an Amen+ or Creator Pro subscription.
+    /// Free-tier users see an upgrade prompt when they tap these tiles.
+    var requiresUpgrade: Bool {
+        switch self {
+        case .prayer, .sermon, .churchNotes, .testimony, .prayerRequest:
+            return true
+        case .story, .tutorial, .memory, .review, .event,
+             .conversation, .vlog, .meeting, .interview:
+            return false
+        }
+    }
+
+    /// The marketing tier name shown in the upgrade prompt.
+    var requiredTierName: String {
+        switch self {
+        case .sermon, .churchNotes:
+            return "Creator Pro"
+        case .prayer, .testimony, .prayerRequest:
+            return "Amen+"
+        default:
+            return "Amen+"
+        }
+    }
+
     var isPrayerIntent: Bool {
         self == .prayer || self == .prayerRequest
     }

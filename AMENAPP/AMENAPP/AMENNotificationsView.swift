@@ -154,7 +154,7 @@ private struct ActivityFilterChipBar: View {
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: category.iconName)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.systemScaled(11, weight: .semibold))
                                 Text(category.rawValue)
                                     .font(AMENFont.semiBold(13))
                             }
@@ -233,7 +233,7 @@ private struct ActivityActorStack: View {
             Circle().fill(.ultraThinMaterial)
                 .overlay(Circle().fill(AmenTheme.Colors.glassFill))
             Text(initials)
-                .font(.system(size: max(9, size * 0.33), weight: .semibold))
+                .font(.systemScaled(max(9, size * 0.33), weight: .semibold))
                 .foregroundStyle(AmenTheme.Colors.textPrimary)
         }
     }
@@ -308,7 +308,7 @@ private struct ActivityPreviewThumbnail: View {
                 .fill(.ultraThinMaterial)
                 .overlay(RoundedRectangle(cornerRadius: 10).fill(AmenTheme.Colors.glassFill))
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.systemScaled(18, weight: .medium))
                 .foregroundStyle(color.opacity(0.8))
         }
         .frame(width: 46, height: 46)
@@ -326,7 +326,7 @@ private struct ActivityActionButton: View {
         Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: action.systemIcon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.systemScaled(11, weight: .semibold))
                 Text(action.label)
                     .font(AMENFont.semiBold(12))
             }
@@ -397,7 +397,7 @@ private struct ActivityNotificationRow: View {
                 // Title — actor names in bold, rest regular
                 HStack(alignment: .top) {
                     Text(item.attributedTitle)
-                        .font(.system(size: 15))
+                        .font(.systemScaled(15))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -487,7 +487,7 @@ private struct NeedsAttentionPanel: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.circle.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.systemScaled(13, weight: .semibold))
                     .foregroundStyle(AmenTheme.Colors.iconPrimary)
                 Text("Needs Your Attention")
                     .font(AMENFont.bold(14))
@@ -557,37 +557,38 @@ private struct TimeBucketSection: View {
     }
 }
 
-// MARK: - Focus Mode Pill
+// MARK: - Focus Mode Row
 
-private struct FocusModePill: View {
+private struct FocusModeRow: View {
     @Binding var isOn: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        GlassEffectContainer(spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: isOn ? "moon.fill" : "moon")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(AmenTheme.Colors.iconPrimary)
-                Text("Focus Mode")
-                    .font(AMENFont.semiBold(14))
-                    .foregroundStyle(.primary)
-                Text(isOn ? "ON" : "OFF")
-                    .font(AMENFont.bold(12))
-                    .foregroundStyle(isOn ? AmenTheme.Colors.iconPrimary : AmenTheme.Colors.iconSecondary)
-                Toggle("", isOn: $isOn)
-                    .labelsHidden()
-                    .tint(AmenTheme.Colors.buttonPrimary)
-                    .scaleEffect(0.8)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
+        HStack(spacing: 12) {
+            Image(systemName: isOn ? "moon.fill" : "moon")
+                .font(.systemScaled(16, weight: .medium))
+                .foregroundStyle(AmenTheme.Colors.iconPrimary)
+                .frame(width: 24)
+            Text("Focus Mode")
+                .font(AMENFont.semiBold(15))
+                .foregroundStyle(.primary)
+            Spacer()
+            Toggle("Focus Mode", isOn: $isOn)
+                .labelsHidden()
+                .tint(AmenTheme.Colors.buttonPrimary)
         }
-        .shadow(color: AmenTheme.Colors.shadowCard, radius: 12, x: 0, y: 3)
-        .glassEffect(GlassEffectStyle.regular, in: Capsule())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(uiColor: .systemBackground))
+                .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.5), radius: 6, x: 0, y: 2)
+        )
         .animation(reduceMotion ? nil : Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.80)), value: isOn)
+        .accessibilityLabel("Focus Mode")
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityHint("Filters activity to high-priority notifications only")
     }
 }
 
@@ -604,7 +605,7 @@ private struct ActivityEmptyState: View {
                     .frame(width: 72, height: 72)
                     .shadow(color: AmenTheme.Colors.shadowCard, radius: 16, x: 0, y: 4)
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.systemScaled(28, weight: .medium))
                     .foregroundStyle(AmenTheme.Colors.iconSecondary)
             }
             VStack(spacing: 6) {
@@ -666,10 +667,9 @@ struct AMENNotificationsView: View {
     // MARK: - Empty Content
 
     private var emptyContent: some View {
-        VStack(spacing: 24) {
-            FocusModePill(isOn: $viewModel.focusModeOn)
+        VStack(spacing: 20) {
+            FocusModeRow(isOn: $viewModel.focusModeOn)
                 .padding(.top, 8)
-            Spacer()
             ActivityEmptyState()
             Spacer()
         }
@@ -684,7 +684,7 @@ struct AMENNotificationsView: View {
 
                 // Focus mode + filter chips
                 VStack(spacing: 10) {
-                    FocusModePill(isOn: $viewModel.focusModeOn)
+                    FocusModeRow(isOn: $viewModel.focusModeOn)
                     ActivityFilterChipBar(selected: $viewModel.selectedFilter)
                 }
                 .padding(.top, 4)

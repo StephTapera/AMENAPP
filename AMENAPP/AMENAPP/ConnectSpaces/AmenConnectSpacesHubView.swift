@@ -125,7 +125,7 @@ struct AmenConnectSpacesHubView: View {
         NavigationStack {
             ZStack {
                 // Matte background — never glass on the page canvas
-                Color(hex: "070607").ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     topTabBar
@@ -142,7 +142,7 @@ struct AmenConnectSpacesHubView: View {
                         }
                     } label: {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                     .accessibilityLabel("Open Creator Hub")
                 }
@@ -170,7 +170,7 @@ struct AmenConnectSpacesHubView: View {
                         showCreateSpace = true
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.systemScaled(16, weight: .semibold))
                     }
                     .accessibilityLabel("Create a new Space")
                 }
@@ -206,14 +206,14 @@ struct AmenConnectSpacesHubView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: tabIcons[index])
-                            .font(.system(size: 12, weight: selectedTab == index ? .bold : .medium))
+                            .font(.systemScaled(12, weight: selectedTab == index ? .bold : .medium))
                         Text(tabLabels[index])
-                            .font(.system(size: 13, weight: selectedTab == index ? .bold : .medium))
+                            .font(.systemScaled(13, weight: selectedTab == index ? .bold : .medium))
                     }
                     .foregroundStyle(
                         selectedTab == index
                             ? Color(hex: "D9A441")
-                            : Color.white.opacity(0.55)
+                            : Color.secondary
                     )
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -225,10 +225,10 @@ struct AmenConnectSpacesHubView: View {
         }
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.secondarySystemBackground))
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+                        .strokeBorder(Color(.separator).opacity(0.25), lineWidth: 0.5)
                 }
         }
         .padding(.horizontal, 16)
@@ -313,7 +313,7 @@ struct AmenConnectSpacesHubView: View {
     @ViewBuilder
     private func sectionHeader(title: String, foreground: Color) -> some View {
         Text(title.uppercased())
-            .font(.system(size: 11, weight: .bold))
+            .font(.systemScaled(11, weight: .bold))
             .kerning(1.2)
             .foregroundStyle(foreground)
             .padding(.horizontal, 14)
@@ -349,30 +349,30 @@ private struct SpaceCardRow: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: roomTypeIcon(space.type))
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.systemScaled(18, weight: .semibold))
                     .foregroundStyle(Color(hex: "D9A441"))
             }
 
             // Name + member count
             VStack(alignment: .leading, spacing: 4) {
                 Text(space.name)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.white)
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundStyle(Color.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 HStack(spacing: 4) {
                     Image(systemName: "person.2")
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(Color.white.opacity(0.50))
+                        .font(.systemScaled(11, weight: .regular))
+                        .foregroundStyle(Color.secondary)
                     Text("\(space.memberIds.count) members")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.white.opacity(0.50))
+                        .font(.systemScaled(12))
+                        .foregroundStyle(Color.secondary)
 
                     if space.careSensitivity {
                         // Privacy indicator for sensitive rooms
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 10))
+                            .font(.systemScaled(10))
                             .foregroundStyle(Color(hex: "D9A441").opacity(0.70))
                     }
                 }
@@ -381,16 +381,16 @@ private struct SpaceCardRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.30))
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(Color(.tertiaryLabel))
         }
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.secondarySystemBackground))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+                        .strokeBorder(Color(.separator).opacity(0.30), lineWidth: 0.5)
                 }
         }
     }
@@ -415,7 +415,7 @@ private struct VideoCardRow: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: "play.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.systemScaled(16, weight: .semibold))
                     .foregroundStyle(Color(hex: "6E4BB5"))
                     .offset(x: 1) // optical center correction for play triangle
             }
@@ -423,8 +423,8 @@ private struct VideoCardRow: View {
             // Teacher name + provenance badge
             VStack(alignment: .leading, spacing: 6) {
                 Text("Teaching by \(video.teacherId)")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.white)
+                    .font(.systemScaled(15, weight: .semibold))
+                    .foregroundStyle(Color.primary)
                     .lineLimit(1)
 
                 // Non-removable provenance badge (Aegis: syntheticMediaLabelsNonRemovable)
@@ -435,16 +435,16 @@ private struct VideoCardRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.30))
+                .font(.systemScaled(12, weight: .semibold))
+                .foregroundStyle(Color(.tertiaryLabel))
         }
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.secondarySystemBackground))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+                        .strokeBorder(Color(.separator).opacity(0.30), lineWidth: 0.5)
                 }
         }
     }
@@ -455,6 +455,5 @@ private struct VideoCardRow: View {
 #if DEBUG
 #Preview {
     AmenConnectSpacesHubView()
-        .preferredColorScheme(.dark)
 }
 #endif

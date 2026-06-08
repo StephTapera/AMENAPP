@@ -1653,12 +1653,20 @@ struct ProfileView: View {
     private var avatarInitials: some View {
         ZStack(alignment: .bottomTrailing) {
             Circle()
-                .fill(Color.black)
+                .fill(Color.accentColor)
                 .frame(width: 80, height: 80)
                 .overlay(
-                    Text(profileData.initials)
-                        .font(AMENFont.bold(26))
-                        .foregroundStyle(.white)
+                    Group {
+                        if profileData.initials.isEmpty {
+                            Image(systemName: "person.fill")
+                                .font(.systemScaled(30, weight: .semibold))
+                                .foregroundStyle(.white)
+                        } else {
+                            Text(profileData.initials)
+                                .font(AMENFont.bold(26))
+                                .foregroundStyle(.white)
+                        }
+                    }
                 )
 
             // Camera badge — signals the avatar is tappable to add a photo
@@ -1800,12 +1808,14 @@ struct ProfileView: View {
                         }
                     }
 
-                    // Username directly under name
-                    Text("@\(profileData.username)")
-                        .font(AMENFont.regular(14))
-                        .foregroundStyle(.tertiary)
+                    // Username directly under name — hide when empty (loading state)
+                    if !profileData.username.isEmpty {
+                        Text("@\(profileData.username)")
+                            .font(AMENFont.regular(14))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
-                
+
                 Spacer()
                 
                 // Avatar with bounce animation + ring

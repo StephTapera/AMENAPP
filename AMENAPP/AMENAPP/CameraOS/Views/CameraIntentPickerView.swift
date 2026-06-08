@@ -5,7 +5,7 @@
 //
 // Design: Liquid Glass on dark/black camera context.
 //   Pre-iOS 26: .ultraThinMaterial + strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
-//   iOS 26+:    .glassEffect() on controls
+//   iOS 26+:    .glassEffect() on controls, neutral close button uses white.opacity(0.18) fill
 
 import SwiftUI
 
@@ -19,6 +19,8 @@ struct CameraIntentPickerView: View {
     var onDismiss: () -> Void
 
     @State private var selectedIntent: CameraIntent? = nil
+    /// The gated intent the user tapped — drives the upgrade alert.
+    @State private var upgradeIntent: CameraIntent? = nil
 
     // MARK: Layout constants
 
@@ -59,6 +61,27 @@ struct CameraIntentPickerView: View {
         .presentationDetents([.medium, .large])
         .presentationBackground(Color.black.opacity(0.88))
         .presentationDragIndicator(.visible)
+        .alert(
+            upgradeAlertTitle,
+            isPresented: Binding(
+                get: { upgradeIntent != nil },
+                set: { if !$0 { upgradeIntent = nil } }
+            )
+        ) {
+            Button("Upgrade") { upgradeIntent = nil }
+            Button("Not Now", role: .cancel) { upgradeIntent = nil }
+        } message: {
+            if let intent = upgradeIntent {
+                Text("Creating \(intent.displayName) content requires an \(intent.requiredTierName) subscription. Upgrade to unlock this and other creator features.")
+            }
+        }
+    }
+
+    private var upgradeAlertTitle: String {
+        if let intent = upgradeIntent {
+            return "\(intent.requiredTierName) Required"
+        }
+        return "Upgrade Required"
     }
 
     // MARK: - Header
@@ -66,12 +89,12 @@ struct CameraIntentPickerView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("What are you creating?")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.systemScaled(22, weight: .semibold))
                 .foregroundStyle(.white)
                 .accessibilityAddTraits(.isHeader)
 
             Text("Your intent shapes the capture, safety, and destination.")
-                .font(.system(size: 13, weight: .regular))
+                .font(.systemScaled(13, weight: .regular))
                 .foregroundStyle(.white.opacity(0.65))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -89,7 +112,7 @@ struct CameraIntentPickerView: View {
                     CameraIntentTile(
                         intent: intent,
                         isSelected: selectedIntent == intent,
-                        onTap: { selectIntent(intent) }
+                        onTap: { handleIntentTap(intent) }
                     )
                     .frame(width: tileSize, height: tileSize)
                 }
@@ -108,7 +131,7 @@ struct CameraIntentPickerView: View {
             onIntentSelected(intent)
         } label: {
             Text("Start Capturing")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(selectedIntent == nil ? Color.black.opacity(0.45) : Color.black)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
@@ -134,8 +157,10 @@ struct CameraIntentPickerView: View {
     private var dismissButton: some View {
         Button(action: onDismiss) {
             Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .font(.systemScaled(13, weight: .semibold))
+                // Use secondary label gray so it reads clearly on both
+                // the dark modal and any glass tint without glowing blue.
+                .foregroundStyle(Color(uiColor: .secondaryLabel))
                 .frame(width: 36, height: 36)
                 .background(dismissButtonBackground)
         }
@@ -144,19 +169,25 @@ struct CameraIntentPickerView: View {
 
     @ViewBuilder
     private var dismissButtonBackground: some View {
-        if #available(iOS 26, *) {
-            Circle().glassEffect()
-        } else {
-            ZStack {
+        // Neutral white circle — avoids .glassEffect() picking up
+        // an environment blue tint that clashes with the dark overlay.
+        Circle()
+            .fill(Color.white.opacity(0.18))
+            .overlay(
                 Circle()
-                    .fill(.ultraThinMaterial)
-                Circle()
-                    .strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
-            }
-        }
+                    .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.5)
+            )
     }
 
     // MARK: - Helpers
+
+    private func handleIntentTap(_ intent: CameraIntent) {
+        if intent.requiresUpgrade {
+            upgradeIntent = intent
+            return
+        }
+        selectIntent(intent)
+    }
 
     private func selectIntent(_ intent: CameraIntent) {
         let animation: Animation = reduceMotion
@@ -187,11 +218,11 @@ private struct CameraIntentTile: View {
                 // Content
                 VStack(spacing: 6) {
                     Image(systemName: intent.systemIcon)
-                        .font(.system(size: 24, weight: .regular))
+                        .font(.systemScaled(24, weight: .regular))
                         .foregroundStyle(.white)
 
                     Text(intent.displayName)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.systemScaled(11, weight: .semibold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
@@ -200,10 +231,19 @@ private struct CameraIntentTile: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(8)
 
-                // Faith intent indicator — small cross at top-right
-                if intent.isFaithIntent {
+                // Upgrade badge — lock icon for entitlement-gated intents.
+                // For free faith intents (none currently), show the cross indicator.
+                if intent.requiresUpgrade {
+                    Image(systemName: "lock.fill")
+                        .font(.systemScaled(8, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(5)
+                        .background(Circle().fill(amberGold))
+                        .padding(5)
+                        .accessibilityHidden(true)
+                } else if intent.isFaithIntent {
                     Image(systemName: "cross.fill")
-                        .font(.system(size: 8, weight: .medium))
+                        .font(.systemScaled(8, weight: .medium))
                         .foregroundStyle(.white.opacity(0.6))
                         .padding(6)
                         .accessibilityHidden(true)
@@ -218,8 +258,16 @@ private struct CameraIntentTile: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(intent.displayName)
-        .accessibilityHint(isSelected ? "" : "Tap to select")
+        .accessibilityLabel(
+            intent.requiresUpgrade
+                ? "\(intent.displayName), requires \(intent.requiredTierName)"
+                : intent.displayName
+        )
+        .accessibilityHint(
+            intent.requiresUpgrade
+                ? "Tap to learn about upgrading to \(intent.requiredTierName)"
+                : (isSelected ? "" : "Tap to select")
+        )
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
