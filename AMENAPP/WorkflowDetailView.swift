@@ -354,6 +354,8 @@ struct WorkflowRunDetailView: View {
     let workflow: HelixWorkflow
 
     @Environment(\.dismiss) private var dismiss
+    @State private var isRerunning = false
+    @State private var rerunError: String? = nil
 
     var body: some View {
         NavigationStack {
@@ -370,13 +372,22 @@ struct WorkflowRunDetailView: View {
                         stepsResultsSection
 
                         // Re-run button
+                        if let errorMsg = rerunError {
+                            Text(errorMsg)
+                                .font(AMENFont.regular(13))
+                                .foregroundColor(Color(hex: "EF4444"))
+                                .multilineTextAlignment(.center)
+                        }
                         Button {
-                            // placeholder: trigger re-run via Cloud Function
-                            dismiss()
+                            Task { await triggerRerun() }
                         } label: {
                             HStack(spacing: 8) {
-                                Image(systemName: "arrow.clockwise.circle.fill")
-                                Text("Re-run Workflow")
+                                if isRerunning {
+                                    ProgressView().tint(.white).scaleEffect(0.85)
+                                } else {
+                                    Image(systemName: "arrow.clockwise.circle.fill")
+                                }
+                                Text(isRerunning ? "Starting…" : "Re-run Workflow")
                                     .font(AMENFont.semiBold(16))
                             }
                             .foregroundColor(.white)
@@ -392,6 +403,7 @@ struct WorkflowRunDetailView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 18))
                         }
                         .buttonStyle(CoCreationPressStyle())
+                        .disabled(isRerunning)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -558,6 +570,38 @@ struct WorkflowRunDetailView: View {
                 .stroke(Color.white.opacity(0.07), lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Re-run
+
+    private func triggerRerun() async {
+        guard let workflowId = workflow.id else { return }
+        isRerunning = true
+        rerunError = nil
+        defer { isRerunning = false }
+        do {
+            let db = Firestore.firestore()
+            let runRef = db.collection("helixWorkflowRuns").document()
+            var data: [String: Any] = [
+                "workflowId": workflowId,
+                "workspaceId": workflow.workspaceId,
+                "status": "pending",
+                "stepResults": [],
+                "startedAt": Timestamp(date: Date())
+            ]
+            try await runRef.setData(data)
+            // Also bump lastRunAt on the workflow
+            try await db.collection("helixWorkflows").document(workflowId).updateData([
+                "lastRunAt": Timestamp(date: Date()),
+                "runCount": FieldValue.increment(Int64(1))
+            ])
+            await MainActor.run {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                dismiss()
+            }
+        } catch {
+            rerunError = "Failed to start run: \(error.localizedDescription)"
+        }
     }
 }
 

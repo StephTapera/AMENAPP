@@ -11,6 +11,7 @@ struct ONEWorldFeedView: View {
     @State private var witnessTargetUID: String? = nil
     @State private var contextGateItemID: String? = nil
     @State private var relayError: String? = nil
+    @State private var reactedItemIDs: Set<String> = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -285,18 +286,27 @@ struct ONEWorldFeedView: View {
     private func actionBar(_ item: ONEFeedItemViewModel) -> some View {
         HStack(spacing: ONE.Spacing.lg) {
             if item.permissions.reactAllowed {
+                let isReacted = reactedItemIDs.contains(item.id)
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    // TODO: implement reaction picker (P4 scope)
+                    if isReacted {
+                        reactedItemIDs.remove(item.id)
+                    } else {
+                        reactedItemIDs.insert(item.id)
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "heart").font(.systemScaled(14))
+                        Image(systemName: isReacted ? "heart.fill" : "heart")
+                            .font(.systemScaled(14))
+                            .foregroundStyle(isReacted ? Color.pink : .secondary)
+                            .animation(reduceMotion ? nil : .spring(response: 0.25), value: isReacted)
                         Text("React").font(.systemScaled(12))
+                            .foregroundStyle(.secondary)
                     }
-                    .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("React to this moment")
+                .accessibilityLabel(isReacted ? "Remove reaction" : "React to this moment")
             }
 
             Button {

@@ -162,10 +162,7 @@ struct BereanMenteeGrowthView: View {
                         Text(study)
                             .font(.systemScaled(15, weight: .medium))
                             .foregroundStyle(Color.primary)
-                        Button {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            // TODO: navigation to study view handled by parent coordinator
-                        } label: {
+                        NavigationLink(destination: BereanStudyHomeView()) {
                             Text("Continue")
                                 .font(.systemScaled(13, weight: .semibold))
                                 .foregroundStyle(Color.accentColor)

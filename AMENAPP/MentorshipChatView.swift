@@ -14,6 +14,7 @@ struct MentorshipChatView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showCheckIn = false
+    @State private var showBookingAlert = false
 
     /// Build a ChatConversation suitable for UnifiedChatView
     private var conversation: ChatConversation {
@@ -71,13 +72,27 @@ struct MentorshipChatView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    // Book session — placeholder for calendly/in-app scheduler
-                    dlog("📅 Book session tapped")
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showBookingAlert = true
                 } label: {
                     Label("Book", systemImage: "calendar.badge.plus")
                         .font(.systemScaled(14))
                 }
             }
+        }
+        .alert("Book a Session", isPresented: $showBookingAlert) {
+            Button("Send Request in Chat") {
+                // Insert a booking request message into the conversation
+                NotificationCenter.default.post(
+                    name: Notification.Name("MentorshipBookingRequest"),
+                    object: nil,
+                    userInfo: ["chatId": chatId, "mentorName": mentorName,
+                               "message": "Hi \(mentorName), I'd like to book a mentorship session. When are you available?"]
+                )
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Send a scheduling request to \(mentorName) through the chat.")
         }
     }
 }

@@ -12,8 +12,11 @@ struct HelixNodeDetailSheet: View {
 
     let node: HelixNode
     let allNodes: [HelixNode]
+    var vm: HelixViewModel? = nil
 
     @Environment(\.dismiss) private var dismiss
+    @State private var showEditSheet = false
+    @State private var showDeleteConfirm = false
 
     private var connectedNodes: [HelixNode] {
         allNodes.filter { n in
@@ -157,7 +160,7 @@ struct HelixNodeDetailSheet: View {
                         // Actions
                         HStack(spacing: 12) {
                             Button {
-                                // placeholder: navigate to edit
+                                showEditSheet = true
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "pencil")
@@ -177,8 +180,7 @@ struct HelixNodeDetailSheet: View {
                             .buttonStyle(CoCreationPressStyle())
 
                             Button {
-                                // placeholder: delete action
-                                dismiss()
+                                showDeleteConfirm = true
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "trash")
@@ -212,9 +214,141 @@ struct HelixNodeDetailSheet: View {
             }
             .toolbarBackground(Color(hex: "0A0A0F"), for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .sheet(isPresented: $showEditSheet) {
+                if let vm {
+                    HelixEditNodeSheet(vm: vm, node: node)
+                }
+            }
+            .confirmationDialog("Delete \"\(node.label)\"?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    guard let id = node.id else { dismiss(); return }
+                    Firestore.firestore().collection("helixNodes").document(id).delete()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This node will be permanently removed from the org graph.")
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+}
+
+// MARK: - HelixEditNodeSheet
+
+struct HelixEditNodeSheet: View {
+
+    @ObservedObject var vm: HelixViewModel
+    let node: HelixNode
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var label: String
+    @State private var description: String
+    @State private var selectedHealth: HelixHealth
+    @State private var isSaving = false
+    @State private var errorMessage: String? = nil
+
+    init(vm: HelixViewModel, node: HelixNode) {
+        self.vm = vm
+        self.node = node
+        _label = State(initialValue: node.label)
+        _description = State(initialValue: node.description ?? "")
+        _selectedHealth = State(initialValue: node.health)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: "0A0A0F").ignoresSafeArea()
+                VStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Label")
+                            .font(AMENFont.semiBold(13))
+                            .foregroundColor(.white.opacity(0.5))
+                        TextField("Node label…", text: $label)
+                            .font(AMENFont.regular(15))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 13)
+                            .background(.ultraThinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Description (optional)")
+                            .font(AMENFont.semiBold(13))
+                            .foregroundColor(.white.opacity(0.5))
+                        TextField("Short description…", text: $description, axis: .vertical)
+                            .font(AMENFont.regular(15))
+                            .foregroundColor(.white)
+                            .lineLimit(3, reservesSpace: true)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 13)
+                            .background(.ultraThinMaterial)
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(AMENFont.regular(13))
+                            .foregroundColor(Color(hex: "EF4444"))
+                    }
+
+                    Button { Task { await saveEdits() } } label: {
+                        HStack(spacing: 8) {
+                            if isSaving { ProgressView().tint(.white).scaleEffect(0.85) }
+                            Text(isSaving ? "Saving…" : "Save Changes").font(AMENFont.semiBold(16))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            LinearGradient(colors: label.trimmingCharacters(in: .whitespaces).isEmpty
+                                ? [Color.gray.opacity(0.3), Color.gray.opacity(0.3)]
+                                : [Color(hex: "6B48FF"), Color(hex: "0EA5E9")],
+                                startPoint: .leading, endPoint: .trailing)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                    }
+                    .buttonStyle(CoCreationPressStyle())
+                    .disabled(label.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 40)
+            }
+            .navigationTitle("Edit Node")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.foregroundColor(.white.opacity(0.6))
+                }
+            }
+            .toolbarBackground(Color(hex: "0A0A0F"), for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func saveEdits() async {
+        let trimmed = label.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let id = node.id else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await Firestore.firestore().collection("helixNodes").document(id).updateData([
+                "label": trimmed,
+                "description": description.isEmpty ? NSNull() : description
+            ])
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
 

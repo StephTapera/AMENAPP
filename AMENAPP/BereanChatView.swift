@@ -5,6 +5,7 @@
 
 import SwiftUI
 import Combine
+import AVFoundation
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -302,6 +303,7 @@ struct BereanChatView: View {
     @State private var sendSweep = false
     @State private var pendingUserSend = false
     @State private var showUpgradeAlert = false
+    @State private var showVoiceAssistant = false
     @FocusState private var inputFocused: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -417,6 +419,11 @@ struct BereanChatView: View {
                         .presentationDetents([.medium])
                         .presentationDragIndicator(.visible)
                 }
+            }
+            .sheet(isPresented: $showVoiceAssistant) {
+                BereanVoiceAssistantView()
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
             // Addition 3: Saved-to-Notes toast
             .overlay(alignment: .top) {
@@ -1303,8 +1310,11 @@ struct BereanChatView: View {
         }
 
         Button {
-            // Read aloud (placeholder — wire to AVSpeechSynthesizer if desired)
-            dlog("Read aloud: \(msg.id)")
+            let utterance = AVSpeechUtterance(string: msg.content)
+            utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier)
+            utterance.rate = 0.52
+            let synthesizer = AVSpeechSynthesizer()
+            synthesizer.speak(utterance)
         } label: {
             Label("Read Aloud", systemImage: "speaker.wave.2")
         }
@@ -1506,7 +1516,8 @@ struct BereanChatView: View {
             HStack(spacing: 8) {
                 if vm.inputText.isEmpty && !vm.isThinking {
                     Button {
-                        dlog("Berean: mic tapped")
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showVoiceAssistant = true
                     } label: {
                         Image(systemName: "mic.fill")
                             .font(.systemScaled(18, weight: .medium))

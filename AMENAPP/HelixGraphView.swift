@@ -369,7 +369,7 @@ struct HelixGraphView: View {
         .toolbarBackground(Color(hex: "0A0A0F"), for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .sheet(item: $selectedNode) { node in
-            HelixNodeDetailSheet(node: node, allNodes: vm.nodes)
+            HelixNodeDetailSheet(node: node, allNodes: vm.nodes, vm: vm)
         }
         .sheet(isPresented: $showAddNode) {
             HelixAddNodeSheet(vm: vm, workspaceId: "default")
