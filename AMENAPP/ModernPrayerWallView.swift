@@ -677,7 +677,29 @@ class PrayerWallViewModel: ObservableObject {
                 "moderationStatus": "pending"
             ]
 
-            try await db.collection("prayerWall").addDocument(data: prayerData)
+            let wallRef = db.collection("prayerWall").document()
+            try await wallRef.setData(prayerData)
+
+            // Mirror to prayerRequests/{id} for Phase 2 Live Activity push counter.
+            let authorNameForActivity = isAnonymous ? "Anonymous" : (userData?["username"] as? String ?? "")
+            let prayerRequestPayload: [String: Any] = [
+                "requesterUid":       currentUserId,
+                "requesterName":      authorNameForActivity.isEmpty ? "Anonymous" : authorNameForActivity,
+                "title":              String(content.prefix(80)),
+                "prayingCount":       0,
+                "encouragementCount": 0,
+                "isAnswered":         false,
+                "lastUpdated":        Timestamp(date: Date()),
+                "pushToStartEnabled": true
+            ]
+            try? await db.collection("prayerRequests").document(wallRef.documentID).setData(prayerRequestPayload)
+
+            await PrayerRequestLiveActivityManager.shared.startActivity(
+                for: wallRef.documentID,
+                requesterName: authorNameForActivity.isEmpty ? "Anonymous" : authorNameForActivity,
+                title: String(content.prefix(80))
+            )
+
             await loadPrayers()
 
         } catch {

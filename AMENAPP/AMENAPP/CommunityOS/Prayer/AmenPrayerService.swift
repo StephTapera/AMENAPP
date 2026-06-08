@@ -110,6 +110,27 @@ final class AmenPrayerService: ObservableObject {
         }
 
         try await docRef.setData(payload)
+
+        // Mirror to prayerRequests/{id} for Phase 2 Live Activity push counter.
+        let prayerRequestPayload: [String: Any] = [
+            "requesterUid":       creatorId,
+            "requesterName":      authorName.isEmpty ? "Anonymous" : authorName,
+            "title":              title,
+            "prayingCount":       0,
+            "encouragementCount": 0,
+            "isAnswered":         false,
+            "lastUpdated":        FieldValue.serverTimestamp(),
+            "pushToStartEnabled": true
+        ]
+        try? await db.collection("prayerRequests").document(docId).setData(prayerRequestPayload)
+
+        // Start the push-driven Live Activity on the requester's device.
+        await PrayerRequestLiveActivityManager.shared.startActivity(
+            for: docId,
+            requesterName: authorName.isEmpty ? "Anonymous" : authorName,
+            title: title
+        )
+
         return docId
     }
 
