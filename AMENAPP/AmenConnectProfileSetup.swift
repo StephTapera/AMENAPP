@@ -62,14 +62,15 @@ struct AmenConnectProfileSetupView: View {
                                         )
                                 } else {
                                     Circle()
-                                        .fill(Color(.systemGray5))
+                                        .fill(.ultraThinMaterial)
                                         .frame(width: 140, height: 140)
+                                        .overlay(Circle().stroke(.primary.opacity(0.10), lineWidth: 1))
                                         .overlay(
                                             VStack(spacing: 8) {
                                                 Image(systemName: "camera.fill")
                                                     .font(.systemScaled(32))
                                                     .foregroundStyle(.secondary)
-                                                
+
                                                 Text("Add Photo")
                                                     .font(.custom("OpenSans-SemiBold", size: 14))
                                                     .foregroundStyle(.secondary)
@@ -84,13 +85,14 @@ struct AmenConnectProfileSetupView: View {
                                         HStack {
                                             Spacer()
                                             Circle()
-                                                .fill(Color.pink)
+                                                .fill(.ultraThinMaterial)
                                                 .frame(width: 36, height: 36)
                                                 .overlay(
                                                     Image(systemName: "pencil")
                                                         .font(.systemScaled(14))
-                                                        .foregroundStyle(.white)
+                                                        .foregroundStyle(.primary)
                                                 )
+                                                .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1))
                                         }
                                     }
                                     .frame(width: 140, height: 140)
@@ -191,7 +193,7 @@ struct AmenConnectProfileSetupView: View {
                                 
                                 Toggle("", isOn: $viewModel.isBaptized)
                                     .labelsHidden()
-                                    .tint(.pink)
+                                    .tint(.accentColor)
                             }
                         }
                         
@@ -240,24 +242,18 @@ struct AmenConnectProfileSetupView: View {
                                     } label: {
                                         Text(option)
                                             .font(.custom("OpenSans-SemiBold", size: 14))
-                                            .foregroundStyle(viewModel.lookingFor == option ? .white : .primary)
+                                            .foregroundStyle(viewModel.lookingFor == option ? Color(.systemBackground) : .primary)
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 12)
                                             .background(
+                                                viewModel.lookingFor == option
+                                                ? AnyShapeStyle(Color(.label))
+                                                : AnyShapeStyle(.regularMaterial),
+                                                in: RoundedRectangle(cornerRadius: 20)
+                                            )
+                                            .overlay(
                                                 RoundedRectangle(cornerRadius: 20)
-                                                    .fill(
-                                                        viewModel.lookingFor == option ?
-                                                        LinearGradient(
-                                                            colors: [.pink, .purple],
-                                                            startPoint: .leading,
-                                                            endPoint: .trailing
-                                                        ) :
-                                                        LinearGradient(
-                                                            colors: [Color(.systemGray6), Color(.systemGray6)],
-                                                            startPoint: .leading,
-                                                            endPoint: .trailing
-                                                        )
-                                                    )
+                                                    .stroke(.primary.opacity(0.10), lineWidth: 1)
                                             )
                                     }
                                 }
@@ -289,16 +285,19 @@ struct AmenConnectProfileSetupView: View {
                                         Text(interest)
                                             .font(.custom("OpenSans-SemiBold", size: 13))
                                             .foregroundStyle(
-                                                viewModel.interests.contains(interest) ? .white : .primary
+                                                viewModel.interests.contains(interest) ? Color(.systemBackground) : .primary
                                             )
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 10)
                                             .background(
+                                                viewModel.interests.contains(interest)
+                                                ? AnyShapeStyle(Color(.label))
+                                                : AnyShapeStyle(.regularMaterial),
+                                                in: RoundedRectangle(cornerRadius: 16)
+                                            )
+                                            .overlay(
                                                 RoundedRectangle(cornerRadius: 16)
-                                                    .fill(
-                                                        viewModel.interests.contains(interest) ?
-                                                        Color.pink : Color(.systemGray6)
-                                                    )
+                                                    .stroke(.primary.opacity(0.10), lineWidth: 1)
                                             )
                                     }
                                 }
@@ -324,29 +323,16 @@ struct AmenConnectProfileSetupView: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.systemScaled(20))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(
+                            viewModel.isProfileValid ? Color(.systemBackground) : Color(.secondaryLabel)
+                        )
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
                         .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    viewModel.isProfileValid ?
-                                    LinearGradient(
-                                        colors: [.pink, .purple],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ) :
-                                    LinearGradient(
-                                        colors: [Color(.systemGray4), Color(.systemGray4)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .shadow(
-                                    color: viewModel.isProfileValid ? .pink.opacity(0.4) : .clear,
-                                    radius: 12,
-                                    y: 6
-                                )
+                            viewModel.isProfileValid
+                            ? AnyShapeStyle(Color(.label))
+                            : AnyShapeStyle(Color(.systemGray4)),
+                            in: Capsule()
                         )
                     }
                     .disabled(!viewModel.isProfileValid || viewModel.isSaving)
@@ -383,7 +369,7 @@ struct AmenConnectProfileSetupView: View {
                     VStack(spacing: 24) {
                         Image(systemName: "envelope.badge.shield.half.filled")
                             .font(.systemScaled(60))
-                            .foregroundStyle(.pink)
+                            .foregroundStyle(.secondary)
                         
                         VStack(spacing: 12) {
                             Text("Verify Your Email")
@@ -405,20 +391,13 @@ struct AmenConnectProfileSetupView: View {
                             } label: {
                                 Text("Resend Verification Email")
                                     .font(.custom("OpenSans-Bold", size: 16))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color(.systemBackground))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(LinearGradient(
-                                                colors: [.pink, .purple],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            ))
-                                    )
+                                    .background(Color(.label), in: Capsule())
                             }
                             .padding(.horizontal, 32)
-                            
+
                             Button {
                                 Task {
                                     await checkEmailVerification()
@@ -426,7 +405,7 @@ struct AmenConnectProfileSetupView: View {
                             } label: {
                                 Text("I've Verified My Email")
                                     .font(.custom("OpenSans-SemiBold", size: 16))
-                                    .foregroundStyle(.pink)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }

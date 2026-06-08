@@ -73,6 +73,11 @@ struct ProfilePhotoEditView: View {
                             selectedPhotoBanner
                         }
 
+                        // ── D. Recent Photos Quick-Select ─────────────────
+                        if !recentAssets.isEmpty {
+                            recentPhotosRow
+                        }
+
                         // ── Action Buttons ────────────────────────────────
                         actionButtonsRow
                             .padding(.horizontal, 24)
@@ -137,6 +142,8 @@ struct ProfilePhotoEditView: View {
                     ProfilePhotoCropView(
                         image: raw,
                         onCrop: { cropped in
+                            zoomScale = 1.0
+                            panOffset = .zero
                             selectedImage = cropped
                             showCropView = false
                         },
@@ -176,6 +183,8 @@ struct ProfilePhotoEditView: View {
                 if let data = try? await newPhoto?.loadTransferable(type: Data.self),
                    let uiImage = UIImage(data: data) {
                     await MainActor.run {
+                        zoomScale = 1.0
+                        panOffset = .zero
                         rawPickedImage = uiImage
                         showCropView = true
                     }
@@ -185,11 +194,13 @@ struct ProfilePhotoEditView: View {
         .onChange(of: rawPickedImage) { _, raw in
             // Camera path: ImagePicker sets rawPickedImage directly
             if raw != nil && !showCropView {
+                zoomScale = 1.0
+                panOffset = .zero
                 showCropView = true
             }
         }
         .onChange(of: selectedImage) { _, newImage in
-            if newImage != nil {
+            if let newImage {
                 withAnimation(Motion.adaptive(.spring(response: 0.45, dampingFraction: 0.7))) {
                     photoCircleScale = 1.0
                 }
@@ -197,10 +208,17 @@ struct ProfilePhotoEditView: View {
                     bannerVisible = true
                     bannerOffset = 0
                 }
+                // A + C: run face detection and quality checks concurrently
+                Task {
+                    async let _ = runFaceDetection(on: newImage)
+                    async let _ = checkImageQuality(newImage)
+                }
             } else {
                 photoCircleScale = 0.85
                 bannerVisible = false
                 bannerOffset = 20
+                faceDetectionState = .idle
+                qualityWarnings = []
             }
         }
         .onAppear {
@@ -210,62 +228,85 @@ struct ProfilePhotoEditView: View {
                     tipsVisible = true
                 }
             }
+            // D: load recent photos
+            Task { await loadRecentPhotos() }
         }
     }
 
     // MARK: - Photo Circle
 
     private var photoCircleSection: some View {
-        ZStack(alignment: .bottomTrailing) {
-            // Circle container
-            Group {
-                if let selectedImage {
-                    Image(uiImage: selectedImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 180, height: 180)
-                        .clipShape(Circle())
-                } else if let urlString = currentImageURL, let url = URL(string: urlString) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 180, height: 180)
-                                .clipShape(Circle())
-                        default:
-                            glassPlaceholderCircle
+        VStack(spacing: 10) {
+            ZStack(alignment: .bottomTrailing) {
+                // Circle container
+                Group {
+                    if let selectedImage {
+                        // B. Zoomable circle when a new photo is selected
+                        ZoomableCircleView(
+                            image: selectedImage,
+                            diameter: 180,
+                            zoomScale: $zoomScale,
+                            panOffset: $panOffset
+                        )
+                    } else if let urlString = currentImageURL, let url = URL(string: urlString) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 180, height: 180)
+                                    .clipShape(Circle())
+                            default:
+                                glassPlaceholderCircle
+                            }
                         }
+                        .frame(width: 180, height: 180)
+                    } else {
+                        glassPlaceholderCircle
                     }
-                    .frame(width: 180, height: 180)
-                } else {
-                    glassPlaceholderCircle
+                }
+                // Gradient stroke ring
+                .overlay(
+                    Circle()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.55),
+                                    Color.white.opacity(0.10)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2
+                        )
+                )
+                .shadow(color: .black.opacity(0.12), radius: 24, y: 10)
+                .scaleEffect(photoCircleScale)
+
+                // Camera badge
+                cameraBadge
+                    .offset(x: 4, y: 4)
+            }
+            .frame(width: 180, height: 180)
+
+            // Zoom hint + face/quality badges (only when photo is selected)
+            if selectedImage != nil {
+                Text("Pinch to zoom · Drag to reposition")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+
+                // A. Face detection badge
+                faceBadge
+                    .transition(.scale(scale: 0.8).combined(with: .opacity))
+
+                // C. Quality badges
+                ForEach(Array(qualityWarnings), id: \.self) { warning in
+                    qualityBadge(for: warning)
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
                 }
             }
-            // Gradient stroke ring
-            .overlay(
-                Circle()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.55),
-                                Color.white.opacity(0.10)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 2
-                    )
-            )
-            .shadow(color: .black.opacity(0.12), radius: 24, y: 10)
-            .scaleEffect(photoCircleScale)
-
-            // Camera badge
-            cameraBadge
-                .offset(x: 4, y: 4)
         }
-        .frame(width: 180, height: 180)
     }
 
     // Placeholder circle — glass + breathe symbol
@@ -599,9 +640,14 @@ struct ProfilePhotoEditView: View {
 
         isUploading = true
 
+        // B. Apply zoom/pan crop before upload
+        let finalImage = (zoomScale > 1.001 || panOffset.width != 0 || panOffset.height != 0)
+            ? applyZoomCrop(to: selectedImage, diameter: 180)
+            : selectedImage
+
         Task {
             do {
-                let imageURL = try await socialService.uploadProfilePicture(selectedImage)
+                let imageURL = try await socialService.uploadProfilePicture(finalImage)
 
                 await MainActor.run {
                     isUploading = false
@@ -634,6 +680,201 @@ struct ProfilePhotoEditView: View {
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.error)
                 }
+            }
+        }
+    }
+
+    // MARK: - B. Zoom/Pan Crop
+
+    /// Renders the currently-visible portion of `image` given zoomScale + panOffset into a
+    /// square UIImage matching the circle diameter at screen resolution.
+    private func applyZoomCrop(to image: UIImage, diameter: CGFloat) -> UIImage {
+        let scale = UIScreen.main.scale
+        let outputSize = CGSize(width: diameter * scale, height: diameter * scale)
+
+        UIGraphicsBeginImageContextWithOptions(outputSize, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+
+        guard let ctx = UIGraphicsGetCurrentContext() else { return image }
+
+        // Clip to circle
+        ctx.addEllipse(in: CGRect(origin: .zero, size: outputSize))
+        ctx.clip()
+
+        // Destination rect: scaled image centered + panned
+        let scaledSide = diameter * zoomScale * scale
+        let drawX = (outputSize.width  - scaledSide) / 2 + panOffset.width  * scale
+        let drawY = (outputSize.height - scaledSide) / 2 + panOffset.height * scale
+        image.draw(in: CGRect(x: drawX, y: drawY, width: scaledSide, height: scaledSide))
+
+        return UIGraphicsGetImageFromCurrentImageContext() ?? image
+    }
+
+    // MARK: - A. Face Detection
+
+    private func runFaceDetection(on image: UIImage) async {
+        await MainActor.run {
+            withAnimation { faceDetectionState = .running }
+        }
+
+        guard let cgImage = image.cgImage else {
+            await MainActor.run {
+                withAnimation { faceDetectionState = .noFace }
+            }
+            return
+        }
+
+        let request = VNDetectFaceRectanglesRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+
+        do {
+            try handler.perform([request])
+            let faces = (request.results as? [VNFaceObservation]) ?? []
+            await MainActor.run {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    faceDetectionState = faces.isEmpty ? .noFace : .faceFound
+                }
+            }
+        } catch {
+            await MainActor.run {
+                withAnimation { faceDetectionState = .noFace }
+            }
+        }
+    }
+
+    // MARK: - C. Quality Check
+
+    private func checkImageQuality(_ image: UIImage) async {
+        var warnings: Set<PhotoQualityWarning> = []
+
+        let pixelWidth = image.size.width * image.scale
+        if pixelWidth < 200 {
+            warnings.insert(.lowResolution)
+        }
+
+        if let data = image.jpegData(compressionQuality: 0.9), data.count > 5_000_000 {
+            warnings.insert(.largeFile)
+        }
+
+        await MainActor.run {
+            withAnimation {
+                qualityWarnings = warnings
+            }
+        }
+    }
+
+    // MARK: - D. Recent Photos Fetch
+
+    private func loadRecentPhotos() async {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        guard status == .authorized || status == .limited else { return }
+
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        fetchOptions.fetchLimit = 5
+        fetchOptions.predicate = NSPredicate(
+            format: "mediaType == %d", PHAssetMediaType.image.rawValue
+        )
+
+        let result = PHAsset.fetchAssets(with: fetchOptions)
+        var assets: [PHAsset] = []
+        result.enumerateObjects { asset, _, _ in
+            assets.append(asset)
+        }
+
+        await MainActor.run { recentAssets = assets }
+    }
+
+    // MARK: - A. Face Badge
+
+    @ViewBuilder
+    private var faceBadge: some View {
+        switch faceDetectionState {
+        case .idle:
+            EmptyView()
+        case .running:
+            GlassBadge(icon: "face.smiling",
+                       text: "Checking for face…",
+                       iconColor: .secondary)
+        case .faceFound:
+            GlassBadge(icon: "checkmark.circle.fill",
+                       text: "Face detected",
+                       iconColor: .green)
+        case .noFace:
+            GlassBadge(icon: "exclamationmark.triangle.fill",
+                       text: "No face found — community photos work best with a face visible",
+                       iconColor: .yellow)
+        }
+    }
+
+    // MARK: - C. Quality Badge
+
+    @ViewBuilder
+    private func qualityBadge(for warning: PhotoQualityWarning) -> some View {
+        switch warning {
+        case .lowResolution:
+            GlassBadge(icon: "exclamationmark.triangle.fill",
+                       text: "Low resolution — try a higher quality photo",
+                       iconColor: .orange)
+        case .largeFile:
+            GlassBadge(icon: "info.circle.fill",
+                       text: "Large photo — will be compressed on upload",
+                       iconColor: .blue)
+        }
+    }
+
+    // MARK: - D. Recent Photos Row
+
+    private var recentPhotosRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recents")
+                .font(AMENFont.semiBold(13))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 24)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(recentAssets, id: \.localIdentifier) { asset in
+                        RecentPhotoThumbnail(
+                            asset: asset,
+                            isSelected: selectedRecentAsset?.localIdentifier == asset.localIdentifier
+                        ) { image in
+                            selectedRecentAsset = asset
+                            zoomScale = 1.0
+                            panOffset = .zero
+                            rawPickedImage = image
+                            showCropView = true
+                        }
+                    }
+
+                    // Library shortcut at end
+                    Button {
+                        requestPhotoLibraryPermission()
+                    } label: {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 60, height: 60)
+                            .background(
+                                Circle()
+                                    .fill(.regularMaterial)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [Color.white.opacity(0.45), Color.white.opacity(0.1)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 1
+                                            )
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 4)
             }
         }
     }
