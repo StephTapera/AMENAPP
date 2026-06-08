@@ -401,8 +401,8 @@ struct AmenUniversalComposerView: View {
             .padding(.vertical, 10)
             .background(
                 isActive
-                    ? AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray4) : Material.thickMaterial)
-                    : AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray6) : Material.regularMaterial),
+                    ? (reduceTransparency ? AnyShapeStyle(Color(uiColor: .systemGray4)) : AnyShapeStyle(Material.thickMaterial))
+                    : (reduceTransparency ? AnyShapeStyle(Color(uiColor: .systemGray6)) : AnyShapeStyle(Material.regularMaterial)),
                 in: Capsule(style: .continuous)
             )
             .overlay(
@@ -466,15 +466,12 @@ struct AmenUniversalComposerView: View {
             // Prayer Privacy — Pray mode
             if showPrayerPrivacy {
                 glassField(label: "Prayer Privacy", icon: "lock") {
-                    Picker("Privacy", selection: Binding(
-                        get: { vm.draft.prayerPrivacyLevel ?? .trustedCircle },
-                        set: { vm.draft.prayerPrivacyLevel = $0 }
-                    )) {
-                        Text("Trusted").tag(PrayerPrivacyLevel.trustedCircle)
-                        Text("Church").tag(PrayerPrivacyLevel.church)
-                        Text("Public").tag(PrayerPrivacyLevel.public)
-                        Text("Anonymous").tag(PrayerPrivacyLevel.anonymous)
-                        Text("Only Me").tag(PrayerPrivacyLevel.private)
+                    Picker("Privacy", selection: $vm.draft.prayerPrivacyLevel) {
+                        Text("Trusted").tag(PrayerPrivacyLevel.trustedCircle.rawValue)
+                        Text("Church").tag(PrayerPrivacyLevel.church.rawValue)
+                        Text("Public").tag(PrayerPrivacyLevel.public.rawValue)
+                        Text("Anonymous").tag(PrayerPrivacyLevel.anonymous.rawValue)
+                        Text("Only Me").tag(PrayerPrivacyLevel.private.rawValue)
                     }
                     .pickerStyle(.segmented)
                 }
@@ -596,7 +593,7 @@ struct AmenUniversalComposerView: View {
             .padding(.vertical, 9)
             .background(
                 isSelected
-                    ? AnyShapeStyle(reduceTransparency ? Color(uiColor: .systemGray4) : Material.thickMaterial)
+                    ? (reduceTransparency ? AnyShapeStyle(Color(uiColor: .systemGray4)) : AnyShapeStyle(Material.thickMaterial))
                     : AnyShapeStyle(Color.clear),
                 in: Capsule(style: .continuous)
             )

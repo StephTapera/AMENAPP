@@ -677,7 +677,7 @@ struct SpaceMemberSearchSheet: View {
                     Spacer()
                 } else if searchResults.isEmpty {
                     Spacer()
-                    Text("No results for "\(query)"")
+                    Text("No results for \u{201C}\(query)\u{201D}")
                         .font(.systemScaled(14))
                         .foregroundStyle(.secondary)
                     Spacer()
