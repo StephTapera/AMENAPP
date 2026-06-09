@@ -25,18 +25,44 @@ struct ChurchNotesMetadataCard: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                VStack(spacing: 10) {
-                    TextField("Church", text: $metadata.churchName)
-                        .onChange(of: metadata.churchName) { _, _ in onChanged() }
-                    TextField("Pastor", text: $metadata.pastorName)
-                        .onChange(of: metadata.pastorName) { _, _ in onChanged() }
+                VStack(alignment: .leading, spacing: 10) {
+                    labeledField(
+                        title: "Church",
+                        icon: "building.2",
+                        placeholder: "Search churches by name, city, or denomination",
+                        text: $metadata.churchName
+                    )
+                    .onChange(of: metadata.churchName) { _, _ in onChanged() }
+
+                    labeledField(
+                        title: "Pastor",
+                        icon: "person",
+                        placeholder: "Pastor or speaker",
+                        text: $metadata.pastorName
+                    )
+                    .onChange(of: metadata.pastorName) { _, _ in onChanged() }
+
                     DatePicker("Date", selection: $metadata.serviceDate, displayedComponents: .date)
                         .onChange(of: metadata.serviceDate) { _, _ in onChanged() }
                 }
-                .textFieldStyle(.roundedBorder)
             }
         }
         .padding(16)
         .churchNotesGlassCard()
+    }
+
+    private func labeledField(title: String, icon: String, placeholder: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
+                .padding(12)
+                .background(
+                    Color(.secondarySystemGroupedBackground).opacity(0.72),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+        }
     }
 }

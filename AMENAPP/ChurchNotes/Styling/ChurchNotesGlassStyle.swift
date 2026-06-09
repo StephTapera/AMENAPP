@@ -1,11 +1,17 @@
 import SwiftUI
 
 struct ChurchNotesGlassCardModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     func body(content: Content) -> some View {
         content
             .background(
                 RoundedRectangle(cornerRadius: ChurchNotesDesignTokens.Radius.card, style: .continuous)
-                    .fill(.thinMaterial)
+                    .fill(reduceTransparency ? Color(.secondarySystemGroupedBackground) : Color.clear)
+                    .background(
+                        .thinMaterial,
+                        in: RoundedRectangle(cornerRadius: ChurchNotesDesignTokens.Radius.card, style: .continuous)
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: ChurchNotesDesignTokens.Radius.card, style: .continuous)
                             .fill(ChurchNotesDesignTokens.Colors.cardBackground)

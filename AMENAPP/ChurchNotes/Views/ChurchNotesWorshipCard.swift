@@ -12,23 +12,26 @@ struct ChurchNotesWorshipCard: View {
                     Text("Music")
                         .font(.systemScaled(17, weight: .semibold))
                         .foregroundStyle(.primary)
-                    Text("Attach one meaningful song or album without overpowering the note.")
+                    Text("Keep one primary song connected to this note.")
                         .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                Button(songs.isEmpty ? "Attach Music" : "Replace music", action: onAdd)
-                    .buttonStyle(.bordered)
-                    .tint(.black)
+                Button(action: onAdd) {
+                    Label(songs.isEmpty ? "Add" : "Replace", systemImage: songs.isEmpty ? "plus" : "arrow.triangle.2.circlepath")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.bordered)
+                .tint(ChurchNotesDesignTokens.Colors.personalTint)
             }
 
             if songs.isEmpty {
                 emptyState
             } else {
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(songs) { song in
+                    ForEach(songs.prefix(1)) { song in
                         HStack(spacing: 10) {
                             WorshipMusicPill(song: song)
 
@@ -56,7 +59,7 @@ struct ChurchNotesWorshipCard: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.black.opacity(0.05))
+                        .fill(Color.primary.opacity(0.05))
                         .frame(width: 44, height: 44)
                     Image(systemName: "music.note")
                         .font(.systemScaled(16, weight: .semibold))
@@ -67,28 +70,29 @@ struct ChurchNotesWorshipCard: View {
                     Text("Attach Music")
                         .font(.systemScaled(14, weight: .semibold))
                         .foregroundStyle(.primary)
-                    Text("Paste an Apple Music or Spotify song or album link.")
+                    Text("Search, paste Apple Music, Spotify, or YouTube, then keep one primary song.")
                         .font(.systemScaled(12))
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
 
                 Image(systemName: "plus.circle.fill")
                     .font(.systemScaled(20, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(ChurchNotesDesignTokens.Colors.personalTint)
             }
             .padding(14)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.white.opacity(0.58))
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color(.systemBackground).opacity(0.58))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.8)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(ChurchNotesDesignTokens.Colors.neutralBorder, lineWidth: 0.8)
                     )
             )
         }

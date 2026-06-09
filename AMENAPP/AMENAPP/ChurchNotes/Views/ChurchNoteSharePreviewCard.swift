@@ -33,11 +33,18 @@ struct ChurchNoteSharePreviewCard: View {
             }
             cardFooter
         }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.thinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color(.systemBackground).opacity(0.68))
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color(.separator).opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.75)
         )
         .task {
             shareableBlocks = await ChurchNoteBlockRepository.shared.shareableBlocks(noteId: noteId)
@@ -50,8 +57,10 @@ struct ChurchNoteSharePreviewCard: View {
     private var cardHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: "note.text")
-                .font(.systemScaled(14))
-                .foregroundStyle(.secondary)
+                .font(.systemScaled(14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(ChurchNotesDesignTokens.Colors.personalTint, in: Circle())
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(noteTitle ?? "Church Note")
@@ -65,8 +74,8 @@ struct ChurchNoteSharePreviewCard: View {
                 }
             }
             Spacer()
-            Image(systemName: "square.and.arrow.up")
-                .font(.caption)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
         }
@@ -79,9 +88,6 @@ struct ChurchNoteSharePreviewCard: View {
 
     private var blockList: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Divider()
-                .padding(.horizontal, 14)
-
             ForEach(shareableBlocks.prefix(4)) { block in
                 SharePreviewBlockRow(block: block)
                     .padding(.horizontal, 14)
@@ -116,15 +122,14 @@ struct ChurchNoteSharePreviewCard: View {
     // MARK: - Footer
 
     private var cardFooter: some View {
-        HStack {
-            Image(systemName: "app.badge.fill")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .accessibilityHidden(true)
-            Text("AMEN Notes")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+        HStack(spacing: 12) {
+            Label("Scripture", systemImage: "book.closed")
+            Label("Music", systemImage: "music.note")
+            Spacer()
+            Text("Private blocks hidden")
         }
+        .font(.caption2.weight(.medium))
+        .foregroundStyle(.tertiary)
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
     }
@@ -138,7 +143,6 @@ struct SharePreviewBlockRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            // Left semantic accent line
             Rectangle()
                 .fill(block.semanticType.accentColor.opacity(0.5))
                 .frame(width: 2)
@@ -204,8 +208,10 @@ struct ChurchNoteInlineAttachment: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "note.text")
-                .font(.systemScaled(16))
-                .foregroundStyle(.secondary)
+                .font(.systemScaled(14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(ChurchNotesDesignTokens.Colors.personalTint, in: Circle())
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -230,8 +236,10 @@ struct ChurchNoteInlineAttachment: View {
             }
         }
         .padding(12)
-        .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 12))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.75)
+        )
     }
 }
-
-
