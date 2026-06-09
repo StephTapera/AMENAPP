@@ -202,6 +202,17 @@ struct ContentView: View {
                         dlog("🚦 [LAUNCH] ContentView → ReactivationPromptView appeared")
                         AppReadyStateManager.shared.signalReady()
                     }
+            } else if authViewModel.needsAgeGate {
+                // Audit D-01: universal DOB → tier gate. Reached by any authenticated
+                // user without an age profile (notably first-time Google/Apple sign-in),
+                // so no auth method can bypass age assurance. Flag-gated upstream.
+                AgeGateContainerView()
+                    .environmentObject(authViewModel)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .onAppear {
+                        dlog("🚦 [LAUNCH] ContentView → AgeGateContainerView appeared")
+                        AppReadyStateManager.shared.signalReady()
+                    }
             } else if authViewModel.needsUsernameSelection {
                 // Show username selection for social sign-in users (before onboarding)
                 UsernameSelectionView()
@@ -638,7 +649,6 @@ struct ContentView: View {
         ZStack {
             // Main content (takes full screen)
             selectedTabView
-                .ignoresSafeArea(.all, edges: .bottom)
 
             // Email verification banner (appears at top when email not verified)
             if authViewModel.showEmailVerificationBanner {
@@ -705,10 +715,9 @@ struct ContentView: View {
         // a push is tapped. This modifier observes it and switches selectedTab.
         .handleNotificationNavigation(selectedTab: $viewModel.selectedTab)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            // Reserve space for the floating tab bar so ScrollViews don't clip content
-            // Always reserve space - tab bar moves offscreen with keyboard instead of disappearing
+            // Reserve the floating tab, compose, audio, and assistant stack.
             Color.clear
-                .frame(height: showTabBar ? 100 : 0) // pill (62) + bottom padding (10) + compose overflow (28)
+                .frame(height: showTabBar ? 196 : 0)
                 .animation(.easeOut(duration: 0.25), value: showTabBar)
         }
         .overlay(alignment: .bottom) {

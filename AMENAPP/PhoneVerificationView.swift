@@ -63,6 +63,8 @@ struct PhoneVerificationView: View {
                                 TextField("(555) 123-4567", text: $phoneNumber)
                                     .font(AMENFont.regular(16))
                                     .keyboardType(.phonePad)
+                                    .textContentType(.telephoneNumber) // B-02
+                                    .accessibilityLabel("Phone number") // E-07
                                     .focused($isPhoneFocused)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 14)
@@ -120,6 +122,9 @@ struct PhoneVerificationView: View {
                             TextField("000000", text: $otpCode)
                                 .font(AMENFont.regular(24).monospacedDigit())
                                 .keyboardType(.numberPad)
+                                .textContentType(.oneTimeCode) // B-01: SMS autofill
+                                .accessibilityLabel("Verification code") // E-07
+                                .accessibilityHint("Enter the 6-digit code sent by text message")
                                 .focused($isOTPFocused)
                                 .multilineTextAlignment(.center)
                                 .padding(.vertical, 16)

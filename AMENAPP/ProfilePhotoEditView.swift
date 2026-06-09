@@ -551,7 +551,7 @@ struct ProfilePhotoEditView: View {
             } label: {
                 glassActionLabel(icon: "photo.on.rectangle", text: "Library")
             }
-            .buttonStyle(GlassPillButtonStyle())
+            .buttonStyle(ProfilePhotoGlassPillButtonStyle())
 
             // Camera button
             Button {
@@ -559,7 +559,7 @@ struct ProfilePhotoEditView: View {
             } label: {
                 glassActionLabel(icon: "camera.fill", text: "Camera")
             }
-            .buttonStyle(GlassPillButtonStyle())
+            .buttonStyle(ProfilePhotoGlassPillButtonStyle())
         }
     }
 
@@ -1078,7 +1078,7 @@ struct ProfilePhotoEditView: View {
 
 // MARK: - Glass Pill Button Style
 
-private struct GlassPillButtonStyle: ButtonStyle {
+private struct ProfilePhotoGlassPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(.regularMaterial, in: Capsule())

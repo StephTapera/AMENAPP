@@ -312,6 +312,49 @@ struct DateOfBirthCollectionView: View {
     }
 }
 
+// MARK: - Age Gate Container (audit D-01)
+
+/// Wraps `DateOfBirthCollectionView` for the universal age gate routed from
+/// `ContentView` when `authViewModel.needsAgeGate` is true. The DOB view blocks
+/// under-minimum users internally; on a valid Continue we persist the DOB → tier
+/// via `AgeAssuranceService` and the gate clears.
+struct AgeGateContainerView: View {
+    @EnvironmentObject private var authViewModel: AuthenticationViewModel
+    @State private var dateOfBirth = Date()
+    @State private var isSaving = false
+    @State private var errorText: String?
+
+    var body: some View {
+        DateOfBirthCollectionView(
+            dateOfBirth: $dateOfBirth,
+            isPresented: .constant(true)
+        ) { selectedDate in
+            guard !isSaving else { return }
+            isSaving = true
+            Task {
+                do {
+                    try await authViewModel.completeAgeGate(dateOfBirth: selectedDate)
+                } catch {
+                    // Under-minimum or write failure: the DOB view already blocks
+                    // under-age locally, so this path is defensive.
+                    errorText = error.localizedDescription
+                    isSaving = false
+                }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let errorText {
+                Text(errorText)
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 100)
+                    .multilineTextAlignment(.center)
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {

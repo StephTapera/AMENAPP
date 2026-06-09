@@ -876,11 +876,11 @@ struct DiaChatView: View {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
-        .overlay(
+        .overlay {
             // Subtle noise texture
             Color.white.opacity(0.05)
                 .blendMode(.overlay)
-        )
+        }
     }
     
     // MARK: - Navigation Bar

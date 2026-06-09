@@ -300,6 +300,9 @@ struct BereanChatView: View {
     @State private var showModeSheet = false
     @State private var showModeDrawer = false
     @State private var showWallpaperPicker = false
+    @State private var showMenu = false
+    @State private var showAvatarSheet = false
+    @State private var showDailyFormation = false
     @State private var sendSweep = false
     @State private var pendingUserSend = false
     @State private var showUpgradeAlert = false
@@ -348,9 +351,10 @@ struct BereanChatView: View {
                                               bottomSafeAreaInset: proxy.safeAreaInsets.bottom)
 
             ZStack(alignment: .bottom) {
-                wallpaperManager.wallpaperView()
+                Color(.systemBackground)
                     .ignoresSafeArea()
-                Color.white.opacity(contrastStyle.scrimOpacity)
+                Color(red: 0.985, green: 0.985, blue: 0.980)
+                    .opacity(0.72)
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -408,6 +412,28 @@ struct BereanChatView: View {
             }
             .sheet(isPresented: $showWallpaperPicker) {
                 BereanWallpaperPickerSheet(manager: wallpaperManager)
+            }
+            .sheet(isPresented: $showDailyFormation) {
+                BereanDailyFormationView()
+            }
+            .sheet(isPresented: $showMenu) {
+                BereanMenuSheet(
+                    isPresented: $showMenu,
+                    onNewChat: {
+                        showMenu = false
+                        vm.messages.removeAll()
+                        vm.inputText = ""
+                        showHero = true
+                        heroAppeared = false
+                        cardsAppeared = false
+                    },
+                    onSelectSession: { _ in
+                        showMenu = false
+                    }
+                )
+            }
+            .sheet(isPresented: $showAvatarSheet) {
+                BereanProfileSheet(isPresented: $showAvatarSheet)
             }
             .sheet(item: $selectedReasoningNode) { node in
                 BereanReasoningSummarySheet(node: node)
@@ -470,91 +496,30 @@ struct BereanChatView: View {
 
     private func smartBlurHeader(metrics: BereanLayoutMetrics) -> some View {
         let blurIntensity = min(scrollOffset / 100, 1.0)
-        // Compression starts at headerCompressionThreshold (40pt), fully compressed by 120pt
-        let compressionProgress = min(max((scrollOffset - metrics.headerCompressionThreshold) / 80, 0), 1.0)
 
         return VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // Back button
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.systemScaled(17, weight: .semibold))
-                        .foregroundColor(contrastStyle.foregroundColor)
-                        .frame(width: 38, height: 38)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .overlay(Circle().fill(Color.white.opacity(0.70)))
-                                .overlay(Circle().strokeBorder(Color.white.opacity(0.40), lineWidth: 0.5))
-                                .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
-                        )
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                // Center: title fades in at low scroll; mode capsule fades in at high scroll
-                ZStack {
-                    // Conversation title (visible at low scroll)
-                    Text(conversationTitle ?? "Berean")
-                        .font(.systemScaled(17, weight: .semibold))
-                        .foregroundColor(contrastStyle.foregroundColor)
-                        .opacity(blurIntensity * (1 - compressionProgress))
-                        .lineLimit(1)
-
-                    // Compressed mode capsule (visible when scrolled far)
-                    if compressionProgress > 0 {
-                        headerModeCapsule(compressionProgress: compressionProgress)
-                    }
-                }
-
-                Spacer()
-
-                HStack(spacing: 8) {
-                    // Study toggle hides into the mode capsule when fully compressed
-                    if compressionProgress < 0.85 {
-                        studyModeToggle
-                            .opacity(1 - compressionProgress)
-                    }
-                    headerMenuButton
-                }
-            }
+            BereanLiquidGlassHeader(
+                onMenu: { showMenu = true },
+                onAvatar: { showAvatarSheet = true },
+                onPulse: { showDailyFormation = true },
+                showPulsePill: true
+            )
             .padding(.horizontal, metrics.contentHorizontalPadding + 2)
-            // Vertical padding compresses from full → tight as user scrolls
-            .padding(.vertical, metrics.headerVerticalPadding - compressionProgress * 4)
+            .padding(.vertical, metrics.headerVerticalPadding)
 
-            // Bottom separator appears with scroll
             Rectangle()
-                .fill(BereanColor.separator.opacity(blurIntensity * 0.6))
+                .fill(BereanColor.separator.opacity(blurIntensity * 0.35))
                 .frame(height: 0.5)
         }
         .background(
-            ZStack {
-                // Adaptive blur based on scroll
+            Group {
                 if blurIntensity > 0.1 {
                     Rectangle()
                         .fill(.ultraThinMaterial)
-                        .overlay(
-                            Rectangle()
-                                .fill(Color.white.opacity(0.50 + blurIntensity * 0.30))
-                        )
-                        .overlay(
-                            Rectangle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.30),
-                                            Color.clear
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                        )
+                        .overlay(Rectangle().fill(Color(.systemBackground).opacity(0.72)))
                 }
             }
         )
-        .animation(Motion.adaptive(.easeOut(duration: 0.18)), value: compressionProgress)
         .animation(Motion.adaptive(.easeOut(duration: 0.15)), value: blurIntensity)
     }
 
@@ -663,10 +628,11 @@ struct BereanChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    // Hero section (shown when no messages yet)
+                    // Empty state: centered Today's Pulse module before the conversation starts.
                     if showHero && vm.messages.count <= 1 {
-                        heroSection
-                            .padding(.top, 12)
+                        BereanAssistantEmptyState(onOpenPulse: { showDailyFormation = true })
+                            .frame(minHeight: max(360, metrics.size.height * 0.54))
+                            .padding(.top, 8)
                             .padding(.bottom, 24)
                             .id("hero")
                             .opacity(heroAppeared ? 1 : 0)
@@ -675,17 +641,6 @@ struct BereanChatView: View {
                                 guard !heroAppeared else { return }
                                 withAnimation(Motion.adaptive(.spring(response: 0.52, dampingFraction: 0.82)).delay(0.05)) {
                                     heroAppeared = true
-                                }
-                            }
-
-                        quickActionCards
-                            .padding(.horizontal, 18)
-                            .padding(.bottom, 24)
-                            .opacity(cardsAppeared ? 1 : 0)
-                            .offset(y: cardsAppeared ? 0 : 18)
-                            .onAppear {
-                                guard !cardsAppeared else { return }
-                                withAnimation(Motion.adaptive(.spring(response: 0.50, dampingFraction: 0.84)).delay(0.20)) {
                                     cardsAppeared = true
                                 }
                             }
@@ -1348,6 +1303,10 @@ struct BereanChatView: View {
             HStack(spacing: 7) {
                 ForEach(BereanContextSource.allCases, id: \.self) { source in
                     let isSelected = selectedContextSources.contains(source)
+                    let fillColor = isSelected ? Color.white.opacity(0.95) : Color.white.opacity(0.45)
+                    let strokeColor = isSelected ? Color.black.opacity(0.14) : Color.black.opacity(0.06)
+                    let shadowColor = isSelected ? Color.black.opacity(0.07) : Color.clear
+                    
                     Button {
                         withAnimation(Motion.adaptive(.spring(response: 0.28, dampingFraction: 0.75))) {
                             if isSelected && selectedContextSources.count > 1 {
@@ -1368,25 +1327,15 @@ struct BereanChatView: View {
                             : Color.black.opacity(0.45))
                         .padding(.horizontal, 11)
                         .padding(.vertical, 6)
-                        .background(
+                        .background {
                             Capsule()
-                                .fill(isSelected
-                                      ? Color.white.opacity(0.95)
-                                      : Color.white.opacity(0.45))
-                                .overlay(
+                                .fill(fillColor)
+                                .overlay {
                                     Capsule()
-                                        .strokeBorder(
-                                            isSelected
-                                                ? Color.black.opacity(0.14)
-                                                : Color.black.opacity(0.06),
-                                            lineWidth: 0.5
-                                        )
-                                )
-                                .shadow(
-                                    color: isSelected ? Color.black.opacity(0.07) : .clear,
-                                    radius: 4, y: 2
-                                )
-                        )
+                                        .strokeBorder(strokeColor, lineWidth: 0.5)
+                                }
+                                .shadow(color: shadowColor, radius: 4, y: 2)
+                        }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(source.label) context \(isSelected ? "active" : "inactive")")
@@ -1409,15 +1358,29 @@ struct BereanChatView: View {
     }
 
     private var focusedSuggestionRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                suggestionPill(title: "Search Scripture", icon: "book.pages", prompt: "Search scripture for ")
-                suggestionPill(title: "Explain Simply", icon: "sparkles", prompt: "Explain this simply: ")
-                suggestionPill(title: "Build a Prayer", icon: "hands.sparkles", prompt: "Turn this into a prayer: ")
-            }
-            .padding(.vertical, 2)
+        SmartActionPills(actions: SmartAction.allCases, onSelect: handleSmartAction)
+            .simultaneousGesture(DragGesture(minimumDistance: 0))
+    }
+
+    private func handleSmartAction(_ action: SmartAction) {
+        switch action {
+        case .explainVerse:
+            vm.inputText = "Explain this verse: "
+        case .createPrayer:
+            vm.inputText = "Create a prayer for: "
+        case .summarizeNotes:
+            vm.inputText = "Summarize these notes: "
+        case .compareTranslations:
+            vm.inputText = "Compare translations for: "
+        case .saveReflection:
+            vm.inputText = "Help me save this reflection: "
+        case .startDiscussion:
+            vm.inputText = "Start a safe discussion about: "
+        case .shareSafely:
+            vm.inputText = "Help me share this safely: "
         }
-        .simultaneousGesture(DragGesture(minimumDistance: 0))
+        inputFocused = true
+        HapticManager.impact(style: .light)
     }
 
     private var compactContextRail: some View {

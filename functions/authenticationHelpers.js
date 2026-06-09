@@ -320,6 +320,106 @@ exports.resolveUsernameToEmail = onCall(
 );
 
 /**
+ * SECURE username sign-in (audit F-02).
+ *
+ * Replaces resolveUsernameToEmail for the sign-in path: the email NEVER leaves
+ * the server. The client sends {username, password}; we resolve username → uid
+ * → email server-side, verify the password against Identity Toolkit, and return
+ * ONLY a Firebase custom token. The client then calls signIn(withCustomToken:).
+ * This removes the per-username email-enumeration / PII-harvest vector.
+ *
+ * Requires the project Web API key in the FIREBASE_WEB_API_KEY env var (set via
+ * `firebase functions:secrets:set FIREBASE_WEB_API_KEY` or functions config).
+ *
+ * @deprecated resolveUsernameToEmail — migrate clients to this and remove it.
+ */
+exports.signInWithUsername = onCall(
+    {
+      region: "us-central1",
+      enforceAppCheck: true,
+      secrets: ["FIREBASE_WEB_API_KEY"],
+    },
+    async (request) => {
+      const {username, password} = request.data || {};
+
+      if (!username || typeof username !== "string" ||
+          !password || typeof password !== "string") {
+        throw new HttpsError("invalid-argument", "username and password are required");
+      }
+
+      const normalizedUsername = username.trim().toLowerCase().replace(/^@/, "");
+      if (!/^[a-z0-9_.]{1,30}$/.test(normalizedUsername)) {
+        // Generic message — never confirm whether the username exists.
+        throw new HttpsError("unauthenticated", "Invalid username or password");
+      }
+
+      const apiKey = process.env.FIREBASE_WEB_API_KEY;
+      if (!apiKey) {
+        console.error("signInWithUsername: FIREBASE_WEB_API_KEY not configured");
+        throw new HttpsError("internal", "Sign-in temporarily unavailable");
+      }
+
+      const db = admin.firestore();
+
+      // Resolve username → uid (public, email-free index; same fallback as above)
+      let uid;
+      const lookupDoc = await db.collection("usernameLookup").doc(normalizedUsername).get();
+      if (lookupDoc.exists) {
+        uid = lookupDoc.data()?.uid;
+      } else {
+        const usersSnap = await db.collection("users")
+            .where("usernameLowercase", "==", normalizedUsername)
+            .limit(1).get();
+        if (usersSnap.empty) {
+          throw new HttpsError("unauthenticated", "Invalid username or password");
+        }
+        uid = usersSnap.docs[0].id;
+        try {
+          await db.collection("usernameLookup").doc(normalizedUsername).set({uid});
+        } catch (_) { /* non-fatal backfill */ }
+      }
+      if (!uid) {
+        throw new HttpsError("unauthenticated", "Invalid username or password");
+      }
+
+      // uid → email (Admin SDK; email stays server-side)
+      let userRecord;
+      try {
+        userRecord = await admin.auth().getUser(uid);
+      } catch (err) {
+        throw new HttpsError("unauthenticated", "Invalid username or password");
+      }
+      if (!userRecord.email) {
+        throw new HttpsError(
+            "failed-precondition",
+            "This account does not have a password. Please sign in another way.");
+      }
+
+      // Verify the password via Identity Toolkit WITHOUT returning the email.
+      const resp = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              email: userRecord.email,
+              password,
+              returnSecureToken: false,
+            }),
+          });
+
+      if (!resp.ok) {
+        // Wrong password / disabled / etc. — always generic.
+        throw new HttpsError("unauthenticated", "Invalid username or password");
+      }
+
+      const customToken = await admin.auth().createCustomToken(uid);
+      console.log(`✅ signInWithUsername: @${normalizedUsername} → token minted for uid=${uid}`);
+      return {customToken};
+    }
+);
+
+/**
  * One-time backfill: populate usernameLookup for all existing users
  * that were created before the lookup index was introduced.
  * Call once from the Firebase console or CLI — safe to call multiple times (idempotent).
@@ -384,9 +484,14 @@ exports.onUserDeleted = onDocumentDeleted(
         const username = userData?.usernameLowercase || userData?.username?.toLowerCase();
 
         if (username) {
-          // Release username for future use
-          await db.collection("usernames").doc(username).delete();
-          console.log(`✅ Username "${username}" released`);
+          // Release username for future use (audit F-04: also clear the
+          // usernameLookup index, otherwise the username→uid record is orphaned
+          // and the name can never be re-claimed).
+          await Promise.all([
+            db.collection("usernames").doc(username).delete(),
+            db.collection("usernameLookup").doc(username).delete(),
+          ]);
+          console.log(`✅ Username "${username}" + lookup index released`);
         }
 
         // P0-3: CASCADE DELETE - Clean up all user data
@@ -715,7 +820,31 @@ exports.manualCascadeDelete = onCall(
       }
 
       try {
+        // 1. Cascade all Firestore/RTDB/Storage data (also releases the
+        //    username + usernameLookup via the users/{uid} delete trigger).
         await cascadeDeleteUserData(userId);
+
+        // 2. Audit F-04: make the SERVER authoritative. Revoke all refresh
+        //    tokens (immediately invalidating existing sessions) and delete the
+        //    Auth user here, rather than relying on a client-driven
+        //    currentUser.delete() that can leave a partial wipe on a mid-flow
+        //    network drop. Token revoke + delete is idempotent enough that a
+        //    client that still calls delete() simply sees user-not-found.
+        try {
+          await admin.auth().revokeRefreshTokens(userId);
+        } catch (revokeErr) {
+          console.warn("manualCascadeDelete: revokeRefreshTokens failed (non-fatal):", revokeErr);
+        }
+        try {
+          await admin.auth().deleteUser(userId);
+          console.log(`✅ Auth user ${userId} deleted server-side`);
+        } catch (authErr) {
+          if (authErr?.code === "auth/user-not-found") {
+            console.log(`ℹ️ Auth user ${userId} already deleted`);
+          } else {
+            throw authErr;
+          }
+        }
 
         return {
           success: true,

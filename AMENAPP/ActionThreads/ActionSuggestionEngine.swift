@@ -42,6 +42,23 @@ final class ActionSuggestionEngine: ObservableObject {
     }
 
     private func computeSuggestion(for post: Post) async -> ActionSuggestion? {
+        let postId = post.firebaseId ?? post.id.uuidString
+        let privacyTier: ActionIntelligencePrivacyTier = post.visibility == .public ? .publicCommunity : .confidential
+        let source = ActionIntelligenceSource(
+            id: postId,
+            text: post.content,
+            surface: .feedPost,
+            privacyTier: privacyTier,
+            authorId: post.authorId,
+            currentUserId: Auth.auth().currentUser?.uid,
+            createdAt: Date()
+        )
+
+        if let analysis = ActionIntelligenceEngine.shared.analyze(source: source),
+           !analysis.shouldSuppressCapsule {
+            return buildSuggestion(from: analysis, postId: postId)
+        }
+
         let content = post.content.lowercased()
         var bestType: ActionThreadType?
         var confidence = 0.0

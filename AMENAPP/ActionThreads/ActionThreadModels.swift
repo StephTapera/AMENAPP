@@ -21,6 +21,10 @@ enum ActionThreadType: String, Codable, CaseIterable {
     case scriptureSupport   = "scripture_support"
     case encouragementFlow  = "encouragement_flow"
     case careFollowup       = "care_followup"
+    case eventFollowup      = "event_followup"
+    case volunteerCoordination = "volunteer_coordination"
+    case initiative         = "initiative"
+    case learningPath       = "learning_path"
     case crisisResource     = "crisis_support_resource_prompt"
     case customSupport      = "custom_support_flow"
 
@@ -33,6 +37,10 @@ enum ActionThreadType: String, Codable, CaseIterable {
         case .scriptureSupport:  return "Scripture Support"
         case .encouragementFlow: return "Encouragement"
         case .careFollowup:      return "Care Follow-Up"
+        case .eventFollowup:     return "Event Follow-Up"
+        case .volunteerCoordination: return "Volunteer Coordination"
+        case .initiative:        return "Initiative"
+        case .learningPath:      return "Learning Path"
         case .crisisResource:    return "Crisis Resources"
         case .customSupport:     return "Support Flow"
         }
@@ -159,6 +167,9 @@ struct ActionStep: Codable, Identifiable, Equatable {
         case encouragement = "encouragement"  // Send encouragement
         case reminder     = "reminder"        // Scheduled reminder
         case resource     = "resource"        // Share a resource link
+        case event        = "event"           // RSVP/calendar/gathering step
+        case volunteer    = "volunteer"       // Volunteer coordination step
+        case initiative   = "initiative"      // Initiative/project step
         case custom       = "custom"          // User-defined step
     }
 }

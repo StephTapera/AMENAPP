@@ -445,6 +445,10 @@ struct AMENAPPApp: App {
                     // Guard: Auth.auth() crashes if Firebase is not yet configured
                     // (SwiftUI evaluates body.getter before AppDelegate finishes).
                     guard FirebaseApp.app() != nil else { return false }
+                    // Audit D-02: under ff_onboarding_v2, ContentView's OnboardingView is the
+                    // SINGLE owner of onboarding. Suppressing this legacy second fullScreenCover
+                    // removes the simultaneous-cover P0 crash risk entirely.
+                    guard !AMENFeatureFlags.shared.onboardingV2Enabled else { return false }
                     let shouldShow = Auth.auth().currentUser != nil && !hasCompletedOnboarding
                     dlog("🎬 OnboardingFlowView fullScreenCover check: currentUser=\(Auth.auth().currentUser?.uid ?? "nil"), hasCompletedOnboarding=\(hasCompletedOnboarding), shouldShow=\(shouldShow)")
                     return shouldShow

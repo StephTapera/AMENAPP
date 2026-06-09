@@ -1746,15 +1746,15 @@ struct CreatePostView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(showingAttachmentPicker ? "Close attachment menu" : "Open attachment menu")
 
-            attachmentBarIcon("chart.bar.xaxis", recommended: recommended) {
+            attachmentBarIcon("chart.bar.xaxis", label: showingPoll ? "Remove poll" : "Create poll", recommended: recommended) {
                 withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                     showingPoll.toggle()
                 }
             }
-            attachmentBarIcon("text.book.closed", recommended: recommended) { showingVersePickerSheet = true }
-            attachmentBarIcon("link", recommended: recommended) { showingLinkSheet = true }
-            attachmentBarIcon("calendar", recommended: recommended) { showingScheduleSheet = true }
-            attachmentBarIcon("sparkles", recommended: recommended) {
+            attachmentBarIcon("text.book.closed", label: "Attach scripture", recommended: recommended) { showingVersePickerSheet = true }
+            attachmentBarIcon("link", label: "Add link", recommended: recommended) { showingLinkSheet = true }
+            attachmentBarIcon("calendar", label: "Schedule post", recommended: recommended) { showingScheduleSheet = true }
+            attachmentBarIcon("sparkles", label: "Draft with Berean AI", recommended: recommended) {
                 showingCreatorDraftSheet = true
                 AMENAnalyticsService.shared.track(.commOSCreatorDraftRequested(draftType: selectedCategory.rawValue))
             }
@@ -1797,7 +1797,7 @@ struct CreatePostView: View {
     private let attachmentPickerCardEstimatedHeight: CGFloat = 208
 
     @ViewBuilder
-    private func attachmentBarIcon(_ icon: String, recommended: String?, action: @escaping () -> Void) -> some View {
+    private func attachmentBarIcon(_ icon: String, label: String, recommended: String?, action: @escaping () -> Void) -> some View {
         let isHighlighted = (icon == recommended)
         Button(action: action) {
             Image(systemName: icon)
@@ -1807,6 +1807,8 @@ struct CreatePostView: View {
                 .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: isHighlighted)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityHint(isHighlighted ? "Recommended for this post" : "")
     }
 
     // MARK: - Glass Attachment Picker Card

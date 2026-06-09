@@ -27,6 +27,10 @@ class AuthenticationViewModel: ObservableObject {
     @Published var currentUserModel: UserModel?
     @Published var needsUsernameSelection = false  // NEW: For social sign-in users
     @Published var needsEmailVerification = false  // P0: Email verification gate
+    /// Audit D-01: true when an authenticated user has no age profile yet (e.g. a
+    /// first-time Google/Apple sign-in, which never collected a DOB). Gates the
+    /// universal DOB → tier step in ContentView. Only evaluated under ff_onboarding_v2.
+    @Published var needsAgeGate = false
     @Published var showAuthSuccess = false  // Success checkmark animation
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -249,7 +253,12 @@ class AuthenticationViewModel: ObservableObject {
                     // This prevents the UI glitch where main content flashes before onboarding
                     dlog("🚦 [LAUNCH] Auth listener: calling checkOnboardingStatus")
                     await self.checkOnboardingStatus(userId: user.uid)
-                    
+
+                    // Audit D-01: universal age gate. Catches social sign-ins (and any
+                    // other path) that reached an authenticated session without an age
+                    // profile, so no method can bypass DOB → tier assignment.
+                    await self.evaluateAgeGateIfNeeded(userId: user.uid)
+
                     // Now set isAuthenticated after we know the onboarding status
                     dlog("🚦 [LAUNCH] Auth listener: setting isAuthenticated = true, needsOnboarding=\(self.needsOnboarding), needs2FA=\(self.needs2FAVerification)")
                     self.isAuthenticated = true
@@ -266,6 +275,7 @@ class AuthenticationViewModel: ObservableObject {
                     self.needsOnboarding = false
                     self.needsUsernameSelection = false
                     self.needsEmailVerification = false
+                    self.needsAgeGate = false
                     // Fix G: clear performance cache on all sign-out paths (not just AuthVM.signOut())
                     // Covers SessionTimeoutManager.forceLogout() and any other path that calls Auth.signOut()
                     self.cachedUserData = nil
@@ -274,8 +284,36 @@ class AuthenticationViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Age Gate (audit D-01)
+
+    /// Sets `needsAgeGate` when the authenticated user has no stored age profile.
+    /// Email/phone sign-up already collects a DOB; this catches social sign-ins and
+    /// any legacy account that never had one. No-op unless ff_onboarding_v2 is on.
+    private func evaluateAgeGateIfNeeded(userId: String) async {
+        guard AMENFeatureFlags.shared.onboardingV2Enabled else { return }
+        do {
+            _ = try await AgeAssuranceService.shared.getAgeProfile(userId: userId)
+            needsAgeGate = false   // profile exists → already age-assured
+        } catch {
+            // .profileNotFound (or any read failure) → require the DOB gate before
+            // the user can proceed. Fail closed: better to ask than to skip.
+            needsAgeGate = true
+            dlog("🔞 [AgeGate] No age profile for \(userId) — gating DOB collection")
+        }
+    }
+
+    /// Persists the collected DOB → tier and clears the gate. Throws
+    /// `AgeAssuranceError.underMinimumAge` if the user is below the minimum, which
+    /// the caller surfaces and uses to block/sign out.
+    func completeAgeGate(dateOfBirth: Date) async throws {
+        guard let userId = firebaseManager.currentUser?.uid else { return }
+        try await AgeAssuranceService.shared.setDateOfBirth(userId: userId, dateOfBirth: dateOfBirth)
+        needsAgeGate = false
+        dlog("✅ [AgeGate] DOB persisted + tier assigned for \(userId)")
+    }
+
     // MARK: - Check Onboarding Status
-    
+
     private func checkOnboardingStatus(userId: String) async {
         // Guard: if onboarding was just completed in this session, don't overwrite needsOnboarding
         guard !onboardingJustCompleted else {
@@ -441,16 +479,25 @@ class AuthenticationViewModel: ObservableObject {
         
         isAuthenticating = true
         defer { isAuthenticating = false }
-        
+
         #if DEBUG
         dlog("🔐 Starting sign in")
         #endif
         isLoading = true
         errorMessage = nil
-        
+
         // Already on @MainActor — no Task hop needed
         defer { isLoading = false }
-        
+
+        // Audit H-04: offline pre-flight, matching the phone path. Without this,
+        // an offline email sign-in spins until the 30s timeout before surfacing a
+        // generic error instead of an immediate, accurate "no internet" message.
+        guard await isNetworkAvailable() else {
+            errorMessage = "No internet connection. Please check your network and try again."
+            showError = true
+            return
+        }
+
         do {
             let user = try await firebaseManager.signIn(email: email, password: password)
             dlog("✅ Sign in successful")
@@ -784,6 +831,37 @@ class AuthenticationViewModel: ObservableObject {
         if let photoURL = user.photoURL?.absoluteString {
             UserDefaults.standard.set(photoURL, forKey: "cachedPhotoURL")
         }
+
+        // Audit C-01: persist a Keychain-backed identity hint that SURVIVES app
+        // deletion + reinstall (UserDefaults does not), so a returning/reinstalled
+        // user can be greeted "Welcome back, {name}". Recognition only — no tokens,
+        // no raw email. The E2EE keys remain separate and are wiped on sign-out.
+        let providerIDs = user.providerData.map(\.providerID)
+        let method: AmenIdentityHint.AuthMethod = {
+            if providerIDs.contains("apple.com") { return .apple }
+            if providerIDs.contains("phone") { return .phone }
+            return .email
+        }()
+        let masked: String? = {
+            if let phone = user.phoneNumber, phone.count >= 4 {
+                return "•••• " + String(phone.suffix(4))
+            }
+            if let email = user.email, let at = email.firstIndex(of: "@") {
+                let head = String(email[..<at])
+                let lead = head.prefix(1)
+                return "\(lead)•••\(email[at...])"
+            }
+            return nil
+        }()
+        let hint = AmenIdentityHint(
+            uid: user.uid,
+            displayName: user.displayName,
+            username: currentUserModel?.username,
+            profilePhotoURL: user.photoURL?.absoluteString,
+            lastAuthMethod: method,
+            maskedIdentifier: masked
+        )
+        AmenIdentityHintStore.shared.save(hint)
     }
 
     // MARK: - Sign Out
@@ -802,6 +880,9 @@ class AuthenticationViewModel: ObservableObject {
             Task {
                 await PushNotificationHandler.shared.disableFCMToken(for: uid)
             }
+            // Audit C-01/F-03: explicit sign-out removes this account's Keychain
+            // identity hint (account *switching* would keep it). Recognition cleared.
+            AmenIdentityHintStore.shared.clear(uid: uid)
         }
 
         // ── Badge count reset ────────────────────────────────────────────────
@@ -819,9 +900,21 @@ class AuthenticationViewModel: ObservableObject {
         onboardingJustCompleted = false
         showEmailVerificationBanner = false
         needsUsernameSelection = false
+        needsAgeGate = false
         cachedUserData = nil              // Clear performance cache on sign-out
         isDeactivated = false
         deactivationStatus = .active
+
+        // ── Identity-hint cleanup (audit F-03) ───────────────────────────────
+        // Explicit sign-out clears the cached returning-user hint so the next
+        // launch on a shared device does NOT show the previous user's name/photo.
+        // (Account *switching* keeps the hint; plain sign-out must not.)
+        for key in ["cachedUsername", "cachedPhotoURL", "cachedUserId",
+                    "cachedAuthProviderIDs", "currentUserDisplayName",
+                    "currentUserUsername", "currentUserInitials",
+                    "currentUserProfileImageURL"] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
 
         // ── Firebase sign-out ────────────────────────────────────────────────
         do {
@@ -1669,15 +1762,41 @@ class AuthenticationViewModel: ObservableObject {
     
     /// Check network availability using NWPathMonitor (no external HTTP probe).
     /// Returns immediately based on the OS-level path status — no latency, no blocked-domain risk.
+    /// Thread-safe single-resume latch for `isNetworkAvailable` (audit H-05).
+    private final class ResumeOnce: @unchecked Sendable {
+        private let lock = NSLock()
+        private var done = false
+        /// Returns true exactly once — the winning caller performs the resume.
+        func claim() -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            if done { return false }
+            done = true
+            return true
+        }
+    }
+
     private func isNetworkAvailable() async -> Bool {
         await withCheckedContinuation { continuation in
             let monitor = NWPathMonitor()
             let queue = DispatchQueue(label: "com.amen.networkCheck", qos: .utility)
-            monitor.pathUpdateHandler = { path in
+            // Audit H-05: guard against a path handler that never fires (or a
+            // cancel race) leaving the continuation un-resumed and hanging the
+            // awaiting OTP-send / sign-in path. Single-resume + 3s timeout.
+            let latch = ResumeOnce()
+            let finish: @Sendable (Bool) -> Void = { value in
+                guard latch.claim() else { return }
                 monitor.cancel()
-                continuation.resume(returning: path.status == .satisfied)
+                continuation.resume(returning: value)
+            }
+            monitor.pathUpdateHandler = { path in
+                finish(path.status == .satisfied)
             }
             monitor.start(queue: queue)
+            queue.asyncAfter(deadline: .now() + 3) {
+                // Timed out waiting for a path update — assume available and let
+                // the real network request surface an accurate error if offline.
+                finish(true)
+            }
         }
     }
     
@@ -2211,4 +2330,97 @@ class AuthenticationViewModel: ObservableObject {
         needsEmailVerification = false
     }
 #endif
+}
+
+// MARK: - Identity Hint (audit C-01)
+
+/// A small, non-sensitive returning-user hint (contracts/onboarding/IdentityHint.md §2.3).
+/// NO tokens, NO raw email — recognition only. Persisted to the Keychain so it
+/// survives app deletion + reinstall, enabling a "Welcome back, {name}" experience.
+struct AmenIdentityHint: Codable, Identifiable, Equatable {
+    enum AuthMethod: String, Codable { case apple, phone, email }
+
+    var uid: String
+    var displayName: String?
+    var username: String?
+    var profilePhotoURL: String?
+    var lastAuthMethod: AuthMethod
+    var maskedIdentifier: String?   // display only, e.g. "•••• 1234"
+    var lastSeenEpoch: Double = 0   // set at save time (stamped by caller-side Date)
+
+    var id: String { uid }
+
+    /// Initials fallback when the remote photo can't be refetched.
+    var initials: String {
+        let source = displayName ?? username ?? "?"
+        let parts = source.split(separator: " ")
+        let letters = parts.prefix(2).compactMap { $0.first }
+        return letters.isEmpty ? "?" : String(letters).uppercased()
+    }
+}
+
+/// Keychain-backed multi-account identity-hint store. Items live under the
+/// reserved `com.amenapp.hint.*` namespace, which `AMENEncryptionService.wipeAllKeys()`
+/// deliberately does NOT touch (recognition ≠ access). Survives reinstall via the
+/// AfterFirstUnlockThisDeviceOnly accessibility class.
+final class AmenIdentityHintStore {
+    static let shared = AmenIdentityHintStore()
+
+    private let prefix = "com.amenapp.hint."
+    private init() {}
+
+    private func account(for uid: String) -> String { prefix + uid }
+
+    /// Upsert a hint (one per uid → supports the multi-account switcher).
+    func save(_ hint: AmenIdentityHint) {
+        var stamped = hint
+        stamped.lastSeenEpoch = Date().timeIntervalSince1970
+        guard let data = try? JSONEncoder().encode(stamped) else { return }
+        let acct = account(for: stamped.uid)
+        let base: [String: Any] = [
+            kSecClass as String:       kSecClassGenericPassword,
+            kSecAttrAccount as String: acct
+        ]
+        SecItemDelete(base as CFDictionary)
+        var add = base
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        add[kSecAttrSynchronizable as String] = false
+        SecItemAdd(add as CFDictionary, nil)
+    }
+
+    /// All stored hints (for the welcome_back account switcher).
+    func loadAll() -> [AmenIdentityHint] {
+        let query: [String: Any] = [
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecReturnAttributes as String: true,
+            kSecReturnData as String:       true,
+            kSecMatchLimit as String:       kSecMatchLimitAll
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let items = result as? [[String: Any]] else { return [] }
+        return items.compactMap { item in
+            guard let acct = item[kSecAttrAccount as String] as? String,
+                  acct.hasPrefix(prefix),
+                  let data = item[kSecValueData as String] as? Data,
+                  let hint = try? JSONDecoder().decode(AmenIdentityHint.self, from: data)
+            else { return nil }
+            return hint
+        }
+    }
+
+    /// Most recently seen hint, if any (the default welcome_back identity).
+    func primary() -> AmenIdentityHint? {
+        loadAll().max(by: { $0.lastSeenEpoch < $1.lastSeenEpoch })
+    }
+
+    /// Remove one account's hint (explicit sign-out / "Not you").
+    func clear(uid: String) {
+        let query: [String: Any] = [
+            kSecClass as String:       kSecClassGenericPassword,
+            kSecAttrAccount as String: account(for: uid)
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
 }

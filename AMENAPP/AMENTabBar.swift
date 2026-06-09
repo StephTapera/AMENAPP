@@ -139,9 +139,8 @@ struct AMENTabBar: View {
             .padding(.vertical, 5)
             .background(glassBackground)
             .clipShape(Capsule())
-            .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.70), radius: 20, x: 0, y: 8)
-            .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.38), radius: 8, x: 0, y: 3)
-            .shadow(color: AmenTheme.Colors.shadowFloating.opacity(0.20), radius: 2, x: 0, y: 1)
+            .shadow(color: Color.black.opacity(0.10), radius: 18, x: 0, y: 8)
+            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
             .zIndex(1)
         }
         .padding(.horizontal, 16)
@@ -162,65 +161,14 @@ struct AMENTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var glassBackground: some View {
-        let isDark = colorScheme == .dark
-
-        return ZStack {
-            // Layer 1 — Material blur base (auto-adapts to dark/light)
-            Capsule()
-                .fill(.ultraThinMaterial)
-
-            // Layer 2 — Adaptive highlight fill
-            // Light: bright white glass | Dark: barely-there smoke
-            Capsule()
-                .fill(AmenTheme.Colors.glassFill)
-            Capsule()
-                .fill(AmenTheme.Colors.surfaceGlassDark)
-
-            // Layer 3 — Directional top highlight (reduced in dark mode)
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            AmenTheme.Colors.glassHighlightTop.opacity(isDark ? 0.8 : 1.0),
-                            AmenTheme.Colors.glassHighlightBottom.opacity(isDark ? 1.0 : 0.9),
-                            Color.clear
-                        ],
-                        startPoint: .init(x: 0.2, y: 0),
-                        endPoint: .init(x: 0.7, y: 0.4)
-                    )
-                )
-                .allowsHitTesting(false)
-
-            // Layer 4 — Depth pooling (more visible in dark mode for separation)
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.clear,
-                            AmenTheme.Colors.glassDepth.opacity(isDark ? 0.72 : 0.40),
-                            AmenTheme.Colors.glassDepth.opacity(isDark ? 1.0 : 0.65)
-                        ],
-                        startPoint: .init(x: 0.3, y: 0.6),
-                        endPoint: .init(x: 1, y: 1)
-                    )
-                )
-                .allowsHitTesting(false)
-
-            // Layer 5 — Edge contour stroke
-            Capsule()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            AmenTheme.Colors.glassStroke.opacity(isDark ? 1.0 : 0.92),
-                            AmenTheme.Colors.glassStroke.opacity(isDark ? 0.45 : 0.36),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.5
-                )
-                .allowsHitTesting(false)
-        }
+        Capsule()
+            .fill(Color(.systemBackground).opacity(colorScheme == .dark ? 0.18 : 0.78))
+            .amenGlassEffect(in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(Color(.separator).opacity(0.18), lineWidth: 0.75)
+                    .allowsHitTesting(false)
+            }
     }
 
     // MARK: - Tab item
@@ -229,7 +177,13 @@ struct AMENTabBar: View {
     private func tabItem(_ tab: AMENTab) -> some View {
         let isSelected = selectedTab == tab.rawValue
         Button {
-            guard selectedTab != tab.rawValue else { return }
+            if selectedTab == tab.rawValue {
+                if tab == .home {
+                    NotificationCenter.default.post(name: .homeTabTapped, object: nil)
+                    HapticManager.impact(style: .light)
+                }
+                return
+            }
             selectedTab = tab.rawValue
             clearBadge(for: tab)
         } label: {

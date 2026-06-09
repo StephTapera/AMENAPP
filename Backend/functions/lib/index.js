@@ -575,4 +575,10 @@ Object.defineProperty(exports, "onSabbathNotificationWrite", { enumerable: true,
 var generateLiveKitToken_1 = require("./generateLiveKitToken");
 Object.defineProperty(exports, "generateLiveKitToken", { enumerable: true, get: function () { return generateLiveKitToken_1.generateLiveKitToken; } });
 Object.defineProperty(exports, "getLivekitToken", { enumerable: true, get: function () { return generateLiveKitToken_1.getLivekitToken; } });
+// Space Events — RSVP callable for Spaces event attendance
+__exportStar(require("./spaces/spaceEvents"), exports);
+// Covenant Membership Verification — server-authoritative active-membership check
+__exportStar(require("./covenant/verifyCovenantMembership"), exports);
+// Prayer Recap — weekly prayer summary generation for the calling user
+__exportStar(require("./prayer/generatePrayerRecap"), exports);
 //# sourceMappingURL=index.js.map

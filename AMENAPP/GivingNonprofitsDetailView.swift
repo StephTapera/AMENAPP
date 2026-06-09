@@ -90,10 +90,9 @@ struct GivingNonprofitsDetailView: View {
         }
     }
 
-    // Parchment design tokens
-    private let parchment     = Color(red: 0.97, green: 0.95, blue: 0.91)
-    private let ink           = Color(red: 0.14, green: 0.12, blue: 0.10)
-    private let inkSecondary  = Color(red: 0.42, green: 0.38, blue: 0.34)
+    private let parchment     = Color(.systemBackground)
+    private let ink           = Color(.label)
+    private let inkSecondary  = Color(.secondaryLabel)
     private let goldAccent    = Color(red: 0.68, green: 0.52, blue: 0.22)
     private let greenAccent   = Color(red: 0.22, green: 0.52, blue: 0.38)
 
@@ -134,91 +133,71 @@ struct GivingNonprofitsDetailView: View {
         }
     }
 
-    // MARK: Hero — immersive overlay (Reference right-panel)
+    // MARK: Hero
 
     private var heroSection: some View {
-        ZStack(alignment: .bottomLeading) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.42, green: 0.36, blue: 0.16),
-                    Color(red: 0.62, green: 0.52, blue: 0.26)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .frame(height: 280)
-
-            // Lens highlight
-            Ellipse()
-                .fill(Color.white.opacity(0.14))
-                .frame(width: 300, height: 100)
-                .blur(radius: 45)
-                .offset(x: 40, y: -50)
-
-            // Impact stat overlay — editorial data point
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\"Each one should give\nwhat he has decided\nin his heart to give.\"")
-                    .font(.custom("Georgia", size: 13))
-                    .fontWeight(.regular)
-                    .foregroundStyle(Color.white.opacity(0.72))
-                    .italic()
-                    .multilineTextAlignment(.trailing)
-                Text("— 2 Corinthians 9:7")
-                    .font(.custom("OpenSans-Regular", size: 11))
-                    .foregroundStyle(Color.white.opacity(0.55))
-            }
-            .padding(.trailing, 24)
-            .padding(.bottom, 80)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Giving &\nNonprofits")
-                    .font(.custom("Georgia", size: 32))
-                    .fontWeight(.regular)
-                    .foregroundStyle(.white)
-                    .lineSpacing(2)
-
-                Text("Vetted organizations. Transparent impact.")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(Color.white.opacity(0.80))
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 28)
-
-            VStack {
-                HStack {
-                    Button { dismiss() } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color.black.opacity(0.28))
-                                .frame(width: 36, height: 36)
-                            Image(systemName: "xmark")
-                                .font(.systemScaled(13, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
-                    }
-                    .padding(.leading, 20)
-                    .padding(.top, 56)
-                    Spacer()
-                    Button { showingDonationInfo = true } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color.black.opacity(0.28))
-                                .frame(width: 36, height: 36)
-                            Image(systemName: "info")
-                                .font(.systemScaled(13, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.top, 56)
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 42, height: 42)
+                        .amenGlassEffect(in: Circle())
+                        .overlay(Circle().strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.75))
                 }
                 Spacer()
+                Button { showingDonationInfo = true } label: {
+                    Image(systemName: "info")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 42, height: 42)
+                        .amenGlassEffect(in: Circle())
+                        .overlay(Circle().strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.75))
+                }
+            }
+
+            HStack(alignment: .bottom, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Giving &\nNonprofits")
+                        .font(.custom("Georgia", size: 34))
+                        .fontWeight(.regular)
+                        .foregroundStyle(ink)
+                        .lineSpacing(2)
+
+                    Text("Vetted organizations. Transparent impact.")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(inkSecondary)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\"Each one should give what he has decided in his heart to give.\"")
+                        .font(.custom("Georgia", size: 12))
+                        .fontWeight(.regular)
+                        .foregroundStyle(inkSecondary)
+                        .italic()
+                        .multilineTextAlignment(.trailing)
+                        .lineLimit(3)
+                    Text("2 Corinthians 9:7")
+                        .font(.custom("OpenSans-Regular", size: 11))
+                        .foregroundStyle(goldAccent)
+                }
+                .frame(maxWidth: 150, alignment: .trailing)
             }
         }
+        .padding(.horizontal, 24)
+        .padding(.top, 56)
+        .padding(.bottom, 24)
         .frame(maxWidth: .infinity)
-        .frame(height: 280)
-        .clipped()
+        .frame(height: 260, alignment: .top)
+        .background(Color(.systemBackground))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(.separator).opacity(0.14))
+                .frame(height: 1)
+        }
     }
 
     // MARK: Tab Switcher — scrollable to fit all tabs
@@ -1654,7 +1633,7 @@ struct WaysToGiveCard: View {
             Spacer()
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(.ultraThinMaterial))
+        .amenGlassCard(cornerRadius: 14, shadow: false)
     }
 }
 

@@ -49,8 +49,8 @@ final class ProfileImageFlowViewModel: ObservableObject {
 
     private let uploadService: ProfileImageUploadService
 
-    init(uploadService: ProfileImageUploadService = ProfileImageUploadService()) {
-        self.uploadService = uploadService
+    init(uploadService: ProfileImageUploadService? = nil) {
+        self.uploadService = uploadService ?? ProfileImageUploadService()
     }
 
     var displayImage: UIImage? { croppedImage ?? selectedImage }
@@ -280,10 +280,17 @@ struct LiquidWhiteAvatarPlaceholder: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             ZStack {
-                Circle()
-                    .fill(reduceTransparency ? Color(.secondarySystemBackground) : .regularMaterial)
-                    .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1.2))
-                    .shadow(color: .black.opacity(0.08), radius: 26, y: 14)
+                if reduceTransparency {
+                    Circle()
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                        .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1.2))
+                        .shadow(color: .black.opacity(0.08), radius: 26, y: 14)
+                } else {
+                    Circle()
+                        .fill(.regularMaterial)
+                        .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1.2))
+                        .shadow(color: .black.opacity(0.08), radius: 26, y: 14)
+                }
                 Circle()
                     .inset(by: 16)
                     .fill(.primary.opacity(0.04))
@@ -306,7 +313,10 @@ struct LiquidWhiteAvatarPlaceholder: View {
                 .font(.systemScaled(19, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 54, height: 54)
-                .background(reduceTransparency ? Color(.secondarySystemBackground) : .ultraThinMaterial, in: Circle())
+                .background {
+                    Circle()
+                        .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
+                }
                 .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1))
                 .shadow(color: .black.opacity(0.10), radius: 14, y: 7)
                 .accessibilityHidden(true)

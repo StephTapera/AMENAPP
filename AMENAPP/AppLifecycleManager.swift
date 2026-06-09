@@ -114,6 +114,14 @@ final class AppLifecycleManager {
         SafetyOrchestrator.shared.clearSupportState()
         BehavioralAwarenessEngine.shared.beginSession()
 
+        // ── E2EE key material (audit C-02) ───────────────────────────────────
+        // Wipe all Curve25519 identity/prekey/ratchet keys so the next account on
+        // a shared device cannot inherit them and so nothing is orphaned after a
+        // reinstall. Re-sign-in routes through the E2EE recovery handoff
+        // (contracts/onboarding/IdentityHint.md §recovery). The recognition hint
+        // lives under a separate, NOT-wiped namespace.
+        AMENEncryptionService.shared.wipeAllKeys()
+
         // ── Session timeout timers ───────────────────────────────────────────
         // Stop monitoring AFTER service teardown so the warning UI is dismissed cleanly.
         SessionTimeoutManager.shared.stopMonitoring()

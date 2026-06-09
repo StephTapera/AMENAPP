@@ -24,10 +24,9 @@ struct MentalHealthDetailView: View {
         case crisis   = "Crisis"
     }
 
-    // Parchment design tokens
-    private let parchment     = Color(red: 0.97, green: 0.95, blue: 0.91)
-    private let ink           = Color(red: 0.14, green: 0.12, blue: 0.10)
-    private let inkSecondary  = Color(red: 0.42, green: 0.38, blue: 0.34)
+    private let parchment     = Color(.systemBackground)
+    private let ink           = Color(.label)
+    private let inkSecondary  = Color(.secondaryLabel)
     private let tealAccent    = Color(red: 0.12, green: 0.52, blue: 0.50)
     private let crisisRed     = Color(red: 0.82, green: 0.14, blue: 0.16)
 
@@ -79,99 +78,53 @@ struct MentalHealthDetailView: View {
 
     // MARK: Hero
 
-    // Wellness-unique palette — deep teal/forest, not used elsewhere in the app
-    private let wellnessDark    = Color(red: 0.06, green: 0.18, blue: 0.20)   // deep ocean teal
-    private let wellnessMid     = Color(red: 0.10, green: 0.32, blue: 0.30)   // forest teal
-    private let wellnessAccent  = Color(red: 0.22, green: 0.58, blue: 0.52)   // mid teal
-    private let wellnessSage    = Color(red: 0.52, green: 0.72, blue: 0.56)   // sage green
-    private let wellnessLight   = Color.white.opacity(0.92)
-    private let wellnessSub     = Color.white.opacity(0.60)
+    private let wellnessAccent  = Color(red: 0.12, green: 0.52, blue: 0.50)
+    private let wellnessSage    = Color(red: 0.52, green: 0.72, blue: 0.56)
+    private let wellnessLight   = Color(.label)
+    private let wellnessSub     = Color(.secondaryLabel)
 
     private var heroSection: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .bottomLeading) {
-                // Base — deep teal gradient
-                LinearGradient(
-                    colors: [wellnessDark, wellnessMid],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                // Sage bloom from bottom-right
-                RadialGradient(
-                    colors: [wellnessSage.opacity(0.25), Color.clear],
-                    center: UnitPoint(x: 0.85, y: 0.90),
-                    startRadius: 10,
-                    endRadius: 260
-                )
-
-                // Teal accent — top-left
-                RadialGradient(
-                    colors: [wellnessAccent.opacity(0.30), Color.clear],
-                    center: UnitPoint(x: 0.10, y: 0.10),
-                    startRadius: 0,
-                    endRadius: 220
-                )
-
-                // Subtle horizontal editorial lines
-                VStack(spacing: 28) {
-                    ForEach(0..<6, id: \.self) { _ in
-                        Rectangle()
-                            .fill(Color.white.opacity(0.03))
-                            .frame(height: 1)
-                    }
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 42, height: 42)
+                        .amenGlassEffect(in: Circle())
+                        .overlay(Circle().strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.75))
                 }
-                .frame(maxWidth: .infinity)
-
-                // Content
-                VStack(alignment: .leading, spacing: 0) {
-                    // Dismiss button
-                    HStack {
-                        Button { dismiss() } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.white.opacity(0.18))
-                                    .frame(width: 34, height: 34)
-                                Image(systemName: "xmark")
-                                    .font(.systemScaled(12, weight: .semibold))
-                                    .foregroundStyle(wellnessLight)
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(.top, 56)
-                    .padding(.bottom, 18)
-
-                    Spacer()
-
-                    // Eyebrow
-                    Text("WELLNESS & MENTAL HEALTH")
-                        .font(.systemScaled(9, weight: .semibold))
-                        .kerning(2.5)
-                        .foregroundStyle(wellnessSub)
-                        .padding(.bottom, 10)
-
-                    // Large serif headline
-                    Text("Mind,\nBody & Soul")
-                        .font(.custom("Georgia", size: 38))
-                        .fontWeight(.regular)
-                        .foregroundStyle(wellnessLight)
-                        .lineSpacing(4)
-                        .padding(.bottom, 10)
-
-                    // Subtitle
-                    Text("Faith-based care at every level of need.")
-                        .font(.systemScaled(14, weight: .regular))
-                        .foregroundStyle(wellnessSub)
-                        .padding(.bottom, 28)
-                }
-                .padding(.horizontal, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer()
             }
-            .frame(width: geo.size.width, height: geo.size.height)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("WELLNESS & MENTAL HEALTH")
+                    .font(.systemScaled(9, weight: .semibold))
+                    .kerning(2.5)
+                    .foregroundStyle(wellnessSub)
+
+                Text("Mind,\nBody & Soul")
+                    .font(.custom("Georgia", size: 38))
+                    .fontWeight(.regular)
+                    .foregroundStyle(wellnessLight)
+                    .lineSpacing(4)
+
+                Text("Faith-based care at every level of need.")
+                    .font(.systemScaled(14, weight: .regular))
+                    .foregroundStyle(wellnessSub)
+            }
         }
+        .padding(.horizontal, 24)
+        .padding(.top, 56)
+        .padding(.bottom, 24)
         .frame(maxWidth: .infinity)
-        .frame(height: 320)
+        .frame(height: 260, alignment: .top)
+        .background(Color(.systemBackground))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(.separator).opacity(0.14))
+                .frame(height: 1)
+        }
         .ignoresSafeArea(edges: .top)
         .opacity(appeared ? 1 : 0)
     }

@@ -183,12 +183,7 @@ private struct ResourceRailCardView: View {
         }
         .padding(14)
         .frame(width: 148, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color(.separator).opacity(0.3), lineWidth: 0.75)
-        )
-        .shadow(color: Color(.label).opacity(0.05), radius: 8, x: 0, y: 3)
+        .amenGlassCard(cornerRadius: 18, shadow: true)
     }
 }
 

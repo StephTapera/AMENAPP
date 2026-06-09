@@ -80,6 +80,8 @@ struct HomeView: View {
     // Hysteresis thresholds — hide quickly on downward scroll, restore on upward
     private let scrollUpThreshold: CGFloat = 8   // Restore bar after modest upward scroll
     private let scrollDownThreshold: CGFloat = 18 // Hide bar after 18pts downward movement
+    private let expandedBottomChromeHeight: CGFloat = 118
+    private let floatingCreateBottomPadding: CGFloat = 90
 
     // Helper function for adaptive spacing
     private func adaptiveSpacing(for width: CGFloat) -> CGFloat {
@@ -347,7 +349,7 @@ struct HomeView: View {
                             systemImage: "plus.circle.fill"
                         )
                         .padding(.trailing, 16)
-                        .padding(.bottom, 90)  // above tab bar
+                        .padding(.bottom, floatingCreateBottomPadding)
                     }
                 }
         }
@@ -419,7 +421,7 @@ struct HomeView: View {
                     // Dynamic Content Based on Selected Category
                     selectedCategoryView
                 }
-                .padding(.bottom, 100)
+                .padding(.bottom, expandedBottomChromeHeight)
             }
             .contentShape(Rectangle())
             .onAppear {

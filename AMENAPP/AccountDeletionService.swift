@@ -274,6 +274,8 @@ final class AccountDeletionService: ObservableObject {
         if let bundleId = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleId)
         }
-        // Clear keychain if needed (add SecItemDelete calls here)
+        // Audit C-02: wipe all E2EE key material so deleted-then-reinstalled or
+        // shared-device accounts cannot inherit/leak prior keys.
+        AMENEncryptionService.shared.wipeAllKeys()
     }
 }

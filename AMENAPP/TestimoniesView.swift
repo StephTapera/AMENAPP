@@ -93,6 +93,10 @@ struct TestimoniesView: View {
 
         return posts
     }
+
+    private var shouldShowFloatingShareButton: Bool {
+        !isInitialLoad && !isLoadingPosts && !filteredPosts.isEmpty
+    }
     
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -267,24 +271,26 @@ struct TestimoniesView: View {
                 }
         } // end VStack
 
-        // Floating "Share Testimony" pill button
-        Button {
-            showShareTestimony = true
-        } label: {
-            Label("Share Testimony", systemImage: "sparkles")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(.regularMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+        if shouldShowFloatingShareButton {
+            // Floating "Share Testimony" pill button
+            Button {
+                showShareTestimony = true
+            } label: {
+                Label("Share Testimony", systemImage: "sparkles")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(.regularMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 20)
+            .padding(.bottom, 20)
+            .transition(.scale.combined(with: .opacity))
+            .accessibilityLabel("Share your testimony")
         }
-        .buttonStyle(.plain)
-        .padding(.trailing, 20)
-        .padding(.bottom, 20)
-        .transition(.scale.combined(with: .opacity))
-        .accessibilityLabel("Share your testimony")
 
         } // end ZStack
         .toast($currentToast)
@@ -381,37 +387,6 @@ struct TestimoniesView: View {
             } else {
                 // Category subtitle removed — tagline lives in the header
             }
-            
-            // Filters - Center Aligned
-            HStack {
-                Spacer()
-                HStack(spacing: 8) {
-                    ForEach(TestimonyFilter.allCases, id: \.self) { filter in
-                        Button {
-                            selectedFilter = filter
-                            filterHaptic.impactOccurred()
-                        } label: {
-                            Text(filter.rawValue)
-                                .font(AMENFont.semiBold(14))
-                                .foregroundStyle(selectedFilter == filter ? .white : .black)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedFilter == filter ? Color.black : Color.clear)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .animation(.easeOut(duration: fastAnimationDuration), value: selectedFilter)
-                .padding(10)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
-                Spacer()
-            }
-            .padding(.horizontal, 16)
             
             // Collapsible Categories Section
             VStack(alignment: .leading, spacing: 12) {

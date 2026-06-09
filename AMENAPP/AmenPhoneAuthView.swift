@@ -299,9 +299,11 @@ struct AmenPhoneAuthView: View {
                     // Digits field
                     TextField("Phone number", text: $phoneDigits)
                         .keyboardType(.phonePad)
+                        .textContentType(.telephoneNumber) // B-02: number autofill
                         .font(.systemScaled(16, weight: .regular))
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
+                        .accessibilityLabel("Phone number") // E-03
                         .padding(.vertical, 14)
                         .padding(.horizontal, 16)
                         .background(
@@ -380,11 +382,14 @@ struct AmenPhoneAuthView: View {
 
                 TextField("••••••", text: $otpCode)
                     .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode) // B-01: enables SMS code autofill
                     .font(.system(.title2, design: .monospaced).weight(.medium))
                     .multilineTextAlignment(.center)
                     .tracking(8)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
+                    .accessibilityLabel("Verification code") // E-03
+                    .accessibilityHint("Enter the 6-digit code sent by text message")
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .padding(.horizontal, 16)

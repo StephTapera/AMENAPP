@@ -580,7 +580,7 @@ private struct LinkPreviewShimmerModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay(
+            .overlay {
                 LinearGradient(
                     colors: [
                         Color.clear,
@@ -590,8 +590,8 @@ private struct LinkPreviewShimmerModifier: ViewModifier {
                     startPoint: .init(x: phase, y: 0.5),
                     endPoint: .init(x: phase + 0.4, y: 0.5)
                 )
-                .blendMode(.plusLighter)
-            )
+                .blendMode(BlendMode.plusLighter)
+            }
             .onAppear {
                 withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
                     phase = 1.2

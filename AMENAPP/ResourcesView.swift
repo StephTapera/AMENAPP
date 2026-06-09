@@ -141,6 +141,7 @@ struct ResourcesView: View {
                 )
             }
             .scrollEdgeTopBlur(scrollOffset: scrollOffset)
+            .background(Color(.systemBackground))
             .navigationBarHidden(true)
             .scrollDismissesKeyboard(.interactively)
             .animation(.easeOut(duration: 0.15), value: searchFilteredResources.count)
@@ -790,7 +791,7 @@ struct ResourcesView: View {
             }
         }
         .padding(.top, 4)
-        .padding(.bottom, 32)
+        .padding(.bottom, 180)
     }
     
     // MARK: - Section builder helper

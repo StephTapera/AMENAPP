@@ -170,11 +170,13 @@ exports.checkPhoneVerificationRateLimit = onCall(
       } catch (error) {
         console.error("❌ Error checking phone verification rate limit:", error);
 
-        // Log error but allow request to proceed (fail open for better UX)
-        // In production, consider failing closed for security
+        // FAIL CLOSED (audit F-01): the server is the authoritative rate-limit
+        // control. Returning allowed:true on error let an attacker who can
+        // induce a transient failure bypass the 3-per-15-min / 10-per-IP caps
+        // and drive SMS-pumping abuse. Deny on error; the client retries.
         return {
-          allowed: true,
-          warning: "Rate limit check failed, proceeding with caution",
+          allowed: false,
+          reason: "Rate limit check unavailable, please try again.",
         };
       }
     }
@@ -276,17 +278,16 @@ exports.unblockPhoneNumber = onCall(
       const {phoneNumber} = request.data;
       const userId = request.auth?.uid;
 
-      // Check if user is admin (implement your admin check logic)
-      // For now, require authentication
+      // ADMIN GATE (audit F-05): unblocking clears rate-limit blocks and
+      // attempt history, defeating the F-01 protection. Require the verified
+      // admin custom claim, matching setAdminClaim / banUserPhone — not merely
+      // an authenticated session.
       if (!userId) {
         throw new Error("Unauthorized: Authentication required");
       }
-
-      // TODO: Add admin role check from Firestore
-      // const userDoc = await admin.firestore().collection('users').doc(userId).get();
-      // if (!userDoc.data()?.isAdmin) {
-      //   throw new Error("Unauthorized: Admin access required");
-      // }
+      if (request.auth?.token?.admin !== true) {
+        throw new Error("Unauthorized: Admin access required");
+      }
 
       try {
         const phoneRateLimitRef = admin.firestore()

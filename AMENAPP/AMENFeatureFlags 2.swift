@@ -173,6 +173,8 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var sermonActionExtractionEnabled: Bool = true
     @Published private(set) var sermonClipSuggestionEnabled: Bool = true
     @Published private(set) var churchNotesStudyGuideGenerationEnabled: Bool = true
+    /// Gates NOTE_SHARE_VIEWER. Default OFF until Wave 1 implements callables and UI.
+    @Published private(set) var noteShareViewerEnabled: Bool = false
     // Kill switch: set true in Remote Config to block all new processing jobs instantly.
     @Published private(set) var churchNotesProcessingKillSwitch: Bool = false
     @Published private(set) var trustedContactsEnabled: Bool = true
@@ -195,12 +197,6 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var selahMediaOSMinAppVersion: String = "1.0.0"
     @Published private(set) var selahMediaOSRolloutPercent: Int = 100
     @Published private(set) var selahMediaOSKillReason: String = ""
-
-    // MARK: - Onboarding & Auth Remediation (Wave 1)
-    /// Master gate for the onboarding/auth remediation (see contracts/onboarding/).
-    /// Default OFF in production until the new continuous flow, canonical GlassButton,
-    /// Keychain identity hint, and E2EE recovery handoff are validated end-to-end.
-    @Published private(set) var onboardingV2Enabled: Bool = false
 
     // MARK: - System 19: Berean Pulse
     @Published private(set) var bereanPulseEnabled: Bool = true
@@ -898,6 +894,7 @@ final class AMENFeatureFlags: ObservableObject {
             "sermon_action_extraction_enabled": true as NSObject,
             "sermon_clip_suggestion_enabled": true as NSObject,
             "church_notes_study_guide_generation_enabled": true as NSObject,
+            "feature_note_share_viewer": false as NSObject,
             "church_notes_processing_kill_switch": false as NSObject,
             "trusted_contacts_enabled": true as NSObject,
             "helping_someone_else_enabled": true as NSObject,
@@ -916,9 +913,6 @@ final class AMENFeatureFlags: ObservableObject {
             "amen_daily_digest_find_church_action_enabled": true as NSObject,
             "amen_daily_digest_selah_action_enabled": true as NSObject,
             "amen_daily_digest_ai_reflection_enabled": true as NSObject,
-
-            // Onboarding & Auth Remediation — default OFF
-            "ff_onboarding_v2": false as NSObject,
 
             // Berean Pulse
             "berean_pulse_enabled": true as NSObject,
@@ -1448,6 +1442,7 @@ final class AMENFeatureFlags: ObservableObject {
         sermonActionExtractionEnabled = config["sermon_action_extraction_enabled"].boolValue
         sermonClipSuggestionEnabled = config["sermon_clip_suggestion_enabled"].boolValue
         churchNotesStudyGuideGenerationEnabled = config["church_notes_study_guide_generation_enabled"].boolValue
+        noteShareViewerEnabled = config["feature_note_share_viewer"].boolValue
         churchNotesProcessingKillSwitch = config["church_notes_processing_kill_switch"].boolValue
 
         churchNotesAudioCaptureEnabled = churchNotesAudioCaptureEnabled || sermonAudioCaptureEnabled
@@ -1470,8 +1465,6 @@ final class AMENFeatureFlags: ObservableObject {
         amenDailyDigestFindChurchActionEnabled = config["amen_daily_digest_find_church_action_enabled"].boolValue
         amenDailyDigestSelahActionEnabled = config["amen_daily_digest_selah_action_enabled"].boolValue
         amenDailyDigestAIReflectionEnabled = config["amen_daily_digest_ai_reflection_enabled"].boolValue
-
-        onboardingV2Enabled = config["ff_onboarding_v2"].boolValue
 
         bereanPulseEnabled = config["berean_pulse_enabled"].boolValue
 
