@@ -170,9 +170,14 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var churchNotesCollaborationEnabled: Bool = true
     @Published private(set) var sermonSummaryGenerationEnabled: Bool = true
     @Published private(set) var scriptureDetectionEnabled: Bool = true
+    @Published private(set) var apiBibleScriptureProviderEnabled: Bool = false
+    @Published private(set) var apiBibleLicensedDisplayTranslationsEnabled: Bool = false
+    @Published private(set) var apiBibleCoreOfflineCacheEnabled: Bool = false
     @Published private(set) var sermonActionExtractionEnabled: Bool = true
     @Published private(set) var sermonClipSuggestionEnabled: Bool = true
     @Published private(set) var churchNotesStudyGuideGenerationEnabled: Bool = true
+    /// Gates NOTE_SHARE_VIEWER. Default OFF until Wave 1 implements callables and UI.
+    @Published private(set) var noteShareViewerEnabled: Bool = false
     // Kill switch: set true in Remote Config to block all new processing jobs instantly.
     @Published private(set) var churchNotesProcessingKillSwitch: Bool = false
     @Published private(set) var trustedContactsEnabled: Bool = true
@@ -329,6 +334,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var messagingVoiceIntelligenceEnabled: Bool = true
     @Published private(set) var messagingMediaIntelligenceEnabled: Bool = true
     @Published private(set) var messagingPresencePolishEnabled: Bool = true
+    @Published private(set) var actionIntelligenceEnabled: Bool = false
 
     // MARK: - Communication OS (System 32: Next-Gen Messaging + Group Discussions)
     @Published private(set) var messagesSmartContextEnabled: Bool = true
@@ -895,9 +901,13 @@ final class AMENFeatureFlags: ObservableObject {
             "church_notes_collaboration_enabled": true as NSObject,
             "sermon_summary_generation_enabled": true as NSObject,
             "scripture_detection_enabled": true as NSObject,
+            "api_bible_scripture_provider_enabled": false as NSObject,
+            "api_bible_licensed_display_translations_enabled": false as NSObject,
+            "api_bible_core_offline_cache_enabled": false as NSObject,
             "sermon_action_extraction_enabled": true as NSObject,
             "sermon_clip_suggestion_enabled": true as NSObject,
             "church_notes_study_guide_generation_enabled": true as NSObject,
+            "feature_note_share_viewer": false as NSObject,
             "church_notes_processing_kill_switch": false as NSObject,
             "trusted_contacts_enabled": true as NSObject,
             "helping_someone_else_enabled": true as NSObject,
@@ -1445,9 +1455,13 @@ final class AMENFeatureFlags: ObservableObject {
         churchNotesCollaborationEnabled = config["church_notes_collaboration_enabled"].boolValue
         sermonSummaryGenerationEnabled = config["sermon_summary_generation_enabled"].boolValue
         scriptureDetectionEnabled = config["scripture_detection_enabled"].boolValue
+        apiBibleScriptureProviderEnabled = config["api_bible_scripture_provider_enabled"].boolValue
+        apiBibleLicensedDisplayTranslationsEnabled = config["api_bible_licensed_display_translations_enabled"].boolValue
+        apiBibleCoreOfflineCacheEnabled = config["api_bible_core_offline_cache_enabled"].boolValue
         sermonActionExtractionEnabled = config["sermon_action_extraction_enabled"].boolValue
         sermonClipSuggestionEnabled = config["sermon_clip_suggestion_enabled"].boolValue
         churchNotesStudyGuideGenerationEnabled = config["church_notes_study_guide_generation_enabled"].boolValue
+        noteShareViewerEnabled = config["feature_note_share_viewer"].boolValue
         churchNotesProcessingKillSwitch = config["church_notes_processing_kill_switch"].boolValue
 
         churchNotesAudioCaptureEnabled = churchNotesAudioCaptureEnabled || sermonAudioCaptureEnabled
@@ -1616,6 +1630,7 @@ final class AMENFeatureFlags: ObservableObject {
         messagingVoiceIntelligenceEnabled = config["messaging_voice_intelligence_enabled"].boolValue
         messagingMediaIntelligenceEnabled = config["messaging_media_intelligence_enabled"].boolValue
         messagingPresencePolishEnabled = config["messaging_presence_polish_enabled"].boolValue
+        actionIntelligenceEnabled = config["ff_action_intelligence"].boolValue
 
         // Social Safety OS
         socialSafetyOSEnabled = config["social_safety_os_enabled"].boolValue
@@ -1864,6 +1879,9 @@ final class AMENFeatureFlags: ObservableObject {
         }
         if args.contains("--ui-test-disable-composer-audio") {
             composerApprovedAudioEnabled = false
+        }
+        if args.contains("--ui-test-enable-note-share-viewer") {
+            noteShareViewerEnabled = true
         }
     }
 

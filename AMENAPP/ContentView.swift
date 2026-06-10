@@ -103,6 +103,7 @@ struct ContentView: View {
     }
     
     @State private var activeModal: ActiveModal?
+    @State private var noteShareRoute: NoteShareRoute?
     // isResolvingAuthState removed: AppReadyStateManager.isShowingLoadingScreen is now
     // pre-set to true on init for cached users, so the overlay covers the entire auth
     // resolution window. There is no separate Screen 1 anymore — one loading screen only.
@@ -320,6 +321,8 @@ struct ContentView: View {
                         NotificationService.shared.startListening()
                         if let currentUserId = Auth.auth().currentUser?.uid {
                             ChurchInteractionService.shared.startListening(userId: currentUserId)
+                            // Initialize MessageSettingsService
+                            Task { try? await MessageSettingsService.shared.loadSettings(for: currentUserId) }
                             // Journey engine — warm up so data is ready when ProfileView appears
                             Task { await AmenJourneyEngine.shared.initialize(userId: currentUserId) }
                         }
@@ -436,6 +439,9 @@ struct ContentView: View {
             guard let route else { return }
             handleQuickActionRoute(route)
         }
+        .onOpenURL { url in
+            handleNoteShareURL(url)
+        }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             handleScenePhaseChange(from: oldPhase, to: newPhase)
 
@@ -486,6 +492,9 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
+        .fullScreenCover(item: $noteShareRoute) { route in
+            NoteShareViewerView(route: route)
+        }
         .fullScreenCover(
             isPresented: Binding(
                 get: { shouldShowAccountTypeOnboarding },
@@ -496,6 +505,28 @@ struct ContentView: View {
         }
     }
     
+    private func handleNoteShareURL(_ url: URL) {
+        let token = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first(where: { $0.name == "token" || $0.name == "linkToken" })?
+            .value
+
+        if url.scheme == "amen", url.host == "note-share" {
+            let shareId = url.pathComponents.dropFirst().first ?? ""
+            guard !shareId.isEmpty else { return }
+            noteShareRoute = NoteShareRoute(shareId: shareId, linkToken: token)
+            return
+        }
+
+        if url.host?.contains("amenapp.com") == true {
+            let components = url.pathComponents
+            guard let markerIndex = components.firstIndex(of: "note-share"),
+                  components.indices.contains(markerIndex + 1)
+            else { return }
+            noteShareRoute = NoteShareRoute(shareId: components[markerIndex + 1], linkToken: token)
+        }
+    }
+
     @ViewBuilder
     private var selectedTabView: some View {
         // ── SabbathMode gate (additive — takes precedence over Shabbat gate when active) ──

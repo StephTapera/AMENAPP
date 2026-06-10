@@ -1386,15 +1386,18 @@ class AuthenticationViewModel: ObservableObject {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
         } catch let nsError as NSError where nsError.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
-            // Credential belongs to a different account — sign in with it instead
-            _ = try await Auth.auth().signIn(with: credential)
+            // Audit H-01: the phone number is already tied to a DIFFERENT account.
+            // Do NOT silently sign into it — that would yank the user out of the
+            // account they are currently signed into (adding a number to account A
+            // must never drop them into account B). Surface an explicit message and
+            // leave the current session untouched so the user chooses deliberately.
             await MainActor.run {
                 self.phoneVerificationId = nil
-                self.needsEmailVerification = false
-                self.showEmailVerificationBanner = false
+                self.errorMessage = "This phone number is already linked to another AMEN account. To use it, sign out and sign in to that account, or add a different number."
+                self.showError = true
             }
             let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            haptic.notificationOccurred(.error)
         }
     }
 
@@ -1762,19 +1765,6 @@ class AuthenticationViewModel: ObservableObject {
     
     /// Check network availability using NWPathMonitor (no external HTTP probe).
     /// Returns immediately based on the OS-level path status — no latency, no blocked-domain risk.
-    /// Thread-safe single-resume latch for `isNetworkAvailable` (audit H-05).
-    private final class ResumeOnce: @unchecked Sendable {
-        private let lock = NSLock()
-        private var done = false
-        /// Returns true exactly once — the winning caller performs the resume.
-        func claim() -> Bool {
-            lock.lock(); defer { lock.unlock() }
-            if done { return false }
-            done = true
-            return true
-        }
-    }
-
     private func isNetworkAvailable() async -> Bool {
         await withCheckedContinuation { continuation in
             let monitor = NWPathMonitor()
@@ -1782,7 +1772,7 @@ class AuthenticationViewModel: ObservableObject {
             // Audit H-05: guard against a path handler that never fires (or a
             // cancel race) leaving the continuation un-resumed and hanging the
             // awaiting OTP-send / sign-in path. Single-resume + 3s timeout.
-            let latch = ResumeOnce()
+            let latch = AuthNetworkResumeOnce()
             let finish: @Sendable (Bool) -> Void = { value in
                 guard latch.claim() else { return }
                 monitor.cancel()
@@ -2330,6 +2320,23 @@ class AuthenticationViewModel: ObservableObject {
         needsEmailVerification = false
     }
 #endif
+}
+
+// MARK: - Network check latch (audit H-05)
+
+/// Thread-safe single-resume latch used by `isNetworkAvailable`. Top-level (not
+/// nested in the @MainActor view model) so it has no actor isolation and can be
+/// claimed from the background NWPathMonitor queue.
+private nonisolated final class AuthNetworkResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    /// Returns true exactly once — the winning caller performs the resume.
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        if done { return false }
+        done = true
+        return true
+    }
 }
 
 // MARK: - Identity Hint (audit C-01)

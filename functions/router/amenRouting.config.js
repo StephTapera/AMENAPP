@@ -326,6 +326,78 @@ const ROUTING = {
     failClosed: true, fallover: false, private: true,
     note: "strictly private — never moderated, never aggregated, never shown to others",
   },
+
+  // ── ACCESSIBILITY INTELLIGENCE LAYER (AIL) ─────────────────────────────────
+  // Phase 1 contract freeze (2026-06-09). Source of truth: functions/ail/ail.contracts.ts
+  // §SECTION 7 — AIL_ROUTING_ADDITIONS.
+  //
+  // Failure model is DISTINCT from moderation: AIL transforms FAIL OPEN to the
+  // ORIGINAL content (fail:"degrade", degradeResult:{ failOpen:true }) — the caller
+  // renders the original with a quiet "unavailable" state. The ONE exception is
+  // explain_scripture (Claude-only, fail_closed, cite-or-refuse — never fabricate).
+  // Accessibility is free at every tier; these routes carry NO tier gating.
+  // Claude-only tasks use chain:["claude"] with NO fallover (iron rules 2/8).
+
+  translate: {
+    primary: "claudeFast", chain: ["claudeFast", "claude"],
+    fail: "degrade", degradeResult: { failOpen: true },
+    outputGuard: true,
+    note: "AIL C1 — general text only; fail OPEN to original; scripture NEVER routed here",
+  },
+  simplify: {
+    primary: "claudeFast", chain: ["claudeFast", "claude"],
+    fail: "degrade", degradeResult: { failOpen: true },
+    outputGuard: true,
+    note: "AIL C2 — non-scripture text only; fail OPEN to original",
+  },
+  explain_scripture: {
+    primary: "claude", chain: ["claude"],            // Claude-only, NO fallover
+    fail: "fail_closed", inputGuard: true, outputGuard: true,
+    retrieval: "pinecone", requireCitations: true,
+    safetyLevel: "high",
+    note: "AIL — explanation ALONGSIDE canonical verse; BSB/WEB/KJV only; cite-or-refuse",
+  },
+  tone_hint: {
+    primary: "claude", chain: ["claude"],
+    fail: "degrade", degradeResult: { failOpen: true },
+    outputGuard: true,
+    note: "AIL C3 — opt-in, on-demand, hedged; suppressed on Guardian-flagged content; degrade to no-hint",
+  },
+  reply_care_check: {
+    primary: "claude", chain: ["claude"],
+    fail: "degrade", degradeResult: { failOpen: true },
+    outputGuard: true,
+    note: "AIL C10 — suggests only; ZERO shared path with NeMo; never blocks a send",
+  },
+  cooldown_rewrite: {
+    primary: "claude", chain: ["claude"],
+    fail: "degrade", degradeResult: { failOpen: true },
+    outputGuard: true,
+    note: "AIL C11 — suggested rewrite; always dismissible; never blocks",
+  },
+  describe_image: {
+    primary: "gemini", chain: ["gemini", "geminiPro"],
+    fail: "degrade", degradeResult: { description: "", flagged: true, failOpen: true },
+    inputGuard: true, outputGuard: true,
+    note: "AIL C5 — scene/action/object/text-in-image ONLY; never names/identifies people or minors",
+  },
+  summarize_audio: {
+    primary: "geminiPro", chain: ["geminiPro", "gemini"],
+    fail: "degrade", degradeResult: { failOpen: true },
+    outputGuard: true,
+    note: "AIL C6 — main point / action / tone; fail OPEN",
+  },
+  reentry_summary: {
+    primary: "claudeFast", chain: ["claudeFast", "claude"],
+    fail: "degrade", degradeResult: { failOpen: true },
+    outputGuard: true,
+    note: "AIL C14 — qualitative ONLY, never numeric counts; degrade to no-summary",
+  },
+  sensitivity_classify: {
+    primary: "gemini", chain: ["gemini"],
+    fail: "degrade", degradeResult: { topics: [], sensitive: false, failOpen: true },
+    note: "AIL C12 — user-policy blur classifier; degrade ⇒ do NOT blur; crisis-help never blurred",
+  },
 };
 
 module.exports = { PROVIDERS, ROUTING };

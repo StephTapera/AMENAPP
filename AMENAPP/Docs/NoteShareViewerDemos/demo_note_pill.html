@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOTE_SHARE_VIEWER - Note Pill Demo</title>
+<style>
+:root{--cream:#f4efe6;--ink:#0c0c0c;--muted:#66615a;--line:rgba(20,20,20,.10);--glass:rgba(255,255,255,.62);--solid:#f7f4ee;--shadow:0 16px 42px rgba(24,18,10,.10);--row:#ebe6dd}body.dark{--cream:#11100e;--ink:#f5f0e8;--muted:#b9b1a6;--line:rgba(255,255,255,.14);--glass:rgba(40,38,34,.72);--solid:#24211d;--shadow:0 16px 42px rgba(0,0,0,.32);--row:#24221f}*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}header{position:sticky;top:0;z-index:2;padding:18px 20px;background:color-mix(in srgb,var(--cream) 86%,transparent);backdrop-filter:blur(18px);display:flex;justify-content:space-between;align-items:center}button{border:1px solid var(--line);background:var(--glass);color:var(--ink);border-radius:999px;padding:10px 14px;font-weight:650}.wrap{max-width:980px;margin:0 auto;padding:34px 20px 80px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}@media(max-width:820px){.grid{grid-template-columns:1fr}}.post{min-height:280px;border:1px solid var(--line);border-radius:28px;padding:18px;box-shadow:var(--shadow);background:#fff8}.dark .post{background:#181614}.post.media{background:linear-gradient(180deg,rgba(0,0,0,.0),rgba(0,0,0,.20)),url('https://images.unsplash.com/photo-1490730141103-6cac27aaab94?auto=format&fit=crop&w=900&q=70') center/cover}.post.glass{background:rgba(255,255,255,.24);backdrop-filter:blur(24px)}.avatar{display:flex;gap:10px;align-items:center;margin-bottom:18px}.dot{width:34px;height:34px;border-radius:50%;background:var(--row)}.copy{height:10px;border-radius:999px;background:var(--row);margin:10px 0}.copy.w{width:70%}.copy.s{width:45%}.pill{margin-top:34px;display:flex;gap:12px;align-items:center;border:1px solid rgba(255,255,255,.55);border-radius:30px;padding:15px 16px;min-height:76px;color:var(--ink);box-shadow:0 10px 28px rgba(12,12,12,.10);background:var(--glass);backdrop-filter:blur(18px)}.glass .pill{background:var(--solid);backdrop-filter:none;border-color:var(--line)}.media .pill{margin-top:112px}.glyph{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.75);font-weight:800}.meta{min-width:0;flex:1}.title{font-weight:760;line-height:1.12}.sub{margin-top:4px;color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chev{opacity:.5}.label{margin:0 0 14px;color:var(--muted);font-size:12px;letter-spacing:.12em;text-transform:uppercase}.xl{font-size:125%}.note{margin-top:26px;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+<header><strong>Note Pill Demo</strong><button onclick="document.body.classList.toggle('dark')">Toggle Dark</button></header>
+<main class="wrap">
+<p class="label">Standard, media, and glass-surface fallback</p>
+<section class="grid">
+  <article class="post"><div class="avatar"><div class="dot"></div><strong>Steph</strong></div><div class="copy w"></div><div class="copy s"></div><div class="pill"><div class="glyph">N</div><div class="meta"><div class="title">What I learned from Romans 8</div><div class="sub">Grace Chapel · Romans 8:1-11</div></div><div class="chev">›</div></div></article>
+  <article class="post media"><div class="avatar"><div class="dot"></div><strong>Sunday Notes</strong></div><div class="pill"><div class="glyph">N</div><div class="meta"><div class="title">The Spirit gives life</div><div class="sub">Sermon Notes · John 15</div></div><div class="chev">›</div></div></article>
+  <article class="post glass"><div class="avatar"><div class="dot"></div><strong>Glass card</strong></div><div class="copy w"></div><div class="copy s"></div><div class="pill"><div class="glyph">N</div><div class="meta"><div class="title">Solid fallback capsule</div><div class="sub">No nested glass · Church only</div></div><div class="chev">›</div></div></article>
+</section>
+<section class="xl"><p class="note">Dynamic Type XL preview keeps the pill readable without showing public counts or social metrics.</p></section>
+</main>
+</body>
+</html>

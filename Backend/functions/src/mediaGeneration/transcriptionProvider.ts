@@ -23,6 +23,7 @@ import {defineSecret} from "firebase-functions/params";
 import FormData from "form-data";
 
 export const openaiApiKey = defineSecret("OPENAI_API_KEY");
+type FetchBody = NonNullable<NonNullable<Parameters<typeof fetch>[1]>["body"]>;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -123,7 +124,8 @@ export async function transcribeAudioBuffer(
             Authorization: `Bearer ${apiKey}`,
             ...formData.getHeaders(),
         },
-        body: formData as unknown as BodyInit,
+        // form-data stream isn't a DOM BodyInit (not in this project's lib config);
+        body: formData as unknown as FetchBody,
     });
 
     if (!response.ok) {
