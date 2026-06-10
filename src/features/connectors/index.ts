@@ -35,3 +35,14 @@ export type {
 // Metadata (plain-language copy) for reuse in onboarding / disclosures.
 export { CONNECTOR_META, SCOPE_LABELS, SURFACE_LABELS, ORDERED_CONNECTORS } from './connectorMeta';
 export type { ConnectorMeta } from './connectorMeta';
+
+// Native OAuth bridge — the platform `beginOAuth` + native-host detection. NEW
+// connectors (calendar/music) run ASWebAuthenticationSession via the iOS host.
+export {
+  beginOAuth,
+  isNativeOAuthBridgeAvailable,
+  NativeBridgeUnavailableError,
+  OAuthConfigError,
+  OAuthFlowError,
+} from './oauthBridge';
+export type { OAuthBridgeResult } from './oauthBridge';
