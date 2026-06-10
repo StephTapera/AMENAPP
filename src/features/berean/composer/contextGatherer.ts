@@ -87,6 +87,38 @@ interface ConnectorFetchResponse {
   ok: boolean;
   items: ConnectorFetchResponseItem[];
   error?: string;
+  /** Typed degrade signal from the connectorFetch CF (ok:false). Drives the chip copy. */
+  degraded?: boolean;
+  /** Machine reason code from the CF (e.g. 'no_grant', 'provider_unavailable'). */
+  reason?: string;
+}
+
+/**
+ * Map a connectorFetch CF reason code to friendly degraded-chip copy. The CF returns
+ * non-sensitive reason codes only (never provider payloads); we translate them here so
+ * the visible chip reads naturally and never implies fabricated data was used.
+ */
+function degradedCopyForReason(reason: string | undefined, label: string): string | null {
+  switch (reason) {
+    case 'no_grant':
+    case 'grant_inactive':
+    case 'surface_not_granted':
+    case 'no_read_scope':
+      return `Connect ${label} to use it here.`;
+    case 'grant_expired':
+      return `${label} access expired — reconnect to use it.`;
+    case 'token_unavailable':
+      return `${label} needs to be reconnected.`;
+    case 'minor_blocked':
+      return `${label} isn't available on this account.`;
+    case 'no_results':
+      return `${label} returned no results right now.`;
+    case 'provider_unavailable':
+    case 'consent_unavailable':
+      return `${label} is unavailable right now.`;
+    default:
+      return null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -140,6 +172,7 @@ export function makeContextGatherer(
                 items: [],
                 degradedReason:
                   resp.error?.trim() ||
+                  degradedCopyForReason(resp.reason, descriptor.label) ||
                   `${descriptor.label} returned no results right now.`,
                 degradedConnector: connectorId,
               };

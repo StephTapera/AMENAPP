@@ -507,11 +507,18 @@ exports.connectorStatus = onCallV2(
   },
 );
 
-// Export internal helpers for unit testing (not registered as callables).
+// Export internal helpers for unit testing (not registered as callables) and for
+// reuse by the read-side connectorFetch.js (server-side token retrieval, grant ref,
+// minor gate). Tokens are NEVER returned to the client by any consumer of these.
 exports._internal = {
   computeAssertNotMinor: assertNotMinor,
+  assertNotMinor,
+  grantRef,
+  tokenRef,
+  getDb,
   ALL_CONNECTOR_IDS,
   NEW_CONNECTOR_IDS,
+  ALIAS_CONNECTOR_IDS,
   VALID_SCOPES,
   VALID_SURFACES,
 };
