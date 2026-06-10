@@ -1,6 +1,12 @@
 # AMEN Agent Lanes
 
 > 🚫 **GLOBAL RULE (2026-06-09, effective now): NO AGENT DELETES FILES OUTSIDE ITS OWN LANE.** Any deletion — even own-lane — is declared in this manifest with a one-line reason BEFORE staging. Undeclared deletions get restored on sight by the owning lane.
+>
+> ## 🔒 GIT DISCIPLINE (2026-06-09, binding on ALL lanes — Claude + Codex)
+> 1. **Destructive git is HUMAN-ONLY on the shared tree.** No agent/automation/"clean build" step runs `git clean`, `reset --hard`, `checkout -- <path>` / `restore` on files outside its lane, or `branch -D`. A lane's clean step may delete `./DerivedData` and `./SourcePackages` ONLY — never the source tree. **(Root cause found: the build/package lane used `git restore` on source to clear a "dirty worktree" — see `FIX_LOG.md:41`. That stops now.)**
+> 2. **Commit early, always.** Every lane commits to a `lane/<name>` branch at least once per completed item. Untracked files older than one work item = a violation; uncommitted work here has been destroyed twice.
+> 3. **Wiped modules go back via their OWNERS, then COMMIT immediately.** `cameraOS/contextLens`, `communityOS/core`, `userSettings`, `actionIntelligence` were restored + captured in `rescue/verification-and-safety-0609` (commit `12f8839f`); **TS build is now GREEN (0 errors)**. Owners: confirm + keep committed.
+> 4. **Build verification cleans build artifacts only.** Never the working tree.
 
 ## Resolve Missing Package Products
 
