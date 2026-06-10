@@ -115,6 +115,13 @@ struct VergeMessageBubbleView: View {
                         .font(AMENFont.regular(14))
                         .foregroundStyle(.white.opacity(0.9))
                         .fixedSize(horizontal: false, vertical: true)
+
+                    if !isOwnMessage, AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                        AILTranslatePill(
+                            originalText: message.content,
+                            originalRef: message.id ?? ""
+                        )
+                    }
                 }
                 .padding(.horizontal, 11)
                 .padding(.vertical, 8)

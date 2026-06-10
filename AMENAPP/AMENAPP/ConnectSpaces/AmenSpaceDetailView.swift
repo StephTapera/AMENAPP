@@ -137,6 +137,11 @@ private struct SpacePostRow: View {
                     .foregroundStyle(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .ailSensitivityBlur(text: post.title)
+
+                if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                    AILTranslatePill(originalText: post.title, originalRef: post.id)
+                }
 
                 Text(relativeFormatter.localizedString(for: post.timestamp, relativeTo: Date()))
                     .font(.systemScaled(12))

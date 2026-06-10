@@ -682,6 +682,14 @@ struct AMENNotificationsView: View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 20) {
 
+                // Re-entry "catch up" summary (AIL · qualitative only, never counts)
+                if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                    AILReentrySummaryCard(
+                        threadContext: "Here's what changed while you were away.",
+                        originalRef: "notifications"
+                    )
+                }
+
                 // Focus mode + filter chips
                 VStack(spacing: 10) {
                     FocusModeRow(isOn: $viewModel.focusModeOn)

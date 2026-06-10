@@ -2284,7 +2284,15 @@ struct ChurchNoteDetailView: View {
                             Label("Notes", systemImage: "note.text")
                                 .font(AMENFont.bold(18))
                                 .foregroundStyle(.white.opacity(0.9))
-                            
+
+                            // Accessibility Intelligence Layer — reader controls
+                            if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    AILReadingLevelControl()
+                                    AILTranslatePill(originalText: note.content, originalRef: note.id ?? "")
+                                }
+                            }
+
                             Text(note.content)
                                 .font(AMENFont.regular(17))
                                 .foregroundStyle(.white.opacity(0.9))

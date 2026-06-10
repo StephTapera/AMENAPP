@@ -229,6 +229,10 @@ struct VoicePrayerCommentRowView: View {
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
                     .fixedSize(horizontal: false, vertical: true)
                     .transition(.opacity.combined(with: .move(edge: .top)))
+
+                if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                    AILTranslatePill(originalText: comment.transcript, originalRef: comment.id)
+                }
             }
         }
     }

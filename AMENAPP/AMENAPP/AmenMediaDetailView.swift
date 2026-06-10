@@ -190,6 +190,11 @@ struct AmenMediaDetailView: View {
                 .frame(height: heroHeight)
             }
 
+            if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled,
+               let item = currentItem, item.type == .image {
+                AILAltTextEditor(mediaId: item.id, imageRef: item.url)
+            }
+
             if let text = post.content.nilIfEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(text)
