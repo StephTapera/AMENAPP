@@ -4,18 +4,20 @@
  * FROZEN ❄ — Phase 2 agents may not modify. Connected Intelligence v1.
  * OWNER: Agent 1 (Contract Author). Single source of truth for the 6 Phase 2 surfaces.
  *
- * Binds to the frozen Berean contract (src/berean/contracts.ts). Canonical enums
- * (Domain, Plan, CapabilityTier, Provenance, SourceRef, TruthLevel) are imported —
- * NEVER redefined here. The Domain union is FROZEN at 14 values and is NOT extended;
+ * Binds to the frozen Berean contract (src/berean/contracts.ts). Canonical types
+ * (Domain, Plan, CapabilityTier, Provenance, SourceRef, TruthLevel) are IMPORTED —
+ * never redefined here. The Domain union is FROZEN at 14 values and is NOT extended;
  * every @mention folds into one of those existing values (see MENTION_ROUTING).
  *
- * Firestore timestamp convention: matches the Berean contract — `unknown` at rest
- * (a Firestore Timestamp; serialized to epoch-ms on the client when read).
- *
- * HUMAN DECISIONS encoded here (locked):
- *   1. Drive + Canva connectors DROPPED. ConnectorId = calendar | music | bible | church_mgmt only.
- *   2. @mention → Domain folding (no enum extension). See MENTION_ROUTING.
+ * Enum VALUES below are transcribed verbatim from the swarm spec §4.1/§4.2 — the only
+ * deviations are the two locked human decisions:
+ *   1. Drive + Canva connectors DROPPED → absent from ConnectorId and ToolMention.
+ *   2. @mention → Domain folding (no enum extension) → see MENTION_ROUTING.
  *   3. TrustProfile DROPPED from v1 — not defined or referenced anywhere.
+ *
+ * Firestore timestamp convention matches berean/contracts.ts (`unknown` at rest —
+ * a Firestore Timestamp, serialized to epoch-ms on the client). Aliased as `Timestamp`
+ * so the interfaces read exactly like the spec.
  */
 
 import type {
@@ -30,195 +32,197 @@ import type {
 // Re-export the bound canonical types so Phase 2 surfaces import from one place.
 export type { Provenance, SourceRef, TruthLevel, Plan, CapabilityTier, Domain };
 
+/** Firestore Timestamp at rest (matches berean/contracts.ts convention). */
+export type Timestamp = unknown;
+
 // ─────────────────────────────────────────────────────────────────────────────
-// §4.1 — NEW ENUMS (additive; do not extend the frozen Domain union)
-// Drive + Canva intentionally absent (Decision #1).
+// §4.1 — NEW ENUMS (additive; do NOT extend the frozen Domain union)
+// Values are verbatim from spec §4.1. Drive + Canva intentionally absent (Decision #1).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Faith-native connectors only. NO drive/canva — ever. */
+/** Faith-native connectors only. NO drive/canva — ever (Decision #1). */
 export enum ConnectorId {
-  Calendar = 'calendar',
-  Music = 'music',
-  Bible = 'bible',
-  ChurchMgmt = 'church_mgmt',
+  calendar = 'calendar',          // Google Calendar v1; Apple EventKit at SwiftUI parity
+  music = 'music',                // Spotify v1; Apple Music later — provider behind adapter
+  bible = 'bible',                // ALIAS to existing BibleProvider adapter — no new integration
+  church_mgmt = 'church_mgmt',    // ALIAS to existing church_calendar/sermon_library — no new integration
 }
 
-/** OAuth-style permission scopes a grant may request. */
+/** Generic grant scopes. `write_commit` requires ConfirmationGate at grant AND each use. */
 export enum ConnectorScope {
-  ReadEvents = 'read_events',
-  WriteEvents = 'write_events',
-  ReadPlaylists = 'read_playlists',
-  ReadBible = 'read_bible',
-  ReadMembership = 'read_membership',
-  ReadSermons = 'read_sermons',
+  read_metadata = 'read_metadata',
+  read_content = 'read_content',
+  write_draft = 'write_draft',
+  write_commit = 'write_commit',
 }
 
-/** Where the grant consent UI was presented. */
+/** The consuming surfaces a grant may be scoped to (per-surface permissioning). */
 export enum GrantSurface {
-  Settings = 'settings',
-  Composer = 'composer',
-  Brief = 'brief',
-  Notebook = 'notebook',
-  Mention = 'mention',
+  berean = 'berean',
+  daily_brief = 'daily_brief',
+  notebooks = 'notebooks',
+  scheduled_actions = 'scheduled_actions',
+  action_sheet = 'action_sheet',
 }
 
-/** @mention tokens. NO drive/canva (Decision #1). */
+/** @mention tokens in the Berean composer. NO drive/canva (Decision #1). */
 export enum ToolMention {
-  Bible = 'bible',
-  Prayer = 'prayer',
-  Calendar = 'calendar',
-  Notes = 'notes',
-  Sermon = 'sermon',
-  Music = 'music',
-  Church = 'church',
+  bible = 'bible',
+  prayer = 'prayer',
+  calendar = 'calendar',
+  notes = 'notes',
+  sermon = 'sermon',
+  music = 'music',
+  church = 'church',
 }
 
-/** Notebook source classes. */
+/** Notebook kinds. */
 export enum NotebookKind {
-  StudySources = 'study_sources',
-  SermonPrep = 'sermon_prep',
-  PrayerJournal = 'prayer_journal',
-  ChurchNotes = 'church_notes',
+  sermon = 'sermon',
+  study = 'study',
+  prayer_journal = 'prayer_journal',
+  project = 'project',
+  group = 'group',
+  event = 'event',
 }
 
 /**
- * Action sheet outcomes. Deferred values ship in the enum but are UI-absent in v1
- * (gated false in connectedIntelligence.config.ts → actionSheet.deferred).
+ * Response-action taxonomy for the action sheet (spec §4.1, verbatim).
+ * Deferred values exist in the enum (frozen) but ship config-flagged OFF with their
+ * buttons ABSENT from the UI — see connectedIntelligence.config.ts → actionSheet.deferred.
  */
 export enum ResponseAction {
-  SaveToNotebook = 'save_to_notebook',
-  PinToMemory = 'pin_to_memory',
-  ShareToSpace = 'share_to_space',
-  ScheduleReminder = 'schedule_reminder',
-  // ── DEFERRED (UI-absent in v1) ──
-  TurnIntoPodcast = 'turn_into_podcast',
-  TurnIntoVideoScript = 'turn_into_video_script',
-  CreateInfographic = 'create_infographic',
-  CreatePresentation = 'create_presentation',
-  CreateFlyer = 'create_flyer',
+  // Knowledge
+  save_to_note = 'save_to_note',
+  add_to_notebook = 'add_to_notebook',
+  add_to_prayer_journal = 'add_to_prayer_journal',
+  // Community
+  add_to_space = 'add_to_space',
+  discuss_in_space = 'discuss_in_space',
+  send_to_friend = 'send_to_friend',
+  ask_my_church = 'ask_my_church',
+  ask_my_group = 'ask_my_group',
+  ask_my_notes = 'ask_my_notes',
+  // AI transforms
+  simplify = 'simplify',
+  deep_dive = 'deep_dive',
+  challenge_this = 'challenge_this',
+  show_sources = 'show_sources',
+  verify_scripture = 'verify_scripture',
+  generate_questions = 'generate_questions',
+  // Action
+  create_task = 'create_task',
+  add_to_calendar = 'add_to_calendar',
+  build_plan = 'build_plan',
+  create_poll = 'create_poll',
+  turn_into_post = 'turn_into_post',
+  turn_into_carousel = 'turn_into_carousel',
+  // Memory
+  remember_this = 'remember_this',
+  forget_this = 'forget_this',
+  why_remembered = 'why_remembered',
+  show_related = 'show_related',
+  // Continuity
+  continue_later = 'continue_later',
+  // DEFERRED — frozen in enum, but config-flagged OFF and ABSENT from UI in v1:
+  turn_into_video_script = 'turn_into_video_script',
+  turn_into_podcast = 'turn_into_podcast',
+  create_infographic = 'create_infographic',
+  create_presentation = 'create_presentation',
+  create_flyer = 'create_flyer',
 }
 
-/** Kinds of scheduled action. */
 export enum ScheduleKind {
-  Reminder = 'reminder',
-  ReadingPlanNudge = 'reading_plan_nudge',
-  PrayerPrompt = 'prayer_prompt',
-  BriefDelivery = 'brief_delivery',
+  reminder = 'reminder',
+  digest = 'digest',
+  follow_up = 'follow_up',
 }
 
-/** Write-risk tier for a scheduled action (drives Aegis review + dry-run count). */
+/** NO autonomous external writes at v1 — ceiling is drafts_for_approval. */
 export enum ScheduleWriteRisk {
-  None = 'none',         // read-only / in-app surface
-  Low = 'low',           // local notification only
-  External = 'external', // writes to a connected external system (calendar) — Aegis-gated
+  read_only = 'read_only',
+  drafts_for_approval = 'drafts_for_approval',
 }
 
-/** Sections that may appear in the Daily Brief. */
 export enum BriefSection {
-  Verse = 'verse',
-  Prayer = 'prayer',
-  ReadingPlan = 'reading_plan',
-  ChurchEvents = 'church_events',
-  Reflection = 'reflection',
-  Followups = 'followups',
+  events = 'events',
+  messages_needing_attention = 'messages_needing_attention',
+  prayer_updates = 'prayer_updates',
+  saved_verse = 'saved_verse',
+  follow_ups = 'follow_ups',
+  community = 'community',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §4.2 — CORE INTERFACES
-// Timestamp fields typed `unknown` (Firestore Timestamp), matching berean/contracts.ts.
+// §4.2 — CORE INTERFACES (verbatim from spec; Provenance is the canonical import)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** A user's grant to a connected faith-native provider. */
 export interface ConnectorGrant {
+  uid: string;
   connectorId: ConnectorId;
-  scopes: ConnectorScope[];
-  grantedVia: GrantSurface;
-  status: 'active' | 'revoked' | 'pending';
-  /** Provider display id (e.g. the BibleProvider adapter id, or a calendar provider). */
-  providerId: string;
-  grantedAt: unknown;      // Firestore Timestamp
-  revokedAt?: unknown;     // Firestore Timestamp — soft revoke
-  /** True if this grant was blocked/auto-revoked because the account is minor-scoped. */
-  minorBlocked: boolean;
+  scopes: ConnectorScope[];               // write_commit requires ConfirmationGate at grant time AND at each use
+  surfaces: GrantSurface[];               // per-surface permissioning: "Calendar for reminders, not recommendations"
+                                          //   = surfaces:['scheduled_actions'] minus ['berean']
+  grantedAt: Timestamp;
+  expiresAt: Timestamp | null;            // temporary grants supported
+  status: 'active' | 'revoked' | 'error';
+  minorBlocked: true;                     // literal true — schema-level assertion; rules reject grant docs for minors
 }
 
-/** A retrieved context chunk injected into a model call. */
+/** The ONLY shape connector data may enter a prompt in. */
 export interface ContextItem {
-  id: string;
-  domain: Domain;
-  source: SourceRef;
-  text: string;
-  /** Connector this context came from, if any. */
-  connectorId?: ConnectorId;
-  truthLevel: TruthLevel;
-  retrievedAt: unknown;    // Firestore Timestamp
+  source: ConnectorId | 'amen_native';
+  provenance: Provenance;                 // canonical
+  surface: GrantSurface;
+  fetchedAt: Timestamp;
+  summaryOnly: boolean;                   // raw third-party content never persists; summaries + pointers only
+  payload: string;
+  pointer: string | null;                 // deep link back to source of truth
 }
 
-/**
- * A memory item. v1 EXTENDS the existing store `berean/{uid}/memory/{memoryId}`
- * (shape BereanMemoryDoc) — this is NOT a parallel store. Fields here are a superset
- * view used by Connected Intelligence surfaces; persistence stays in memory.ts.
- */
 export interface MemoryItem {
-  id: string;
-  domain: Domain;
-  summary: string;
-  refs: SourceRef[];
-  pinned: boolean;
-  visibility: 'public' | 'followers' | 'paid' | 'organization' | 'private';
-  createdAt: unknown;      // Firestore Timestamp
-  softDeleted: boolean;
+  uid: string;
+  text: string;
+  origin: 'explicit_remember' | 'imported_note' | 'imported_highlight'; // v1: NO passive-inference origin exists
+  sourcePointer: string | null;
+  createdAt: Timestamp;
+  deletedAt: Timestamp | null;            // soft delete; hard purge job runs after retention window
 }
 
-/** A notebook: a bounded collection of sources for grounded study/prep. */
 export interface Notebook {
   id: string;
-  ownerId: string;
+  uid: string;
   kind: NotebookKind;
   title: string;
-  /** Source refs that scope this notebook's grounded answers. */
-  sources: SourceRef[];
-  sourceCount: number;
-  /** Optional Space share — uses existing membership (isSpaceMember). */
-  sharedSpaceId?: string;
-  createdAt: unknown;      // Firestore Timestamp
-  updatedAt: unknown;      // Firestore Timestamp
-  softDeleted: boolean;
+  sourceRefs: Array<{ type: 'note' | 'sermon' | 'verse_range' | 'doc' | 'chat_checkpoint'; pointer: string }>;
+  pineconeNamespace: string;              // per-notebook namespace; fail-closed: no index ⇒ refuse, never ungrounded
+  sharedWithSpaceId: string | null;       // group notebooks
+  createdAt: Timestamp;
+  deletedAt: Timestamp | null;
 }
 
-/**
- * A scheduled action. Execution fields are SERVER-ONLY (clients never write them).
- * `enabled: false` in v1 config — these persist but do not fire until Aegis review.
- */
 export interface ScheduledAction {
   id: string;
-  ownerId: string;
+  uid: string;
   kind: ScheduleKind;
-  writeRisk: ScheduleWriteRisk;
-  /** ISO-8601 RRULE or one-shot ISO timestamp. */
-  schedule: string;
-  /** Connector targeted by the action (calendar writes), if external. */
-  connectorId?: ConnectorId;
-  active: boolean;
-  // ── SERVER-ONLY execution fields (rules deny client writes) ──
-  lastRunAt?: unknown;     // Firestore Timestamp
-  nextRunAt?: unknown;     // Firestore Timestamp
-  dryRunsRemaining: number;
-  aegisReviewId: string | null;
-  createdAt: unknown;      // Firestore Timestamp
+  rrule: string;
+  humanReadable: string;
+  prompt: string;                         // what the agent does each run
+  writeRisk: ScheduleWriteRisk;           // read_only ⇒ cards; drafts_for_approval ⇒ drafts behind ConfirmationGate
+  surfaces: GrantSurface[];
+  sabbathSuppressed: boolean;             // default true; safety/crisis kinds may not be scheduled (route to Guardian)
+  dryRun: boolean;                        // default true on creation; first N runs render "would have done X" cards
+  aegisReviewId: string | null;           // feature ships disabled until populated in config
+  status: 'active' | 'paused' | 'dry_run' | 'deleted';
 }
 
-/** A single card in the Daily Brief. */
 export interface BriefCard {
-  id: string;
-  section: BriefSection;
-  domain: Domain;
-  title: string;
-  body: string;
-  provenance: Provenance;
-  /** Action affordances offered on this card. */
-  actions: ResponseAction[];
-  connectorId?: ConnectorId;
+  uid: string;
+  date: string;                           // one per user per day, generated on-demand (pull), cached
+  sections: Array<{ section: BriefSection; items: ContextItem[] }>;
+  maxItemsTotal: 9;                       // hard cap, contract-level
+  sabbathSuppressed: boolean;
+  minorMode: boolean;                     // true ⇒ zero connector-sourced items
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -226,13 +230,12 @@ export interface BriefCard {
 //
 // Folding map (locked):
 //   bible    → scripture     prayer → prayer       notes → church_notes
-//   calendar → church_notes  sermon → study        music → general
-//   church   → admin
+//   calendar → church_notes  sermon → study        music → general       church → admin
 //
 // provider tiers:
-//   'claude-exclusive'    — Claude-only, fail_closed (scripture/pastoral). No fallover.
-//   'rag-grounded'        — retrieval-grounded, refuse-if-no-index (notes/notebooks).
-//   'tool-orchestration'  — degrade-gracefully (calendar/music connectors).
+//   'claude-exclusive'    — Claude-only, fail_closed (scripture/pastoral). No fallover, any tier.
+//   'rag-grounded'        — retrieval-grounded, refuse-if-no-index (notes/sermon/notebooks).
+//   'tool-orchestration'  — degrade-gracefully (calendar/music/church connectors).
 //
 // taskKey values are REAL keys present in functions/router/amenRouting.config.js.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -241,52 +244,48 @@ export const MENTION_ROUTING: Record<
   ToolMention,
   { domain: Domain; taskKey: string; provider: 'claude-exclusive' | 'rag-grounded' | 'tool-orchestration' }
 > = {
-  [ToolMention.Bible]:    { domain: 'scripture',    taskKey: 'berean_answer',   provider: 'claude-exclusive' },
-  [ToolMention.Prayer]:   { domain: 'prayer',       taskKey: 'prayer_generate', provider: 'claude-exclusive' },
-  [ToolMention.Notes]:    { domain: 'church_notes', taskKey: 'berean_explain',  provider: 'rag-grounded' },
-  [ToolMention.Calendar]: { domain: 'church_notes', taskKey: 'daily_brief',     provider: 'tool-orchestration' },
-  [ToolMention.Sermon]:   { domain: 'study',        taskKey: 'berean_explain',  provider: 'rag-grounded' },
-  [ToolMention.Music]:    { domain: 'general',      taskKey: 'berean_explain',  provider: 'tool-orchestration' },
-  [ToolMention.Church]:   { domain: 'admin',        taskKey: 'berean_explain',  provider: 'tool-orchestration' },
+  [ToolMention.bible]:    { domain: 'scripture',    taskKey: 'berean_answer',   provider: 'claude-exclusive' },
+  [ToolMention.prayer]:   { domain: 'prayer',       taskKey: 'prayer_generate', provider: 'claude-exclusive' },
+  [ToolMention.notes]:    { domain: 'church_notes', taskKey: 'berean_explain',  provider: 'rag-grounded' },
+  [ToolMention.calendar]: { domain: 'church_notes', taskKey: 'daily_brief',     provider: 'tool-orchestration' },
+  [ToolMention.sermon]:   { domain: 'study',        taskKey: 'berean_explain',  provider: 'rag-grounded' },
+  [ToolMention.music]:    { domain: 'general',      taskKey: 'berean_explain',  provider: 'tool-orchestration' },
+  [ToolMention.church]:   { domain: 'admin',        taskKey: 'berean_explain',  provider: 'tool-orchestration' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONNECTOR_ALIASES — map new ConnectorId values onto existing code paths.
 // bible       → existing BibleProvider adapter (ConnectorType 'bible')
 // church_mgmt → existing church_calendar / sermon_library connector types
-// calendar + music → NEW providers (Phase 2 Agent C/E build the adapters/CFs).
-//
-// `existingConnectorType` reuses the frozen Berean ConnectorType union so no new
-// Firestore connector path is created for aliased connectors.
+// calendar + music → NEW providers (Phase 2 builds adapters/CFs; httpsCallable, zero client keys).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const CONNECTOR_ALIASES: Record<
   ConnectorId,
   {
-    /** Existing Berean ConnectorType(s) reused, or null for brand-new providers. */
     existingConnectorType: Array<'bible' | 'church_calendar' | 'giving' | 'sermon_library'> | null;
     isNew: boolean;
     note: string;
   }
 > = {
-  [ConnectorId.Bible]: {
+  [ConnectorId.bible]: {
     existingConnectorType: ['bible'],
     isNew: false,
     note: 'Reuses src/berean/connectors/BibleProvider.ts (getBibleProvider) + bereanBibleLookup CF. Zero new code path.',
   },
-  [ConnectorId.ChurchMgmt]: {
+  [ConnectorId.church_mgmt]: {
     existingConnectorType: ['church_calendar', 'sermon_library'],
     isNew: false,
     note: 'Reuses existing church_calendar + sermon_library connector types/state. Zero new code path.',
   },
-  [ConnectorId.Calendar]: {
+  [ConnectorId.calendar]: {
     existingConnectorType: null,
     isNew: true,
-    note: 'NEW provider. Phase 2 Agent builds CalendarProvider adapter + CF (httpsCallable, zero client keys).',
+    note: 'NEW provider. Phase 2 builds CalendarProvider adapter + CF (httpsCallable, zero client keys).',
   },
-  [ConnectorId.Music]: {
+  [ConnectorId.music]: {
     existingConnectorType: null,
     isNew: true,
-    note: 'NEW provider. Phase 2 Agent builds MusicProvider adapter + CF (httpsCallable, zero client keys).',
+    note: 'NEW provider. Phase 2 builds MusicProvider adapter + CF (httpsCallable, zero client keys).',
   },
 };

@@ -56,7 +56,7 @@ type ActionDoc = ScheduledAction & {
   consentGranted?: boolean;
   sabbathOverrideLocked?: boolean;
   dryRunsCompleted?: number;
-  lastRunStatus?: 'ok' | 'dry_run' | 'failed' | null;
+  lastRunStatus?: 'ok' | 'dry_run' | 'failed' | 'sabbath_skip' | 'consent_pending' | null;
   lastRunFailureReason?: string | null;
   lastRunPreviewText?: string | null; // "would have sent…" text written by server in dry-run
 };
@@ -164,10 +164,12 @@ function PendingReviewState() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CreateSheet({
+  userId,
   plan,
   onClose,
   onCreated,
 }: {
+  userId: string;
   plan: 'free' | 'plus' | 'pro';
   onClose: () => void;
   onCreated: () => void;
@@ -199,7 +201,7 @@ function CreateSheet({
     setBusy(true);
     setError(null);
     try {
-      const res = await createAction(plan, preview);
+      const res = await createAction(userId, plan, preview);
       // If consent was confirmed inline, record it on the new doc.
       if (preview.requiresConsent && consentChecked) {
         await grantConsent(res.id);
@@ -210,7 +212,7 @@ function CreateSheet({
       setError(friendlyError(msg));
       setBusy(false);
     }
-  }, [preview, consentChecked, plan, onCreated]);
+  }, [preview, consentChecked, userId, plan, onCreated]);
 
   return (
     <div style={s.modalScrim} onClick={onClose}>
@@ -669,6 +671,7 @@ export function ScheduledActionsScreen({ userId, plan = 'free' }: Props) {
       {/* STATE 6 — CREATE. */}
       {creating && (
         <CreateSheet
+          userId={userId}
           plan={plan}
           onClose={() => setCreating(false)}
           onCreated={() => {

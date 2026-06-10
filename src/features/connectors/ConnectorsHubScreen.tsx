@@ -52,16 +52,23 @@ const DEFAULT_STATUS: ConnectorRuntimeStatus = {
   reason: null,
 };
 
-export default function ConnectorsHubScreen({
-  minorScoped,
-  plan,
-  beginOAuth,
-}: ConnectorsHubScreenProps): JSX.Element {
-  // MINOR: hard replacement — render BEFORE any data fetch or grant path exists.
-  if (minorScoped) {
+/**
+ * Public entry point. MINOR accounts short-circuit to the explainer WITHOUT ever
+ * mounting the adult hub — so no connector hooks, data fetches, or grant paths
+ * exist for minors. The adult hub lives in a separate component so React hooks are
+ * never conditionally skipped.
+ */
+export default function ConnectorsHubScreen(props: ConnectorsHubScreenProps): JSX.Element {
+  if (props.minorScoped) {
     return <MinorExplainer />;
   }
+  return <AdultConnectorsHub plan={props.plan} beginOAuth={props.beginOAuth} />;
+}
 
+function AdultConnectorsHub({
+  plan,
+  beginOAuth,
+}: Omit<ConnectorsHubScreenProps, 'minorScoped'>): JSX.Element {
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [statuses, setStatuses] = useState<Record<string, ConnectorRuntimeStatus>>({});
   const [usage, setUsage] = useState<{ connectorRequestsUsedToday: number; connectorRequestsPerDay: number }>({

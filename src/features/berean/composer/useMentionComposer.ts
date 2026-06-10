@@ -158,7 +158,6 @@ export function useMentionComposer(
   } = params;
 
   const [text, setText] = useState('');
-  const [caret, setCaret] = useState(0);
   const [trigger, setTrigger] = useState<ActiveTrigger>({ active: false, query: '', atIndex: -1 });
 
   const [availability, setAvailability] = useState<ConnectorAvailability | null>(null);
@@ -199,13 +198,11 @@ export function useMentionComposer(
   // ── Text / caret tracking ────────────────────────────────────────────────
   const onTextChange = useCallback((nextText: string, nextCaret: number) => {
     setText(nextText);
-    setCaret(nextCaret);
     setTrigger(detectTrigger(nextText, nextCaret));
   }, []);
 
   const setTextExternal = useCallback((t: string) => {
     setText(t);
-    setCaret(t.length);
     setTrigger(detectTrigger(t, t.length));
   }, []);
 
@@ -254,7 +251,6 @@ export function useMentionComposer(
     (descriptor: MentionDescriptor) => {
       const { text: nextText } = applyMentionSelection(text, trigger, descriptor);
       setText(nextText);
-      setCaret(nextText.length);
       closePicker();
     },
     [text, trigger, closePicker],
@@ -287,7 +283,6 @@ export function useMentionComposer(
 
       if (mountedRef.current) {
         setText('');
-        setCaret(0);
         setTrigger({ active: false, query: '', atIndex: -1 });
         setDegraded(degradedSignal);
       }
@@ -343,7 +338,6 @@ export function useMentionComposer(
       if (result.status === 'committed') {
         setDraftPending(null);
         setText('');
-        setCaret(0);
         setDegraded(null);
       } else {
         setDegraded({

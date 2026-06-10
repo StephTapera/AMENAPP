@@ -90,3 +90,41 @@ exports.shareDiscernmentCheck = v2.shareDiscernmentCheck;
 exports.flockIntelligence      = v2.flockIntelligence;
 exports.processSermonMemory    = v2.processSermonMemory;
 exports.reviewPrayerSubmission = v2.reviewPrayerSubmission;
+
+// ── Connected Intelligence v1 callables (2026-06-09) ──────────────────────────
+// All Gen-2 (onCall / onSchedule). They import firebase-functions/v2/* so they
+// MUST be exported from this v2triggers codebase, never from the Gen-1-clean
+// index.js. prepare-deploy.sh copies ./connectedIntelligence/ into the bundle.
+//
+// Connectors — OAuth exchange + grant lifecycle (tokens stay server-side):
+const ciConnectors = require("./connectedIntelligence/connectorFunctions");
+exports.connectorOAuthExchange = ciConnectors.connectorOAuthExchange;
+exports.connectorUpdateGrant   = ciConnectors.connectorUpdateGrant;
+exports.connectorRevoke        = ciConnectors.connectorRevoke;
+exports.connectorStatus        = ciConnectors.connectorStatus;
+
+// Daily Brief — pull-based home card (one cache doc per day, never a push):
+exports.generateDailyBrief =
+  require("./connectedIntelligence/briefFunctions").generateDailyBrief;
+
+// Amen Notebooks — per-notebook grounded RAG (cite-or-refuse); purge job daily:
+const ciNotebooks = require("./connectedIntelligence/notebookFunctions");
+exports.notebookCreate     = ciNotebooks.notebookCreate;
+exports.notebookIngest     = ciNotebooks.notebookIngest;
+exports.notebookQuery      = ciNotebooks.notebookQuery;
+exports.notebookSoftDelete = ciNotebooks.notebookSoftDelete;
+exports.notebookPurgeJob   = ciNotebooks.notebookPurgeJob;       // onSchedule
+
+// @Tool composer — calendar draft + ConfirmationGate commit:
+const ciComposer = require("./connectedIntelligence/composerFunctions");
+exports.composerCalendarDraft  = ciComposer.composerCalendarDraft;
+exports.composerCalendarCommit = ciComposer.composerCalendarCommit;
+
+// Response Action Sheet — the 6 transforms (claude-exclusive for scripture):
+exports.bereanTransform =
+  require("./connectedIntelligence/transformFunctions").bereanTransform;
+
+// Scheduled Actions — gen2 onSchedule runner. NO-OP while the Aegis gate is shut
+// (SCHEDULED_ACTIONS_ENABLED !== "true" or no SCHEDULED_ACTIONS_AEGIS_REVIEW_ID):
+exports.executeScheduledActions =
+  require("./connectedIntelligence/scheduledFunctions").executeScheduledActions;

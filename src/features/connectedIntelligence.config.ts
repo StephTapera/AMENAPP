@@ -16,7 +16,7 @@
 import { ConnectorId, ResponseAction } from './connectedIntelligence.contracts';
 
 export interface ConnectedIntelligenceConfig {
-  connectors: Record<ConnectorId.Calendar | ConnectorId.Music, { enabled: boolean }>;
+  connectors: Record<ConnectorId.calendar | ConnectorId.music, { enabled: boolean }>;
   brief: {
     maxItems: number;
     generateAfterLocalHour: number;
@@ -37,11 +37,11 @@ export interface ConnectedIntelligenceConfig {
   actionSheet: {
     /** Deferred action-sheet outcomes — all false in v1 (UI-absent). */
     deferred: Record<
-      | ResponseAction.TurnIntoPodcast
-      | ResponseAction.TurnIntoVideoScript
-      | ResponseAction.CreateInfographic
-      | ResponseAction.CreatePresentation
-      | ResponseAction.CreateFlyer,
+      | ResponseAction.turn_into_podcast
+      | ResponseAction.turn_into_video_script
+      | ResponseAction.create_infographic
+      | ResponseAction.create_presentation
+      | ResponseAction.create_flyer,
       boolean
     >;
   };
@@ -54,8 +54,8 @@ export interface ConnectedIntelligenceConfig {
 
 export const connectedIntelligence: ConnectedIntelligenceConfig = {
   connectors: {
-    [ConnectorId.Calendar]: { enabled: true },
-    [ConnectorId.Music]: { enabled: true },
+    [ConnectorId.calendar]: { enabled: true },
+    [ConnectorId.music]: { enabled: true },
   },
   brief: {
     maxItems: 9,
@@ -76,11 +76,11 @@ export const connectedIntelligence: ConnectedIntelligenceConfig = {
   },
   actionSheet: {
     deferred: {
-      [ResponseAction.TurnIntoPodcast]: false,
-      [ResponseAction.TurnIntoVideoScript]: false,
-      [ResponseAction.CreateInfographic]: false,
-      [ResponseAction.CreatePresentation]: false,
-      [ResponseAction.CreateFlyer]: false,
+      [ResponseAction.turn_into_podcast]: false,
+      [ResponseAction.turn_into_video_script]: false,
+      [ResponseAction.create_infographic]: false,
+      [ResponseAction.create_presentation]: false,
+      [ResponseAction.create_flyer]: false,
     },
   },
   limits: {

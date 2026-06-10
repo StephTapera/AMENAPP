@@ -19,10 +19,10 @@ Pinecone namespace + the Firestore doc after a 7-day retention window.
 
 | File | Lines | Role |
 |---|---|---|
-| `functions/connectedIntelligence/notebookFunctions.js` | 521 | 5 CFs (create/ingest/query/softDelete/purgeJob) |
+| `functions/connectedIntelligence/notebookFunctions.js` | 690 | 5 CFs (create/ingest/query/softDelete/purgeJob) |
 | `src/features/notebooks/notebooksService.ts` | 161 | Client CF wrappers + Firestore list |
-| `src/features/notebooks/NotebooksScreen.tsx` | 566 | All 6 UI states + explicit REFUSE state |
-| `src/features/notebooks/index.ts` | 29 | Barrel — exports `NotebooksScreen` |
+| `src/features/notebooks/NotebooksScreen.tsx` | 777 | All 6 UI states + explicit REFUSE state |
+| `src/features/notebooks/index.ts` | 25 | Barrel — exports `NotebooksScreen` |
 
 ## CF exports (register in `functions/index.js`)
 

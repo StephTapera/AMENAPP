@@ -328,4 +328,53 @@ const ROUTING = {
   },
 };
 
-module.exports = { PROVIDERS, ROUTING };
+// ── CONNECTED INTELLIGENCE v1 config ──────────────────────────────────────────
+// Server-side mirror of src/features/connectedIntelligence.config.ts. These values
+// are editable without an app update. SAFETY INVARIANT: safety/crisis tasks BYPASS
+// every cap/limit below (consistent with BereanUsageDoc.safetyExempt === true).
+//
+// scheduledActions.enabled stays false and aegisReviewId stays null until an Aegis
+// capability review lands. The onSchedule runner (scheduledFunctions.js) also reads
+// SCHEDULED_ACTIONS_ENABLED / SCHEDULED_ACTIONS_AEGIS_REVIEW_ID from env and no-ops
+// while the gate is shut — this config block is the client-mirrored source of truth.
+const CONNECTED_INTELLIGENCE = {
+  connectors: {
+    calendar: { enabled: true },   // Google Calendar v1 (Apple EventKit at SwiftUI parity)
+    music:    { enabled: true },   // Spotify v1 (Apple Music later, behind MusicProvider)
+  },
+  brief: {
+    maxItems: 9,
+    generateAfterLocalHour: 5,
+    pushEnabled: false,            // pull-based home card ONLY — never a push notification
+  },
+  notebooks: {
+    maxSourcesFree: 10,
+    maxSourcesPlus: 100,
+    maxNotebooksFree: 3,
+  },
+  scheduledActions: {
+    enabled: false,                // hard-off until Aegis review (DO NOT flip here)
+    aegisReviewId: null,
+    dryRunCount: 3,
+    maxActiveFree: 2,
+    maxActivePlus: 10,
+  },
+  actionSheet: {
+    // Deferred action-sheet outcomes — all false in v1 (UI-absent, not disabled).
+    deferred: {
+      turn_into_podcast: false,
+      turn_into_video_script: false,
+      create_infographic: false,
+      create_presentation: false,
+      create_flyer: false,
+    },
+  },
+  limits: {
+    // NOTE: safety + crisis domains are EXEMPT from these caps (never metered).
+    dailyPromptsFree: 25,
+    dailyPromptsPlus: 200,
+    connectorRequestsPerDay: 100,
+  },
+};
+
+module.exports = { PROVIDERS, ROUTING, CONNECTED_INTELLIGENCE };

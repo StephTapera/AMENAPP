@@ -38,6 +38,12 @@ echo "[prepare-deploy] Copying intelligence/ directory"
 rm -rf "$TARGET_DIR/intelligence"
 cp -r "$PARENT_DIR/intelligence" "$TARGET_DIR/intelligence"
 
+# Copy connectedIntelligence/ directory (Connected Intelligence v1 Gen-2 callables:
+# connectors, brief, notebooks, composer, transforms, scheduled runner)
+echo "[prepare-deploy] Copying connectedIntelligence/ directory"
+rm -rf "$TARGET_DIR/connectedIntelligence"
+cp -r "$PARENT_DIR/connectedIntelligence" "$TARGET_DIR/connectedIntelligence"
+
 # Copy router/ directory (needed by Berean callables via callModel.js)
 echo "[prepare-deploy] Copying router/ directory"
 rm -rf "$TARGET_DIR/router"

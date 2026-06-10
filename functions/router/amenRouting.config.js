@@ -326,78 +326,55 @@ const ROUTING = {
     failClosed: true, fallover: false, private: true,
     note: "strictly private — never moderated, never aggregated, never shown to others",
   },
+};
 
-  // ── ACCESSIBILITY INTELLIGENCE LAYER (AIL) ─────────────────────────────────
-  // Phase 1 contract freeze (2026-06-09). Source of truth: functions/ail/ail.contracts.ts
-  // §SECTION 7 — AIL_ROUTING_ADDITIONS.
-  //
-  // Failure model is DISTINCT from moderation: AIL transforms FAIL OPEN to the
-  // ORIGINAL content (fail:"degrade", degradeResult:{ failOpen:true }) — the caller
-  // renders the original with a quiet "unavailable" state. The ONE exception is
-  // explain_scripture (Claude-only, fail_closed, cite-or-refuse — never fabricate).
-  // Accessibility is free at every tier; these routes carry NO tier gating.
-  // Claude-only tasks use chain:["claude"] with NO fallover (iron rules 2/8).
-
-  translate: {
-    primary: "claudeFast", chain: ["claudeFast", "claude"],
-    fail: "degrade", degradeResult: { failOpen: true },
-    outputGuard: true,
-    note: "AIL C1 — general text only; fail OPEN to original; scripture NEVER routed here",
+// ── CONNECTED INTELLIGENCE v1 config ──────────────────────────────────────────
+// Server-side mirror of src/features/connectedIntelligence.config.ts. These values
+// are editable without an app update. SAFETY INVARIANT: safety/crisis tasks BYPASS
+// every cap/limit below (consistent with BereanUsageDoc.safetyExempt === true).
+//
+// scheduledActions.enabled stays false and aegisReviewId stays null until an Aegis
+// capability review lands. The onSchedule runner (scheduledFunctions.js) also reads
+// SCHEDULED_ACTIONS_ENABLED / SCHEDULED_ACTIONS_AEGIS_REVIEW_ID from env and no-ops
+// while the gate is shut — this config block is the client-mirrored source of truth.
+const CONNECTED_INTELLIGENCE = {
+  connectors: {
+    calendar: { enabled: true },   // Google Calendar v1 (Apple EventKit at SwiftUI parity)
+    music:    { enabled: true },   // Spotify v1 (Apple Music later, behind MusicProvider)
   },
-  simplify: {
-    primary: "claudeFast", chain: ["claudeFast", "claude"],
-    fail: "degrade", degradeResult: { failOpen: true },
-    outputGuard: true,
-    note: "AIL C2 — non-scripture text only; fail OPEN to original",
+  brief: {
+    maxItems: 9,
+    generateAfterLocalHour: 5,
+    pushEnabled: false,            // pull-based home card ONLY — never a push notification
   },
-  explain_scripture: {
-    primary: "claude", chain: ["claude"],            // Claude-only, NO fallover
-    fail: "fail_closed", inputGuard: true, outputGuard: true,
-    retrieval: "pinecone", requireCitations: true,
-    safetyLevel: "high",
-    note: "AIL — explanation ALONGSIDE canonical verse; BSB/WEB/KJV only; cite-or-refuse",
+  notebooks: {
+    maxSourcesFree: 10,
+    maxSourcesPlus: 100,
+    maxNotebooksFree: 3,
   },
-  tone_hint: {
-    primary: "claude", chain: ["claude"],
-    fail: "degrade", degradeResult: { failOpen: true },
-    outputGuard: true,
-    note: "AIL C3 — opt-in, on-demand, hedged; suppressed on Guardian-flagged content; degrade to no-hint",
+  scheduledActions: {
+    enabled: false,                // hard-off until Aegis review (DO NOT flip here)
+    aegisReviewId: null,
+    dryRunCount: 3,
+    maxActiveFree: 2,
+    maxActivePlus: 10,
   },
-  reply_care_check: {
-    primary: "claude", chain: ["claude"],
-    fail: "degrade", degradeResult: { failOpen: true },
-    outputGuard: true,
-    note: "AIL C10 — suggests only; ZERO shared path with NeMo; never blocks a send",
+  actionSheet: {
+    // Deferred action-sheet outcomes — all false in v1 (UI-absent, not disabled).
+    deferred: {
+      turn_into_podcast: false,
+      turn_into_video_script: false,
+      create_infographic: false,
+      create_presentation: false,
+      create_flyer: false,
+    },
   },
-  cooldown_rewrite: {
-    primary: "claude", chain: ["claude"],
-    fail: "degrade", degradeResult: { failOpen: true },
-    outputGuard: true,
-    note: "AIL C11 — suggested rewrite; always dismissible; never blocks",
-  },
-  describe_image: {
-    primary: "gemini", chain: ["gemini", "geminiPro"],
-    fail: "degrade", degradeResult: { description: "", flagged: true, failOpen: true },
-    inputGuard: true, outputGuard: true,
-    note: "AIL C5 — scene/action/object/text-in-image ONLY; never names/identifies people or minors",
-  },
-  summarize_audio: {
-    primary: "geminiPro", chain: ["geminiPro", "gemini"],
-    fail: "degrade", degradeResult: { failOpen: true },
-    outputGuard: true,
-    note: "AIL C6 — main point / action / tone; fail OPEN",
-  },
-  reentry_summary: {
-    primary: "claudeFast", chain: ["claudeFast", "claude"],
-    fail: "degrade", degradeResult: { failOpen: true },
-    outputGuard: true,
-    note: "AIL C14 — qualitative ONLY, never numeric counts; degrade to no-summary",
-  },
-  sensitivity_classify: {
-    primary: "gemini", chain: ["gemini"],
-    fail: "degrade", degradeResult: { topics: [], sensitive: false, failOpen: true },
-    note: "AIL C12 — user-policy blur classifier; degrade ⇒ do NOT blur; crisis-help never blurred",
+  limits: {
+    // NOTE: safety + crisis domains are EXEMPT from these caps (never metered).
+    dailyPromptsFree: 25,
+    dailyPromptsPlus: 200,
+    connectorRequestsPerDay: 100,
   },
 };
 
-module.exports = { PROVIDERS, ROUTING };
+module.exports = { PROVIDERS, ROUTING, CONNECTED_INTELLIGENCE };

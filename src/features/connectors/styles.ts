@@ -6,7 +6,7 @@
  * purple #7B68EE, Cormorant Garamond.
  */
 
-import React from 'react';
+import type React from 'react';
 import { tokens } from '../../berean/contracts';
 
 // Semantic status colors (system-native; not in the forbidden set).
