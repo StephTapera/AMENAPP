@@ -77,3 +77,53 @@ AMENAPP app target (Xcode target membership) and run an Xcode build — cannot b
 worktree. (2) When the prototype WKWebView host is built, call
 `ConnectorOAuthBridge.register(on: webView.configuration.userContentController) { anchorWindow }`.
 (3) Provision the 4 OAuth secrets + inject the public client ids; then E2E + flip the flag.
+
+---
+
+## QUARANTINE — duplicate Connected Intelligence implementation (RULING 2026-06-09)
+
+**Ruling:** the contract-corrected stack WINS. The parallel implementation was built on
+the REJECTED contract (autonomous-write `ScheduleWriteRisk.External` tier + collapsed
+enums = doctrine violation at the foundation). One Connected Intelligence implementation
+exists from now on.
+
+**Inventory (which world):**
+- **Duplicate** committed on `rescue/verification-and-safety-0609` at **`12f8839f`**
+  ("rescue: durable snapshot…") — full `src/features/**` + 5 CF modules on the BROKEN
+  contract (rescue HEAD still carries `grantedVia`/`Settings`, 2 broken-markers).
+- **Stranded lane** `feature/connected-intelligence-20260609` (cc9cd5d3): NO CI files.
+- **Integration path** `integration/recover-features-20260609`: NO CI files (0 broken-markers,
+  contract absent). **The duplicate has NOT propagated to the integration target.**
+- **CANONICAL corrected stack** = branch **`ci/contract-faithful`** (== `feature/ci-native-bridge-20260609`):
+  `7695189b` (Phases 0–3 corrected contract + wiring) → `37129fb3` (connectorFetch) →
+  `f3e0866d` (native OAuth bridge). Verified: contract 0 broken-markers; ZERO broken-symbol
+  usage across `src/features`.
+
+**Supersession (ruling 1b):** because the integration path carries no CI, there is nothing
+of the duplicate to revert there — the reconciler takes `ci/contract-faithful` WHOLESALE as
+the sole CI source and DISCARDS `12f8839f`'s CI files. `rescue` itself is left untouched
+(shared, in active use by Xcode + other lanes); its `12f8839f` CI files are quarantined =
+do-not-integrate.
+
+**Discard default (ruling 1c):** nothing from `12f8839f` ports over unless re-verified
+line-by-line against the corrected contract. Default = discard. The parallel
+"Design swarm orchestration for Amen Connected Intelligence" conversation is FORMALLY
+CLOSED OUT — superseded by `ci/contract-faithful`.
+
+**Cleanup:** removed `src/features/.subagent_probe` (junk write-probe snapshotted into
+`12f8839f`, inherited onto the branch).
+
+## RULING 3 — WKWebView host registration: BLOCKED (host does not exist)
+Grep of `AMENAPP/**` for `dist/berean` / `loadFileURL` / `messageHandlers` / `connectorOAuth`
+/ `BereanApp` → **no matches**. The React prototype is NOT embedded in a native WKWebView
+anywhere in the app; the 4 WKWebViews present host other content (in-app browser, media,
+resources, sermons), none load the prototype. So there is no host file (and no inactive lane)
+to claim — registration is blocked on the deferred React→native embedding (§1.10 SwiftUI
+parity), NOT on lane contention. `ConnectorOAuthBridge.register(on:)` is ready; the human
+calls it once a prototype-hosting WKWebView exists. Nothing fabricated.
+
+## RULING 4 — Stage 3 functions deploy batch (confirmed)
+- Rules diff = **isMinorSafeDM wiring + CI block ONLY** (firestore.rules:2156/discernmentChecks
+  already live — exclude).
+- Stage 3 functions batch = `connectorFetch` + `connectorOAuthExchange` + `ailTransform`
+  + the 6 CI CF modules, deployed via the v2triggers codebase, `--project amen-5e359`.
