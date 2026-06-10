@@ -749,6 +749,17 @@ const { checkContentSafety } = require("./moderationGateway");
 exports.checkContentSafety = checkContentSafety;
 
 // ============================================================================
+// AIL — Accessibility Intelligence Layer transform callable
+//   ailTransform — routes 10 AIL tasks through callModel; fail-OPEN to original
+//     (explain_scripture cite-or-refuse, never fabricates); App Check + Auth +
+//     rate limit (crisis bypasses); transformCache (DM/crisis never cached).
+//   Secrets: ANTHROPIC_API_KEY, NVIDIA_API_KEY, PINECONE_API_KEY, PINECONE_HOST
+//   Deploy: Ship Order Stage 3 functions batch (NOT ad-hoc)
+// ============================================================================
+const { ailTransform } = require("./ail/ailTransform");
+exports.ailTransform = ailTransform;
+
+// ============================================================================
 // TTS — Text-to-Speech (Google Cloud TTS, no NVIDIA key needed)
 // ============================================================================
 const { generateSpeech, generatePrayerAudio } = require("./ttsService");
