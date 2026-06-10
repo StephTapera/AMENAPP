@@ -177,6 +177,7 @@
 		EF03BCDA2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHAT_IMPLEMENTATION_STATUS.md; sourceTree = "<group>"; };
 		EF03BCE02F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_MIGRATION_GUIDE.md; sourceTree = "<group>"; };
 		EF03BCE22F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_DEPLOYMENT_SUMMARY.md; sourceTree = "<group>"; };
+		EF0A60442FD8D66F00FCC5A4 /* noteShare.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = noteShare.ts; sourceTree = "<group>"; };
 		EF156EE52F80A46F000C4448 /* GreetingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingService.swift; sourceTree = "<group>"; };
 		EF156EE62F80A48D000C4448 /* PersonalizedGreetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizedGreetingView.swift; sourceTree = "<group>"; };
 		EF156EE72F80A4B3000C4448 /* GreetingSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingSettingsView.swift; sourceTree = "<group>"; };
@@ -1092,6 +1093,9 @@
 				EF9B3B9A2F8B230900D0E71B /* suggestedAccounts.ts */,
 				EF9B3BD62F8D023900D0E71B /* feedBuilder.ts */,
 				EF9B3C082F8DACFB00D0E71B /* trustIntelligence.ts */,
+				EF0A60442FD8D66F00FCC5A4 /* noteShare.ts */,
+				EFF7B5B22FD91B3C004FF326 /* __tests__ 2 */,
+				EFF7B5B32FD91B52004FF326 /* __tests__ 3 */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -1135,6 +1139,20 @@
 				EF5B39072F5BA7A500152D09 /* SwiftUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		EFF7B5B22FD91B3C004FF326 /* __tests__ 2 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "__tests__ 2";
+			sourceTree = "<group>";
+		};
+		EFF7B5B32FD91B52004FF326 /* __tests__ 3 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "__tests__ 3";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1688,6 +1706,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1735,6 +1754,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
