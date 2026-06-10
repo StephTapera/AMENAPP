@@ -18,6 +18,14 @@ Branch: `feature/connected-intelligence-20260609` · Firebase: `amen-5e359` · R
 2. Rules deploy = **isMinorSafeDM wiring + the new connected-intelligence block** (the 2156/discernmentChecks fix is already live — exclude from diff). Keep consolidated for human review.
 3. Functions deploy via v2triggers codebase (`prepare-deploy.sh`), `--project amen-5e359`.
 4. Scheduled Actions stays OFF until Aegis review id assigned.
+5. **AIL — `ailTransform` (Accessibility Intelligence Layer)** joins this batch — ONE reviewed deploy, not an ad-hoc push:
+   - **Codebase:** gen1 (default `functions/` codebase), NOT v2triggers. Deploy `firebase deploy --only functions:ailTransform --project amen-5e359`.
+   - **Export-list diff** (`functions/index.js`, additive): `+ const { ailTransform } = require("./ail/ailTransform"); + exports.ailTransform = ailTransform;`
+   - **Routing delta** (`functions/router/amenRouting.config.js`, additive; `CONNECTED_INTELLIGENCE` export preserved): +10 routes — `translate, simplify, explain_scripture, tone_hint, reply_care_check, cooldown_rewrite, describe_image, summarize_audio, reentry_summary, sensitivity_classify`. `explain_scripture` fail_closed/cite-or-refuse; all others fail-open `degrade`.
+   - **Secrets:** `ANTHROPIC_API_KEY, NVIDIA_API_KEY, PINECONE_API_KEY, PINECONE_HOST` (already set — no new secrets).
+   - **Flag appends** (`AMENFeatureFlags.swift`, default **OFF**): `ailToneHintsEnabled, ailImageDescribeEnabled, ailAudioSummaryEnabled, ailVoiceNavEnabled, ailCommentIntentEnabled, ailLargerTouchTargetsEnabled, ailReplyCareEnabled, ailCooldownAssistEnabled, ailEmotionalSafetyFilterEnabled, ailReentrySummaryEnabled`. C1/C2/C13 reuse existing `accessibilityIntelligenceEnabled/meaningAwareTranslationEnabled/readabilityLayerEnabled/naturalModeEnabled`.
+   - **Rules (consolidate into the same rules deploy):** `transformCache` server-write-only; `users/{uid}/settings/a11yProfile` owner r/w + forbidden-field schema validation; `captions` subcollection deny-by-default inheriting parent-media read.
+   - **Rollback:** purely additive. Revert = remove the `exports.ailTransform` line; flags stay OFF ⇒ zero user-facing surface (all mounts are flag-gated). No data migration; `transformCache` is regenerable.
 
 ## Open build items (this session, in progress)
 - **connectorFetch read-CF** — consent-gated per connector, computed-and-discarded (no persistence, no payloads in logs), fail-closed fallback preserved.
