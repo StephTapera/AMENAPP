@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AMEN Church Notes Smart Objects Demo</title>
+  <style>
+    :root {
+      --canvas: #fcfbf8;
+      --ink: #171714;
+      --muted: #68645d;
+      --hairline: rgba(23, 23, 20, 0.1);
+      --surface: rgba(255, 255, 255, 0.72);
+      --solid: #ffffff;
+      --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+      --accent: #5c7a4c;
+      --radius: 26px;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      line-height: 1.45;
+    }
+
+    body.reduce-transparency {
+      --surface: #ffffff;
+      --shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    body.increase-contrast {
+      --muted: #34312d;
+      --hairline: rgba(0, 0, 0, 0.28);
+    }
+
+    .shell {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 56px;
+    }
+
+    header {
+      min-height: 72vh;
+      display: grid;
+      align-content: center;
+      gap: 24px;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .eyebrow {
+      width: fit-content;
+      border: 1px solid var(--hairline);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    h1 {
+      max-width: 920px;
+      margin: 0;
+      font-family: ui-serif, "New York", Georgia, serif;
+      font-size: clamp(44px, 8vw, 92px);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .intro {
+      max-width: 720px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .togglebar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      position: sticky;
+      top: 10px;
+      z-index: 5;
+      padding: 10px;
+      margin: 18px 0 28px;
+      border: 1px solid var(--hairline);
+      border-radius: 999px;
+      background: rgba(252, 251, 248, 0.88);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+    }
+
+    button, .button {
+      min-height: 40px;
+      border: 1px solid var(--hairline);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--ink);
+      padding: 8px 13px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button[aria-pressed="true"] {
+      background: color-mix(in srgb, var(--accent), white 78%);
+      border-color: color-mix(in srgb, var(--accent), black 18%);
+    }
+
+    section {
+      padding: 34px 0;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+      .shell { width: min(100vw - 20px, 1180px); }
+      .togglebar { border-radius: 18px; }
+    }
+
+    .card {
+      --accent: #5c7a4c;
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius);
+      padding: 18px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent), transparent 88%), transparent 40%),
+        var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card[data-source="brand"] { --accent: #5c7a4c; }
+    .card[data-source="artwork"] { --accent: #7f4f38; }
+    .card[data-source="image"] { --accent: #3d6f8f; }
+    .card[data-source="type"] { --accent: #8a6a28; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      border: 1px solid color-mix(in srgb, var(--accent), transparent 74%);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: color-mix(in srgb, var(--solid), transparent 28%);
+      color: color-mix(in srgb, var(--ink), var(--accent) 18%);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .title {
+      margin: 0;
+      font-family: ui-serif, "New York", Georgia, serif;
+      font-size: 34px;
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .summary {
+      margin: 0;
+      color: var(--muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .media {
+      min-height: 112px;
+      border-radius: 20px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent), white 20%), color-mix(in srgb, var(--accent), black 34%));
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 900;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .state-row {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 880px) {
+      .state-row { grid-template-columns: 1fr; }
+    }
+
+    .state {
+      min-height: 120px;
+      border: 1px solid var(--hairline);
+      border-radius: 20px;
+      padding: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .skeleton-line {
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.12);
+      margin: 8px 0;
+    }
+
+    .expanded {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    @media (max-width: 820px) {
+      .expanded { grid-template-columns: 1fr; }
+    }
+
+    .reader {
+      border-radius: 32px;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      padding: clamp(20px, 5vw, 44px);
+      box-shadow: var(--shadow);
+    }
+
+    .reader h3 {
+      margin: 10px 0;
+      font-family: ui-serif, "New York", Georgia, serif;
+      font-size: clamp(42px, 7vw, 64px);
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+
+    .block {
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid var(--hairline);
+    }
+
+    .dock {
+      position: sticky;
+      bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border: 1px solid var(--hairline);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+      padding: 10px;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 18px;
+    }
+
+    @media (max-width: 920px) {
+      .composer { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      border: 1px solid var(--hairline);
+      border-radius: 24px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      background: white;
+      color: var(--ink);
+      padding: 12px;
+      font: inherit;
+    }
+
+    textarea { min-height: 180px; resize: vertical; }
+
+    label {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .mode-chip {
+      margin: 8px 0 12px;
+      background: color-mix(in srgb, #5c7a4c, white 80%);
+      border-color: color-mix(in srgb, #5c7a4c, black 20%);
+    }
+
+    .mini-stack {
+      display: grid;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="eyebrow">AMEN Church Notes Smart Objects | Phase 0.3 demo</div>
+      <h1>Church notes as adaptive spiritual media.</h1>
+      <p class="intro">This static demo covers feed variants, confidence states, expanded reading, composer detection, accent sourcing, and accessibility toggles before SwiftUI visual implementation.</p>
+    </header>
+
+    <div class="togglebar" aria-label="Demo toggles">
+      <button id="transparency" aria-pressed="false">Reduce Transparency</button>
+      <button id="contrast" aria-pressed="false">Increase Contrast</button>
+      <button id="accentBrand" aria-pressed="true">Brand Accent</button>
+      <button id="accentArtwork" aria-pressed="false">Artwork Accent</button>
+      <button id="accentImage" aria-pressed="false">Image Accent</button>
+      <button id="accentType" aria-pressed="false">Type Default</button>
+    </div>
+
+    <section>
+      <h2>All Feed Variants</h2>
+      <div class="grid" id="variantGrid"></div>
+    </section>
+
+    <section>
+      <h2>Confidence And Safety States</h2>
+      <div class="state-row">
+        <div class="state">
+          <span class="pill">0.94 approved</span>
+          <h3>Full render</h3>
+          <p class="summary">Interactive pill or card renders normally.</p>
+        </div>
+        <div class="state">
+          <span class="pill">0.82 approved</span>
+          <h3>Is this right?</h3>
+          <p class="summary">Interactive, with correction affordance.</p>
+        </div>
+        <div class="state">
+          <span class="pill">0.61 approved</span>
+          <h3>Plain link</h3>
+          <p class="summary">Confidence below threshold renders fallback.</p>
+        </div>
+        <div class="state">
+          <span class="pill">pending</span>
+          <div class="skeleton-line" style="width:80%"></div>
+          <div class="skeleton-line" style="width:52%"></div>
+          <p class="summary">Safety pending shows skeleton only.</p>
+        </div>
+        <div class="state">
+          <span class="pill">restricted</span>
+          <h3>Limited link</h3>
+          <p class="summary">Restricted content falls back. Blocked content is removed.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Expanded Note View</h2>
+      <div class="expanded">
+        <article class="reader">
+          <div class="meta">
+            <span class="pill">Grace Community</span>
+            <span class="pill">Service Note</span>
+          </div>
+          <h3>Walking by Faith When It Feels Silent</h3>
+          <div class="meta">
+            <span class="pill">Hebrews 11:1</span>
+            <span class="pill">Pastor John</span>
+            <span class="pill">June 14</span>
+          </div>
+          <div class="block">
+            <h4>Main Scripture</h4>
+            <p>Now faith is confidence in what we hope for and assurance about what we do not see.</p>
+          </div>
+          <div class="block">
+            <h4>Key Takeaway</h4>
+            <p>Faith is not denial of silence. Faith keeps attention on God while the answer is still forming.</p>
+          </div>
+          <div class="block">
+            <h4>Sermon Points</h4>
+            <ol>
+              <li>Remember what God has already carried.</li>
+              <li>Practice obedience before clarity arrives.</li>
+              <li>Let community hold hope with you.</li>
+            </ol>
+          </div>
+          <div class="block">
+            <h4>Discussion</h4>
+            <p>SmartCommentBar preview: Amen, Question, Prayer, Testimony, Reflection, Scripture, Follow-up, Concern.</p>
+          </div>
+        </article>
+        <aside class="mini-stack">
+          <div class="panel">
+            <h3>Related Verses</h3>
+            <div class="meta">
+              <span class="pill">Romans 8:24</span>
+              <span class="pill">2 Cor. 5:7</span>
+              <span class="pill">James 1:3</span>
+            </div>
+          </div>
+          <div class="dock" aria-label="Floating action dock">
+            <button>Save</button>
+            <button>Pray</button>
+            <button>Discuss</button>
+            <button>Share</button>
+            <button>Ask AMEN</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section>
+      <h2>Composer And Live Detection Mock</h2>
+      <div class="composer">
+        <form class="panel">
+          <label>Church or Space
+            <select>
+              <option>Grace Community Church</option>
+              <option>Personal Note, Tier P</option>
+            </select>
+          </label>
+          <label>Title
+            <input value="Walking by Faith When It Feels Silent">
+          </label>
+          <label>Scripture
+            <input value="Hebrews 11:1 NIV">
+          </label>
+          <label>Write or paste note
+            <textarea id="noteText">Pastor John taught from Hebrews 11:1. We also talked about small group this Wednesday at 7pm and shared a YouTube sermon link.</textarea>
+          </label>
+          <div class="meta">
+            <span class="pill">Attach</span>
+            <span class="pill">YouTube</span>
+            <span class="pill">Audio</span>
+            <span class="pill">Event</span>
+            <span class="pill">PDF</span>
+          </div>
+        </form>
+        <div class="panel">
+          <button class="mode-chip">Looks like a Sermon Note - change?</button>
+          <div class="meta" id="detectedPills"></div>
+          <div id="livePreview" style="margin-top:16px"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const variants = [
+      ["Sermon Note Card", "sermon structure", "Hebrews 11:1", "Title, scripture, summary, media chip, discuss.", "brand"],
+      ["Scripture Reflection Card", "verse dominant", "Faith Is Assurance", "Large verse, context, cross references, reflect CTA.", "type"],
+      ["Prayer Note Card", "prayer intent", "Pray For Healing", "Prayer action primary, privacy chip, answered timeline.", "image"],
+      ["Church Update Card", "announcement", "Serve Day This Saturday", "Date, RSVP, location, reminders.", "brand"],
+      ["Sermon Video Card", "YouTube link", "When It Feels Silent", "Thumbnail forward, Watch, Summary.", "artwork"],
+      ["Audio Resource Card", "podcast or audio", "Sermon Audio", "Artwork forward, Listen, save to shelf.", "artwork"],
+      ["Event Pill Card", "event detected", "Youth Night", "Name, date, location, RSVP, calendar.", "type"],
+      ["Location Glass Card", "map or address", "Plan Your Visit", "Map forward, directions, service times.", "image"],
+      ["Resource Card", "book or PDF", "Sunday Bulletin", "Shelf layout, read, buy, listen.", "type"],
+      ["Church Preview Pill", "church mention", "Grace Community", "Denomination, location, Follow, Plan Visit.", "brand"],
+      ["Find Church Card", "near me intent", "Churches Near You", "Distance, doctrine, service filters.", "image"],
+      ["Group Ministry Pill", "group mention", "Young Adults", "Join, next meeting, leaders.", "brand"],
+      ["Quote Card", "pastor quote", "Faith remembers", "Large pull quote with attribution pill.", "type"],
+      ["Mixed Content Card", "multiple objects", "Sunday Recap", "Max 3 visible pills with plus more.", "brand"]
+    ];
+
+    const grid = document.getElementById("variantGrid");
+    const cardHTML = ([kind, trigger, title, summary, source]) => `
+      <article class="card" data-source="${source}">
+        <div class="meta">
+          <span class="pill">${trigger}</span>
+          <span class="pill">${kind}</span>
+        </div>
+        ${kind.includes("Video") || kind.includes("Audio") || kind.includes("Location") ? `<div class="media">${kind.replace(" Card", "")}</div>` : ""}
+        <h3 class="title">${title}</h3>
+        <p class="summary">${summary}</p>
+        <div class="meta">
+          <span class="pill">SmartObject</span>
+          <span class="pill">approved</span>
+          <span class="pill">0.94</span>
+        </div>
+        <div class="actions">
+          <button>Open</button>
+          <button>Save</button>
+          <button>Pray</button>
+          <button>Discuss</button>
+        </div>
+      </article>`;
+    grid.innerHTML = variants.map(cardHTML).join("");
+
+    const preview = document.getElementById("livePreview");
+    const pills = document.getElementById("detectedPills");
+    function refreshDetection() {
+      const text = document.getElementById("noteText").value.toLowerCase();
+      const detected = [];
+      if (text.includes("hebrews")) detected.push("Hebrews 11:1");
+      if (text.includes("youtube")) detected.push("YouTube sermon");
+      if (text.includes("wednesday") || text.includes("7pm")) detected.push("Event");
+      if (text.includes("small group")) detected.push("Group");
+      pills.innerHTML = detected.map(item => `<span class="pill">${item}</span>`).join("");
+      preview.innerHTML = cardHTML(["Sermon Note Card", "live detection", "Walking by Faith", `${detected.length} smart objects detected in composer preview.`, "brand"]);
+    }
+    document.getElementById("noteText").addEventListener("input", refreshDetection);
+    refreshDetection();
+
+    function toggle(id, className) {
+      const button = document.getElementById(id);
+      button.addEventListener("click", () => {
+        const next = button.getAttribute("aria-pressed") !== "true";
+        button.setAttribute("aria-pressed", String(next));
+        document.body.classList.toggle(className, next);
+      });
+    }
+    toggle("transparency", "reduce-transparency");
+    toggle("contrast", "increase-contrast");
+
+    ["accentBrand", "accentArtwork", "accentImage", "accentType"].forEach(id => {
+      document.getElementById(id).addEventListener("click", () => {
+        ["accentBrand", "accentArtwork", "accentImage", "accentType"].forEach(other => {
+          document.getElementById(other).setAttribute("aria-pressed", String(other === id));
+        });
+        const source = id.replace("accent", "").toLowerCase();
+        document.querySelectorAll(".card").forEach(card => card.dataset.source = source);
+      });
+    });
+  </script>
+</body>
+</html>
