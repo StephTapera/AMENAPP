@@ -1,4 +1,4 @@
-// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
+// TODO(gate: HUMAN-MACHINE) — MIGRATE_TO_V2: still using Gen1 runWith() pattern; migration requires re-deploy + smoke-test
 // authHelpersV1.js — v1 Cloud Functions (avoids Cloud Run quota)
 // Extracts banUserPhone and updateBirthYear from authenticationHelpers.js
 // as v1 callables so they can be deployed without consuming Cloud Run slots.

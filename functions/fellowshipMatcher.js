@@ -12,13 +12,13 @@
  * Runs every 12 hours. Each run only looks at content from the last 7 days
  * to keep Claude token usage bounded.
  */
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
-
-
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const Anthropic = require("@anthropic-ai/sdk");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -31,11 +31,9 @@ const REGION = "us-central1";
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getAnthropicClient() {
-  // Key stored via: firebase functions:config:set anthropic.key="sk-ant-..."
-  // Or via Secret Manager (recommended for production).
-  const key = process.env.ANTHROPIC_API_KEY
+  const key = ANTHROPIC_API_KEY.value()
     || (process.env.FUNCTIONS_EMULATOR ? process.env.ANTHROPIC_API_KEY_LOCAL : null);
-  if (!key) throw new Error("ANTHROPIC_API_KEY environment variable not set");
+  if (!key) throw new Error("ANTHROPIC_API_KEY secret not set");
   return new Anthropic.default({ apiKey: key });
 }
 

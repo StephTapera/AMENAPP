@@ -35,14 +35,14 @@
  *   post_context_match bool
  *   post_context_notes string
  */
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
-
-
 "use strict";
 
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
 const {checkRateLimit} = require("./rateLimiter");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const db = () => admin.firestore();
 
@@ -61,7 +61,7 @@ let _anthropic = null;
 function getAnthropic() {
   if (!_anthropic) {
     const Anthropic = require("@anthropic-ai/sdk");
-    _anthropic = new Anthropic.default({apiKey: process.env.ANTHROPIC_API_KEY});
+    _anthropic = new Anthropic.default({apiKey: ANTHROPIC_API_KEY.value()});
   }
   return _anthropic;
 }

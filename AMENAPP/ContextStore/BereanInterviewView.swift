@@ -323,7 +323,7 @@ struct BereanInterviewView: View {
     // service's single write path, `approveAndPersist`, which derives tier, attaches
     // provenance (.interview, userApproved = true), and writes via ContextStoreService.
     //
-    // TODO(wave3-merge): replace this inline list with the real FacetApprovalView once it
+    // TODO(gate: HUMAN-MACHINE) — wave3-merge: replace this inline list with the real FacetApprovalView once it
     // accepts [PendingFacetCandidate] and per-item approve/edit/visibility controls.
 
     private var approvalSheet: some View {
@@ -464,7 +464,7 @@ struct BereanInterviewView: View {
     private func sendDraft() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        // TODO(wave2-merge): the rewritten service streams transcript turns from its
+        // TODO(gate: HUMAN-MACHINE) — wave2-merge: the rewritten service streams transcript turns from its
         // brokered session and has no client-side "send" entry point yet. When a
         // `sendUserMessage(_:)` (or equivalent) lands, call it here so the user's turn
         // and the model's reply flow through the service. Until then we clear the field;

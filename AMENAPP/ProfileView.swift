@@ -231,10 +231,8 @@ struct ProfileView: View {
         // Revision: profileImageURL changes when the photo changes, so use it (or "1") as the revision token.
         let revision = profileData.profileImageURL ?? "1"
         let key = AmbientSourceKey(id: "user/\(uid)/hero", revision: revision)
-        // TODO(ambient): the avatar is rendered via CachedAsyncImage(url:) and no decoded
-        // UIImage is reachable at this scope. Pass the decoded hero UIImage here once it is
-        // hoisted (e.g. via a cached image lookup keyed on profileData.profileImageURL) so
-        // the palette extracts real content color instead of failing closed to neutral.
+        // TODO(gate: HUMAN-MACHINE) — ambient: avatar is AsyncImage-by-URL; no decoded UIImage reachable here.
+        // Pass decoded hero UIImage once hoisted via a cached image lookup keyed on profileData.profileImageURL.
         coordinator.drive(with: nil, key: key, scheme: ambientScheme, reduceMotion: ambientReduceMotion)
     }
 

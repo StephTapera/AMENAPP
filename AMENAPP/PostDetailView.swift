@@ -361,11 +361,9 @@ struct PostDetailView: View {
                     }
 
                     // ── Conversation Thread (Threads-style wisdom UI) ────────
-                    // TODO(ambient) C6: each comment card must be a reading plane
-                    // (AdaptiveContentCard(isReadingPlane: true)). Comment row chrome is owned
-                    // by ConversationThreadView (separate file), so wrap per-row there rather than
-                    // wrapping the whole thread in one card here — wrapping the container would
-                    // collapse all comments into a single card and break the threaded layout.
+                    // TODO(gate: HUMAN-MACHINE) — ambient C6: each comment card must be a reading plane
+                    // (AdaptiveContentCard(isReadingPlane: true)). Wrap per-row in ConversationThreadView
+                    // rather than here — wrapping the container would collapse all comments into a single card.
                     if showCommentsLoadError {
                         commentsErrorView
                     } else {
@@ -441,8 +439,8 @@ struct PostDetailView: View {
         }
         // Adaptive Ambient: page wash behind cards (light touch — cards stay dominant).
         // Renders byte-identical neutral when AdaptiveColorsMode == .off / Reduce Transparency.
-        // TODO(ambient): pass the decoded hero UIImage as `bleedImage:` once the carousel
-        // exposes a decoded thumbnail (currently media is AsyncImage-by-URL, no UIImage reachable).
+        // TODO(gate: HUMAN-MACHINE) — ambient: pass decoded hero UIImage as `bleedImage:` once the carousel
+        // exposes a decoded thumbnail (currently AsyncImage-by-URL, no UIImage reachable).
         .background(AdaptiveAmbientBackground())
         .sheet(isPresented: $showAnsweredComposer) {
             AnsweredPrayerComposerView(originalPrayerPost: post)
@@ -540,9 +538,8 @@ struct PostDetailView: View {
                 strengthService.startListening(postId: postId)
             }
             // Adaptive Ambient: drive palette from the post media.
-            // TODO(ambient): supply the decoded hero UIImage here (image arg currently nil ⇒
-            // fails closed to neutral). Carousel uses AsyncImage-by-URL, so no UIImage is
-            // reachable in this view yet. Key is stable; once a decoded thumbnail exists, pass it.
+            // TODO(gate: HUMAN-MACHINE) — ambient: supply decoded hero UIImage here (arg currently nil → fails closed to neutral).
+            // Carousel uses AsyncImage-by-URL; no UIImage reachable yet. Pass decoded thumbnail once carousel exposes one.
             coordinator.drive(with: nil, key: ambientSourceKey,
                               scheme: ambientScheme, reduceMotion: ambientReduceMotion)
         }

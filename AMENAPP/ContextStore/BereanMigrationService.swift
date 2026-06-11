@@ -143,7 +143,7 @@ final class BereanMigrationService: ObservableObject {
         state = .connecting
 
         do {
-            // TODO(cf): extractContextFacets / migration-interview CF.
+            // TODO(gate: HUMAN-MACHINE) — extractContextFacets CF: dedicated migration-interview Cloud Function not yet deployed; using createRealtimeSession as interim broker.
             // There is no dedicated migration-interview broker yet. We call the closest
             // existing Berean session broker so the streaming idiom is wired correctly;
             // the orchestrator should swap "createRealtimeSession" for the dedicated

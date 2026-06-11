@@ -66,7 +66,7 @@ exports.getDiscussionDashboard = onCall({ secrets: [BEREAN_LLM_KEY] }, async (re
   const healthStatus = healthSnap.exists ? (healthSnap.data().status || "healthy") : "healthy";
 
   let topKeywords = [], suggestedResponses = [];
-  const key = process.env.BEREAN_LLM_KEY || "";
+  const key = BEREAN_LLM_KEY.value() || "";
   if (key && bodies.length > 0) {
     const prompt = `From this discussion, extract:\n${bodies.slice(0, 30).join("\n---\n")}\n\nJSON: {"topKeywords":["up to 8 short phrases"],"suggestedResponses":["2-3 host response suggestions"]}`;
     const parsed = await callGemini(prompt, key).catch(() => null);

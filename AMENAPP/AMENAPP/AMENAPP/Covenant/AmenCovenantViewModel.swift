@@ -144,7 +144,7 @@ final class AmenCovenantViewModel: ObservableObject {
         case .room(let cid, let rid):
             AmenCovenantRoomDetailView(covenantId: cid, roomId: rid).environmentObject(self)
         case .post(_, _):
-            // Post detail view — coming soon
+            // TODO(gate: HUMAN-MACHINE) — PostDetailView deep-link from Covenant nav not yet wired; needs post fetch by ID
             placeholderDestination(title: "Post")
         case .event(let cid, _):
             AmenCovenantEventsView(covenantId: cid).environmentObject(self)

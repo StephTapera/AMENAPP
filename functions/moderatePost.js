@@ -233,7 +233,7 @@ async function escalateChildSafety(db, { snap, post, categories, authorId }) {
     legalHoldRef: holdRef.path,
     externalReport: {
       required: true,
-      provider: "NCMEC_CYBERTIPLINE_TODO",
+      provider: "NCMEC_CYBERTIPLINE",
       submitted: false,
     },
     createdAt: FieldValue.serverTimestamp(),

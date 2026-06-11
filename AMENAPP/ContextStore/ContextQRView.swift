@@ -410,8 +410,7 @@ struct ContextQRScannerView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                    // TODO(qr-scanner): Wire AVCaptureSession for live camera scanning.
-                    // For now, a text field lets testers paste a token for verification.
+                    // TODO(gate: HUMAN-MACHINE) — qr-scanner: Wire AVCaptureSession for live camera scanning (NSCameraUsageDescription + AVFoundation session); text-field paste path remains for testers.
                     TokenPasteField(onScanned: onScanned)
                 }
                 .padding(30)

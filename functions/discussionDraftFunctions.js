@@ -44,7 +44,7 @@ exports.analyzeDraft = onCall({ secrets: [BEREAN_LLM_KEY] }, async (request) => 
     throw e;
   }
 
-  const key = process.env.BEREAN_LLM_KEY || "";
+  const key = BEREAN_LLM_KEY.value() || "";
   if (!key) return { hasConcern: false };
 
   const prompt = `You are a kind conversation guide. Review this draft comment and only flag if it could genuinely harm the conversation (not just opinion differences). Be conservative — only flag "medium" severity concerns.\n\nDraft: "${draftBody}"\n\nRespond JSON: {"hasConcern":bool,"observation":"one sentence or empty","severity":"low|medium"}`;

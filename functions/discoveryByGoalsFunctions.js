@@ -8,7 +8,7 @@
  *
  * Current implementation returns results ordered by recency / popularity.
  *
- * TODO (future): replace Firestore range queries with Algolia semantic search:
+ * TODO(gate: DECISION) — future: replace Firestore range queries with Algolia semantic search;
  *   const { SearchClient } = require('algoliasearch');
  *   const client = new SearchClient(ALGOLIA_APP_ID, ALGOLIA_API_KEY);
  *   const hits   = await client.search({ query: goals, indexName: 'spaces' });

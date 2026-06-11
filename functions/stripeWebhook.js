@@ -7,8 +7,8 @@
 //
 // IDEMPOTENCY NOTE: handleSubscriptionUpdated and handleSubscriptionDeleted
 // both accept _eventId but do not guard against duplicate Stripe deliveries.
-// TODO(idempotency): check processedStripeEvents before writing, matching the
-// pattern in functions/stripe/stripeWebhook.js (the canonical hardened version).
+// TODO(gate: HUMAN-MACHINE) — idempotency: check processedStripeEvents before writing,
+// matching the pattern in functions/stripe/stripeWebhook.js (the canonical hardened version).
 //
 // CANONICAL VERSION: The fully hardened version with defineSecret, idempotency,
 // and audit logging lives at functions/stripe/stripeWebhook.js.

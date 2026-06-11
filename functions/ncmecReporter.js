@@ -1,4 +1,4 @@
-// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
+// TODO(gate: HUMAN-MACHINE) — MIGRATE_TO_V2: still using Gen1 runWith() pattern; migration requires re-deploy + smoke-test
 /**
  * NCMEC CyberTipline Mandatory Reporting Pipeline — v1 Cloud Function
  *
@@ -11,7 +11,7 @@
  *   2. Queues the report for human operator action in ncmecSubmissionQueue/{entryId}
  *   3. Fires onCSAMDetected (Firestore trigger) to alert admins via FCM + moderatorAlerts
  *
- * TODO(legal): Integrate NCMEC CyberTipline API — requires compliance approval before enabling.
+ * TODO(gate: DECISION) — legal: Integrate NCMEC CyberTipline API — requires compliance approval before enabling.
  *   Step 1: Obtain NCMEC Electronic Service Provider (ESP) agreement + API credentials.
  *   Step 2: Replace the queue-only flow in fileNCMECReport() with a live HTTPS POST to:
  *             https://www.ncmec.org/cybertiplinedata/
@@ -200,7 +200,7 @@ exports.fileNCMECReport = fileNCMECReport;
  * are never left believing a live report was submitted when it was not.
  * Replace this stub with the live HTTPS POST once NCMEC ESP credentials are obtained.
  *
- * TODO(legal): Replace stub body with live NCMEC API call — requires compliance approval.
+ * TODO(gate: DECISION) — legal: Replace stub body with live NCMEC API call — requires compliance approval.
  *
  * @param {object} caseData - CSAM case details (contentRef, authorId, mediaUrl, etc.)
  * @throws {Error} Always — stub is not callable without proper setup.
@@ -212,7 +212,7 @@ async function reportToNcmec(caseData) {
   throw new Error(
     "[NCMEC] reportToNcmec() is not yet implemented — live API integration requires " +
     "NCMEC Electronic Service Provider agreement and API credentials. " +
-    "See TODO(legal) in ncmecReporter.js. This is a LAUNCH BLOCKER."
+    "See TODO(gate: DECISION) in ncmecReporter.js. This is a LAUNCH BLOCKER."
   );
 }
 

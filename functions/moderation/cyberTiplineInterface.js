@@ -14,7 +14,7 @@
  *   Failure to report carries criminal penalties.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * !!! CRITICAL TODO — NCMEC CyberTipline API integration required here. !!!
+ * !!! CRITICAL TODO(gate: DECISION) — NCMEC CyberTipline API integration required here. !!!
  *
  * The submission stub in prepareCyberTiplineReport does NOT make a live HTTP
  * call to NCMEC. Before enabling automated submission:
@@ -96,22 +96,21 @@ async function prepareCyberTiplineReport(db, caseId) {
                       ?? new Date().toISOString(),
 
     // ── ESP identification (populate after NCMEC registration) ────────────────
-    espName:          "Amen",               // TODO: confirm legal entity name with legal
-    espId:            "TODO_ESP_ID",        // TODO: issued by NCMEC after registration
-    espApiKey:        "TODO_ESP_API_KEY",   // TODO: from Secret Manager, never hardcoded
+    espName:          "Amen",               // TODO(gate: DECISION) — confirm legal entity name with legal
+    espId:            "PENDING_NCMEC_ESP_ID",   // TODO(gate: DECISION) — issued by NCMEC after ESP registration
+    espApiKey:        null,                 // TODO(gate: DECISION) — store in Secret Manager once issued; NEVER hardcode
 
     // ── Subject / uploader ────────────────────────────────────────────────────
     espUserId:        escalation.sourceUserId ?? null,
-    espUserEmail:     null,                 // TODO: fetch from auth if legally permitted
-    espUserIpAddress: null,                 // TODO: capture at upload time if legally permitted
+    espUserEmail:     null,                 // TODO(gate: DECISION) — fetch from auth if legally permitted; requires legal review
+    espUserIpAddress: null,                 // TODO(gate: DECISION) — capture at upload time if legally permitted; requires legal review
 
     // ── Content references ────────────────────────────────────────────────────
     // NCMEC requires at minimum a URL or hash of the reported content.
     reportedContent: (escalation.evidenceRefs ?? []).map((ref) => ({
       value: ref,
       type: "firestore_ref",
-      // TODO: replace with publicly-unreachable signed URL or file hash once
-      //       Storage integration is in place.
+      // TODO(gate: HUMAN-MACHINE) — replace with signed URL or file hash once GCS Storage integration is in place
     })),
 
     // ── Detection context ─────────────────────────────────────────────────────

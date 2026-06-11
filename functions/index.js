@@ -1143,7 +1143,7 @@ exports.cleanupDraftVectors = pineconeCleanup.cleanupDraftVectors;
 //                           studyGuide|announcement; rate limit 20/hour
 //   ragSearch             — callable: embed → Pinecone vector search across
 //                           churchNotes|savedVerses|posts|sermons|all;
-//                           multilingual TODO; rate limit 30/hour
+//                           multilingual TODO(gate: DECISION); rate limit 30/hour
 //
 // Secrets required: ANTHROPIC_API_KEY (getDailyDigest, generateCreatorDraft)
 //                   OPENAI_API_KEY (ragSearch embedding via mlClients.openaiEmbed)
@@ -1371,7 +1371,7 @@ exports.synapticCreate = synapticCreate;
 //   processAccountSubscription — callable: records App Store subscription tier
 //     after a successful StoreKit transaction; writes to
 //     users/{uid}/entitlements/platform; rate-limited to 10/min per user.
-// TODO: wire full JWT-based App Store Server API verification before launch.
+// TODO(gate: DECISION) — wire full JWT-based App Store Server API verification before launch; requires Apple App Store Connect private key in Secret Manager
 // Deploy: firebase deploy --only functions:processAccountSubscription --project amen-5e359
 // ============================================================================
 const { processAccountSubscription } = require("./accountSubscriptionFunctions");
@@ -1381,7 +1381,7 @@ exports.processAccountSubscription = processAccountSubscription;
 // DISCOVERY BY GOALS — Personal Discovery Agent search
 //   discoverByGoals — callable: accepts goals text; returns top-5 communities,
 //     churches, and upcoming events from Firestore.
-// TODO: replace Firestore range queries with Algolia semantic search.
+// TODO(gate: DECISION) — replace Firestore range queries with Algolia semantic search; requires ALGOLIA_APP_ID + ALGOLIA_API_KEY provisioning decision
 // Deploy: firebase deploy --only functions:discoverByGoals --project amen-5e359
 // ============================================================================
 const { discoverByGoals } = require("./discoveryByGoalsFunctions");

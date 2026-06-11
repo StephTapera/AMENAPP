@@ -43,7 +43,7 @@ exports.mediateDiscussion = onCall({ secrets: [BEREAN_LLM_KEY] }, async (request
   const comments = snap.docs.map(d => d.data().body || "").filter(Boolean);
   if (comments.length === 0) return MOCK_MEDIATION;
 
-  const key = process.env.BEREAN_LLM_KEY || "";
+  const key = BEREAN_LLM_KEY.value() || "";
   if (!key) return MOCK_MEDIATION;
 
   const prompt = `You are a neutral, wise facilitator. Analyze this discussion and find common ground.\n\nComments:\n${comments.join("\n---\n")}\n\nRespond JSON: {"areasOfAgreement":[],"differentPerspectives":[],"questionsWorthExploring":[],"potentialMisunderstandings":[],"suggestedClarifications":[]}`;

@@ -1,6 +1,9 @@
 // embeddingAdapter.ts — Embedding adapter for duplicate detection
 
 import * as logger from "firebase-functions/logger";
+import { defineSecret } from "firebase-functions/params";
+
+const EMBEDDING_KEY_SECRET = defineSecret("EMBEDDING_KEY");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -16,7 +19,7 @@ const MOCK_VECTOR: number[] = Array(EMBEDDING_DIM).fill(0);
  * network error occurs.
  */
 export async function embedText(text: string): Promise<number[]> {
-  const key = process.env.EMBEDDING_KEY ?? "";
+  const key = EMBEDDING_KEY_SECRET.value() ?? "";
 
   if (!key) {
     logger.info("embeddingAdapter: EMBEDDING_KEY not set — returning mock vector.");

@@ -28,10 +28,14 @@
 
 const functions = require("firebase-functions");
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { defineSecret } = require("firebase-functions/params");
 const admin     = require("firebase-admin");
 const logger    = require("firebase-functions/logger");
 
 const { openaiEmbed, pineconeUpsert, pineconeDelete } = require("../mlClients");
+
+const ALGOLIA_APP_ID        = defineSecret("ALGOLIA_APP_ID");
+const ALGOLIA_ADMIN_API_KEY = defineSecret("ALGOLIA_ADMIN_API_KEY");
 
 // ── Algolia lazy init ─────────────────────────────────────────────────────────
 // Separate catalog index — never overwrite the existing "posts" index.
@@ -41,8 +45,8 @@ let _algoliaIndex = null;
 function getCatalogAlgoliaIndex() {
   if (_algoliaIndex) return _algoliaIndex;
   const algoliasearch = require("algoliasearch");
-  const appId  = process.env.ALGOLIA_APP_ID  || "";
-  const apiKey = process.env.ALGOLIA_ADMIN_API_KEY || "";
+  const appId  = ALGOLIA_APP_ID.value() || "";
+  const apiKey = ALGOLIA_ADMIN_API_KEY.value() || "";
   const client = algoliasearch(appId, apiKey);
   _algoliaIndex = client.initIndex(ALGOLIA_CATALOG_INDEX);
   return _algoliaIndex;

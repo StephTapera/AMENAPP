@@ -16,7 +16,7 @@
  * Rate:   max 10 calls per minute per user
  * Writes: users/{uid}/entitlements/platform
  *
- * TODO (production): replace the direct Firestore write below with a full
+ * TODO(gate: DECISION) — production: replace direct Firestore write below with a full
  * JWT-signed App Store Server API verification call using the sandbox URL
  *   https://api.storekit-sandbox.itunes.apple.com/inApps/v1/transactions/{transactionId}
  * and the production URL
@@ -147,7 +147,7 @@ exports.processAccountSubscription = onCall({ region: "us-central1" }, async (re
   // ── Rate limit ────────────────────────────────────────────────────────────
   await checkSubscriptionRateLimit(callerUid);
 
-  // ── TODO: App Store Server API verification (production) ─────────────────
+  // ── TODO(gate: DECISION) — App Store Server API JWT verification (production) ──────────
   //
   // Before trusting the transactionId and writing the entitlement, verify
   // it with Apple:

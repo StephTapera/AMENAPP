@@ -78,7 +78,7 @@ async function createLegalHold(contentRef, authorUid, reporterUid, evidenceSnaps
     legalHold:        true,
     externalReport: {
       required:       true,
-      provider:       "NCMEC_CYBERTIPLINE_TODO",
+      provider:       "NCMEC_CYBERTIPLINE",
       submitted:      false,
       submittedAt:    null,
       confirmationId: null,
@@ -111,7 +111,7 @@ async function createLegalHold(contentRef, authorUid, reporterUid, evidenceSnaps
  *
  * PLACEHOLDER — wires future NCMEC CyberTipline API integration.
  *
- * TODO(legal): Wire NCMEC CyberTipline API — https://www.missingkids.org/gethelpnow/cybertipline
+ * TODO(gate: DECISION) — legal: Wire NCMEC CyberTipline API — https://www.missingkids.org/gethelpnow/cybertipline
  * This function must NOT be called in production until legal/compliance approves the integration.
  *
  * @param {string} holdId    ID of the legalHolds document
@@ -119,7 +119,7 @@ async function createLegalHold(contentRef, authorUid, reporterUid, evidenceSnaps
  * @returns {never} Always throws
  */
 async function reportToNcmec(holdId, caseData) { // eslint-disable-line no-unused-vars
-  // TODO(legal): Wire NCMEC CyberTipline API — https://www.missingkids.org/gethelpnow/cybertipline
+  // TODO(gate: DECISION) — legal: Wire NCMEC CyberTipline API — https://www.missingkids.org/gethelpnow/cybertipline
   // This function must NOT be called in production until legal/compliance approves the integration.
   throw new Error(
     "NCMEC reporting not yet configured — requires compliance approval"

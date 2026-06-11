@@ -3,7 +3,10 @@
 
 import * as functions from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+
+const BEREAN_LLM_KEY = defineSecret("BEREAN_LLM_KEY");
 
 const db = getFirestore();
 
@@ -93,7 +96,7 @@ async function callGeminiText(
   temperature: number,
   maxOutputTokens: number
 ): Promise<GeminiTextResponse> {
-  const key = process.env.BEREAN_LLM_KEY ?? "";
+  const key = BEREAN_LLM_KEY.value() ?? "";
 
   if (!key) {
     logger.info("cameraOS/callGeminiText: BEREAN_LLM_KEY not set — returning mock.");
@@ -146,7 +149,7 @@ async function callGeminiVision(
   textPrompt: string,
   maxOutputTokens: number
 ): Promise<GeminiTextResponse> {
-  const key = process.env.BEREAN_LLM_KEY ?? "";
+  const key = BEREAN_LLM_KEY.value() ?? "";
 
   if (!key) {
     logger.info("cameraOS/callGeminiVision: BEREAN_LLM_KEY not set — returning mock.");

@@ -16,8 +16,11 @@
 "use strict";
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+
+const BEREAN_LLM_KEY = defineSecret("BEREAN_LLM_KEY");
 
 const db = getFirestore();
 
@@ -61,7 +64,7 @@ async function enforceRateLimit(uid, bucket, maxCalls, windowMs) {
 // ── Gemini text helper ────────────────────────────────────────────────────────
 
 async function callGeminiText(systemInstruction, userPrompt, temperature, maxOutputTokens) {
-  const key = process.env.BEREAN_LLM_KEY ?? "";
+  const key = BEREAN_LLM_KEY.value() ?? "";
 
   if (!key) {
     logger.info("cameraOS/callGeminiText: BEREAN_LLM_KEY not set — returning mock.");
@@ -97,7 +100,7 @@ async function callGeminiText(systemInstruction, userPrompt, temperature, maxOut
 // ── Gemini vision helper ──────────────────────────────────────────────────────
 
 async function callGeminiVision(systemInstruction, imageBase64, mimeType, textPrompt, maxOutputTokens) {
-  const key = process.env.BEREAN_LLM_KEY ?? "";
+  const key = BEREAN_LLM_KEY.value() ?? "";
 
   if (!key) {
     logger.info("cameraOS/callGeminiVision: BEREAN_LLM_KEY not set — returning mock.");

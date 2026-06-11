@@ -353,7 +353,7 @@ struct BereanPrayerBriefingView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Prayer feature coming soon")
+        .accessibilityLabel("Prayer briefing not yet available. Pray at least once to unlock your personalized briefing.")
     }
 }
 

@@ -59,7 +59,7 @@ const MOCK_BEREAN = {
 };
 
 async function generateBereanSummary(prompt) {
-  const key = process.env.BEREAN_LLM_KEY || "";
+  const key = bereanLLMKey.value() || "";
   if (!key) {
     logger.info("llmAdapter: BEREAN_LLM_KEY not set — returning mock.");
     return MOCK_BEREAN;
@@ -99,7 +99,7 @@ async function generateBereanSummary(prompt) {
 // ── Embedding adapter ─────────────────────────────────────────────────────────
 
 async function embedText(text) {
-  const key = process.env.EMBEDDING_KEY || "";
+  const key = embeddingKey.value() || "";
   if (!key) return new Array(768).fill(0);
   try {
     const res = await fetch(
@@ -230,7 +230,7 @@ const detectDuplicate = onCall(
       throw new HttpsError("invalid-argument", "draftBody must be 5–2000 characters.");
     }
 
-    if (!process.env.EMBEDDING_KEY) {
+    if (!embeddingKey.value()) {
       return { isDuplicate: false, similarCommentIds: [], similarityScore: 0, suggestion: null };
     }
 

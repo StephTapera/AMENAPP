@@ -8,7 +8,10 @@
 
 import * as functions from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 
 // ── Stripe initialisation ─────────────────────────────────────────────────────
 //
@@ -19,7 +22,7 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 const Stripe = require("stripe");
 
 function getStripe(): InstanceType<typeof import("stripe").default> {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = STRIPE_SECRET_KEY.value();
   if (!key) {
     throw new functions.HttpsError(
       "failed-precondition",

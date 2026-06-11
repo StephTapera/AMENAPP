@@ -9,7 +9,7 @@
 // `provenance.userApproved == false`. Both the Wave 2 Berean Migration Interview
 // and the Wave 3 Universal Extractor convert their candidates into proposed
 // ContextFacets and hand them to THIS view. It is the canonical approval surface
-// (BereanInterviewView's inline list is superseded — TODO(wave3-merge)).
+// (BereanInterviewView's inline list is superseded — TODO(gate: HUMAN-MACHINE) — wave3-merge: swap once FacetApprovalView accepts [PendingFacetCandidate]).
 //
 // Hard rules honored here (CONTRACTS §9):
 //   - Approval before persistence. We ONLY call ContextStoreService.shared.saveFacet

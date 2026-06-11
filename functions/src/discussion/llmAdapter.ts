@@ -1,6 +1,9 @@
 // llmAdapter.ts — LLM adapter for Berean AI discussion summaries
 
 import * as logger from "firebase-functions/logger";
+import { defineSecret } from "firebase-functions/params";
+
+const BEREAN_LLM_KEY_SECRET = defineSecret("BEREAN_LLM_KEY");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,7 +32,7 @@ const MOCK_RESULT: BereanLLMResult = {
 // ── generateBereanSummary ─────────────────────────────────────────────────────
 
 export async function generateBereanSummary(prompt: string): Promise<BereanLLMResult> {
-  const key = process.env.BEREAN_LLM_KEY ?? "";
+  const key = BEREAN_LLM_KEY_SECRET.value() ?? "";
 
   if (!key) {
     logger.info("llmAdapter: BEREAN_LLM_KEY not set — returning mock result.");

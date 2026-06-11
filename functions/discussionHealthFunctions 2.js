@@ -37,7 +37,7 @@ exports.analyzeDiscussionHealth = onCall({ secrets: [BEREAN_LLM_KEY] }, async (r
   let status = "healthy", escalationSignals = [];
 
   if (comments.length > 0) {
-    const key = process.env.BEREAN_LLM_KEY || "";
+    const key = BEREAN_LLM_KEY.value() || "";
     if (key) {
       const prompt = `Analyze this discussion's health. Comments:\n${comments.slice(0, 20).join("\n---\n")}\n\nRespond JSON: {"status":"healthy|active|heated|escalating|needsReview","escalationSignals":["..."]}`;
       const parsed = await callGemini(prompt, key).catch(() => null);

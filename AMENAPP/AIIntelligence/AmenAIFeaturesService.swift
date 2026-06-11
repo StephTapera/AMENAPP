@@ -119,7 +119,7 @@ final class AmenAIFeaturesService: ObservableObject {
     ///   - query: Natural-language search query (3–500 chars)
     ///   - scope: "churchNotes" | "savedVerses" | "posts" | "sermons" | "all"
     ///
-    /// - Note: Multilingual support is a TODO on the backend.
+    /// - Note: Multilingual support is TODO(gate: DECISION) on the backend.
     ///   Results are currently returned in the source language of the content.
     func ragSearch(
         query: String,

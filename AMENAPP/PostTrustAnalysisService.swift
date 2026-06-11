@@ -11,7 +11,7 @@
 //  and composite trust profiling.
 //
 //  Design system: white background, black text (AmenColorScheme)
-//  Dependencies: Foundation + Combine only. Network stubs marked with TODO comments.
+//  Dependencies: Foundation + Combine only. Network stubs marked with TODO(gate: HUMAN-MACHINE) comments.
 //
 
 import Foundation

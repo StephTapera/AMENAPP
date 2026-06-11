@@ -37,7 +37,7 @@ final class FaithConsentState: ObservableObject {
 
     @Published private(set) var decision: FaithConsentDecision
 
-    // TODO(store): persist via ContextStoreService once it exists. For now this is a
+    // TODO(gate: HUMAN-MACHINE) — store: persist via ContextStoreService once it exists. For now this is a
     // process-lifetime decision mirrored into UserDefaults so the gate isn't re-shown
     // every launch. No faith CONTENT is stored here — only the yes/no decision.
     private let defaultsKey = "amen.faith.consent.decision.v1"

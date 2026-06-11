@@ -335,7 +335,7 @@ exports.processChurchNoteAudio = onCall(
                 // audio in one LRO but emit incremental Firestore updates as
                 // results stream in, giving the iOS listener progress events.
                 //
-                // TODO(audio-splitter): Replace with a true GCS chunker using
+                // TODO(gate: HUMAN-MACHINE) — audio-splitter: Replace with a true GCS chunker using
                 // ffmpeg Cloud Run sidecar to split into AUDIO_CHUNK_DURATION_SECONDS
                 // segments and transcribe each independently for full fault isolation.
 

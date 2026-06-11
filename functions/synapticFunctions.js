@@ -16,7 +16,10 @@
 
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
 const {checkRateLimit} = require("./rateLimiter");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const db = () => admin.firestore();
 
@@ -25,8 +28,7 @@ let _anthropic = null;
 function getAnthropic() {
   if (!_anthropic) {
     const Anthropic = require("@anthropic-ai/sdk");
-    // TODO: USE_DEFINE_SECRET — migrate to defineSecret() for this secret
-    _anthropic = new Anthropic.default({apiKey: process.env.ANTHROPIC_API_KEY});
+    _anthropic = new Anthropic.default({apiKey: ANTHROPIC_API_KEY.value()});
   }
   return _anthropic;
 }

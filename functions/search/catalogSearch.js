@@ -18,7 +18,10 @@
 "use strict";
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const admin     = require("firebase-admin");
+
+const PINECONE_HOST = defineSecret("PINECONE_HOST");
 
 // admin is already initialized in index.js — do not call initializeApp() again.
 const db = admin.firestore();
@@ -172,7 +175,7 @@ async function generateEmbedding(text) {
 }
 
 async function getPineconeHost() {
-  const host = process.env.PINECONE_HOST || await getSecret("PINECONE_HOST");
+  const host = PINECONE_HOST.value() || await getSecret("PINECONE_HOST");
   return host;
 }
 

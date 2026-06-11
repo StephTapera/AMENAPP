@@ -2,9 +2,15 @@
 
 import * as functions from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { generateBereanSummary } from "./llmAdapter";
 import { embedText, cosineSimilarity } from "./embeddingAdapter";
+
+// Secrets declared here so the runtime injects them into process.env
+// before the module-level adapter functions read them.
+export const BEREAN_LLM_KEY_SECRET = defineSecret("BEREAN_LLM_KEY");
+export const EMBEDDING_KEY_SECRET   = defineSecret("EMBEDDING_KEY");
 
 const db = getFirestore();
 
@@ -334,7 +340,7 @@ export const detectDuplicate = functions.onCall(
     }
 
     // Short-circuit when embedding key is absent
-    if (!process.env.EMBEDDING_KEY) {
+    if (!EMBEDDING_KEY_SECRET.value()) {
       logger.info("detectDuplicate: EMBEDDING_KEY not set — short-circuiting.");
       return { isDuplicate: false, similarCommentIds: [], similarityScore: 0, suggestion: null };
     }

@@ -539,7 +539,7 @@ Output ONLY the announcement text. No metadata or subject lines.`,
  *
  * SearchResult: { id, title, excerpt, score, type, sourceRef }
  *
- * Multilingual: // TODO: multilingual — results are returned in source language
+ * Multilingual: // TODO(gate: DECISION) — multilingual: results returned in source language; requires translation layer decision
  *
  * Rate limit: 30 / hour per user.
  */
@@ -578,7 +578,7 @@ exports.ragSearch = onCall(
     // ── Rate limit: 30 / hour ─────────────────────────────────────────────────
     await enforceRateLimit(uid, "ragSearch", 30, 3600);
 
-    // TODO: multilingual — query is searched as-is; results are returned in source language.
+    // TODO(gate: DECISION) — multilingual: query is searched as-is; results returned in source language.
     // When multilingual support is added: detect language, translate query to English before
     // embedding, then translate result excerpts back to the user's locale.
 
@@ -653,7 +653,7 @@ exports.ragSearch = onCall(
     const safeResults = results.filter((r) => {
       if (r.type === "posts" && r.authorId && r.authorId !== uid) {
         // Keep public posts; skip private
-        // (isPrivate flag would require a Firestore read — acceptable TODO)
+        // TODO(gate: HUMAN-MACHINE) — isPrivate flag check requires a Firestore read per result; acceptable once read costs are evaluated
         return true;
       }
       if (r.type === "churchNotes" && r.authorId && r.authorId !== uid) {

@@ -1,4 +1,4 @@
-// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
+// TODO(gate: HUMAN-MACHINE) — MIGRATE_TO_V2: still using Gen1 runWith() pattern; migration requires re-deploy + smoke-test
 // moderationSweep.js — v1 Cloud Function (avoids Cloud Run quota)
 // Scheduled every 4h: finds aged moderation queue items and alerts admins.
 // Items pending >24h for normal content, or >2h for critical categories

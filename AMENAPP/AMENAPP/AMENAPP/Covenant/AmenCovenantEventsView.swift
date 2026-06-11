@@ -244,6 +244,7 @@ struct AmenCovenantEventsView: View {
     private func addToCalendarButton(_ event: AmenCovenantEventsViewModel.EventItem) -> some View {
         Button {
             withAnimation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.75)) {
+                // TODO(gate: HUMAN-MACHINE) — EventKit calendar write needs entitlement + user permission prompt; not yet wired
                 toastMessage = "Calendar export coming soon"
             }
             Task {

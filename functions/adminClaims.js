@@ -1,4 +1,4 @@
-// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
+// TODO(gate: HUMAN-MACHINE) — MIGRATE_TO_V2: still using Gen1 runWith() pattern; migration requires re-deploy + smoke-test
 /**
  * adminClaims.js — v1 Cloud Functions (avoids Cloud Run quota)
  * Server-side admin role management via Firebase Custom Claims.

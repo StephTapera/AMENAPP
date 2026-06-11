@@ -217,7 +217,7 @@ struct PassportBereanStubView: View {
             title: "Talk with Berean",
             message: "A gentle migration conversation will live here. Coming in a later release."
         )
-        // TODO(berean): route to BereanInterviewView once Wave 2 wires the flag.
+        // TODO(gate: HUMAN-MACHINE) — berean: route to BereanInterviewView once Wave 2 wires the flag (ff_berean_interview_v2).
     }
 }
 
@@ -229,7 +229,7 @@ struct PassportImportStubView: View {
             title: "Bring context from another app",
             message: "Paste or import context here — you'll approve every detail first. Coming in a later release."
         )
-        // TODO(import): route to the universal extractor + FacetApprovalView once Wave 3 wires the flag.
+        // TODO(gate: HUMAN-MACHINE) — import: route to the universal extractor + FacetApprovalView once Wave 3 wires the flag.
     }
 }
 

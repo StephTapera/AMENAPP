@@ -325,7 +325,7 @@ final class AmenExportService: ObservableObject {
         // We currently do not bundle the Ed25519 public key in this build — signature
         // verification requires the public key for `keyId`. Until the key is embedded,
         // all imports are marked unverified (still importable, never auto-persisted).
-        let signatureVerified = false   // TODO(wave5-verify): embed public key for amen-export-2026-1
+        let signatureVerified = false   // TODO(gate: HUMAN-MACHINE) — wave5-verify: embed Ed25519 public key for amen-export-2026-1 in bundle before enabling signature enforcement
 
         // Map wire facets → proposed ContextFacets (userApproved: false).
         // The current user's UID is used for the userId field. If no user is signed in,

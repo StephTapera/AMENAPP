@@ -158,7 +158,7 @@ async function getPredictionsFromVertexAI(
 
   try {
     // Call Vertex AI Prediction endpoint
-    // TODO: Replace with your deployed model endpoint
+    // TODO(gate: DECISION) — Replace mock Vertex AI call with your deployed Vertex AI Prediction endpoint; requires model deployment decision
     const model = getVertexAI().preview.getGenerativeModel({
       model: "gemini-1.5-flash",
     });

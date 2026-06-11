@@ -1,12 +1,14 @@
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
 // creationFunctions.js
 // AMEN Creator — AI Scene Builder + Living Templates
 // Cloud Functions for creation system
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const Anthropic = require("@anthropic-ai/sdk");
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 const db = getFirestore();
 
@@ -15,7 +17,7 @@ const db = getFirestore();
 // ---------------------------------------------------------------------------
 
 function getAnthropicClient() {
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = ANTHROPIC_API_KEY.value();
   if (!key) throw new HttpsError("internal", "AI service not configured");
   return new Anthropic.default({ apiKey: key });
 }

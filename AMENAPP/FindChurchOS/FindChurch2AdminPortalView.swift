@@ -376,7 +376,7 @@ struct FindChurch2AdminPortalView: View {
             }
             .frame(minHeight: 44)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Announcements feature coming soon")
+            .accessibilityLabel("Announcements — post updates to your congregation; coming in a future release")
         } header: {
             Text("Announcements")
         }
@@ -457,7 +457,7 @@ struct FindChurch2AdminPortalView: View {
                     .allowsHitTesting(false)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Amen Church Pro features: analytics, promoted placement, and visitor funnels — coming soon")
+            .accessibilityLabel("Amen Church Pro features: analytics, promoted placement, and visitor funnels — available in Amen Church Pro subscription")
 
         } header: {
             VStack(alignment: .leading, spacing: 2) {

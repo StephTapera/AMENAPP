@@ -11,6 +11,9 @@ const admin = require("firebase-admin");
 const {onValueCreated} = require("firebase-functions/v2/database");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {defineSecret} = require("firebase-functions/params");
+
+const BIBLE_API_KEY = defineSecret("BIBLE_API_KEY");
 
 function isSundayForUser(uid) {
   return require("./shabbatMiddleware").isSundayForUser(uid);
@@ -722,7 +725,7 @@ exports.bereanBibleLookup = onCallV2(
     }
 
     const bibleId = BIBLE_IDS[translationKey] ?? BIBLE_IDS.bsb;
-    const apiKey  = process.env.BIBLE_API_KEY ?? "";
+    const apiKey  = BIBLE_API_KEY.value() ?? "";
     if (!apiKey) {
       loggerV2.error("bereanBibleLookup: BIBLE_API_KEY not configured");
       throw new HttpsErrorV2("unavailable", "Bible service is not configured. Contact support.");

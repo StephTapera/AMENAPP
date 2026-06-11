@@ -8,7 +8,7 @@
 //
 // Persistence is another agent's responsibility (ContextStoreService). This view
 // keeps ephemeral @State so it compiles standalone; the save path is marked
-// TODO(store).
+// TODO(gate: HUMAN-MACHINE) — store: save path needs ContextStoreService once built.
 
 import SwiftUI
 import FirebaseAuth

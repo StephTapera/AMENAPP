@@ -14,7 +14,7 @@ import SwiftUI
 struct IdentityBlueprintView: View {
     @StateObject private var flags = AMENFeatureFlags.shared
 
-    /// Facets to project. Owned/persisted elsewhere (TODO(store)).
+    /// Facets to project. Owned/persisted elsewhere (TODO(gate: HUMAN-MACHINE) — store: hydrate from ContextStoreService).
     let facets: [ContextFacet]
     /// Called when the user changes a facet's visibility in place.
     var onVisibilityChange: (ContextFacet, Visibility) -> Void
@@ -179,7 +179,7 @@ struct BlueprintFacetRow: View {
                         set: { newValue in
                             working = newValue
                             onVisibilityChange(facet, newValue)
-                            // TODO(store): persist the visibility change via ContextStoreService.
+                            // TODO(gate: HUMAN-MACHINE) — store: persist the visibility change via ContextStoreService once service exists.
                         }
                     )
                 )

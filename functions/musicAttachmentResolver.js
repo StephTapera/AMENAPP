@@ -1,6 +1,10 @@
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
+
+const SPOTIFY_CLIENT_ID           = defineSecret("SPOTIFY_CLIENT_ID");
+const SPOTIFY_CLIENT_SECRET       = defineSecret("SPOTIFY_CLIENT_SECRET");
+const APPLE_MUSIC_DEVELOPER_TOKEN = defineSecret("APPLE_MUSIC_DEVELOPER_TOKEN");
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
@@ -160,8 +164,8 @@ async function fetchSpotifyAccessToken() {
     return spotifyTokenCache.token;
   }
 
-  const clientID = process.env.SPOTIFY_CLIENT_ID;
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  const clientID = SPOTIFY_CLIENT_ID.value();
+  const clientSecret = SPOTIFY_CLIENT_SECRET.value();
   if (!clientID || !clientSecret) {
     throw new HttpsError("failed-precondition",
         "Spotify resolver secrets are not configured.");
@@ -278,7 +282,7 @@ function appleArtworkColors(attributes) {
 }
 
 async function resolveAppleMusicAttachment(parsed, requestedStorefront) {
-  const developerToken = process.env.APPLE_MUSIC_DEVELOPER_TOKEN;
+  const developerToken = APPLE_MUSIC_DEVELOPER_TOKEN.value();
   if (!developerToken) {
     throw new HttpsError("failed-precondition",
         "Apple Music resolver secret is not configured.");

@@ -17,7 +17,7 @@
  *
  * All functions are idempotent and safe to retry.
  */
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
+// TODO(gate: HUMAN-MACHINE) — USE_DEFINE_SECRET: migrate any raw process.env secret reads to defineSecret() for Functions v2 isolation; requires re-deploy
 
 
 'use strict';

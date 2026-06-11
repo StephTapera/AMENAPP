@@ -14,7 +14,10 @@
  */
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 
 const db = getFirestore();
 
@@ -22,8 +25,7 @@ const db = getFirestore();
 let stripeClient = null;
 function getStripe() {
   if (!stripeClient) {
-    // TODO: USE_DEFINE_SECRET — migrate to defineSecret() for this secret
-    const secretKey = process.env.STRIPE_SECRET_KEY;
+    const secretKey = STRIPE_SECRET_KEY.value();
     if (!secretKey) throw new HttpsError("failed-precondition", "Stripe not configured.");
     stripeClient = require("stripe")(secretKey);
   }

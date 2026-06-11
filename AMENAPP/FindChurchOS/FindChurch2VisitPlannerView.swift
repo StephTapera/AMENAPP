@@ -537,8 +537,8 @@ private struct SuggestTimesSheet: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                // TODO(wave5): build CF-backed suggestion form here.
-                Text("Suggestion form coming in Wave 5.")
+                // TODO(gate: HUMAN-MACHINE) — wave5: CF-backed suggestion form; submitServiceTimeSuggestion callable not yet deployed
+                Text("Service time suggestions are coming soon.")
                     .font(.body)
                     .foregroundStyle(.secondary)
 

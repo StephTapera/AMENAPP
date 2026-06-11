@@ -52,15 +52,10 @@ struct FullscreenMediaViewer: View {
             : nil
     }
     
-    // TODO(ambient): Fuller integration — replace this hand-wired pager with
-    // AdaptiveMediaViewer(items:coordinator:) by mapping media.sortedItems to
-    // [AdaptiveMediaViewer.Item] (id, revision: url, image: poster, player/asset for video).
-    // Deferred to keep this change additive/reversible under concurrent edits; current wiring
-    // already drives the palette + glass chrome from the active item's decoded poster image.
-    // TODO(ambient): Tint the AVPlayer controls + scrubber with palette.accent. The player
-    // lives in the private VideoPlayerFullscreen struct, which has no palette access; rewiring
-    // it (e.g. passing palette.accent in or reading @Environment(\.ambientPalette) there) is the
-    // clean spot, but was left out to avoid touching the media-session lifecycle code.
+    // TODO(gate: HUMAN-MACHINE) — ambient: replace hand-wired pager with AdaptiveMediaViewer(items:coordinator:)
+    // once concurrent edits settle; map media.sortedItems → [AdaptiveMediaViewer.Item].
+    // TODO(gate: HUMAN-MACHINE) — ambient: tint AVPlayer controls/scrubber with palette.accent;
+    // VideoPlayerFullscreen needs palette passed in or @Environment(\.ambientPalette) read there.
     var body: some View {
         // Ambient scope: the current media item's color drives a soft palette behind the
         // black viewer. Additive + reversible; fails closed to neutral when mode == .off or

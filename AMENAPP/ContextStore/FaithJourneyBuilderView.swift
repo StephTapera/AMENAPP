@@ -12,7 +12,7 @@
 //   • NO scores / levels / rankings / leaderboards anywhere. Personalizes + connects only.
 //   • GlassKit surfaces only; all animation via Motion.adaptive.
 //   • Church selection is wired to Find a Church search (selection ONLY — no matching here).
-//   • Persistence: ContextStoreService does not yet exist → // TODO(store) + ephemeral @State.
+//   • Persistence: ContextStoreService does not yet exist → // TODO(gate: HUMAN-MACHINE) — store: hydrate/persist via ContextStoreService once built.
 
 import SwiftUI
 import CoreLocation
@@ -24,7 +24,7 @@ struct FaithJourneyBuilderView: View {
     @ObservedObject private var consent = FaithConsentState.shared
     @State private var showConsent = false
 
-    // MARK: Faith Journey draft (ephemeral — TODO(store): hydrate/persist via ContextStoreService)
+    // MARK: Faith Journey draft (ephemeral — TODO(gate: HUMAN-MACHINE) — store: hydrate/persist via ContextStoreService)
     @State private var currentChurchId: String?
     @State private var currentChurchName: String?
     @State private var currentStudy: String = ""
@@ -42,7 +42,7 @@ struct FaithJourneyBuilderView: View {
     @State private var churchSearchTask: Task<Void, Never>?
 
     // MARK: Save state
-    @State private var savedFacets: [ContextFacet] = []   // TODO(store): replace with ContextStoreService write
+    @State private var savedFacets: [ContextFacet] = []   // TODO(gate: HUMAN-MACHINE) — store: replace with ContextStoreService write once service exists
     @State private var saveError = false
 
     // Common curated chips (no ranking — just convenience).

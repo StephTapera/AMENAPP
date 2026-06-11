@@ -7,6 +7,9 @@
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
+const {defineSecret} = require("firebase-functions/params");
+
+const FIREBASE_WEB_API_KEY = defineSecret("FIREBASE_WEB_API_KEY");
 
 // ============================================================================
 // H-03: BAN EVASION PREVENTION — Phone number ban check
@@ -353,7 +356,7 @@ exports.signInWithUsername = onCall(
         throw new HttpsError("unauthenticated", "Invalid username or password");
       }
 
-      const apiKey = process.env.FIREBASE_WEB_API_KEY;
+      const apiKey = FIREBASE_WEB_API_KEY.value();
       if (!apiKey) {
         console.error("signInWithUsername: FIREBASE_WEB_API_KEY not configured");
         throw new HttpsError("internal", "Sign-in temporarily unavailable");
@@ -1054,7 +1057,7 @@ exports.setAdminClaim = onCall(
 // Future registration attempts using the same phone will be blocked by
 // checkPhoneNotBanned() in onUserDocCreated.
 //
-// TODO: Wire this into the accountSuspension flow so that banning a user
+// TODO(gate: HUMAN-MACHINE) — Wire banUserPhone into accountSuspension flow so banning a user
 // automatically bans their phone number. Example call site:
 //   await admin.functions().httpsCallable("banUserPhone")({ userId: bannedUid });
 // ============================================================================

@@ -8,22 +8,23 @@
  * 4. reviewCovenantApp      — Values Verified covenant assessment (callable)
  * 5. matchKingdomCommerce   — Kingdom Commerce matching + listing review (callable)
  */
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
-
-
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { logger } = require("firebase-functions");
 
-// Lazy OpenAI client — requires OPENAI_API_KEY environment secret
+const OPENAI_API_KEY    = defineSecret("OPENAI_API_KEY");
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
+
+// Lazy OpenAI client — requires OPENAI_API_KEY secret (defineSecret)
 let _openai = null;
 function getOpenAI() {
   if (!_openai) {
     const OpenAI = require("openai");
-    const key = process.env.OPENAI_API_KEY;
+    const key = OPENAI_API_KEY.value();
     if (!key) throw new Error("OPENAI_API_KEY secret not set");
     _openai = new OpenAI({ apiKey: key });
   }
@@ -35,7 +36,7 @@ let _anthropic = null;
 function getAnthropic() {
   if (!_anthropic) {
     const Anthropic = require("@anthropic-ai/sdk");
-    const key = process.env.ANTHROPIC_API_KEY;
+    const key = ANTHROPIC_API_KEY.value();
     if (!key) throw new Error("ANTHROPIC_API_KEY secret not set");
     _anthropic = new Anthropic({ apiKey: key });
   }
