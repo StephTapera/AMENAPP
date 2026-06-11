@@ -120,6 +120,8 @@ struct AmenConnectProfileView: View {
     @StateObject private var vm: AmenConnectProfileViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var scrollOffset: CGFloat = 0
+    @State private var isSubmittingReport = false
+    @State private var reportAlertMessage: String?
 
     init(profile: AmenConnectUserProfile? = nil) {
         _vm = StateObject(wrappedValue: AmenConnectProfileViewModel(profile: profile))
@@ -144,6 +146,14 @@ struct AmenConnectProfileView: View {
         }
         .sheet(isPresented: $vm.showServiceMatch) {
             AmenServiceMatchSheet(profile: vm.profile)
+        }
+        .alert("Report", isPresented: Binding(
+            get: { reportAlertMessage != nil },
+            set: { if !$0 { reportAlertMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(reportAlertMessage ?? "")
         }
     }
 
@@ -244,19 +254,11 @@ struct AmenConnectProfileView: View {
             } else {
                 profileButton("Pray", icon: "hands.sparkles") {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    NotificationCenter.default.post(
-                        name: Notification.Name("amenPrayForUser"),
-                        object: nil,
-                        userInfo: ["userId": vm.profile.id]
-                    )
+                    DeepLinkRouter.shared.navigate(to: .prayer(prayerId: vm.profile.id))
                 }
                 profileButton("Message", icon: "bubble.left") {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    NotificationCenter.default.post(
-                        name: Notification.Name("amenOpenDM"),
-                        object: nil,
-                        userInfo: ["userId": vm.profile.id]
-                    )
+                    DeepLinkRouter.shared.navigate(to: .chat(threadId: vm.profile.id, prefill: nil))
                 }
                 profileButton("Share", icon: "square.and.arrow.up") {
                     let username = vm.profile.username
@@ -494,15 +496,37 @@ struct AmenConnectProfileView: View {
                 }
                 Divider()
                 Button("Report", systemImage: "flag", role: .destructive) {
-                    NotificationCenter.default.post(
-                        name: Notification.Name("amenReportUser"),
-                        object: nil,
-                        userInfo: ["userId": vm.profile.id]
-                    )
+                    submitProfileReport()
                 }
+                .disabled(isSubmittingReport || vm.profile.isOwnProfile)
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .accessibilityLabel("More options")
+            }
+        }
+    }
+
+    private func submitProfileReport() {
+        guard !isSubmittingReport, !vm.profile.isOwnProfile else { return }
+        isSubmittingReport = true
+
+        Task {
+            do {
+                _ = try await AmenSafetyReportService.shared.submitReport(
+                    entityId: vm.profile.id,
+                    entityType: "user",
+                    category: .harassment,
+                    description: "User profile report submitted from Connect profile."
+                )
+                await MainActor.run {
+                    isSubmittingReport = false
+                    reportAlertMessage = "Report submitted. Our safety team will review it."
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmittingReport = false
+                    reportAlertMessage = "We could not submit this report. Please try again."
+                }
             }
         }
     }

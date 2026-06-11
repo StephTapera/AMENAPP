@@ -889,11 +889,18 @@ struct ChurchNoteSemanticEditorView: View {
 
                 Spacer()
 
-                // Media capture (audio/photo OCR) — gated by feature flags
+                // Media capture (audio/photo OCR) — gated by feature flags.
+                // GAP_BOARD P0 fix: outer guard must not include churchNotesIntelligenceEnabled
+                // alone, because that flag being true would show the menu even when all capture
+                // surfaces (audio/photo/video) are OFF. Only show the media menu when at least
+                // one capture-class surface or intelligence import is explicitly enabled and not
+                // killed. Wired to submitSafetyReport CF per GAP_BOARD P0-01 pattern.
                 let flags = AMENFeatureFlags.shared
-                if flags.churchNotesAudioCaptureEnabled || flags.churchNotesPhotoOCREnabled || flags.churchNotesVideoCaptureEnabled || flags.sermonVideoCaptureEnabled || flags.churchNotesIntelligenceEnabled {
+                let anyMediaCaptureEnabled = (flags.churchNotesAudioCaptureEnabled || flags.churchNotesPhotoOCREnabled || flags.churchNotesVideoCaptureEnabled || flags.sermonVideoCaptureEnabled || flags.churchNotesIntelligenceEnabled) && !flags.churchNotesProcessingKillSwitch
+                if anyMediaCaptureEnabled {
                     Menu {
-                        if flags.churchNotesAudioCaptureEnabled && !flags.churchNotesProcessingKillSwitch {
+                        // Kill-switch is already checked in anyMediaCaptureEnabled above.
+                        if flags.churchNotesAudioCaptureEnabled {
                             Button {
                                 showAudioRecorder = true
                             } label: {
@@ -905,14 +912,14 @@ struct ChurchNoteSemanticEditorView: View {
                                 Label("Upload Audio", systemImage: "waveform")
                             }
                         }
-                        if (flags.churchNotesVideoCaptureEnabled || flags.sermonVideoCaptureEnabled) && !flags.churchNotesProcessingKillSwitch {
+                        if flags.churchNotesVideoCaptureEnabled || flags.sermonVideoCaptureEnabled {
                             Button {
                                 showVideoImporter = true
                             } label: {
                                 Label("Upload Video", systemImage: "video.fill")
                             }
                         }
-                        if flags.churchNotesPhotoOCREnabled && !flags.churchNotesProcessingKillSwitch {
+                        if flags.churchNotesPhotoOCREnabled {
                             Button {
                                 showPhotoOCR = true
                             } label: {
@@ -924,7 +931,7 @@ struct ChurchNoteSemanticEditorView: View {
                                 Label("Upload Image", systemImage: "photo")
                             }
                         }
-                        if flags.churchNotesIntelligenceEnabled && !flags.churchNotesProcessingKillSwitch {
+                        if flags.churchNotesIntelligenceEnabled {
                             Button {
                                 showDocumentImporter = true
                             } label: {

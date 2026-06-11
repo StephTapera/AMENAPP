@@ -190,6 +190,19 @@ async function incrementMetric(metric: string, amount = 1): Promise<void> {
   );
 }
 
+function invalidActivityEventLogFields(id: string, data: FirebaseFirestore.DocumentData | undefined): Record<string, unknown> {
+  return {
+    id,
+    fieldCount: data ? Object.keys(data).length : 0,
+    hasRecipientId: typeof data?.recipientId === "string" && data.recipientId.length > 0,
+    hasType: typeof data?.type === "string" && data.type.length > 0,
+    type: typeof data?.type === "string" ? data.type : null,
+    targetType: typeof data?.targetType === "string" ? data.targetType : null,
+    hasTargetId: typeof data?.targetId === "string" && data.targetId.length > 0,
+    hasActorId: typeof data?.actorId === "string" && data.actorId.length > 0,
+  };
+}
+
 function buildApnsConfig(record: PendingNotificationRecord): admin.messaging.ApnsConfig {
   return {
     headers: {
@@ -771,7 +784,7 @@ export const processActivityEvent = functions.firestore
     const event = snapshot.data() as ActivityEventRecord;
     if (!event || !event.recipientId || !event.type) {
       await incrementMetric("schema_violation_count");
-      functions.logger.error("Invalid activity event", { id: snapshot.id, data: snapshot.data() });
+      functions.logger.error("Invalid activity event", invalidActivityEventLogFields(snapshot.id, snapshot.data()));
       return;
     }
 

@@ -27,22 +27,30 @@ final class SafeZoneService: ObservableObject {
     // MARK: Private constants
 
     private let defaultsKey = "cameraOS_safeZones"
+    private let defaults: UserDefaults
+    private let locationProvider: SafeZoneLocationProviding
 
     // MARK: - Init
 
-    init() {
+    init(
+        defaults: UserDefaults = .standard,
+        locationProvider: SafeZoneLocationProviding? = nil
+    ) {
+        self.defaults = defaults
+        self.locationProvider = locationProvider ?? CoreLocationSafeZoneLocationProvider()
         load()
     }
 
     // MARK: - Public API
 
     /// Adds a new safe zone centered on the given location.
+    @discardableResult
     func addSafeZone(
         name: String,
         location: CLLocation,
         radiusMeters: Double,
         triggerExtraReview: Bool
-    ) {
+    ) -> CameraSafeZone {
         let zone = CameraSafeZone(
             id: UUID().uuidString,
             name: name,
@@ -54,6 +62,23 @@ final class SafeZoneService: ObservableObject {
         )
         safeZones.append(zone)
         save()
+        return zone
+    }
+
+    /// Adds a new safe zone at the user's consented current location.
+    @discardableResult
+    func addSafeZoneAtCurrentLocation(
+        name: String,
+        radiusMeters: Double,
+        triggerExtraReview: Bool
+    ) async throws -> CameraSafeZone {
+        let location = try await locationProvider.requestCurrentLocation()
+        return addSafeZone(
+            name: name,
+            location: location,
+            radiusMeters: radiusMeters,
+            triggerExtraReview: triggerExtraReview
+        )
     }
 
     /// Removes the zone with the given id.
@@ -91,7 +116,7 @@ final class SafeZoneService: ObservableObject {
 
     private func load() {
         guard
-            let data = UserDefaults.standard.data(forKey: defaultsKey),
+            let data = defaults.data(forKey: defaultsKey),
             let decoded = try? JSONDecoder().decode([CameraSafeZone].self, from: data)
         else { return }
         safeZones = decoded
@@ -99,7 +124,105 @@ final class SafeZoneService: ObservableObject {
 
     private func save() {
         guard let data = try? JSONEncoder().encode(safeZones) else { return }
-        UserDefaults.standard.set(data, forKey: defaultsKey)
+        defaults.set(data, forKey: defaultsKey)
+    }
+}
+
+// MARK: - SafeZoneLocationProviding
+
+@MainActor
+protocol SafeZoneLocationProviding {
+    func requestCurrentLocation() async throws -> CLLocation
+}
+
+enum SafeZoneLocationError: Error {
+    case locationServicesDisabled
+    case authorizationDenied
+    case requestInProgress
+    case unavailable
+}
+
+@MainActor
+final class CoreLocationSafeZoneLocationProvider: NSObject, SafeZoneLocationProviding, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var continuation: CheckedContinuation<CLLocation, Error>?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+    }
+
+    func requestCurrentLocation() async throws -> CLLocation {
+        guard CLLocationManager.locationServicesEnabled() else {
+            throw SafeZoneLocationError.locationServicesDisabled
+        }
+
+        switch manager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            return try await requestLocation()
+        case .notDetermined:
+            return try await withCheckedThrowingContinuation { continuation in
+                guard self.continuation == nil else {
+                    continuation.resume(throwing: SafeZoneLocationError.requestInProgress)
+                    return
+                }
+                self.continuation = continuation
+                self.manager.requestWhenInUseAuthorization()
+            }
+        case .denied, .restricted:
+            throw SafeZoneLocationError.authorizationDenied
+        @unknown default:
+            throw SafeZoneLocationError.unavailable
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        switch manager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            manager.requestLocation()
+        case .denied, .restricted:
+            finish(.failure(SafeZoneLocationError.authorizationDenied))
+        case .notDetermined:
+            break
+        @unknown default:
+            finish(.failure(SafeZoneLocationError.unavailable))
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else {
+            finish(.failure(SafeZoneLocationError.unavailable))
+            return
+        }
+        finish(.success(location))
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        finish(.failure(error))
+    }
+
+    private func requestLocation() async throws -> CLLocation {
+        try await withCheckedThrowingContinuation { continuation in
+            guard self.continuation == nil else {
+                continuation.resume(throwing: SafeZoneLocationError.requestInProgress)
+                return
+            }
+            self.continuation = continuation
+            self.manager.requestLocation()
+        }
+    }
+
+    private func finish(_ result: Result<CLLocation, Error>) {
+        guard let continuation else { return }
+        self.continuation = nil
+
+        switch result {
+        case .success(let location):
+            continuation.resume(returning: location)
+        case .failure(let error):
+            continuation.resume(throwing: error)
+        }
     }
 }
 
@@ -211,14 +334,13 @@ struct SafeZoneManagerView: View {
         Button("Add") {
             let name = newZoneName.trimmingCharacters(in: .whitespaces)
             guard !name.isEmpty else { return }
-            // Production: replace with CLLocationManager's current location.
-            let placeholder = CLLocation(latitude: 37.3318, longitude: -122.0312)
-            service.addSafeZone(
-                name: name,
-                location: placeholder,
-                radiusMeters: 200,
-                triggerExtraReview: true
-            )
+            Task {
+                try? await service.addSafeZoneAtCurrentLocation(
+                    name: name,
+                    radiusMeters: 200,
+                    triggerExtraReview: true
+                )
+            }
         }
         .disabled(newZoneName.trimmingCharacters(in: .whitespaces).isEmpty)
         .accessibilityLabel("Confirm add safe zone")

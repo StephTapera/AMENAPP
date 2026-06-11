@@ -10,8 +10,8 @@
 // `detect(in:)` from a Task so the actor hop stays off the main thread.
 //
 // Safety signals:
-//   · V1 ships with an EMPTY crisis keyword list.
-//   · Keywords are intended to be configured at runtime via Remote Config.
+//   · V1 ships with a deterministic crisis keyword baseline.
+//   · Keywords can be replaced at runtime via the Aegis/Remote Config path.
 //   · The engine NEVER blocks content — it only surfaces informational chips.
 //   · Human moderators make all final decisions.
 
@@ -168,13 +168,32 @@ actor AmenSmartContextDetectionEngine {
 
     // MARK: - Safety signal configuration
     //
-    // V1: intentionally empty. Populate at runtime via Remote Config so the
-    // curated list can be updated without an App Store release.
+    // V1 ships with a deterministic baseline so crisis detection never becomes
+    // silently empty when runtime config is absent. Aegis/Remote Config can
+    // replace it without an App Store release.
     //
     // Structure: (keyword: String, category: String, severity: AmenSafetySignalSeverity)
     // The engine never blocks — it only surfaces a chip the caller can act on.
 
-    private var runtimeCrisisKeywords: [(keyword: String, category: String, severity: AmenSafetySignalSeverity)] = []
+    private static let defaultCrisisKeywords: [(keyword: String, category: String, severity: AmenSafetySignalSeverity)] = [
+        ("kill myself", "self-harm", .warning),
+        ("end my life", "self-harm", .warning),
+        ("suicide", "self-harm", .warning),
+        ("hurt myself", "self-harm", .warning),
+        ("self harm", "self-harm", .warning),
+        ("can't go on", "self-harm", .warning),
+        ("want to die", "self-harm", .warning),
+        ("abuse", "abuse", .warning),
+        ("being threatened", "abuse", .warning),
+        ("not safe at home", "abuse", .warning),
+        ("domestic violence", "abuse", .warning),
+        ("trafficking", "exploitation", .warning),
+        ("grooming", "exploitation", .warning),
+        ("blackmail", "exploitation", .warning),
+        ("sextortion", "exploitation", .warning)
+    ]
+
+    private var runtimeCrisisKeywords: [(keyword: String, category: String, severity: AmenSafetySignalSeverity)] = AmenSmartContextDetectionEngine.defaultCrisisKeywords
 
     // MARK: - Public API
 
@@ -206,7 +225,7 @@ actor AmenSmartContextDetectionEngine {
     func configureRuntimeCrisisKeywords(
         _ keywords: [(keyword: String, category: String, severity: AmenSafetySignalSeverity)]
     ) {
-        runtimeCrisisKeywords = keywords
+        runtimeCrisisKeywords = keywords.isEmpty ? Self.defaultCrisisKeywords : keywords
     }
 
     // MARK: - Link detection
@@ -309,9 +328,6 @@ actor AmenSmartContextDetectionEngine {
     // MARK: - Safety signal detection
 
     private func detectSafetySignals(in text: String) -> [AmenDetectedSafetySignal] {
-        // V1: runtime list is empty — returns [] until configured via Remote Config.
-        guard !runtimeCrisisKeywords.isEmpty else { return [] }
-
         let lowered = text.lowercased()
         var signals: [AmenDetectedSafetySignal] = []
         var seenCategories = Set<String>()

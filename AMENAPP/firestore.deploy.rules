@@ -239,7 +239,7 @@ service cloud.firestore {
     // Does the incoming document contain raw PII fields forbidden by I-5?
     function hasRawPII() {
       return request.resource.data.keys().hasAny([
-        'contactPhone', 'contactEmail', 'homeAddress', 'salaryAmount'
+        'phoneNumber', 'contactPhone', 'contactEmail', 'homeAddress', 'salaryAmount'
       ]);
     }
 
