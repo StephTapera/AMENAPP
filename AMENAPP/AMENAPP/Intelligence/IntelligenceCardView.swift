@@ -1,6 +1,6 @@
 // IntelligenceCardView.swift — AMEN Living Intelligence
 // Individual intelligence card with:
-//   - Tier chip + truth badge
+//   - IntelligenceTier chip + truth badge
 //   - Title (max 2 lines)
 //   - Summary bullets (≤3)
 //   - Expandable "Why you're seeing this" (matchReasons + rankReasons)
@@ -76,10 +76,10 @@ struct IntelligenceNotImplementedSheet: View {
     }
 }
 
-// MARK: - Tier Badge
+// MARK: - IntelligenceTier Badge
 
 private struct TierBadge: View {
-    let tier: Tier
+    let tier: IntelligenceTier
 
     var body: some View {
         Text(tier.rawValue.capitalized)
@@ -183,7 +183,7 @@ struct IntelligenceCardView: View {
 
     private var cardBody: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // 1. Tier chip + TruthBadge
+            // 1. IntelligenceTier chip + TruthBadge
             HStack(spacing: 8) {
                 TierBadge(tier: card.tier)
                 Spacer()

@@ -149,10 +149,10 @@ struct SmartAccountResumeView: View {
             } label: {
                 Text("Continue as \(account.firstName)")
                     .font(.body.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: 300)
-                    .padding(.vertical, 15)
-                    .background(Color.primary, in: Capsule())
+                    .frame(minHeight: 54)
+                    .amenLiquidGlassCapsuleSurface(isSelected: true)
             }
             .accessibilityLabel("Continue as \(account.displayName)")
 
@@ -241,10 +241,10 @@ struct SmartAccountResumeView: View {
             } label: {
                 Text("Sign In Again")
                     .font(.body.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: 300)
-                    .padding(.vertical, 15)
-                    .background(Color.primary, in: Capsule())
+                    .frame(minHeight: 54)
+                    .amenLiquidGlassCapsuleSurface(isSelected: true)
             }
             .accessibilityLabel("Sign in again as \(account.displayName)")
 
@@ -288,10 +288,10 @@ struct SmartAccountResumeView: View {
             } label: {
                 Text("Retry")
                     .font(.body.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: 300)
-                    .padding(.vertical, 15)
-                    .background(Color.primary, in: Capsule())
+                    .frame(minHeight: 54)
+                    .amenLiquidGlassCapsuleSurface(isSelected: true)
             }
 
             spacer(14)
@@ -334,10 +334,10 @@ struct SmartAccountResumeView: View {
             } label: {
                 Text("Retry")
                     .font(.body.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: 300)
-                    .padding(.vertical, 15)
-                    .background(Color.primary, in: Capsule())
+                    .frame(minHeight: 54)
+                    .amenLiquidGlassCapsuleSurface(isSelected: true)
             }
 
             spacer(14)
@@ -519,6 +519,7 @@ struct SmartAccountResumeView: View {
     private func notYouTapped(account: RememberedAccount) {
         Analytics.logEvent("smart_account_resume_not_you_tapped", parameters: nil)
         RememberedAccountStore.shared.clearAccount(uid: account.uid)
+        AmenIdentityHintStore.shared.clear(uid: account.uid)
         authViewModel.signOut()
         onUseAnotherAccount()
     }

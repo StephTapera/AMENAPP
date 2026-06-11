@@ -8,6 +8,10 @@ struct TestimonyCategory: Identifiable, Equatable {
     let color: Color
     let backgroundColor: Color
 
+    var semanticKeys: Set<String> {
+        Self.semanticAliases[id, default: [id]]
+    }
+
     static let healing = TestimonyCategory(
         id: "healing",
         title: "Healing",
@@ -61,4 +65,57 @@ struct TestimonyCategory: Identifiable, Equatable {
         color: Color(red: 0.90, green: 0.46, blue: 0.13),
         backgroundColor: Color(red: 0.90, green: 0.46, blue: 0.13).opacity(0.12)
     )
+
+    static let all: [TestimonyCategory] = [
+        .healing,
+        .career,
+        .relationship,
+        .financial,
+        .spiritual,
+        .family
+    ]
+
+    private static let semanticAliases: [String: Set<String>] = [
+        "healing": ["healing", "health", "restoration", "recovery"],
+        "career": ["career", "work", "calling", "purpose", "job"],
+        "relationship": ["relationship", "relationships", "friendship", "marriage", "community"],
+        "financial": ["financial", "finance", "provision", "money", "breakthrough"],
+        "spiritual": ["spiritual", "spiritual growth", "faith", "prayer", "transformation"],
+        "family": ["family", "home", "parenting", "children"]
+    ]
+
+    static func category(for post: Post) -> TestimonyCategory? {
+        let keys = semanticTopicKeys(for: post)
+        return all.first { category in
+            !category.semanticKeys.isDisjoint(with: keys)
+        }
+    }
+
+    static func semanticTopicKeys(for post: Post) -> Set<String> {
+        var keys = Set<String>()
+
+        if let primaryTopicKey = post.primaryTopicKey {
+            keys.insert(normalized(primaryTopicKey))
+        }
+
+        post.normalizedTopicKeys?.forEach {
+            keys.insert(normalized($0))
+        }
+
+        if let topicTag = post.topicTag {
+            keys.insert(normalized(topicTag))
+        }
+
+        return keys
+    }
+
+    func matches(_ post: Post) -> Bool {
+        !semanticKeys.isDisjoint(with: Self.semanticTopicKeys(for: post))
+    }
+
+    private static func normalized(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
 }

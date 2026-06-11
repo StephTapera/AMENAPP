@@ -162,7 +162,11 @@ struct OpenTableView: View {
 
                     // Show empty state only after initial load completes
                     if !isInitialLoad && allPosts.isEmpty && !isRefreshing {
+                        // Center the empty state in a taller block so its CTA ("Find People to
+                        // Follow") sits in the visible vertical center instead of falling under
+                        // the floating Ask Berean bar.
                         EmptyFeedView()
+                            .frame(maxWidth: .infinity, minHeight: 420, alignment: .center)
                     }
                     } // end else (skeleton)
                 }

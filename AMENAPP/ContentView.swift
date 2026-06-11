@@ -35,7 +35,11 @@ struct ContentView: View {
     // overlay responding. The old @State + onReceive pattern had a 1-frame lag that caused
     // the main screen to briefly appear between signalSignIn() and the @State update.
     @ObservedObject private var appReadyState = AppReadyStateManager.shared
+    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
     private var isShowingLoadingScreen: Bool { appReadyState.isShowingLoadingScreen }
+    private var hasRealFirebaseUser: Bool {
+        authViewModel.isAuthenticated && Auth.auth().currentUser?.uid != nil
+    }
 
     // ── SabbathMode: Additive wiring (extends existing ShabbatModeService/RestModeGate) ──
     // SabbathModeService drives the Sabbath gate. Does NOT replace SundayChurchFocusManager.
@@ -77,6 +81,19 @@ struct ContentView: View {
     @State private var postingBarDismissTask: Task<Void, Never>? = nil
     @State private var showTabBar = true  // ✅ Control tab bar visibility
     @ObservedObject private var tabScrollBridge = AMENTabBarScrollBridge.shared
+
+    private var isResourcesTabActive: Bool {
+        viewModel.selectedTab == 3
+    }
+
+    private var shouldShowAssistantBar: Bool {
+        showTabBar && !isResourcesTabActive
+    }
+
+    private var bottomChromeReservedHeight: CGFloat {
+        guard showTabBar else { return 24 }
+        return isResourcesTabActive ? 190 : 268
+    }
     @State private var showCommunityCovenant = false
     @State private var needsCovenantAgreement = false
     // P1-1 FIX: First-post prompt deferred from OnboardingView so it fires after the
@@ -146,7 +163,7 @@ struct ContentView: View {
                         dlog("🚦 [LAUNCH] ContentView → TwoFactorVerificationGateView appeared")
                         AppReadyStateManager.shared.signalReady()
                     }
-            } else if !authViewModel.isAuthenticated {
+            } else if !hasRealFirebaseUser {
                 // Splash → auth landing → sign-in flow
                 ZStack {
                     // Landing (underneath)
@@ -175,6 +192,22 @@ struct ContentView: View {
                                     }
                                 }
                             )
+                            .zIndex(1)
+                            .transition(.opacity)
+                        } else if authViewModel.hasRememberedIdentityAfterReinstall {
+                            SmartAccountResumeView(
+                                onAuthenticated: {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.6, dampingFraction: 0.8))) {
+                                        showSplash = false
+                                    }
+                                },
+                                onUseAnotherAccount: {
+                                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.85))) {
+                                        showSplash = false
+                                    }
+                                }
+                            )
+                            .environmentObject(authViewModel)
                             .zIndex(1)
                             .transition(.opacity)
                         } else {
@@ -267,6 +300,12 @@ struct ContentView: View {
                 .transition(.opacity)
                 .onAppear {
                     dlog("🚦 [LAUNCH] mainContent.onAppear fired (hasStartedCoreServices=\(hasStartedCoreServices))")
+                    guard hasRealFirebaseUser else {
+                        dlog("🚦 [LAUNCH] mainContent blocked — no real Firebase Auth user")
+                        hasStartedCoreServices = false
+                        AppReadyStateManager.shared.signalReady()
+                        return
+                    }
                         dlog("🔍 [SCROLL DEBUG] UI State Check:")
                         dlog("   - isShowingLoadingScreen: \(isShowingLoadingScreen)")
                         dlog("   - showTimeoutWarning: \(showTimeoutWarning)")
@@ -635,7 +674,7 @@ struct ContentView: View {
                         .environmentObject(authViewModel)
                         .id("profile")
                         .task {
-                            let uid = Auth.auth().currentUser?.uid ?? ""
+                            guard let uid = Auth.auth().currentUser?.uid else { return }
                             NotificationAggregationService.shared.updateCurrentScreen(.profile(userId: uid))
                         }
                 }
@@ -649,11 +688,21 @@ struct ContentView: View {
                 }
 
                 keepMountedTab(isActive: viewModel.selectedTab == 7) {
-                    WhatNeedsAttentionView()
-                        .id("intelligence")
-                        .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.none)
+                    // Amen Pulse — bounded daily surface. Gated by Remote Config
+                    // (amen_pulse_enabled, default OFF); falls back to the existing
+                    // Intelligence Brief until the Pulse pipeline is deployed + verified.
+                    Group {
+                        if featureFlags.amenPulseEnabled {
+                            AmenPulseSurfaceView()
+                                .id("amenPulse")
+                        } else {
+                            WhatNeedsAttentionView()
+                                .id("intelligence")
                         }
+                    }
+                    .task {
+                        NotificationAggregationService.shared.updateCurrentScreen(.none)
+                    }
                 }
             }
             .animation(nil, value: viewModel.selectedTab)
@@ -679,7 +728,11 @@ struct ContentView: View {
     private var mainContentBody: some View {
         ZStack {
             // Main content (takes full screen)
+            // Accessibility Intelligence Layer — global Calm Mode (C13) + larger touch
+            // targets (C9). Both are no-ops unless enabled in the user's a11y profile.
             selectedTabView
+                .ailCalmMode()
+                .ailTouchTarget()
 
             // Email verification banner (appears at top when email not verified)
             if authViewModel.showEmailVerificationBanner {
@@ -746,10 +799,10 @@ struct ContentView: View {
         // a push is tapped. This modifier observes it and switches selectedTab.
         .handleNotificationNavigation(selectedTab: $viewModel.selectedTab)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            // Reserve the floating tab, compose, audio, and assistant stack.
+            // Reserve the exact floating chrome footprint so content never sits under it.
             Color.clear
-                .frame(height: showTabBar ? 196 : 0)
-                .animation(.easeOut(duration: 0.25), value: showTabBar)
+                .frame(height: bottomChromeReservedHeight)
+                .animation(.easeOut(duration: 0.25), value: bottomChromeReservedHeight)
         }
         .overlay(alignment: .bottom) {
             // Always render tab bar, move it offscreen when keyboard appears
@@ -778,16 +831,19 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            // Audio mini player bar — shown during speech playback
-            if AMENFeatureFlags.shared.audioNarrationEnabled {
-                AudioMiniPlayerBar()
-                    .padding(.bottom, showTabBar ? 106 : 8)
+            VStack(spacing: 10) {
+                // Audio mini player bar — shown during speech playback
+                if AMENFeatureFlags.shared.audioNarrationEnabled {
+                    AudioMiniPlayerBar()
+                }
+
+                // Spiritual OS — hidden on Resources so crisis/support flows stay human-first.
+                if shouldShowAssistantBar {
+                    AmenAssistantBarOverlay(coordinator: assistantCoordinator)
+                }
             }
-        }
-        .overlay(alignment: .bottom) {
-            // Spiritual OS — Berean Assistant Bar (Agent G, gated by AppStorage flag)
-            AmenAssistantBarOverlay(coordinator: assistantCoordinator)
-                .padding(.bottom, showTabBar ? 114 : 12)
+            .padding(.bottom, showTabBar ? 108 : 12)
+            .animation(.easeOut(duration: 0.25), value: shouldShowAssistantBar)
         }
         .overlay(alignment: .top) {
             // Adaptive accessibility suggestion banner
@@ -838,8 +894,11 @@ struct ContentView: View {
                 }
             }
         }
-        // Camera OS — full-screen camera capture, intent selection, and safety review flow.
-        .fullScreenCover(isPresented: $showCameraOS) {
+        // CameraOS is default-off until rules/index coverage and runtime privacy review pass.
+        .fullScreenCover(isPresented: Binding(
+            get: { showCameraOS && featureFlags.cameraOSEnabled },
+            set: { showCameraOS = $0 }
+        )) {
             AmenCameraOSHubView(
                 onMediaCaptured: { _, _ in showCameraOS = false },
                 onPrayerCaptured: { _ in showCameraOS = false },
@@ -983,6 +1042,11 @@ struct ContentView: View {
         }
 
         .task {
+            guard hasRealFirebaseUser else {
+                dlog("🚦 [TAB] mainContent task skipped — no real Firebase Auth user")
+                return
+            }
+
             // Ensure we start on Home tab (OpenTable view)
             dlog("🚦 [TAB] .task → selectedTab = 0 (Home)")
             viewModel.selectedTab = 0

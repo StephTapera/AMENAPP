@@ -123,7 +123,7 @@ struct WorshipSongPickerSheet: View {
                 .font(.systemScaled(16))
 
             TextField("", text: $query, prompt:
-                Text("Search worship songs...").foregroundStyle(.white.opacity(0.4))
+                Text("Search or paste music link...").foregroundStyle(.white.opacity(0.4))
             )
             .foregroundStyle(.white)
             .autocorrectionDisabled()
@@ -169,7 +169,7 @@ struct WorshipSongPickerSheet: View {
             Text("Search for a worship song")
                 .font(.systemScaled(17, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.8))
-            Text("Search by song title or artist name")
+            Text("Search by song title or artist, or paste an Apple Music or Spotify link")
                 .font(.systemScaled(14))
                 .foregroundStyle(.white.opacity(0.5))
         }
@@ -205,12 +205,17 @@ struct WorshipSongPickerSheet: View {
     // MARK: - Actions
 
     private func performSearch() {
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return }
         isSearching = true
         errorMessage = nil
         results = []
         let currentSource = source
-        let currentQuery = query
+        let currentQuery = trimmedQuery
+        if isSupportedMusicLink(currentQuery) {
+            resolveMusicLink(currentQuery)
+            return
+        }
         Task {
             do {
                 let found: [WorshipSongResult]
@@ -226,6 +231,33 @@ struct WorshipSongPickerSheet: View {
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
+                    isSearching = false
+                }
+            }
+        }
+    }
+
+    private func isSupportedMusicLink(_ value: String) -> Bool {
+        let lowercased = value.lowercased()
+        return lowercased.hasPrefix("spotify:")
+            || lowercased.contains("open.spotify.com")
+            || lowercased.contains("music.apple.com")
+            || lowercased.contains("itunes.apple.com")
+    }
+
+    private func resolveMusicLink(_ value: String) {
+        Task {
+            do {
+                let ref = try await ChurchNoteMusicAttachmentResolverService.shared.resolve(urlString: value)
+                await MainActor.run {
+                    addedIDs.insert(ref.providerID)
+                    isSearching = false
+                    onAdd(ref)
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                     isSearching = false
                 }
             }
@@ -422,14 +454,14 @@ struct WorshipSongResult: Identifiable {
 // MARK: - WorshipSongSearchService
 
 /// Thin wrapper around MusicKit catalog search (Apple Music) and Spotify Web API.
-/// Falls back to a fixed list of popular worship songs when MusicKit is unavailable.
+/// Missing provider access returns an empty result set instead of fake catalog data.
 enum WorshipSongSearchService {
 
     static func search(query: String) async throws -> [WorshipSongResult] {
         #if canImport(MusicKit)
         return try await searchWithMusicKit(query: query)
         #else
-        return fallbackSearch(query: query)
+        return []
         #endif
     }
 
@@ -437,12 +469,7 @@ enum WorshipSongSearchService {
 
     static func searchSpotify(query: String) async throws -> [WorshipSongResult] {
         let tracks = await AMENMediaService.shared.searchSpotifyTracks(query: query)
-        if tracks.isEmpty {
-            // Spotify not configured or no results — return fallback catalog
-            return fallbackSearch(query: query).map {
-                WorshipSongResult(title: $0.title, artist: $0.artist, source: .spotify)
-            }
-        }
+        guard !tracks.isEmpty else { return [] }
         return tracks.map { track in
             WorshipSongResult(
                 title: track.name,
@@ -455,31 +482,6 @@ enum WorshipSongSearchService {
         }
     }
 
-    // MARK: Fallback (no MusicKit / no Spotify credentials)
-
-    static func fallbackSearch(query: String) -> [WorshipSongResult] {
-        let catalog: [(String, String)] = [
-            ("Way Maker", "Sinach"),
-            ("Goodness of God", "Bethel Music"),
-            ("What a Beautiful Name", "Hillsong Worship"),
-            ("Oceans (Where Feet May Fail)", "Hillsong United"),
-            ("Build My Life", "Housefires"),
-            ("King of Kings", "Hillsong Worship"),
-            ("Raise a Hallelujah", "Bethel Music"),
-            ("Holy Spirit", "Francesca Battistelli"),
-            ("O Come to the Altar", "Elevation Worship"),
-            ("Reckless Love", "Cory Asbury"),
-            ("Do It Again", "Elevation Worship"),
-            ("Graves into Gardens", "Elevation Worship"),
-            ("Jireh", "Elevation Worship"),
-            ("Promises", "Maverick City Music"),
-            ("Talking to Jesus", "Elevation Worship"),
-        ]
-        let q = query.lowercased()
-        return catalog
-            .filter { $0.0.lowercased().contains(q) || $0.1.lowercased().contains(q) }
-            .map { WorshipSongResult(title: $0.0, artist: $0.1) }
-    }
 }
 
 // MARK: - MusicKit extension
@@ -492,8 +494,7 @@ extension WorshipSongSearchService {
     static func searchWithMusicKit(query: String) async throws -> [WorshipSongResult] {
         let status = await MusicAuthorization.request()
         guard status == .authorized else {
-            // Not authorized — still return a fallback list
-            return fallbackSearch(query: query)
+            return []
         }
 
         var req = MusicCatalogSearchRequest(term: query, types: [Song.self])

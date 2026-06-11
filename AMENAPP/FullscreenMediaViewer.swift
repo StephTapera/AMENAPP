@@ -19,6 +19,8 @@ struct FullscreenMediaViewer: View {
     var postId: String? = nil
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentIndex: Int
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -27,6 +29,10 @@ struct FullscreenMediaViewer: View {
     @State private var dragDismissOffset: CGFloat = 0
     @State private var isDraggingToDismiss = false
     @State private var showChrome = true
+
+    /// Decoded UIImage of the current item, used to drive the Adaptive Ambient palette.
+    /// Fails closed to neutral when nil (AdaptiveColorsMode.off renders byte-identical neutral).
+    @State private var ambientImage: UIImage? = nil
     
     init(media: PostMediaContainer, startIndex: Int, postId: String? = nil) {
         self.media = media
@@ -46,36 +52,82 @@ struct FullscreenMediaViewer: View {
             : nil
     }
     
+    // TODO(ambient): Fuller integration — replace this hand-wired pager with
+    // AdaptiveMediaViewer(items:coordinator:) by mapping media.sortedItems to
+    // [AdaptiveMediaViewer.Item] (id, revision: url, image: poster, player/asset for video).
+    // Deferred to keep this change additive/reversible under concurrent edits; current wiring
+    // already drives the palette + glass chrome from the active item's decoded poster image.
+    // TODO(ambient): Tint the AVPlayer controls + scrubber with palette.accent. The player
+    // lives in the private VideoPlayerFullscreen struct, which has no palette access; rewiring
+    // it (e.g. passing palette.accent in or reading @Environment(\.ambientPalette) there) is the
+    // clean spot, but was left out to avoid touching the media-session lifecycle code.
     var body: some View {
-        ZStack {
-            // Dark glass background
-            backgroundView
-            
-            // Media pager
-            TabView(selection: $currentIndex) {
-                ForEach(Array(media.sortedItems.enumerated()), id: \.element.id) { index, item in
-                    mediaView(for: item, at: index)
-                        .tag(index)
+        // Ambient scope: the current media item's color drives a soft palette behind the
+        // black viewer. Additive + reversible; fails closed to neutral when mode == .off or
+        // when the decoded UIImage is unavailable.
+        AmbientScope { coordinator in
+            ZStack {
+                // Adaptive ambient wash (behind the dark glass). Bleeds the current media's
+                // blurred color; flat neutral when intensity == 0 / Reduce Transparency.
+                AdaptiveAmbientBackground(bleedImage: ambientImage, bleedHeight: 560)
+                    .opacity(dismissOpacity)
+
+                // Dark glass background (preserves dismiss fade + immersive viewing)
+                backgroundView
+
+                // Media pager
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(media.sortedItems.enumerated()), id: \.element.id) { index, item in
+                        mediaView(for: item, at: index)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: currentIndex) {
+                    resetZoom()
+                    driveAmbient(coordinator: coordinator)
+                }
+                .offset(y: dragDismissOffset)
+                .gesture(dismissGesture)
+
+                // Chrome overlay
+                if showChrome {
+                    chromeOverlay
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .onChange(of: currentIndex) {
-                resetZoom()
+            .statusBarHidden()
+            .onTapGesture {
+                toggleChrome()
             }
-            .offset(y: dragDismissOffset)
-            .gesture(dismissGesture)
-            
-            // Chrome overlay
-            if showChrome {
-                chromeOverlay
+            .onTapGesture(count: 2) {
+                handleDoubleTap()
             }
+            .onAppear { driveAmbient(coordinator: coordinator) }
+            .onDisappear { coordinator.reset(scheme: scheme, reduceMotion: reduceMotion) }
         }
-        .statusBarHidden()
-        .onTapGesture {
-            toggleChrome()
+    }
+
+    /// Decode the current item's image (reusing the shared ImageCache) and feed it to the
+    /// ambient coordinator. For video items the poster/thumbnail drives the palette.
+    private func driveAmbient(coordinator: AmbientCoordinator) {
+        guard let item = currentItem else {
+            ambientImage = nil
+            coordinator.drive(with: nil,
+                              key: AmbientSourceKey(id: "fullscreen/empty", revision: "0"),
+                              scheme: scheme, reduceMotion: reduceMotion)
+            return
         }
-        .onTapGesture(count: 2) {
-            handleDoubleTap()
+        let key = AmbientSourceKey(id: "fullscreen/\(item.id)", revision: item.url)
+        // Prefer the still URL for images; the thumbnail for videos.
+        let driveURL = item.type == .video ? (item.thumbnailURL ?? item.url) : item.url
+        Task {
+            let img = await ImageCache.shared.loadImage(url: driveURL,
+                                                        size: CGSize(width: 600, height: 600))
+            await MainActor.run {
+                ambientImage = img
+                coordinator.drive(with: img, key: key,
+                                  scheme: scheme, reduceMotion: reduceMotion)
+            }
         }
     }
     
@@ -182,37 +234,25 @@ struct FullscreenMediaViewer: View {
             HapticManager.impact(style: .light)
             dismiss()
         } label: {
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Circle()
-                            .fill(Color.black.opacity(0.3))
-                    )
-                    .frame(width: 40, height: 40)
-                
+            // Float the control in the sanctioned ambient glass primitive (tints to content).
+            AdaptiveGlassContainer(shape: Circle(), tintAlpha: 0.22) {
                 Image(systemName: "xmark")
                     .font(.systemScaled(14, weight: .semibold))
                     .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
             }
         }
         .buttonStyle(.plain)
     }
-    
+
     private var counterBadge: some View {
-        Text("\(currentIndex + 1) / \(media.count)")
-            .font(AMENFont.semiBold(13))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Capsule()
-                            .fill(Color.black.opacity(0.3))
-                    )
-            )
+        AdaptiveGlassContainer(tintAlpha: 0.22) {
+            Text("\(currentIndex + 1) / \(media.count)")
+                .font(AMENFont.semiBold(13))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+        }
     }
     
     private var bottomIndicators: some View {

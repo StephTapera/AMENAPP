@@ -1,9 +1,15 @@
 # NOTE_SHARE_VIEWER Wave 0 Contract
 
 Frozen: 2026-06-09  
-Version: `2026-06-09-wave0-v1`  
+Version: `2026-06-09-wave0-v1-decisions`  
 Swift contract: `AMENAPP/AMENAPP/Shared/Contracts/NoteShare.swift`  
 Feature flag: `feature_note_share_viewer` default `false`
+
+Signed-off v1 decisions:
+
+- `visibility == followers` means Connections: a mutual follow/connection edge exists between author and viewer. One-way follower visibility is out of v1.
+- Public links are signed-in only for v1. `noteShareGetViewerPayload` stays Auth + App Check gated; signed-out web viewing is a future feature.
+- `visibility == church` resolves through the Organizations membership/RBAC role edge. Members and leaders qualify; client-claimed church fields are never authoritative.
 
 This is contract-only. Wave 0 does not implement callable functions, Firestore rules, routing handlers, analytics emitters, HTML demos, or UI.
 
@@ -28,7 +34,7 @@ noteShares/{shareId}
   shareConfig: {
     visibility: "public" | "church" | "followers" | "link" | "space"
     spaceId: string?
-    churchId: string?
+    churchId: string? // server-resolved organization/church scope; never client-authoritative
     allowAmens: bool
     allowComments: "everyone" | "church" | "off"
     allowReshare: bool
@@ -60,7 +66,7 @@ All callables are Auth + App Check gated. All permission-sensitive writes happen
 
 | Callable | Request | Response | Notes |
 | --- | --- | --- | --- |
-| `noteShareCreate` | `{ noteId, shareConfig, renderMode }` | `{ shareId, linkToken? }` | Caller must own or have share permission on the Church Note. Server resolves `churchId` for church visibility and issues `linkToken` only for link visibility. |
+| `noteShareCreate` | `{ noteId, shareConfig, renderMode }` | `{ shareId, linkToken? }` | Caller must own or have share permission on the Church Note. Server resolves organization/church scope for church visibility and issues `linkToken` only for link visibility. |
 | `noteShareUpdateConfig` | `{ shareId, partialConfig }` | `{ shareId, shareConfig }` | Author only. Writes audit fields. Turning comments off hides reflections from non-authors but does not delete them. |
 | `noteShareRevoke` | `{ shareId }` | `{ shareId, status: "revoked" }` | Author only. Voids/rotates link token and triggers fan-out to mark referencing pills unavailable. |
 | `noteShareToggleAmen` | `{ shareId }` | `{ amened: bool }` | Enforces visibility and `allowAmens`. Idempotent toggle. Rate limit: 30/min/user. |
@@ -168,6 +174,6 @@ Do not log raw note text, reflection text, target UID, view counts, public like 
 
 ## Human Decision Checkpoints
 
-1. Followers visibility: existing rules reference follower visibility and follower checks, but Wave 1 must confirm the production follower edge path and whether this means one-way or mutual followers.
-2. Signed-out link access: unresolved. Current frozen default is signed-in only for v1, matching Auth + App Check callable posture.
-3. Church audience predicate: unresolved. Church OS must name the authoritative membership/role collection for `visibility == church`.
+1. Followers visibility: resolved for v1 as Connections (mutual). Server must verify both directions of the follow/connection edge.
+2. Signed-out link access: resolved for v1 as signed-in only through Auth + App Check. No public web viewer in v1.
+3. Church audience predicate: resolved for v1 through Organizations membership/RBAC. Members and leaders qualify; no separate leader tier in v1.

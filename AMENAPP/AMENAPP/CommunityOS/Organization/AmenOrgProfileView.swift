@@ -58,7 +58,7 @@ struct AmenOrgProfileView: View {
             Image(systemName: "building.2")
                 .font(.largeTitle)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
-            Text("Organization profiles are coming soon.")
+            Text("Organization profiles are off")
                 .font(.subheadline)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
                 .multilineTextAlignment(.center)
@@ -287,7 +287,7 @@ struct AmenOrgProfileView: View {
                 }
                 Task {
                     // In production inject userId from auth context
-                    // Stub: no-op without a live userId
+                    // No-op without a live userId
                 }
             } label: {
                 Text(isFollowing ? "Following" : "Follow")
@@ -500,7 +500,7 @@ struct AmenOrgProfileView: View {
                 .font(.systemScaled(36, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
-            Text("Events are coming soon.")
+            Text("Events are off for this organization.")
                 .font(.callout)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }

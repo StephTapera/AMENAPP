@@ -61,8 +61,33 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // register the token printed to the console in Firebase Console → App Check → Apps.
         // Release builds use AmenAppCheckProviderFactory (App Attest iOS 14+ / DeviceCheck iOS 13).
         #if DEBUG
+        // Use a STABLE debug token that persists across launches and is printed
+        // prominently below. Without this the SDK silently generates a fresh
+        // token on first run and never reprints it, so it can never be copied
+        // into Firebase Console → App Check → register, and every simulator run
+        // returns HTTP 403 "App attestation failed".
+        //
+        // Register the printed token ONCE (Firebase Console → App Check → Apps →
+        // ⋮ → Manage debug tokens → Add) and App Check stops 403-ing on this sim.
+        let debugTokenKey = "AMEN.AppCheckDebugToken"
+        let appCheckDebugToken = UserDefaults.standard.string(forKey: debugTokenKey)
+            ?? {
+                let generated = UUID().uuidString
+                UserDefaults.standard.set(generated, forKey: debugTokenKey)
+                return generated
+            }()
+        // The FirebaseAppCheck debug provider reads this env var first, so the
+        // token stays stable instead of being regenerated each install.
+        setenv("FIRAAppCheckDebugToken", appCheckDebugToken, 1)
         AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
         dlog("✅ App Check configured with Debug Provider (DEBUG build)")
+        dlog("""
+        ┌──────────────────────────────────────────────────────────────
+        │ 🔑 App Check DEBUG TOKEN (register once to silence 403s):
+        │    \(appCheckDebugToken)
+        │ Firebase Console → App Check → Apps → ⋮ → Manage debug tokens
+        └──────────────────────────────────────────────────────────────
+        """)
         #else
         AppCheck.setAppCheckProviderFactory(AmenAppCheckProviderFactory())
         dlog("✅ App Check configured with AmenAppCheckProviderFactory (App Attest / DeviceCheck)")

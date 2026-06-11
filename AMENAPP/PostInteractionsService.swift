@@ -10,6 +10,7 @@ import FirebaseCore
 import FirebaseDatabase
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import Combine
 import SwiftUI
 
@@ -39,6 +40,7 @@ class PostInteractionsService: ObservableObject {
     }
     
     private lazy var firestore = Firestore.firestore()
+    private lazy var functions = Functions.functions(region: "us-central1")
     
     // Published properties for real-time updates
     @Published var postLightbulbs: [String: Int] = [:]  // postId -> count
@@ -489,97 +491,45 @@ class PostInteractionsService: ObservableObject {
         authorProfileImageURL: String? = nil,
         clientRequestId: String? = nil
     ) async throws -> String {
-        let commentRef = ref.child("postInteractions").child(postId).child("comments").childByAutoId()
-        
-        guard let commentId = commentRef.key else {
-            throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to generate comment ID"])
-        }
-        
-        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        
-        // ✅ Build comment data with optional profile image URL
-        var commentData: [String: Any] = [
-            "id": commentId,
-            "postId": postId,
-            "authorId": currentUserId,
-            "authorName": currentUserName,
-            "authorInitials": authorInitials,
-            "authorUsername": authorUsername,
-            "content": content,
-            "timestamp": timestamp,
-            "likes": 0
-        ]
-        
-        // ✅ Add profile image URL if available
-        if let profileImageURL = authorProfileImageURL, !profileImageURL.isEmpty {
-            commentData["authorProfileImageURL"] = profileImageURL
-            dlog("✅ Storing profile image URL in comment: \(profileImageURL)")
+        guard let clientRequestId else {
+            throw NSError(
+                domain: "PostInteractions",
+                code: -3,
+                userInfo: [NSLocalizedDescriptionKey: "Comment moderation token missing. Please try again."]
+            )
         }
 
-        // Write clientRequestId so the real-time listener can match optimistic entries
-        if let clientRequestId = clientRequestId {
-            commentData["clientRequestId"] = clientRequestId
+        var payload: [String: Any] = [
+            "postId": postId,
+            "text": content,
+            "clientCommentId": clientRequestId,
+            "authorInitials": authorInitials,
+            "authorUsername": authorUsername,
+            "authorName": currentUserName
+        ]
+
+        if let profileImageURL = authorProfileImageURL, !profileImageURL.isEmpty {
+            payload["authorProfileImageURL"] = profileImageURL
         }
-        
+
         do {
-            try await commentRef.setValue(commentData)
-            dlog("✅ Comment data written to RTDB successfully")
-            dlog("   Path: postInteractions/\(postId)/comments/\(commentId)")
-            dlog("   Data keys: \(commentData.keys.joined(separator: ", "))")
+            let result = try await functions.httpsCallable("addComment").call(payload)
+            guard let response = result.data as? [String: Any],
+                  let commentId = response["commentId"] as? String else {
+                throw NSError(
+                    domain: "PostInteractions",
+                    code: -4,
+                    userInfo: [NSLocalizedDescriptionKey: "Comment service returned an unexpected response."]
+                )
+            }
+
+            postComments[postId] = (postComments[postId] ?? 0) + 1
+            dlog("💬 Comment added through server gateway: \(commentId)")
+            return commentId
         } catch {
-            dlog("❌ CRITICAL: Failed to write comment to RTDB: \(error)")
+            dlog("❌ Failed to write comment through server gateway: \(error)")
             throw error
         }
-        
-        // FIX: Increment comment count via RTDB transaction so a concurrent write
-        // or network failure doesn't silently leave the counter out of sync.
-        // runTransactionBlock reads the current value and re-applies the delta
-        // atomically; if the transaction itself fails we log the discrepancy so
-        // it can be reconciled by a Cloud Function counter-repair job rather
-        // than drifting undetected.
-        do {
-            let countRef = ref.child("postInteractions").child(postId).child("commentCount")
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                countRef.runTransactionBlock({ (currentData: MutableData) -> TransactionResult in
-                    let current = (currentData.value as? Int) ?? 0
-                    currentData.value = max(0, current + 1)
-                    return .success(withValue: currentData)
-                }, andCompletionBlock: { error, committed, _ in
-                    if let error = error {
-                        continuation.resume(throwing: error)
-                    } else {
-                        continuation.resume()
-                    }
-                })
-            }
-            dlog("✅ Comment count incremented successfully (transaction)")
-        } catch {
-            // Comment body was already written successfully; log the counter
-            // discrepancy so it can be surfaced in monitoring / repaired by a
-            // Cloud Function reconciliation job.
-            dlog("⚠️ Comment count transaction failed — counter may drift for post \(postId): \(error)")
-            // Do not throw: the comment itself is visible, rejecting the whole
-            // call here would mislead the user into thinking their comment failed.
-        }
-        
-        // Update local state
-        postComments[postId] = (postComments[postId] ?? 0) + 1
-        
-        // ✅ Create notification for post author
-        Task.detached { [weak self] in
-            guard let self = self else { return }
-            do {
-                let postAuthorId = try await self.getPostAuthorId(postId: postId)
-                try await self.createNotification(type: "comment", postId: postId, postAuthorId: postAuthorId)
-            } catch {
-                dlog("⚠️ Comment notification failed for post \(postId): \(error.localizedDescription)")
-            }
-        }
-        
-        dlog("💬 Comment added to post: \(postId) by @\(authorUsername)")
-        dlog("🔍 You can verify at: postInteractions/\(postId)/comments")
-        
-        return commentId
     }
     
     /// Delete a comment

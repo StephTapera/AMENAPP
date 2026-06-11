@@ -432,6 +432,13 @@ class AuthenticationViewModel: ObservableObject {
             }
             dlog("🚦 [LAUNCH] checkOnboardingStatus: Firestore returned hasCompleted=\(hasCompletedOnboarding) → needsOnboarding=\(!hasCompletedOnboarding)")
 
+            cacheProfileHint(
+                uid: userId,
+                displayName: userData["displayName"] as? String,
+                username: userData["username"] as? String,
+                profilePhotoURL: userData["profileImageURL"] as? String
+            )
+
             // Decode UserModel from the Firestore local cache (already populated by the
             // fetchUserDocument call above — this read hits the in-memory cache, not the network).
             // This lets AMENAPPApp.fetchCurrentUserForWelcome() observe currentUserModel
@@ -816,6 +823,17 @@ class AuthenticationViewModel: ObservableObject {
         return URL(string: str)
     }
 
+    /// Keychain-backed recognition hint that can survive app deletion + reinstall.
+    var rememberedIdentityHint: AmenIdentityHint? {
+        AmenIdentityHintStore.shared.primary()
+    }
+
+    /// True when there is a remembered profile but no current Firebase session.
+    var hasRememberedIdentityAfterReinstall: Bool {
+        guard FirebaseApp.app() != nil else { return false }
+        return Auth.auth().currentUser == nil && rememberedIdentityHint != nil
+    }
+
     /// True when there is a locally cached Firebase user (i.e., this is a returning user).
     var hasCachedUser: Bool {
         // Guard: Auth.auth() crashes if Firebase is not yet configured.
@@ -860,6 +878,38 @@ class AuthenticationViewModel: ObservableObject {
             profilePhotoURL: user.photoURL?.absoluteString,
             lastAuthMethod: method,
             maskedIdentifier: masked
+        )
+        AmenIdentityHintStore.shared.save(hint)
+    }
+
+    private func cacheProfileHint(uid: String, displayName: String?, username: String?, profilePhotoURL: String?) {
+        if let displayName, !displayName.isEmpty {
+            UserDefaults.standard.set(displayName, forKey: "cachedUsername")
+            UserDefaults.standard.set(displayName, forKey: "currentUserDisplayName")
+        }
+        if let username, !username.isEmpty {
+            UserDefaults.standard.set(username, forKey: "currentUserUsername")
+        }
+        if let profilePhotoURL, !profilePhotoURL.isEmpty {
+            UserDefaults.standard.set(profilePhotoURL, forKey: "cachedPhotoURL")
+            UserDefaults.standard.set(profilePhotoURL, forKey: "currentUserProfileImageURL")
+        }
+
+        let existing = AmenIdentityHintStore.shared.loadAll().first { $0.uid == uid }
+        let currentUser = Auth.auth().currentUser
+        let providerIDs = currentUser?.providerData.map(\.providerID) ?? []
+        let method: AmenIdentityHint.AuthMethod = {
+            if providerIDs.contains("apple.com") { return .apple }
+            if providerIDs.contains("phone") { return .phone }
+            return existing?.lastAuthMethod ?? .email
+        }()
+        let hint = AmenIdentityHint(
+            uid: uid,
+            displayName: displayName ?? existing?.displayName ?? currentUser?.displayName,
+            username: username ?? existing?.username,
+            profilePhotoURL: profilePhotoURL ?? existing?.profilePhotoURL ?? currentUser?.photoURL?.absoluteString,
+            lastAuthMethod: method,
+            maskedIdentifier: existing?.maskedIdentifier
         )
         AmenIdentityHintStore.shared.save(hint)
     }
@@ -2312,8 +2362,22 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Debug Bypass
 
 #if DEBUG
-    /// Skips Firebase auth entirely. Use only for simulator testing.
+    /// Test-mode shortcut for simulator flows. It may only continue when Firebase
+    /// already has a real signed-in user; otherwise the app must stay on auth.
     func bypassAuthForTesting() {
+        guard let uid = Auth.auth().currentUser?.uid, !uid.isEmpty else {
+            dlog("🧪 DEBUG auth bypass requested without Firebase user — staying signed out")
+            isAuthenticated = false
+            needsOnboarding = false
+            needsUsernameSelection = false
+            needsEmailVerification = false
+            currentUserModel = nil
+            lastAuthStateUserId = nil
+            AppReadyStateManager.shared.signalReady()
+            return
+        }
+
+        dlog("🧪 DEBUG auth bypass using existing Firebase user \(uid)")
         isAuthenticated = true
         needsOnboarding = false
         needsUsernameSelection = false
@@ -2345,7 +2409,17 @@ private nonisolated final class AuthNetworkResumeOnce: @unchecked Sendable {
 /// NO tokens, NO raw email — recognition only. Persisted to the Keychain so it
 /// survives app deletion + reinstall, enabling a "Welcome back, {name}" experience.
 struct AmenIdentityHint: Codable, Identifiable, Equatable {
-    enum AuthMethod: String, Codable { case apple, phone, email }
+    enum AuthMethod: String, Codable {
+        case apple, phone, email
+
+        var providerID: String {
+            switch self {
+            case .apple: return "apple.com"
+            case .phone: return "phone"
+            case .email: return "password"
+            }
+        }
+    }
 
     var uid: String
     var displayName: String?

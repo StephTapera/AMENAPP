@@ -2,20 +2,51 @@
 //  YouVersionBibleService.swift
 //  AMENAPP
 //
-//  YouVersion Bible API integration for cost-effective Scripture fetching.
+//  API.Bible integration for licensed Scripture fetching.
 //  Replaces AI-generated verse content with real Bible data.
 //
 
 import Foundation
 import Combine
 
-// MARK: - YouVersion Bible Service
+// MARK: - API.Bible Service
+
+enum ScriptureTextUsage {
+    case display
+    case bereanAIContext
+}
+
+struct ScriptureTranslationPolicy: Equatable {
+    enum Tier: Equatable {
+        case coreCacheable
+        case licensedDisplayOnly
+    }
+
+    let tier: Tier
+    let allowsOfflineCache: Bool
+    let allowsBereanAIContext: Bool
+}
+
+extension ScripturePassage.BibleVersion {
+    var scripturePolicy: ScriptureTranslationPolicy {
+        switch self {
+        case .bsb, .web, .kjv:
+            ScriptureTranslationPolicy(tier: .coreCacheable, allowsOfflineCache: true, allowsBereanAIContext: true)
+        case .esv, .niv, .nkjv, .nlt, .nasb:
+            ScriptureTranslationPolicy(tier: .licensedDisplayOnly, allowsOfflineCache: false, allowsBereanAIContext: false)
+        }
+    }
+}
 
 @MainActor
 class YouVersionBibleService: ObservableObject {
     static let shared = YouVersionBibleService()
     
-    private let apiKey: String = (BundleConfig.string(forKey: "YOUVERSION_API_KEY") ?? "").trimmingCharacters(in: .whitespaces)
+    private let apiKey: String = (
+        BundleConfig.string(forKey: "APIBIBLE_API_KEY")
+        ?? BundleConfig.string(forKey: "YOUVERSION_API_KEY")
+        ?? ""
+    ).trimmingCharacters(in: .whitespaces)
     private let baseURL = "https://api.scripture.api.bible/v1"
     
     @Published var isLoading = false
@@ -31,7 +62,7 @@ class YouVersionBibleService: ObservableObject {
 
     private init() {
         if apiKey.isEmpty {
-            dlog("⚠️ YouVersionBibleService: YOUVERSION_API_KEY not configured — verse fetching disabled")
+            dlog("⚠️ YouVersionBibleService: APIBIBLE_API_KEY not configured — verse fetching disabled")
             circuitOpen = true
         }
     }
@@ -57,8 +88,18 @@ class YouVersionBibleService: ObservableObject {
     func fetchVerse(
         reference: String,
         version: ScripturePassage.BibleVersion = .esv,
-        requiresCommercialLicense: Bool = false
+        requiresCommercialLicense: Bool = false,
+        usage: ScriptureTextUsage = .display
     ) async throws -> ScripturePassage {
+        guard AMENFeatureFlags.shared.apiBibleScriptureProviderEnabled else {
+            throw YouVersionError.providerDisabled
+        }
+        guard usage != .bereanAIContext || version.scripturePolicy.allowsBereanAIContext else {
+            throw YouVersionError.translationDisplayOnly
+        }
+        guard version.scripturePolicy.tier == .coreCacheable || AMENFeatureFlags.shared.apiBibleLicensedDisplayTranslationsEnabled else {
+            throw YouVersionError.translationDisplayOnly
+        }
         if requiresCommercialLicense && !hasCommercialLicense {
             dlog("⚠️ YouVersionBibleService: commercial licence required for this surface but not configured")
             throw YouVersionError.licenseRequired
@@ -67,7 +108,9 @@ class YouVersionBibleService: ObservableObject {
 
         // Check cache first
         let cacheKey = "\(reference)_\(version.rawValue)"
-        if let cached = verseCache[cacheKey] {
+        if version.scripturePolicy.tier == .coreCacheable,
+           AMENFeatureFlags.shared.apiBibleCoreOfflineCacheEnabled,
+           let cached = verseCache[cacheKey] {
             return convertToScripturePassage(cached, reference: reference, version: version)
         }
 
@@ -85,7 +128,7 @@ class YouVersionBibleService: ObservableObject {
         }
         
         // Get Bible version ID
-        let bibleId = getBibleId(for: version)
+        let bibleId = try getBibleId(for: version)
         
         // Build URL
         let verseId = buildVerseId(parsedRef)
@@ -131,7 +174,10 @@ class YouVersionBibleService: ObservableObject {
         let youVersionResponse = try decoder.decode(YouVersionResponse.self, from: data)
         
         // Cache result
-        verseCache[cacheKey] = youVersionResponse.data
+        if version.scripturePolicy.tier == .coreCacheable,
+           AMENFeatureFlags.shared.apiBibleCoreOfflineCacheEnabled {
+            verseCache[cacheKey] = youVersionResponse.data
+        }
         
         // Convert to ScripturePassage
         let passage = convertToScripturePassage(youVersionResponse.data, reference: reference, version: version)
@@ -252,10 +298,14 @@ class YouVersionBibleService: ObservableObject {
         }
     }
     
-    private func getBibleId(for version: ScripturePassage.BibleVersion) -> String {
+    private func getBibleId(for version: ScripturePassage.BibleVersion) throws -> String {
         // Official API.Bible (scripture.api.bible) Bible IDs.
         // Verify / update at https://scripture.api.bible/livedocs#/Bibles/getBibles
         switch version {
+        case .bsb:
+            return try configuredBibleId("APIBIBLE_ID_BSB", version: version)
+        case .web:
+            return try configuredBibleId("APIBIBLE_ID_WEB", version: version)
         case .esv:
             return "de4e12af7f28f599-02" // English Standard Version (2016)
         case .niv:
@@ -269,6 +319,15 @@ class YouVersionBibleService: ObservableObject {
         case .nasb:
             return "f7d2a1cce62e12e0-01" // New American Standard Bible (1995)
         }
+    }
+
+    private func configuredBibleId(_ key: String, version: ScripturePassage.BibleVersion) throws -> String {
+        guard let value = BundleConfig.string(forKey: key)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            dlog("⚠️ API.Bible: \(version.rawValue) requires \(key) before this translation can be enabled.")
+            throw YouVersionError.translationNotConfigured(version.rawValue)
+        }
+        return value
     }
     
     // MARK: - Conversion
@@ -309,11 +368,25 @@ class YouVersionBibleService: ObservableObject {
     // MARK: - Search
     
     /// Search for verses containing keywords
-    func searchVerses(query: String, version: ScripturePassage.BibleVersion = .esv, limit: Int = 10) async throws -> [ScripturePassage] {
+    func searchVerses(
+        query: String,
+        version: ScripturePassage.BibleVersion = .esv,
+        limit: Int = 10,
+        usage: ScriptureTextUsage = .display
+    ) async throws -> [ScripturePassage] {
+        guard AMENFeatureFlags.shared.apiBibleScriptureProviderEnabled else {
+            throw YouVersionError.providerDisabled
+        }
+        guard usage != .bereanAIContext || version.scripturePolicy.allowsBereanAIContext else {
+            throw YouVersionError.translationDisplayOnly
+        }
+        guard version.scripturePolicy.tier == .coreCacheable || AMENFeatureFlags.shared.apiBibleLicensedDisplayTranslationsEnabled else {
+            throw YouVersionError.translationDisplayOnly
+        }
         guard !circuitOpen else { throw YouVersionError.apiError }
         dlog("🔍 YouVersion: Searching '\(query)'...")
         
-        let bibleId = getBibleId(for: version)
+        let bibleId = try getBibleId(for: version)
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
         let urlString = "\(baseURL)/bibles/\(bibleId)/search?query=\(encodedQuery)&limit=\(limit)"
         
@@ -415,6 +488,9 @@ enum YouVersionError: Error {
     case apiError
     case parsingError
     case licenseRequired
+    case providerDisabled
+    case translationDisplayOnly
+    case translationNotConfigured(String)
 
     var localizedDescription: String {
         switch self {
@@ -426,6 +502,12 @@ enum YouVersionError: Error {
             return "YouVersion API error"
         case .licenseRequired:
             return "A commercial YouVersion API licence is required for this feature."
+        case .providerDisabled:
+            return "API.Bible scripture provider is not enabled."
+        case .translationDisplayOnly:
+            return "This licensed translation is display-only and cannot be cached or used in Berean AI context."
+        case .translationNotConfigured(let version):
+            return "\(version) is not configured for API.Bible yet."
         case .parsingError:
             return "Failed to parse response"
         }
@@ -437,6 +519,8 @@ enum YouVersionError: Error {
 extension ScripturePassage.BibleVersion {
     var youVersionId: String {
         switch self {
+        case .bsb:  return BundleConfig.string(forKey: "APIBIBLE_ID_BSB") ?? ""
+        case .web:  return BundleConfig.string(forKey: "APIBIBLE_ID_WEB") ?? ""
         case .esv:  return "de4e12af7f28f599-02"
         case .niv:  return "78a9f6124f344018-01"
         case .kjv:  return "de4e12af7f28f599-01"

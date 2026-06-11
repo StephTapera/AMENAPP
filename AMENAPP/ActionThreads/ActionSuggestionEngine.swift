@@ -43,7 +43,7 @@ final class ActionSuggestionEngine: ObservableObject {
 
     private func computeSuggestion(for post: Post) async -> ActionSuggestion? {
         let postId = post.firebaseId ?? post.id.uuidString
-        let privacyTier: ActionIntelligencePrivacyTier = post.visibility == .public ? .publicCommunity : .confidential
+        let privacyTier: ActionIntelligencePrivacyTier = post.visibility == .everyone ? .publicCommunity : .confidential
         let source = ActionIntelligenceSource(
             id: postId,
             text: post.content,
@@ -157,7 +157,6 @@ final class ActionSuggestionEngine: ObservableObject {
 
         guard let threadType = bestType, confidence >= minimumConfidence else { return nil }
         let userId = Auth.auth().currentUser?.uid ?? ""
-        let postId = post.firebaseId ?? post.id.uuidString
         return ActionSuggestion(
             id: UUID().uuidString,
             postId: postId,
@@ -171,6 +170,31 @@ final class ActionSuggestionEngine: ObservableObject {
                 sourcePostId: postId
             ),
             suggestedSteps: suggestedSteps,
+            createdAt: Date(),
+            expiresAt: Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date(),
+            status: .pending,
+            cooldownKey: "\(userId)_\(postId)_\(threadType.rawValue)"
+        )
+    }
+
+    private func buildSuggestion(from analysis: AmenIntentAnalysis, postId: String) -> ActionSuggestion? {
+        guard analysis.confidence >= minimumConfidence else { return nil }
+        let userId = Auth.auth().currentUser?.uid ?? ""
+        let threadType = analysis.suggestedActionThreadType
+
+        return ActionSuggestion(
+            id: UUID().uuidString,
+            postId: postId,
+            suggestedThreadType: threadType,
+            intent: SupportIntent(
+                category: threadType,
+                sensitivityLevel: analysis.sensitivityLevel,
+                description: analysis.explanation,
+                detectedSignals: analysis.detectedSignals,
+                confidence: analysis.confidence,
+                sourcePostId: postId
+            ),
+            suggestedSteps: analysis.suggestedSteps,
             createdAt: Date(),
             expiresAt: Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date(),
             status: .pending,

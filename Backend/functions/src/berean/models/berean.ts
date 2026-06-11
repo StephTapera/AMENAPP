@@ -25,7 +25,29 @@ export type ResponseMode =
   | "crisis"
   | "exploratory"
   | "prayer_support"
-  | "balanced";
+  | "balanced"
+  | "deep_exegesis"
+  | "study"
+  | "gentle_pastoral"
+  | "prayerful_reflection"
+  | "crisis_safe"
+  | "leadership_redirect"
+  | "short_grounding";
+
+export type TopicClass =
+  | "suicidality"
+  | "abuse"
+  | "spiritual_abuse"
+  | "medical"
+  | "legal"
+  | "abuse_disclosure"
+  | "medical_override"
+  | "legal_conflict"
+  | "doctrinal_dispute"
+  | "major_life_decision"
+  | "church_conflict"
+  | "pastoral_discernment"
+  | "general";
 
 export type SensitivityFlag =
   | "divine_authority_assertion"
@@ -34,7 +56,14 @@ export type SensitivityFlag =
   | "crisis_escalation"
   | "controversial_doctrine"
   | "minor_user"
-  | "scrupulosity_risk";
+  | "scrupulosity_risk"
+  | "self_harm"
+  | "suicidal_language"
+  | "abuse"
+  | "spiritual_abuse"
+  | "medical"
+  | "legal"
+  | "doctrinal_conflict";
 
 export interface SpiritualStateSignals {
   emotionalIntensity: number;     // 0–1
@@ -50,10 +79,64 @@ export interface SpiritualStateClassification {
   primaryState: SpiritualPrimaryState;
   signals: SpiritualStateSignals;
   selectedResponseMode: ResponseMode;
+  sensitivityFlags?: SensitivityFlag[];
   escalationTriggered: boolean;
   escalationReason?: string;
   sessionId: string;
   classifiedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface LLMStructuredOutput {
+  answerText: string;
+  scriptureReferences: string[];
+  studyCards: Array<{
+    type: string;
+    title: string;
+    body: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  reflectionPrompts: string[];
+  prayerPrompt: string | null;
+  leadershipPrompt?: {
+    show: boolean;
+    title: string;
+    body: string;
+    targetTypes?: string[];
+  };
+  sensitivitySummary: {
+    primaryState: string;
+    sensitivityFlags: SensitivityFlag[];
+    topicClass: TopicClass | null;
+  };
+  suggestedNextActions: Array<{
+    type: string;
+    label: string;
+    payload: Record<string, unknown>;
+  }>;
+  confidenceNotes: {
+    containsInterpretiveCaution: boolean;
+    containsLeadershipRedirect: boolean;
+  };
+}
+
+export interface BereanConversation {
+  id: string;
+  userId: string;
+  title: string;
+  currentMode: "chat" | "study" | "prayer" | "sermon_notes";
+  lastMessageAt: FirebaseFirestore.Timestamp;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface BereanMessage {
+  id: string;
+  conversationId: string;
+  userId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  metadata?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +312,53 @@ export interface DiscipleshipEvent {
   bereanSessionId?: string;
   note?: string;
   occurredAt: FirebaseFirestore.Timestamp;
+}
+
+export interface DiscipleshipProfile {
+  userId: string;
+  totalStudySessions: number;
+  lastStudiedBook?: string;
+  preferredPractices?: string[];
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface PracticeRecommendation {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  practiceType: string;
+  status: "open" | "accepted" | "dismissed" | "completed";
+  createdAt: FirebaseFirestore.Timestamp;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReflectionEntry {
+  id: string;
+  userId: string;
+  conversationId?: string;
+  passageIds?: string[];
+  themeIds?: string[];
+  title?: string;
+  text?: string;
+  prompt?: string;
+  response?: string;
+  privacyLevel?: "private" | "shareable_with_leader";
+  sourceType?: "study" | "immersion" | "follow_up" | "manual";
+  passageReference?: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt?: FirebaseFirestore.Timestamp;
+}
+
+export interface BereanSafetyEvent {
+  id: string;
+  userId: string;
+  conversationId?: string;
+  messageId?: string;
+  eventType: string;
+  sensitivityFlags: SensitivityFlag[];
+  details?: Record<string, unknown>;
+  createdAt: FirebaseFirestore.Timestamp;
 }
 
 export interface LeadershipReferral {

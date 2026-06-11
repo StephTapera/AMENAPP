@@ -65,17 +65,22 @@ describe("NoteShare access control (canonical firestore.rules)", () => {
         await assertFails(dbAs(READER).collection("noteShares").doc("s4").get());
     });
     test("noteShare_connection_allowed_for_connections_visibility", async () => {
+        // Rule hardened to isMutualConnectionWith: BOTH follows_index edges required.
         await seed("noteShares/s5", activeShare("followers"));
         await seed(`follows_index/${READER}_${AUTHOR}`, { exists: true });
+        await seed(`follows_index/${AUTHOR}_${READER}`, { exists: true });
         await assertSucceeds(dbAs(READER).collection("noteShares").doc("s5").get());
     });
     test("noteShare_nonMember_blocked_from_church_visibility", async () => {
-        await seed("noteShares/s6", activeShare("church", { churchId: "church-1" }));
-        await assertFails(dbAs(READER, { churchId: "other" }).collection("noteShares").doc("s6").get());
+        // Rule hardened to isOrganizationMember: a client churchId claim is NOT the
+        // predicate — only a real organizations/{orgId}/members/{uid} edge grants read.
+        await seed("noteShares/s6", activeShare("church", { churchId: "org-1" }));
+        await assertFails(dbAs(READER, { churchId: "org-1" }).collection("noteShares").doc("s6").get());
     });
     test("noteShare_member_allowed_for_church_visibility", async () => {
-        await seed("noteShares/s7", activeShare("church", { churchId: "church-1" }));
-        await assertSucceeds(dbAs(READER, { churchId: "church-1" }).collection("noteShares").doc("s7").get());
+        await seed("noteShares/s7", activeShare("church", { churchId: "org-1" }));
+        await seed(`organizations/org-1/members/${READER}`, { status: "active", role: "member" });
+        await assertSucceeds(dbAs(READER).collection("noteShares").doc("s7").get());
     });
     test("noteShare_author_allowed_when_active", async () => {
         await seed("noteShares/s8", activeShare("followers"));

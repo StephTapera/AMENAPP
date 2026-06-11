@@ -2,15 +2,19 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
+type CallableAuthContext = {
+    auth?: { uid: string };
+    app?: unknown;
+};
 
-function requireAuth(context: functions.https.CallableContext) {
+function requireAuth(context: CallableAuthContext) {
     if (!context.auth) {
         throw new HttpsError("unauthenticated", "Auth required");
     }
     return context.auth.uid;
 }
 
-function requireAppCheck(context: functions.https.CallableContext) {
+export function requireAppCheck(context: { app?: unknown }) {
     if (context.app == undefined) {
         throw new HttpsError(
             "failed-precondition",

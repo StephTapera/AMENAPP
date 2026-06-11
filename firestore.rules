@@ -2128,6 +2128,44 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // AMEN PULSE — BOUNDED daily surface (NOT a feed)
+    // Added: 2026-06-10
+    //
+    // The server writes exactly ONE document per user per day to
+    // /users/{uid}/pulse/{date}. The client reads it and NEVER writes Pulse
+    // cards (selection + scoring + safety are server-authoritative).
+    //
+    // Invariants:
+    //   P-1: pulse/{date} is owner-read, server-write only (no client writes).
+    //   P-2: pulsePrefs + bookmarks are owner read+write only.
+    //   P-3: whatsNewStories is world-readable, admin/server-write only.
+    //   P-4: config/pulse is signed-in-readable, admin/server-write only.
+    // =========================================================================
+
+    match /users/{uid}/pulse/{date} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if isAdminSDK();
+    }
+
+    match /users/{uid}/pulsePrefs/{doc} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/bookmarks/{doc} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /whatsNewStories/{storyId} {
+      allow read: if true;
+      allow write: if isAdminSDK();
+    }
+
+    match /config/pulse {
+      allow read: if isSignedIn();
+      allow write: if isAdminSDK();
+    }
+
+    // =========================================================================
     // BEREAN v1 — AI Formation Assistant
     // Added: 2026-06-07 (Phase 1 Contract Freeze)
     //
@@ -2396,6 +2434,53 @@ service cloud.firestore {
       allow read, write: if isOwner(uid)
         && coll in ['notes', 'notebookEntries', 'prayerJournal', 'shareDrafts',
                     'tasks', 'calendarDrafts', 'plans', 'polls', 'posts'];
+    }
+
+    // =========================================================================
+    // UNIVERSAL MIGRATION & CONTEXT SYSTEM (Wave 1)
+    // Source contract: AMENAPP/ContextStore/ContextStoreRules.txt (FROZEN).
+    //  - Client access is OWNER-ONLY on a user's own facets/snapshots.
+    //  - Every facet write requires provenance.userApproved == true and
+    //    schemaVersion == 1 (approval before persistence, §1.7).
+    //  - Snapshots are APPEND-ONLY: owner create only; update/delete denied.
+    //  - Tier 'P' confidentiality from Cloud Functions is enforced in CF CODE,
+    //    not by rules (Admin SDK bypasses rules). See CONTRACTS.md.
+    // =========================================================================
+
+    // ── Context facets: contextFacets/{userId}/facets/{facetId} ──
+    match /contextFacets/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // The parent doc itself is metadata-only; writes go to the /facets subcollection.
+      allow write: if isSignedIn() && request.auth.uid == userId;
+
+      match /facets/{facetId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+
+        allow create, update: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.userId == userId
+          && request.resource.data.provenance.userApproved == true
+          && request.resource.data.tier in ['S', 'C', 'P']
+          && request.resource.data.schemaVersion == 1;
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // ── Context snapshots: contextSnapshots/{userId}/snapshots/{snapshotId} (append-only) ──
+    match /contextSnapshots/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+
+      match /snapshots/{snapshotId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.userId == userId
+          && request.resource.data.schemaVersion == 1;
+        // Immutable once written.
+        allow update, delete: if false;
+      }
     }
 
     // =========================================================================

@@ -57,6 +57,22 @@ actor ContextLensService {
         )
     }
 
+    /// Runs only on-device OCR and scene classification. Used when the user has
+    /// not consented to cloud Context Lens processing for captured OCR text.
+    func localSafetyScan(imageData: Data) async -> ContextLensResult {
+        let rawText = await extractText(from: imageData)
+        let scene = classifyScene(text: rawText)
+        let confidence: Double = rawText.isEmpty ? 0.0 : min(1.0, Double(rawText.count) / 500.0)
+
+        return ContextLensResult(
+            sceneType: scene,
+            structuredOutput: .generic(text: rawText, summary: String(rawText.prefix(200))),
+            bereanVisionResult: nil,
+            rawOCRText: rawText,
+            confidence: confidence
+        )
+    }
+
     // MARK: - OCR
 
     /// Runs Vision's accurate text-recognition pipeline on the provided image data.

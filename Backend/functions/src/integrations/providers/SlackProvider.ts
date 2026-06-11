@@ -1,5 +1,29 @@
 import * as crypto from "crypto";
-import type {IntegrationProviderAdapter, OAuthTokenResponse, ProviderMeetingResult} from "../models";
+
+type OAuthTokenResponse = {
+    accessToken: string;
+    refreshToken?: string;
+    expiresAt?: number;
+    scopes: string[];
+    workspaceId?: string;
+    workspaceName?: string;
+    providerUserId?: string;
+};
+
+type ProviderMeetingResult = {
+    providerEventId: string;
+    joinUrl?: string;
+    startsAt?: string;
+    endsAt?: string;
+};
+
+interface IntegrationProviderAdapter {
+    readonly provider: string;
+    authorizationUrl(state: string, redirectUri: string): string;
+    exchangeOAuthCode(code: string, redirectUri: string): Promise<OAuthTokenResponse>;
+    refreshAccessToken(refreshToken: string): Promise<OAuthTokenResponse>;
+    revokeToken(accessToken: string): Promise<void>;
+}
 
 const SLACK_AUTH_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_TOKEN_URL = "https://slack.com/api/oauth.v2.access";

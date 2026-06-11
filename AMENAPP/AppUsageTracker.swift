@@ -458,12 +458,14 @@ struct DailyLimitReachedDialog: View {
                             .frame(width: 38, height: 36)
                     }
                 }
+                // Solid subtle fill — this sits inside the glass card, so it must NOT be
+                // glass-on-glass (per the design system's no-nested-glass rule).
                 .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.white.opacity(0.5))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color.black.opacity(0.06), lineWidth: 1)
                         )
                 )
             }
@@ -498,21 +500,10 @@ struct DailyLimitReachedDialog: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.65), .white.opacity(0.18)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: .black.opacity(0.07), radius: 32, y: 12)
-        )
+        // Canonical Liquid Glass surface (shared GlassEffectStyle system) — replaces the
+        // hand-rolled .ultraThinMaterial card so the surface reads as true liquid glass.
+        .glassEffect(.prominent, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: .black.opacity(0.08), radius: 32, y: 12)
     }
 
     // MARK: - Snooze options
@@ -536,12 +527,10 @@ struct DailyLimitReachedDialog: View {
                             .foregroundStyle(.primary.opacity(0.75))
                             .padding(.horizontal, 18)
                             .padding(.vertical, 10)
-                            .background(
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 1))
-                                    .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
-                            )
+                            // Snooze pills sit on the ambient background (not on glass),
+                            // so they use the canonical liquid-glass capsule surface.
+                            .glassEffect(.regular, in: Capsule())
+                            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                     }
                 }
             }

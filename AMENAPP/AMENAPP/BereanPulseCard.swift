@@ -150,40 +150,12 @@ struct BereanAssistantPulseCard: View {
                 )
                 .shadow(color: DesignTokens.shadowCard, radius: 12, y: 4)
         } else {
-            RoundedRectangle(cornerRadius: DesignTokens.radiusCard, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesignTokens.radiusCard, style: .continuous)
-                        .fill(Color.white.opacity(0.52))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesignTokens.radiusCard, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.68),
-                                    Color.white.opacity(0.06)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesignTokens.radiusCard, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    DesignTokens.glassStroke,
-                                    DesignTokens.glassStroke.opacity(0.18)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.75
-                        )
-                )
-                .shadow(color: DesignTokens.shadowCard, radius: 12, y: 4)
+            LiquidGlassCapsuleBackground(
+                cornerRadius: DesignTokens.radiusCard,
+                glassOpacity: 0.12,
+                shadowOpacity: 0.10,
+                highlightOpacity: 0.24
+            )
         }
     }
 }

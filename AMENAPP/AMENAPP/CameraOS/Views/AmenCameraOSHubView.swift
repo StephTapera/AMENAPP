@@ -81,6 +81,10 @@ struct AmenCameraOSHubView: View {
     @State private var contextLensResult: ContextLensResult? = nil
     @State private var pendingScanResult: CameraPrePublishScanResult? = nil
     @State private var safetyProfile: CameraSafetyProfile = .standard
+    @AppStorage("cameraOS.cloudContextLensConsent.v1") private var hasCloudContextLensConsent = false
+    @State private var pendingCloudConsentAttachment: WitnessDraftAttachment?
+    @State private var pendingCloudConsentIntent: CameraIntent?
+    @State private var isShowingCloudContextConsent = false
 
     // MARK: Body
 
@@ -97,6 +101,36 @@ struct AmenCameraOSHubView: View {
             if let attachment, let intent = selectedIntent {
                 handleCapturedMedia(attachment: attachment, intent: intent)
             }
+        }
+        .confirmationDialog(
+            "Use cloud Context Lens for this scan?",
+            isPresented: $isShowingCloudContextConsent,
+            titleVisibility: .visible
+        ) {
+            Button("Use Cloud Scan") {
+                hasCloudContextLensConsent = true
+                if let attachment = pendingCloudConsentAttachment,
+                   let intent = pendingCloudConsentIntent {
+                    startPrePublishScan(attachment: attachment, intent: intent, allowCloudContext: true)
+                }
+                pendingCloudConsentAttachment = nil
+                pendingCloudConsentIntent = nil
+            }
+            Button("Scan On Device Only") {
+                if let attachment = pendingCloudConsentAttachment,
+                   let intent = pendingCloudConsentIntent {
+                    startPrePublishScan(attachment: attachment, intent: intent, allowCloudContext: false)
+                }
+                pendingCloudConsentAttachment = nil
+                pendingCloudConsentIntent = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingCloudConsentAttachment = nil
+                pendingCloudConsentIntent = nil
+                captureState = .capturing(intent: selectedIntent ?? .testimony)
+            }
+        } message: {
+            Text("Cloud scan sends recognized text, not the image, to AMEN's AI functions for scene context and Berean suggestions. Images are not retained by the scan service.")
         }
         // Intent picker sheet — presented when in intentSelection state
         .sheet(isPresented: Binding(
@@ -333,25 +367,38 @@ struct AmenCameraOSHubView: View {
     /// Invoked whenever `cameraCoordinator.attachedWitnessMedia` becomes non-nil.
     /// Runs an async safety scan and transitions to `.safetyReview`.
     private func handleCapturedMedia(attachment: WitnessDraftAttachment, intent: CameraIntent) {
+        guard hasCloudContextLensConsent else {
+            pendingCloudConsentAttachment = attachment
+            pendingCloudConsentIntent = intent
+            isShowingCloudContextConsent = true
+            return
+        }
+
+        startPrePublishScan(attachment: attachment, intent: intent, allowCloudContext: true)
+    }
+
+    private func startPrePublishScan(
+        attachment: WitnessDraftAttachment,
+        intent: CameraIntent,
+        allowCloudContext: Bool
+    ) {
         Task {
-            // Show scanning indicator while analysis runs
             captureState = .contextLensScanning(intent: intent)
 
-            // Perform risk analysis — stub used until CameraContextRiskEngine is available.
-            // Replace the body of mockScan with:
-            //   let result = try? await CameraContextRiskEngine.shared.computeRisk(
-            //       attachment: attachment, intent: intent, safetyProfile: safetyProfile)
-            //   captureState = .safetyReview(intent: intent, attachment: attachment,
-            //       scanResult: result ?? mockScan(intent: intent))
-            let scan = mockScan(intent: intent)
+            let scanContext = await buildPrePublishScan(
+                attachment: attachment,
+                intent: intent,
+                safetyProfile: safetyProfile,
+                allowCloudContext: allowCloudContext
+            )
 
-            // Brief pause to make the scanning transition feel intentional.
-            try? await Task.sleep(nanoseconds: 600_000_000)
+            contextLensResult = scanContext.contextLensResult
+            pendingScanResult = scanContext.scanResult
 
             captureState = .safetyReview(
                 intent: intent,
                 attachment: attachment,
-                scanResult: scan
+                scanResult: scanContext.scanResult
             )
         }
     }
@@ -379,17 +426,7 @@ struct AmenCameraOSHubView: View {
         isRunningContextLens = true
         captureState = .contextLensScanning(intent: intent)
 
-        // In practice the user taps WitnessCameraView's capture shutter here.
-        // For now we simulate a 2-second scan returning a placeholder result.
         Task {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            contextLensResult = ContextLensResult(
-                sceneType: .unknown,
-                structuredOutput: .generic(text: "", summary: ""),
-                bereanVisionResult: nil,
-                rawOCRText: "",
-                confidence: 0.0
-            )
             isRunningContextLens = false
             captureState = .capturing(intent: intent)
         }
@@ -406,23 +443,125 @@ struct AmenCameraOSHubView: View {
         return .capturing(intent: intent)
     }
 
-    // MARK: - Mock Safety Scan
+    // MARK: - Safety Scan
 
-    /// Stub scan result. Replace the body with a real
-    /// `CameraContextRiskEngine.shared.computeRisk(...)` call once the engine is live.
-    private func mockScan(intent: CameraIntent) -> CameraPrePublishScanResult {
-        CameraPrePublishScanResult(
-            riskLevel: .low,
-            detectedItems: [],
-            redactionSuggestions: [],
-            safetyProfile: safetyProfile,
-            requiresHumanReview: false,
-            blocksPublish: false,
-            nudgeMessage: nil,
-            recommendedAudience: .public,
-            sceneType: .unknown,
-            containsMinor: false
+    private func buildPrePublishScan(
+        attachment: WitnessDraftAttachment,
+        intent: CameraIntent,
+        safetyProfile: CameraSafetyProfile,
+        allowCloudContext: Bool
+    ) async -> (contextLensResult: ContextLensResult?, scanResult: CameraPrePublishScanResult) {
+        let imageData = loadScannableImageData(from: attachment)
+        let context = await imageData.map { data in
+            Task {
+                if allowCloudContext {
+                    return await ContextLensService.shared.scan(imageData: data)
+                }
+                return await ContextLensService.shared.localSafetyScan(imageData: data)
+            }
+        }?.value
+
+        let sceneType = context?.sceneType ?? fallbackSceneType(for: intent)
+        let detectedItems = detectedSensitiveItems(
+            from: context?.rawOCRText ?? "",
+            sceneType: sceneType,
+            intent: intent
         )
+
+        let safeZoneContext = await MainActor.run {
+            (
+                location: ChurchLocationManager.shared.currentLocation,
+                safeZones: SafeZoneService.shared.safeZones
+            )
+        }
+
+        let scanResult = await CameraContextRiskEngine.shared.computeRisk(
+            detectedItems: detectedItems,
+            sceneType: sceneType,
+            userLocation: safeZoneContext.location,
+            safeZones: safeZoneContext.safeZones,
+            safetyProfile: safetyProfile,
+            intent: intent
+        )
+
+        return (context, scanResult)
+    }
+
+    private func loadScannableImageData(from attachment: WitnessDraftAttachment) -> Data? {
+        let candidateURLs = [
+            attachment.thumbnailFileURL,
+            attachment.finalFileURL
+        ].compactMap { $0 }
+
+        for url in candidateURLs {
+            if let data = try? Data(contentsOf: url), !data.isEmpty {
+                return data
+            }
+        }
+
+        return nil
+    }
+
+    private func detectedSensitiveItems(
+        from text: String,
+        sceneType: CameraSceneType,
+        intent: CameraIntent
+    ) -> [CameraSensitiveItemType] {
+        var items = Set<CameraSensitiveItemType>()
+        let lower = text.lowercased()
+
+        if text.range(of: #"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b"#, options: .regularExpression) != nil {
+            items.insert(.phoneNumber)
+        }
+        if text.range(of: #"\b[A-Z0-9]{2,4}[-\s]?[A-Z0-9]{3,4}\b"#, options: .regularExpression) != nil &&
+            lower.contains("plate") {
+            items.insert(.licensePlate)
+        }
+        if lower.contains("driver license") || lower.contains("passport") ||
+            lower.contains("student id") || lower.contains("identification") {
+            items.insert(.idDocument)
+        }
+        if lower.contains("patient") || lower.contains("diagnosis") ||
+            lower.contains("prescription") || lower.contains("medical record") {
+            items.insert(.medicalRecord)
+        }
+        if lower.contains("badge") || lower.contains("employee id") || lower.contains("credential") {
+            items.insert(.badge)
+        }
+        if lower.contains("address") ||
+            text.range(of: #"\b\d{1,6}\s+[A-Za-z0-9.'-]+\s+(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd)\b"#, options: .regularExpression) != nil {
+            items.insert(.homeAddress)
+        }
+        if lower.contains("school") || sceneType == .school || sceneType == .classroom {
+            items.insert(.schoolSign)
+        }
+        if lower.contains("uniform") {
+            items.insert(.schoolUniform)
+        }
+        if lower.contains("bus stop") {
+            items.insert(.busStop)
+        }
+        if lower.contains("screen") || lower.contains("screenshot") || lower.contains("password") {
+            items.insert(.screenContent)
+        }
+        if lower.contains("child") || lower.contains("children") || lower.contains("student") ||
+            lower.contains("minor") || intent == .memory {
+            items.insert(.minorFace)
+        }
+
+        return Array(items)
+    }
+
+    private func fallbackSceneType(for intent: CameraIntent) -> CameraSceneType {
+        switch intent {
+        case .sermon, .churchNotes, .testimony, .prayer, .prayerRequest:
+            return .church
+        case .meeting, .interview:
+            return .office
+        case .event:
+            return .outdoors
+        default:
+            return .unknown
+        }
     }
 }
-

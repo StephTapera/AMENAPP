@@ -111,7 +111,10 @@ public actor AdaptiveColorEngine {
                 let r = Double(px[i]) / 255, g = Double(px[i + 1]) / 255, b = Double(px[i + 2]) / 255
                 let dx = (Double(x) - c) / c, dy = (Double(y) - c) / c
                 let w = 1.0 + 1.2 * max(0, 1 - sqrt(dx * dx + dy * dy))   // center pixels up to 2.2x
-                let bucket = (Int(px[i]) >> 4 << 8) | (Int(px[i + 1]) >> 4 << 4) | (Int(px[i + 2]) >> 4)
+                let rBucket = (Int(px[i]) >> 4) << 8
+                let gBucket = (Int(px[i + 1]) >> 4) << 4
+                let bBucket = Int(px[i + 2]) >> 4
+                let bucket = rBucket | gBucket | bBucket
                 weight[bucket] += w; sumR[bucket] += r * w; sumG[bucket] += g * w; sumB[bucket] += b * w
                 lumSum += RGB(r: r, g: g, b: b).luminance * w; lumW += w
             }

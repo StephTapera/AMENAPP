@@ -85,6 +85,7 @@ struct AmenUniversalHeroCard<ExpandedContent: View>: View {
     let ctaLabel: String
     let badges: [String]
     let onCTA: () -> Void
+    var onExpansionChange: (Bool) -> Void = { _ in }
     @ViewBuilder var expandedContent: () -> ExpandedContent
 
     @State private var isExpanded = false
@@ -164,9 +165,7 @@ struct AmenUniversalHeroCard<ExpandedContent: View>: View {
         // visible fold inside the outer page ScrollView.
         .onTapGesture {
             guard isExpanded else { return }
-            withAnimation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.78)) {
-                isExpanded = false
-            }
+            setExpanded(false)
         }
         .accessibilityHint(isExpanded ? "Tap to collapse" : "")
     }
@@ -215,9 +214,7 @@ struct AmenUniversalHeroCard<ExpandedContent: View>: View {
             HStack {
                 Spacer()
                 Button {
-                    withAnimation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.78)) {
-                        isExpanded = false
-                    }
+                    setExpanded(false)
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .symbolRenderingMode(.hierarchical)
@@ -243,13 +240,18 @@ struct AmenUniversalHeroCard<ExpandedContent: View>: View {
         )
     }
 
+    private func setExpanded(_ newValue: Bool) {
+        withAnimation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.78)) {
+            isExpanded = newValue
+        }
+        onExpansionChange(newValue)
+    }
+
     // MARK: Chevron
 
     private var chevronRow: some View {
         Button {
-            withAnimation(reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.78)) {
-                isExpanded.toggle()
-            }
+            setExpanded(!isExpanded)
         } label: {
             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                 .font(.systemScaled(13, weight: .semibold))

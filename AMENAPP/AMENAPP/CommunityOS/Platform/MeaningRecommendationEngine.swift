@@ -152,7 +152,7 @@ actor MeaningRecommendationEngine {
 
         let themeTerms = topTopics.map { $0.rawValue }
 
-        // Location stub: a full geo query requires a GeoHash range or a dedicated Cloud Function.
+        // Location ranking note: a full geo query requires a GeoHash range or a dedicated Cloud Function.
         if let location = location {
             dlog("[MeaningRecommendationEngine] Location filter '\(location)' stubbed — full geo query not yet implemented")
         }

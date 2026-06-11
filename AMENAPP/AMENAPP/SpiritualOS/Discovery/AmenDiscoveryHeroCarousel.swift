@@ -19,20 +19,14 @@ struct AmenDiscoveryHeroCarousel: View {
     @State private var showShareSheet = false
     @State private var showCatchUpSheet = false
     @State private var showNotesSheet = false
+    @State private var expandedHeroID: Int?
 
-    // Fixed height for the horizontal carousel row.
-    //
-    // The card has three height phases:
-    //   • Collapsed : 228 (hero) + 36 (chevron)             = 264 pt
-    //   • Expanded  : 264 + ~56 (close bar + divider) + 420 = ~740 pt
-    //                 (420 is the scroll cap inside AmenUniversalHeroCard)
-    //
-    // By using a single fixed height (the expanded maximum) the outer vertical
-    // ScrollView sees a *constant* row height and is never displaced when a card
-    // expands or collapses.  The space reserved when collapsed is simply empty
-    // white-space below the card — a minor cosmetic trade-off that is far
-    // preferable to the screen getting "stuck" on an expanded card.
-    private let carouselFixedHeight: CGFloat = 740
+    private let collapsedCarouselHeight: CGFloat = 276
+    private let expandedCarouselHeight: CGFloat = 740
+
+    private var carouselHeight: CGFloat {
+        expandedHeroID == nil ? collapsedCarouselHeight : expandedCarouselHeight
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -47,7 +41,8 @@ struct AmenDiscoveryHeroCarousel: View {
                             }
                         },
                         onSave: { isChurchSaved.toggle() },
-                        onShare: { showShareSheet = true }
+                        onShare: { showShareSheet = true },
+                        onExpansionChange: { updateExpandedHero(0, isExpanded: $0) }
                     )
                     .heroCardFrame()
                     .id(0)
@@ -55,7 +50,8 @@ struct AmenDiscoveryHeroCarousel: View {
                     AmenSpaceHeroCard(
                         space: .sample,
                         onJoin: onSpaceJoin,
-                        onCatchUp: { showCatchUpSheet = true }
+                        onCatchUp: { showCatchUpSheet = true },
+                        onExpansionChange: { updateExpandedHero(1, isExpanded: $0) }
                     )
                     .heroCardFrame()
                     .id(1)
@@ -67,19 +63,25 @@ struct AmenDiscoveryHeroCarousel: View {
                             if let url = URL(string: "maps://?q=Main+Campus+Bldg+C+Phoenix+AZ") {
                                 UIApplication.shared.open(url)
                             }
-                        }
+                        },
+                        onExpansionChange: { updateExpandedHero(2, isExpanded: $0) }
                     )
                     .heroCardFrame()
                     .id(2)
 
-                    AmenPrayerHeroCard(prayer: .sample, onPray: onPrayerPray)
-                        .heroCardFrame()
-                        .id(3)
+                    AmenPrayerHeroCard(
+                        prayer: .sample,
+                        onPray: onPrayerPray,
+                        onExpansionChange: { updateExpandedHero(3, isExpanded: $0) }
+                    )
+                    .heroCardFrame()
+                    .id(3)
 
                     AmenSermonHeroCard(
                         sermon: .sample,
                         onWatch: onSermonWatch,
-                        onTakeNotes: { showNotesSheet = true }
+                        onTakeNotes: { showNotesSheet = true },
+                        onExpansionChange: { updateExpandedHero(4, isExpanded: $0) }
                     )
                     .heroCardFrame()
                     .id(4)
@@ -89,10 +91,8 @@ struct AmenDiscoveryHeroCarousel: View {
             .scrollTargetBehavior(.viewAligned)
             .contentMargins(.horizontal, 20, for: .scrollContent)
             .scrollPosition(id: $scrolledID)
-            // Pin the horizontal scroll view to the fully-expanded card height so
-            // expansion / collapse never changes the outer vertical layout, preventing
-            // the page from appearing "stuck" with no visible way to scroll up.
-            .frame(height: carouselFixedHeight)
+            .frame(height: carouselHeight)
+            .animation(.spring(response: 0.36, dampingFraction: 0.82), value: expandedHeroID)
 
             // Page dot indicator
             HStack(spacing: 6) {
@@ -119,6 +119,14 @@ struct AmenDiscoveryHeroCarousel: View {
         }
         .sheet(isPresented: $showNotesSheet) {
             NavigationStack { ChurchNotesView() }
+        }
+    }
+
+    private func updateExpandedHero(_ id: Int, isExpanded: Bool) {
+        if isExpanded {
+            expandedHeroID = id
+        } else if expandedHeroID == id {
+            expandedHeroID = nil
         }
     }
 }
@@ -176,6 +184,7 @@ fileprivate struct AmenSpaceHeroCard: View {
     let space: AmenSpaceData
     var onJoin: () -> Void = {}
     var onCatchUp: () -> Void = {}
+    var onExpansionChange: (Bool) -> Void = { _ in }
 
     var body: some View {
         AmenUniversalHeroCard(
@@ -184,7 +193,8 @@ fileprivate struct AmenSpaceHeroCard: View {
             subtitle: space.tagline,
             ctaLabel: "Join Space",
             badges: space.badges,
-            onCTA: onJoin
+            onCTA: onJoin,
+            onExpansionChange: onExpansionChange
         ) {
             expandedContent
         }
@@ -279,6 +289,7 @@ fileprivate struct AmenEventHeroCard: View {
     let event: AmenEventData
     var onRSVP: () -> Void = {}
     var onDirections: () -> Void = {}
+    var onExpansionChange: (Bool) -> Void = { _ in }
 
     var body: some View {
         AmenUniversalHeroCard(
@@ -287,7 +298,8 @@ fileprivate struct AmenEventHeroCard: View {
             subtitle: event.dateTimeLabel,
             ctaLabel: "RSVP",
             badges: event.badges,
-            onCTA: onRSVP
+            onCTA: onRSVP,
+            onExpansionChange: onExpansionChange
         ) {
             expandedContent
         }
@@ -377,6 +389,7 @@ struct AmenPrayerData: Identifiable {
 fileprivate struct AmenPrayerHeroCard: View {
     let prayer: AmenPrayerData
     var onPray: () -> Void = {}
+    var onExpansionChange: (Bool) -> Void = { _ in }
 
     var body: some View {
         AmenUniversalHeroCard(
@@ -385,7 +398,8 @@ fileprivate struct AmenPrayerHeroCard: View {
             subtitle: prayer.context,
             ctaLabel: "Pray",
             badges: prayer.badges,
-            onCTA: onPray
+            onCTA: onPray,
+            onExpansionChange: onExpansionChange
         ) {
             expandedContent
         }
@@ -469,6 +483,7 @@ fileprivate struct AmenSermonHeroCard: View {
     let sermon: AmenSermonData
     var onWatch: () -> Void = {}
     var onTakeNotes: () -> Void = {}
+    var onExpansionChange: (Bool) -> Void = { _ in }
 
     var body: some View {
         AmenUniversalHeroCard(
@@ -477,7 +492,8 @@ fileprivate struct AmenSermonHeroCard: View {
             subtitle: sermon.pastor,
             ctaLabel: "Watch",
             badges: sermon.badges,
-            onCTA: onWatch
+            onCTA: onWatch,
+            onExpansionChange: onExpansionChange
         ) {
             expandedContent
         }

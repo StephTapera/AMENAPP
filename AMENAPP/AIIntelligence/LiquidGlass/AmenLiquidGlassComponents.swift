@@ -49,7 +49,7 @@ private struct AmenLiquidGlassCapsuleSurface: ViewModifier {
     }
 }
 
-private extension View {
+extension View {
     func amenLiquidGlassCapsuleSurface(isPressed: Bool = false, isSelected: Bool = false) -> some View {
         modifier(AmenLiquidGlassCapsuleSurface(isPressed: isPressed, isSelected: isSelected))
     }

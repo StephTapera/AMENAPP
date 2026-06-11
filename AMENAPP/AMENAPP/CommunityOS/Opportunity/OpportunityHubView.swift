@@ -94,9 +94,14 @@ struct OpportunityHubView: View {
             Image(systemName: "briefcase")
                 .font(.largeTitle)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
-            Text("Opportunities coming soon")
+            Text("Opportunities are off")
                 .font(.headline)
                 .foregroundStyle(Color(uiColor: .label))
+            Text("Enable Opportunity OS to load volunteer, job, and mentorship opportunities.")
+                .font(.subheadline)
+                .foregroundStyle(Color(uiColor: .secondaryLabel))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
@@ -134,9 +139,10 @@ struct OpportunityHubView: View {
             }
         }
         .sheet(isPresented: $showComposer) {
-            OpportunityComposerView { newPost in
-                Task { await submitPost(newPost) }
-            }
+            OpportunityComposerView(
+                onPost: { newPost in Task { await submitPost(newPost) } },
+                isPresented: $showComposer
+            )
         }
         .sheet(isPresented: $showContactFlow) {
             if let post = applyingToPost {

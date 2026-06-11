@@ -49,7 +49,20 @@ struct NoteShareCreateResult: Equatable {
 }
 
 @MainActor
-final class NoteShareService {
+protocol NoteShareServing {
+    func createShare(
+        noteId: String,
+        selectedBlockIds: [String],
+        accessPolicy: NoteShareAccessPolicy
+    ) async throws -> NoteShareCreateResult
+    func viewerPayload(shareId: String, linkToken: String?) async throws -> NoteShareViewerPayload
+    func toggleAmen(shareId: String, linkToken: String?) async throws -> Bool
+    func addReflection(shareId: String, body: String, linkToken: String?) async throws
+    func revoke(shareId: String) async throws
+}
+
+@MainActor
+final class NoteShareService: NoteShareServing {
     static let shared = NoteShareService()
 
     private let functions = Functions.functions(region: "us-central1")
@@ -59,12 +72,19 @@ final class NoteShareService {
     func createShare(
         noteId: String,
         selectedBlockIds: [String] = [],
-        accessPolicy: NoteShareAccessPolicy = .conservativeDefault
+        accessPolicy: NoteShareAccessPolicy = NoteShareAccessPolicy(
+            audience: .ownerOnly,
+            signedOutAccess: .denied,
+            followerPolicy: .disabled,
+            requiresAuth: true,
+            allowExternalIndexing: false
+        )
     ) async throws -> NoteShareCreateResult {
         let payload: [String: Any] = [
             "noteId": noteId,
             "selectedBlockIds": selectedBlockIds,
-            "accessPolicy": accessPolicy.dictionaryValue,
+            "shareConfig": accessPolicy.noteShareConfigValue,
+            "renderMode": "selah",
         ]
         let result = try await functions.httpsCallable("noteShareCreate").call(payload)
         guard let data = result.data as? [String: Any] else {
@@ -106,42 +126,40 @@ final class NoteShareService {
     private func parseCreateResult(_ data: [String: Any]) throws -> NoteShareCreateResult {
         guard let shareId = data["shareId"] as? String else { throw NoteShareServiceError.invalidResponse }
         let route = data["route"] as? [String: Any]
-        let intelligence = data["intelligence"] as? [String: Any]
         return NoteShareCreateResult(
             shareId: shareId,
             linkToken: data["linkToken"] as? String,
             appPath: route?["appPath"] as? String ?? "amen://note-share/\(shareId)",
             webFallbackPath: route?["webFallbackPath"] as? String ?? "https://amenapp.com/note-share/\(shareId)",
-            suggestedActions: parseActions(intelligence?["suggestedNextActions"])
+            suggestedActions: []
         )
     }
 
-    private func parseViewerPayload(_ data: [String: Any]) throws -> NoteShareViewerPayload {
+    func parseViewerPayload(_ data: [String: Any]) throws -> NoteShareViewerPayload {
         guard let shareId = data["shareId"] as? String,
-              let noteId = data["noteId"] as? String,
-              let snapshotData = data["snapshot"] as? [String: Any]
+              let noteId = data["noteId"] as? String
         else { throw NoteShareServiceError.invalidResponse }
 
-        let route = data["route"] as? [String: Any]
-        let intelligence = data["intelligence"] as? [String: Any]
-        let blocks = (snapshotData["blocks"] as? [[String: Any]] ?? []).compactMap { block -> NoteShareSnapshotBlock? in
+        let blocks = (data["renderBlocks"] as? [[String: Any]] ?? []).compactMap { block -> NoteShareSnapshotBlock? in
             guard let id = block["id"] as? String else { return nil }
             return NoteShareSnapshotBlock(
                 id: id,
                 text: block["text"] as? String ?? "",
                 semanticType: block["semanticType"] as? String ?? "general",
-                blockType: block["blockType"] as? String ?? "paragraph",
+                blockType: block["kind"] as? String ?? "paragraph",
                 scriptureReference: block["scriptureReference"] as? String
             )
         }
-
+        let route = data["route"] as? [String: Any]
+        let title = data["title"] as? String ?? "Church Note"
+        let excerpt = data["summary"] as? String ?? data["subtitle"] as? String ?? blocks.first?.text ?? ""
         let snapshot = NoteShareViewerSnapshot(
-            title: snapshotData["title"] as? String ?? "Church Note",
-            sermonTitle: snapshotData["sermonTitle"] as? String,
-            sermonSpeaker: snapshotData["sermonSpeaker"] as? String,
-            churchName: snapshotData["churchName"] as? String,
-            scriptureReferences: snapshotData["scriptureReferences"] as? [String] ?? [],
-            excerpt: snapshotData["excerpt"] as? String ?? "",
+            title: title,
+            sermonTitle: data["subtitle"] as? String,
+            sermonSpeaker: data["sermonSpeaker"] as? String,
+            churchName: data["churchName"] as? String ?? data["eyebrow"] as? String,
+            scriptureReferences: data["scriptureRefs"] as? [String] ?? [],
+            excerpt: excerpt,
             blocks: blocks
         )
 
@@ -152,10 +170,10 @@ final class NoteShareService {
             appPath: route?["appPath"] as? String ?? "amen://note-share/\(shareId)",
             webFallbackPath: route?["webFallbackPath"] as? String ?? "https://amenapp.com/note-share/\(shareId)",
             snapshot: snapshot,
-            suggestedActions: parseActions(intelligence?["suggestedNextActions"]),
-            summary: intelligence?["summary"] as? String ?? snapshot.excerpt,
-            viewerCanOpenSourceNote: data["viewerCanOpenSourceNote"] as? Bool ?? false,
-            viewerCanSeeFullSnapshot: data["viewerCanSeeFullSnapshot"] as? Bool ?? false
+            suggestedActions: parseActions(data["smartActions"]),
+            summary: excerpt,
+            viewerCanOpenSourceNote: data["viewerCanOpenSourceNote"] as? Bool ?? data["authorPanel"] != nil,
+            viewerCanSeeFullSnapshot: data["viewerCanSeeFullSnapshot"] as? Bool ?? true
         )
     }
 
@@ -184,13 +202,27 @@ enum NoteShareServiceError: LocalizedError {
 }
 
 private extension NoteShareAccessPolicy {
-    var dictionaryValue: [String: Any] {
-        [
-            "audience": audience.rawValue,
-            "signedOutAccess": signedOutAccess.rawValue,
-            "followerPolicy": followerPolicy.rawValue,
-            "requiresAuth": requiresAuth,
-            "allowExternalIndexing": allowExternalIndexing,
+    var noteShareConfigValue: [String: Any] {
+        let visibility: String
+        switch audience {
+        case .publicLink:
+            visibility = "link"
+        case .followers:
+            visibility = "followers"
+        case .church:
+            visibility = "church"
+        case .collaborators, .ownerOnly:
+            visibility = "link"
+        }
+        return [
+            "visibility": visibility,
+            "allowAmens": true,
+            "allowComments": "everyone",
+            "allowReshare": false,
+            "showCounts": false,
+            "authorPrivateAmenList": true,
+            "attribution": "full",
+            "watermarkOnExport": true,
         ]
     }
 }

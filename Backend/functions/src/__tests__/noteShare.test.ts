@@ -73,10 +73,24 @@ describe("noteShareGetViewerPayload", () => {
         }));
     });
 
-    it("requires Auth and App Check on the viewer callable", () => {
+    it("requires App Check on the viewer callable", () => {
         const callable = noteShareGetViewerPayload as unknown as { options: { enforceAppCheck: boolean } };
 
         expect(callable.options.enforceAppCheck).toBe(true);
+    });
+
+    it("rejects signed-out viewer callers", async () => {
+        const callable = noteShareGetViewerPayload as unknown as {
+            run: (request: Record<string, unknown>) => Promise<Record<string, unknown>>;
+        };
+
+        await expect(callable.run({
+            app: { appId: "test-app" },
+            data: { shareId: "share-active" },
+        })).rejects.toMatchObject({
+            code: "unauthenticated",
+            message: "Authentication required.",
+        });
     });
 
     it("returns no viewer payload for a revoked share", async () => {

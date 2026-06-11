@@ -24,17 +24,21 @@ import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 const storage = admin.storage();
+type CallableAuthContext = {
+    auth?: { uid: string };
+    app?: unknown;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function requireAuth(context: functions.https.CallableContext): string {
+function requireAuth(context: CallableAuthContext): string {
     if (!context.auth) {
         throw new HttpsError("unauthenticated", "Must be signed in.");
     }
     return context.auth.uid;
 }
 
-function requireAppCheck(context: functions.https.CallableContext): void {
+function requireAppCheck(context: CallableAuthContext): void {
     if (context.app == undefined) {
         throw new HttpsError(
             "failed-precondition",

@@ -77,6 +77,57 @@ private extension View {
     }
 }
 
+// MARK: - Note share viewer pill
+
+/// State contract for NOTE_SHARE_VIEWER's compact note entry point.
+enum NotePillState: String, CaseIterable, Equatable, Sendable {
+    case available
+    case unavailable
+    case loading
+}
+
+enum NotePillPresentation {
+    static func isEnabled(for state: NotePillState) -> Bool {
+        state == .available
+    }
+
+    static func iconName(for state: NotePillState) -> String {
+        switch state {
+        case .available: return "note.text"
+        case .unavailable: return "lock.slash"
+        case .loading: return "hourglass"
+        }
+    }
+
+    static func normalizedContext(_ context: String?) -> String? {
+        let trimmed = context?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    static func accessibilityLabel(title: String, context: String?, state: NotePillState) -> String {
+        let contextText = normalizedContext(context).map { ", \($0)" } ?? ""
+        switch state {
+        case .available:
+            return "Open note, \(title)\(contextText)"
+        case .unavailable:
+            return "Note unavailable, \(title)\(contextText)"
+        case .loading:
+            return "Loading note, \(title)\(contextText)"
+        }
+    }
+
+    static func accessibilityHint(for state: NotePillState) -> String {
+        switch state {
+        case .available:
+            return "Opens the shared note"
+        case .unavailable:
+            return "This shared note cannot be opened right now"
+        case .loading:
+            return "The shared note is still loading"
+        }
+    }
+}
+
 // MARK: - 1. AmenGlassInsightChip
 
 /// A single pill-shaped context chip.
@@ -547,6 +598,206 @@ struct AmenGlassMemoryCard<Item: Identifiable>: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: CommGlassTokens.cardCorner, style: .continuous)
                         .fill(Color.white.opacity(0.10))
+                }
+        }
+    }
+}
+
+// MARK: - NotePill
+
+private enum NotePillGlassFallbackKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var notePillUsesSolidFallback: Bool {
+        get { self[NotePillGlassFallbackKey.self] }
+        set { self[NotePillGlassFallbackKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Use on post cards that are already glass surfaces so NotePill renders as a solid capsule.
+    func notePillSolidFallback(_ enabled: Bool = true) -> some View {
+        environment(\.notePillUsesSolidFallback, enabled)
+    }
+}
+
+struct NotePillContext: Equatable, Sendable {
+    let sourceLabel: String
+    let churchName: String?
+    let scriptureRefs: [String]
+
+    init(sourceLabel: String = "Shared note", churchName: String? = nil, scriptureRefs: [String] = []) {
+        self.sourceLabel = sourceLabel
+        self.churchName = churchName
+        self.scriptureRefs = scriptureRefs
+    }
+
+    init(_ sourceLabel: String) {
+        self.init(sourceLabel: sourceLabel)
+    }
+}
+
+struct NotePill: View {
+    let title: String
+    let context: NotePillContext
+    let state: NotePillState
+    let onTap: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.notePillUsesSolidFallback) private var usesSolidFallback
+
+    @ScaledMetric(relativeTo: .body) private var horizontalPadding: CGFloat = 16
+    @ScaledMetric(relativeTo: .body) private var verticalPadding: CGFloat = 14
+    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 72
+    @ScaledMetric(relativeTo: .body) private var glyphCircleSize: CGFloat = 42
+    @ScaledMetric(relativeTo: .body) private var glyphSymbolSize: CGFloat = 17
+
+    @State private var isPressed = false
+
+    init(title: String, context: NotePillContext, state: NotePillState, onTap: @escaping () -> Void) {
+        self.title = title
+        self.context = context
+        self.state = state
+        self.onTap = onTap
+    }
+
+    init(title: String, context: String? = nil, state: NotePillState, onTap: @escaping () -> Void) {
+        self.init(
+            title: title,
+            context: NotePillContext(sourceLabel: NotePillPresentation.normalizedContext(context) ?? "Shared note"),
+            state: state,
+            onTap: onTap
+        )
+    }
+
+    var body: some View {
+        Button(action: handleTap) {
+            HStack(spacing: 12) {
+                glyph
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(displayTitle)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(Color.black)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(metadataLine)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.black.opacity(0.62))
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                trailingIndicator
+            }
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!NotePillPresentation.isEnabled(for: state))
+        .background { backgroundSurface }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .commGlassSurface(shape: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .scaleEffect(reduceMotion ? 1 : (isPressed ? 0.985 : 1))
+        .opacity(state == .unavailable ? 0.72 : 1)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.82), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard NotePillPresentation.isEnabled(for: state) else { return }
+                    if !isPressed { isPressed = true }
+                }
+                .onEnded { _ in isPressed = false }
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(NotePillPresentation.accessibilityLabel(title: title, context: metadataLine, state: state))
+        .accessibilityHint(NotePillPresentation.accessibilityHint(for: state))
+        .accessibilityAddTraits(NotePillPresentation.isEnabled(for: state) ? .isButton : [])
+    }
+
+    private var displayTitle: String {
+        title
+    }
+
+    private var metadataLine: String {
+        let refs = context.scriptureRefs.prefix(2).joined(separator: ", ")
+        let source = context.churchName ?? context.sourceLabel
+        if refs.isEmpty { return source }
+        return "\(source) · \(refs)"
+    }
+
+    private func handleTap() {
+        guard NotePillPresentation.isEnabled(for: state) else { return }
+        onTap()
+    }
+
+    private var glyph: some View {
+        ZStack {
+            Circle()
+                .fill(Color.white.opacity(usesSolidFallback || reduceTransparency ? 0.92 : 0.58))
+                .frame(width: glyphCircleSize, height: glyphCircleSize)
+            Image(systemName: NotePillPresentation.iconName(for: state))
+                .font(.system(size: glyphSymbolSize, weight: .semibold))
+                .foregroundStyle(Color.black.opacity(0.82))
+        }
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var trailingIndicator: some View {
+        switch state {
+        case .available:
+            Image(systemName: "chevron.right")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.black.opacity(0.48))
+                .accessibilityHidden(true)
+        case .loading:
+            if reduceMotion {
+                Image(systemName: NotePillPresentation.iconName(for: state))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.black.opacity(0.48))
+                    .accessibilityHidden(true)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityHidden(true)
+            }
+        case .unavailable:
+            Image(systemName: "minus.circle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.black.opacity(0.42))
+                .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder
+    private var backgroundSurface: some View {
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        if reduceTransparency || usesSolidFallback {
+            shape
+                .fill(Color.white.opacity(reduceTransparency ? 0.97 : 0.88))
+        } else {
+            shape
+                .fill(.thinMaterial)
+                .overlay(alignment: .topLeading) {
+                    shape
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.34), Color.white.opacity(0.08), Color.clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 }
         }
     }

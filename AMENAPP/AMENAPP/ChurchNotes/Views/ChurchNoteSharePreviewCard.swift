@@ -7,6 +7,7 @@
 // Used in: post creation composer, share sheet preview, post card in feed.
 
 import SwiftUI
+import UIKit
 
 // MARK: - Share Preview Card (async-loading, feed-ready)
 
@@ -18,6 +19,8 @@ struct ChurchNoteSharePreviewCard: View {
 
     @State private var shareableBlocks: [ChurchNoteBlockV2] = []
     @State private var isLoading = true
+    @State private var isCreatingShare = false
+    @State private var shareStatusMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -122,16 +125,63 @@ struct ChurchNoteSharePreviewCard: View {
     // MARK: - Footer
 
     private var cardFooter: some View {
-        HStack(spacing: 12) {
-            Label("Scripture", systemImage: "book.closed")
-            Label("Music", systemImage: "music.note")
-            Spacer()
-            Text("Private blocks hidden")
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Label("Scripture", systemImage: "book.closed")
+                Label("Music", systemImage: "music.note")
+                Spacer()
+                Text("Private blocks hidden")
+            }
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.tertiary)
+
+            if AMENFeatureFlags.shared.noteShareViewerEnabled {
+                Button {
+                    createPreviewLink()
+                } label: {
+                    Label(isCreatingShare ? "Preparing" : "Copy smart note link", systemImage: "link")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(isCreatingShare || shareableBlocks.isEmpty)
+            }
+
+            if let shareStatusMessage {
+                Text(shareStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .font(.caption2.weight(.medium))
-        .foregroundStyle(.tertiary)
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
+    }
+
+    private func createPreviewLink() {
+        guard !isCreatingShare else { return }
+        isCreatingShare = true
+        shareStatusMessage = nil
+        Task {
+            defer { isCreatingShare = false }
+            do {
+                let policy = NoteShareAccessPolicy(
+                    audience: .publicLink,
+                    signedOutAccess: .denied,
+                    followerPolicy: .disabled,
+                    requiresAuth: true,
+                    allowExternalIndexing: false
+                )
+                let result = try await NoteShareService.shared.createShare(
+                    noteId: noteId,
+                    selectedBlockIds: shareableBlocks.map(\.id),
+                    accessPolicy: policy
+                )
+                let url = result.linkToken.map { "\(result.webFallbackPath)?token=\($0)" } ?? result.webFallbackPath
+                UIPasteboard.general.string = url
+                shareStatusMessage = "Smart note link copied"
+            } catch {
+                shareStatusMessage = error.localizedDescription
+            }
+        }
     }
 }
 

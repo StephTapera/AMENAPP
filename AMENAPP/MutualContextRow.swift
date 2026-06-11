@@ -119,7 +119,7 @@ struct MutualContextRow: View {
     // MARK: - Signal Text
 
     @ViewBuilder
-    private func signalText(_ signal: ContextSignal) -> some View {
+    private func signalText(_ signal: MutualContextSignal) -> some View {
         switch signal.type {
         case .mutualFollowers(let connections, let totalCount):
             let names = connections.map { $0.displayName }
@@ -168,7 +168,7 @@ struct MutualContextRow: View {
 
     // MARK: - Helpers
 
-    private func isMutualFollowers(_ signal: ContextSignal) -> Bool {
+    private func isMutualFollowers(_ signal: MutualContextSignal) -> Bool {
         if case .mutualFollowers = signal.type { return true }
         return false
     }
@@ -178,7 +178,7 @@ struct MutualContextRow: View {
 
 private struct MutualContextDetailSheet: View {
     @Environment(\.dismiss) var dismiss
-    let signals: [ContextSignal]
+    let signals: [MutualContextSignal]
 
     var body: some View {
         NavigationStack {
@@ -202,7 +202,7 @@ private struct MutualContextDetailSheet: View {
     }
 
     @ViewBuilder
-    private func signalRow(_ signal: ContextSignal) -> some View {
+    private func signalRow(_ signal: MutualContextSignal) -> some View {
         HStack(spacing: 12) {
             signalIcon(signal)
                 .frame(width: 36, height: 36)
@@ -222,7 +222,7 @@ private struct MutualContextDetailSheet: View {
     }
 
     @ViewBuilder
-    private func signalIcon(_ signal: ContextSignal) -> some View {
+    private func signalIcon(_ signal: MutualContextSignal) -> some View {
         switch signal.type {
         case .mutualFollowers:
             Image(systemName: "person.2.fill")
@@ -240,7 +240,7 @@ private struct MutualContextDetailSheet: View {
     }
 
     @ViewBuilder
-    private func signalTitle(_ signal: ContextSignal) -> some View {
+    private func signalTitle(_ signal: MutualContextSignal) -> some View {
         switch signal.type {
         case .mutualFollowers(_, let totalCount):
             Text("\(totalCount) Mutual Follower\(totalCount == 1 ? "" : "s")")
@@ -252,7 +252,7 @@ private struct MutualContextDetailSheet: View {
     }
 
     @ViewBuilder
-    private func signalSubtitle(_ signal: ContextSignal) -> some View {
+    private func signalSubtitle(_ signal: MutualContextSignal) -> some View {
         switch signal.type {
         case .mutualFollowers(let connections, let totalCount):
             let names = connections.map { $0.displayName }

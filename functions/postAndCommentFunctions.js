@@ -147,7 +147,7 @@ exports.finalizePostPublish = onCall({ region: REGION }, async (request) => {
 //    Idempotent via clientCommentId deduplication key.
 // ─────────────────────────────────────────────────────────────────────────────
 
-exports.addComment = onCall({ region: REGION }, async (request) => {
+exports.addComment = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
   const auth = request.auth;
   if (!auth) throw new HttpsError('unauthenticated', 'Must be signed in');
 
@@ -156,6 +156,10 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
     text,
     clientCommentId, // UUID generated client-side for idempotency
     parentCommentId = null,
+    authorInitials = '',
+    authorUsername = '',
+    authorName = '',
+    authorProfileImageURL = null,
   } = request.data;
 
   // Validate inputs
@@ -231,7 +235,7 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
     throw new HttpsError('not-found', 'Post not found');
   }
   const post = postSnap.data();
-  if (post.status !== 'published') {
+  if (post.status && post.status !== 'published') {
     throw new HttpsError('failed-precondition', 'Post is not published');
   }
 
@@ -252,14 +256,23 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
   const commentId = commentRef.key;
 
   const commentData = {
+    id: commentId,
+    postId,
+    userId: auth.uid,
     authorId: auth.uid,
-    authorName: commenter.displayName || commenter.username || 'User',
-    authorUsername: commenter.username || '',
-    authorProfileImageURL: commenter.profileImageURL || null,
+    authorName: authorName || commenter.displayName || commenter.username || 'User',
+    authorInitials: authorInitials || ((commenter.displayName || commenter.username || '??').slice(0, 2).toUpperCase()),
+    authorUsername: authorUsername || commenter.username || '',
+    authorProfileImageURL: authorProfileImageURL || commenter.profileImageURL || null,
+    content: trimmed,
     text: trimmed,
+    timestamp: admin.database.ServerValue.TIMESTAMP,
     createdAt: admin.database.ServerValue.TIMESTAMP,
     parentCommentId: parentCommentId || null,
+    parentId: parentCommentId || null,
+    clientRequestId: clientCommentId,
     clientCommentId,
+    likes: 0,
     likeCount: 0,
   };
 
@@ -270,6 +283,10 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
     commentCount: admin.firestore.FieldValue.increment(1),
     lastCommentAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+
+  await getRtdb()
+    .ref(`postInteractions/${postId}/commentCount`)
+    .transaction((current) => Math.max(0, (current || 0) + 1));
 
   // Store idempotency key (TTL 7 days — cleaned up by scheduled function)
   await idempotencyRef.set({

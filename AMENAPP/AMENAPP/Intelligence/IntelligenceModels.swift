@@ -4,9 +4,9 @@
 
 import Foundation
 
-// MARK: - Tier
+// MARK: - IntelligenceTier
 
-enum Tier: String, Codable, CaseIterable {
+enum IntelligenceTier: String, Codable, CaseIterable {
     case spiritual = "SPIRITUAL"
     case community = "COMMUNITY"
     case family    = "FAMILY"
@@ -33,9 +33,6 @@ enum Tier: String, Codable, CaseIterable {
         }
     }
 }
-
-/// Backward-compatibility alias used by older Intelligence sub-views.
-typealias IntelligenceTier = Tier
 
 // MARK: - TruthLevel
 
@@ -133,7 +130,7 @@ typealias IntelligenceGeo = CardGeo
 
 struct IntelligenceCard: Codable, Identifiable {
     let id: String
-    let tier: Tier
+    let tier: IntelligenceTier
     let title: String
     let summary: [String]               // <=3 bullets
     let backingEntity: BackingEntity    // REQUIRED

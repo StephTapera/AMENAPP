@@ -16,12 +16,20 @@ final class NoteShareViewerViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let route: NoteShareRoute
-    private let service: NoteShareService
+    private let service: any NoteShareServing
     private var loadTask: Task<Void, Never>?
 
-    init(route: NoteShareRoute, service: NoteShareService = .shared) {
+    init(route: NoteShareRoute, service: (any NoteShareServing)? = nil) {
         self.route = route
-        self.service = service
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--note-share-runtime-proof") {
+            self.service = service ?? NoteShareRuntimeProofService()
+        } else {
+            self.service = service ?? NoteShareService.shared
+        }
+        #else
+        self.service = service ?? NoteShareService.shared
+        #endif
     }
 
     func load() {
@@ -70,6 +78,71 @@ final class NoteShareViewerViewModel: ObservableObject {
         }
     }
 }
+
+#if DEBUG
+@MainActor
+private struct NoteShareRuntimeProofService: NoteShareServing {
+    func createShare(noteId: String, selectedBlockIds: [String], accessPolicy: NoteShareAccessPolicy) async throws -> NoteShareCreateResult {
+        NoteShareCreateResult(
+            shareId: "runtime-proof-shared",
+            linkToken: "runtime-proof-token",
+            appPath: "amen://note-share/runtime-proof-shared",
+            webFallbackPath: "https://amenapp.com/n/runtime-proof-token",
+            suggestedActions: []
+        )
+    }
+
+    func viewerPayload(shareId: String, linkToken: String?) async throws -> NoteShareViewerPayload {
+        if shareId.contains("revoked") {
+            throw NoteShareServiceError.invalidResponse
+        }
+
+        let blocks = [
+            NoteShareSnapshotBlock(
+                id: "romans-8",
+                text: "There is therefore now no condemnation for those who are in Christ Jesus. The note captures the sermon emphasis on grace, adoption, and walking by the Spirit.",
+                semanticType: "scripture",
+                blockType: "paragraph",
+                scriptureReference: "Romans 8:1"
+            ),
+            NoteShareSnapshotBlock(
+                id: "prayer-point",
+                text: "Prayer point: ask for courage to live from belovedness instead of fear this week.",
+                semanticType: "prayer",
+                blockType: "callout",
+                scriptureReference: nil
+            )
+        ]
+        let snapshot = NoteShareViewerSnapshot(
+            title: "What I learned from Romans 8",
+            sermonTitle: "Sunday Notes",
+            sermonSpeaker: "Pastor Elena Reyes",
+            churchName: "Grace Chapel",
+            scriptureReferences: ["Romans 8:1", "Romans 8:15-17"],
+            excerpt: blocks.map(\.text).joined(separator: "\n\n"),
+            blocks: blocks
+        )
+        return NoteShareViewerPayload(
+            id: shareId,
+            noteId: "runtime-proof-note",
+            status: "active",
+            appPath: "amen://note-share/\(shareId)",
+            webFallbackPath: "https://amenapp.com/n/runtime-proof-token",
+            snapshot: snapshot,
+            suggestedActions: [
+                NoteShareSuggestedAction(id: "reflect", label: "Reflect quietly", systemIcon: "text.bubble", intent: "reflection")
+            ],
+            summary: "A shared Church Note rendered from a deep link for runtime proof.",
+            viewerCanOpenSourceNote: false,
+            viewerCanSeeFullSnapshot: true
+        )
+    }
+
+    func toggleAmen(shareId: String, linkToken: String?) async throws -> Bool { true }
+    func addReflection(shareId: String, body: String, linkToken: String?) async throws {}
+    func revoke(shareId: String) async throws {}
+}
+#endif
 
 struct NoteShareViewerView: View {
     @StateObject private var viewModel: NoteShareViewerViewModel

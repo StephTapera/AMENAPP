@@ -18,6 +18,25 @@ import StoreKit  // ✅ Added for In-App Purchases
 import BackgroundTasks  // ✅ BGAppRefreshTask for background feed refresh
 // import FirebaseVertexAI  // Requires Firebase VertexAI package — add when available
 
+struct AMENBuildInfo {
+    static let gitSHA = Bundle.main.object(forInfoDictionaryKey: "AMENBuildGitSHA") as? String ?? "unknown"
+    static let gitBranch = Bundle.main.object(forInfoDictionaryKey: "AMENBuildGitBranch") as? String ?? "unknown"
+    static let gitDirtyState = Bundle.main.object(forInfoDictionaryKey: "AMENBuildGitDirty") as? String ?? "unknown"
+
+    static var shortSHA: String {
+        guard gitSHA.count > 12 else { return gitSHA }
+        return String(gitSHA.prefix(12))
+    }
+
+    static var displaySummary: String {
+        "\(gitBranch) @ \(shortSHA) [\(gitDirtyState)]"
+    }
+
+    static func logLaunchStamp() {
+        dlog("[BuildInfo] \(displaySummary)")
+    }
+}
+
 @main
 struct AMENAPPApp: App {
     // Register AppDelegate to handle Firebase Messaging and notifications
@@ -33,6 +52,7 @@ struct AMENAPPApp: App {
     @AppStorage("hasCompletedAgeVerification") private var hasCompletedAgeVerification = false
     @State private var ageGateEligible = false
     @StateObject private var killSwitch = RemoteKillSwitch.shared
+    @State private var noteShareRoute: NoteShareRoute?
 
     // PERFORMANCE: Store auth listener handle for cleanup
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
@@ -58,6 +78,7 @@ struct AMENAPPApp: App {
     // Initialize Firebase when app launches
     init() {
         dlog("🚀 Initializing AMENAPPApp...")
+        AMENBuildInfo.logLaunchStamp()
         let _launchToken = PerfBegin("app_init")
         defer { PerfEnd(_launchToken) }
         // Note: Firebase.configure() is called in AppDelegate.didFinishLaunchingWithOptions
@@ -241,6 +262,9 @@ struct AMENAPPApp: App {
                                 .presentationDetents([.large])
                                 .presentationDragIndicator(.visible)
                         }
+                        .sheet(item: $noteShareRoute) { route in
+                            NoteShareViewerView(route: route)
+                        }
                 }
             }
             // Forced upgrade alert — shown when Remote Config minimum_app_version
@@ -396,6 +420,9 @@ struct AMENAPPApp: App {
                 // ✅ Handle email authentication links (passwordless sign-in & email verification)
                 handleEmailAuthenticationLink(url)
                 
+                // NOTE_SHARE_VIEWER: Handle shared Church Note viewer links.
+                handleNoteShareDeepLink(url)
+
                 // P1-2: Handle church notes deep links
                 handleChurchNoteDeepLink(url)
 
@@ -437,26 +464,7 @@ struct AMENAPPApp: App {
                     PrayerRequestLiveActivityManager.shared.observePushToStartTokens()
                 }
             }
-            // Show supplementary interest/follow onboarding once after account creation.
-            // This is separate from the username/profile OnboardingView in ContentView.
-            // ✅ FIX: Only show if user is authenticated AND has NOT completed onboarding
-            .fullScreenCover(isPresented: Binding(
-                get: {
-                    // Guard: Auth.auth() crashes if Firebase is not yet configured
-                    // (SwiftUI evaluates body.getter before AppDelegate finishes).
-                    guard FirebaseApp.app() != nil else { return false }
-                    // Audit D-02: under ff_onboarding_v2, ContentView's OnboardingView is the
-                    // SINGLE owner of onboarding. Suppressing this legacy second fullScreenCover
-                    // removes the simultaneous-cover P0 crash risk entirely.
-                    guard !AMENFeatureFlags.shared.onboardingV2Enabled else { return false }
-                    let shouldShow = Auth.auth().currentUser != nil && !hasCompletedOnboarding
-                    dlog("🎬 OnboardingFlowView fullScreenCover check: currentUser=\(Auth.auth().currentUser?.uid ?? "nil"), hasCompletedOnboarding=\(hasCompletedOnboarding), shouldShow=\(shouldShow)")
-                    return shouldShow
-                },
-                set: { _ in }
-            )) {
-                OnboardingFlowView()
-            }
+            // ✅ FIX: OnboardingFlowView fullScreenCover removed to prevent simultaneous-cover P0 crash
             .onChange(of: scenePhase) { _, newPhase in
                 // P1 FIX: Drive behavioral awareness engine session lifecycle from scene phase
                 // so scroll/dwell signals are attributed to the correct active session.
@@ -889,6 +897,21 @@ struct AMENAPPApp: App {
     }
 
     // MARK: - P1-2: Deep Link Handling
+
+    private func handleNoteShareDeepLink(_ url: URL) {
+        guard AMENFeatureFlags.shared.noteShareViewerEnabled else { return }
+
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        if url.scheme == "amen", url.host == "note-share", let shareId = pathComponents.first {
+            noteShareRoute = NoteShareRoute(shareId: shareId, linkToken: nil)
+            return
+        }
+
+        if url.host == "amenapp.com", pathComponents.count >= 2, pathComponents[0] == "n" {
+            noteShareRoute = NoteShareRoute(shareId: pathComponents[1], linkToken: URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "token" })?.value)
+            return
+        }
+    }
     
     private func handleChurchNoteDeepLink(_ url: URL) {
         // Parse URL scheme: amenapp://notes/{shareLinkId}

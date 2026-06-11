@@ -52,7 +52,7 @@ struct AmenOpportunityFeedView: View {
                 }
             }
             .sheet(isPresented: $showPostSheet) {
-                OpportunityComposerView()
+                OpportunityComposerView(isPresented: $showPostSheet)
             }
             .sheet(isPresented: $showContactFlow) {
                 if let id = applyingToJobId,

@@ -50,6 +50,7 @@ struct AmenChurchHeroCard: View {
     var onDirections: () -> Void = {}
     var onSave: () -> Void = {}
     var onShare: () -> Void = {}
+    var onExpansionChange: (Bool) -> Void = { _ in }
 
     var body: some View {
         AmenUniversalHeroCard(
@@ -58,7 +59,8 @@ struct AmenChurchHeroCard: View {
             subtitle: "\(church.city), \(church.state)",
             ctaLabel: "Plan Visit",
             badges: church.badges,
-            onCTA: onPlanVisit
+            onCTA: onPlanVisit,
+            onExpansionChange: onExpansionChange
         ) {
             expandedBody
         }

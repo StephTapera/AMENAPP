@@ -217,7 +217,7 @@ async function enrichMemoryWithAI(uid: string, memoryId: string, title: string, 
   if (summary) {
     await db.collection("users").doc(uid)
       .collection("selah_memories")
-      .document(memoryId)
+      .doc(memoryId)
       .update({ aiSummary: summary });
   }
 }

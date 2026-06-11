@@ -502,7 +502,7 @@ export const trackChurchInteraction = onCall(async (request) => {
         const context = readUserContext(contextSnap.data());
         const recentSearches = normalizeList(context.recentSearches).slice(0, 9);
 
-        const nextContext: FirebaseFirestore.UpdateData = {
+        const nextContext: FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData> = {
             engagementSignals: {
                 ...(context.engagementSignals ?? {}),
                 [action]: ((context.engagementSignals ?? {})[action] ?? 0) + 1,

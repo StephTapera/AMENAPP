@@ -42,11 +42,23 @@ enum MessageClusterAction: String, CaseIterable {
 struct MessageActionCluster: View {
     let message: AppMessage
     var onAction: (MessageClusterAction) -> Void
+    var onIntentAction: ((AmenActionSuggestion, AmenIntentAnalysis) -> Void)? = nil
     var onDismiss: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var appeared = false
+
+    private var intentAnalysis: AmenIntentAnalysis? {
+        guard AMENFeatureFlags.shared.actionIntelligenceEnabled,
+              AMENFeatureFlags.shared.messagesSmartContextEnabled,
+              AMENFeatureFlags.shared.messagingSmartPillsEnabled,
+              !message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+
+        return message.amenIntentAnalysis
+    }
 
     private var availableActions: [MessageClusterAction] {
         var actions: [MessageClusterAction] = [.react, .reply, .copy]
@@ -71,9 +83,26 @@ struct MessageActionCluster: View {
 
     var body: some View {
         // Shadow must sit before .glassEffect so it renders behind the glass surface.
-        GlassEffectContainer(spacing: 0) {
-            clusterGrid
-                .padding(12)
+        GlassEffectContainer(spacing: 10) {
+            VStack(spacing: 10) {
+                if let intentAnalysis {
+                    AmenActionIntelligenceCapsule(
+                        analysis: intentAnalysis,
+                        startsExpanded: false,
+                        onAction: { action in
+                            AmenMessagingAnalytics.track(
+                                .messageActionTapped,
+                                parameters: ["action": action.verb.rawValue, "intent": intentAnalysis.intentKind.rawValue]
+                            )
+                            onIntentAction?(action, intentAnalysis)
+                        },
+                        onDismiss: onDismiss
+                    )
+                }
+
+                clusterGrid
+                    .padding(12)
+            }
         }
         .shadow(color: .black.opacity(0.18), radius: 20, y: 6)
         .amenGlassEffect(in: RoundedRectangle(cornerRadius: 18, style: .continuous))

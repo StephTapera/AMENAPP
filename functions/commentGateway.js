@@ -370,6 +370,7 @@ const NUDGE_MESSAGES = {
 exports.rewriteCommentTone = onCall(
   {
     region: REGION,
+    enforceAppCheck: true,
     secrets: [NVIDIA_API_KEY],
     timeoutSeconds: 30,
   },
@@ -466,6 +467,7 @@ exports.rewriteCommentTone = onCall(
 exports.checkCommentQuality = onCall(
   {
     region: REGION,
+    enforceAppCheck: true,
     secrets: [NVIDIA_API_KEY],
     timeoutSeconds: 30,
   },

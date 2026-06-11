@@ -5,6 +5,8 @@ const HttpsError = class HttpsError extends Error {
     }
 };
 
-const onCall = jest.fn((handler) => handler);
+const onCall = jest.fn((optionsOrHandler, maybeHandler) => (
+    typeof optionsOrHandler === "function" ? optionsOrHandler : maybeHandler
+));
 
 module.exports = { HttpsError, onCall };

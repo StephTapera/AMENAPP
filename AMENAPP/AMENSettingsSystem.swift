@@ -4,13 +4,14 @@
 //
 //  Production-grade, Instagram/Threads-parity settings system.
 //  Design: white background, ultraThinMaterial glass, AMENFont typography.
-//  No Firebase imports — pure UI with @AppStorage / @State.
+//  Settings persist locally and sync to the signed-in user's private Firestore settings document.
 //
 
 import SwiftUI
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 // MARK: - Design Tokens
 
@@ -53,6 +54,137 @@ private extension View {
     func glassCard(cornerRadius: CGFloat = ST.radius) -> some View {
         modifier(SettingsGlassCard(cornerRadius: cornerRadius))
     }
+}
+
+private struct AmenSettingsSnapshot: Codable, Equatable {
+    let values: [String: String]
+
+    static let trackedKeys: [String] = [
+        "amenSettingsSuggestedDismissed",
+        "amen_account_type",
+        "amen_private_account", "amen_activity_status", "amen_read_receipts", "amen_show_likes", "amen_find_by_email", "amen_find_by_phone", "amen_comment_permission", "amen_mention_permission", "amen_profile_discoverability",
+        "amen_hidden_words", "amen_strict_filter", "amen_sensitive_blur", "amen_anti_harassment",
+        "amen_dm_permission", "amen_msg_requests", "amen_online_in_dms", "amen_dm_read_receipts", "amen_typing_indicator", "amen_media_preview", "amen_link_preview", "amen_dm_curfew_enabled", "amen_dm_curfew_start_hour", "amen_dm_curfew_end_hour",
+        "amen_push_enabled", "amen_inapp_enabled", "amen_email_digest", "amen_notif_digest_freq", "amen_notif_quiet_enabled", "amen_notif_quiet_start_hour", "amen_notif_quiet_end_hour", "amen_smart_clustered_notifs",
+        "amen_default_audience", "amen_draft_autosave", "amen_draft_berean_resume", "amen_post_scheduling", "amen_sensitive_warning", "amen_ai_disclosure", "amen_true_source", "amen_auto_content_warnings", "amen_post_template_signature", "amen_post_template_call_to_action", "amen_post_template_include_scripture",
+        "amen_feed_mode", "amen_sensitive_content", "amen_autoplay", "amen_show_like_counts", "amen_show_follower_counts", "amen_hide_from_suggestions", "amen_interest_worship", "amen_interest_scripture", "amen_interest_service", "amen_interest_family", "amen_interest_wellness", "amen_interest_local_church",
+        "amen_berean_enabled", "amen_berean_mode", "amen_berean_memory", "amen_berean_transparency", "amen_berean_data_usage", "amen_berean_in_feed", "amen_berean_style",
+        "amen_notes_default_folder", "amen_notes_auto_scripture", "amen_notes_growth_loop", "amen_notes_sync", "amen_notes_export_format", "amen_notes_sermon_capture", "amen_notes_theme", "amen_notes_use_theme_for_exports",
+        "amen_reduce_motion", "amen_high_contrast", "amen_bold_text", "amen_alt_text", "amen_screen_reader", "amen_app_text_scale", "amen_caption_size", "amen_caption_background", "amen_caption_speaker_names",
+        "amen_download_quality", "amen_preload_videos", "amen_ai_processing", "amen_data_collection_personalization", "amen_data_collection_diagnostics", "amen_data_collection_location", "amen_data_retention_posts", "amen_data_retention_search", "amen_data_retention_ai",
+        "amen_2fa_enabled", "amen_login_alerts",
+        "amen_teen_mode", "amen_time_limit", "amen_family_quiet", "amen_content_restrict", "amen_private_by_default", "amen_guardian_review_required", "amen_guardian_digest", "amen_guardian_invite_email",
+        "amen_creator_weekly_digest", "amen_creator_prayerful_metrics", "amen_creator_growth_prompts"
+    ]
+
+    static func current(defaults: UserDefaults = .standard) -> AmenSettingsSnapshot {
+        let pairs = trackedKeys.compactMap { key -> (String, String)? in
+            guard let value = defaults.object(forKey: key) else { return nil }
+            switch value {
+            case let bool as Bool:
+                return (key, bool ? "true" : "false")
+            case let int as Int:
+                return (key, String(int))
+            case let double as Double:
+                return (key, String(double))
+            case let string as String:
+                return (key, string)
+            default:
+                return nil
+            }
+        }
+        return AmenSettingsSnapshot(values: Dictionary(uniqueKeysWithValues: pairs))
+    }
+
+    func apply(to defaults: UserDefaults = .standard) {
+        for (key, value) in values where Self.trackedKeys.contains(key) {
+            if value == "true" || value == "false" {
+                defaults.set(value == "true", forKey: key)
+            } else if let intValue = Int(value), key.hasSuffix("_hour") {
+                defaults.set(intValue, forKey: key)
+            } else if let doubleValue = Double(value), key == "amen_app_text_scale" {
+                defaults.set(doubleValue, forKey: key)
+            } else {
+                defaults.set(value, forKey: key)
+            }
+        }
+    }
+}
+
+@MainActor
+final class AmenSettingsPersistenceService: ObservableObject {
+    static let shared = AmenSettingsPersistenceService()
+
+    private var loadedUserID: String?
+    private var lastSavedSnapshot: AmenSettingsSnapshot?
+    private var observer: NSObjectProtocol?
+    private var saveTask: Task<Void, Never>?
+
+    private init() {
+        observer = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: UserDefaults.standard,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in AmenSettingsPersistenceService.shared.scheduleSave() }
+        }
+    }
+
+    func load() async {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            loadedUserID = nil
+            lastSavedSnapshot = AmenSettingsSnapshot.current()
+            return
+        }
+
+        loadedUserID = uid
+        let document = Firestore.firestore().collection("userSettings").document(uid)
+        do {
+            let snapshot = try await document.getDocument()
+            if let values = snapshot.data()?["values"] as? [String: String] {
+                let restored = AmenSettingsSnapshot(values: values)
+                restored.apply()
+                lastSavedSnapshot = restored
+            } else {
+                await save(force: true)
+            }
+        } catch {
+            lastSavedSnapshot = AmenSettingsSnapshot.current()
+        }
+    }
+
+    func scheduleSave() {
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.save(force: false)
+        }
+    }
+
+    func save(force: Bool) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let snapshot = AmenSettingsSnapshot.current()
+        guard force || snapshot != lastSavedSnapshot else { return }
+
+        do {
+            _ = try await Functions.functions(region: "us-central1")
+                .httpsCallable("updateUserSettings")
+                .call(["values": snapshot.values])
+            loadedUserID = uid
+            lastSavedSnapshot = snapshot
+        } catch {
+            lastSavedSnapshot = snapshot
+        }
+    }
+}
+
+private func settingsHourDate(_ hour: Int) -> Date {
+    Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: Date()) ?? Date()
+}
+
+private func settingsHour(from date: Date) -> Int {
+    Calendar.current.component(.hour, from: date)
 }
 
 // MARK: - Settings Sections Enum
@@ -501,10 +633,10 @@ struct SettingsSearchResultsView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.systemScaled(32, weight: .light))
                     .foregroundStyle(ST.tertiary)
-                Text("No results found")
+                Text("No settings found")
                     .font(AMENFont.semiBold(16))
                     .foregroundStyle(ST.secondary)
-                Text("Try different keywords")
+                Text("Try a different keyword")
                     .font(AMENFont.regular(13))
                     .foregroundStyle(ST.tertiary)
             }
@@ -667,8 +799,9 @@ struct AccountTypePill: View {
 
 struct AMENSettingsView: View {
     @StateObject private var searchService = SettingsSearchService()
+    @StateObject private var persistenceService = AmenSettingsPersistenceService.shared
     @State private var searchText: String = ""
-    @State private var isSuggestedDismissed: Bool = false
+    @AppStorage("amenSettingsSuggestedDismissed") private var isSuggestedDismissed: Bool = false
     @State private var selectedSection: AMENSettingsSection? = nil
     @State private var appeared: Bool = false
 
@@ -739,8 +872,14 @@ struct AMENSettingsView: View {
             .navigationDestination(item: $selectedSection) { section in
                 sectionDestination(section)
             }
+            .task {
+                await persistenceService.load()
+            }
             .onAppear {
                 withAnimation(ST.spring.delay(0.1)) { appeared = true }
+            }
+            .onDisappear {
+                Task { await persistenceService.save(force: false) }
             }
         }
     }
@@ -855,7 +994,7 @@ struct AMENSettingsView: View {
         case .account:             AccountSettingsViewNew()
         case .privacy:             PrivacySettingsViewNew()
         case .safety:              SafetySettingsViewNew()
-        case .messages:            MessagesSettingsViewNew()
+        case .messages:            MessageSettingsView()
         case .notifications:       NotificationsSettingsViewNew()
         case .contentPosting:      ContentPostingSettingsView()
         case .feedDiscovery:       FeedDiscoverySettingsViewNew()
@@ -1256,8 +1395,8 @@ struct MessagesSettingsViewNew: View {
     @AppStorage("amen_media_preview")      private var mediaPreview: Bool = true
     @AppStorage("amen_link_preview")       private var linkPreview: Bool = true
     @AppStorage("amen_dm_curfew_enabled")  private var curfewEnabled: Bool = false
-    @State private var curfewStart: Date  = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
-    @State private var curfewEnd: Date    = Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: Date()) ?? Date()
+    @AppStorage("amen_dm_curfew_start_hour") private var curfewStartHour: Int = 22
+    @AppStorage("amen_dm_curfew_end_hour") private var curfewEndHour: Int = 7
 
     private let dmOptions      = ["Everyone", "Followers", "Nobody"]
     private let reqOptions     = ["Filtered", "Off"]
@@ -1331,8 +1470,15 @@ struct MessagesSettingsViewNew: View {
                             .font(AMENFont.regular(15))
                             .foregroundStyle(ST.primary)
                         Spacer()
-                        DatePicker("", selection: $curfewStart, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
+                        DatePicker(
+                            "DM curfew start",
+                            selection: Binding(
+                                get: { settingsHourDate(curfewStartHour) },
+                                set: { curfewStartHour = settingsHour(from: $0) }
+                            ),
+                            displayedComponents: .hourAndMinute
+                        )
+                        .labelsHidden()
                     }
                     .padding(.horizontal, 16).padding(.vertical, 8)
 
@@ -1346,8 +1492,15 @@ struct MessagesSettingsViewNew: View {
                             .font(AMENFont.regular(15))
                             .foregroundStyle(ST.primary)
                         Spacer()
-                        DatePicker("", selection: $curfewEnd, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
+                        DatePicker(
+                            "DM curfew end",
+                            selection: Binding(
+                                get: { settingsHourDate(curfewEndHour) },
+                                set: { curfewEndHour = settingsHour(from: $0) }
+                            ),
+                            displayedComponents: .hourAndMinute
+                        )
+                        .labelsHidden()
                     }
                     .padding(.horizontal, 16).padding(.vertical, 8)
                 }
@@ -1381,9 +1534,9 @@ struct NotificationsSettingsViewNew: View {
     @AppStorage("amen_notif_security")        private var securityAlerts: Bool = true
 
     @AppStorage("amen_notif_digest")          private var digestFreq: String = "Real-time"
-    @State private var quietStart: Date = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
-    @State private var quietEnd: Date   = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
-    @State private var quietEnabled: Bool = false
+    @AppStorage("amen_notif_quiet_start_hour") private var quietStartHour: Int = 22
+    @AppStorage("amen_notif_quiet_end_hour") private var quietEndHour: Int = 8
+    @AppStorage("amen_notif_quiet_enabled") private var quietEnabled: Bool = false
 
     private let digestOptions = ["Real-time", "Hourly", "Daily", "Off"]
 
@@ -1465,8 +1618,15 @@ struct NotificationsSettingsViewNew: View {
                             .font(AMENFont.regular(15))
                             .foregroundStyle(ST.primary)
                         Spacer()
-                        DatePicker("", selection: $quietStart, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
+                        DatePicker(
+                            "Quiet hours start",
+                            selection: Binding(
+                                get: { settingsHourDate(quietStartHour) },
+                                set: { quietStartHour = settingsHour(from: $0) }
+                            ),
+                            displayedComponents: .hourAndMinute
+                        )
+                        .labelsHidden()
                     }
                     .padding(.horizontal, 16).padding(.vertical, 8)
 
@@ -1480,8 +1640,15 @@ struct NotificationsSettingsViewNew: View {
                             .font(AMENFont.regular(15))
                             .foregroundStyle(ST.primary)
                         Spacer()
-                        DatePicker("", selection: $quietEnd, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
+                        DatePicker(
+                            "Quiet hours end",
+                            selection: Binding(
+                                get: { settingsHourDate(quietEndHour) },
+                                set: { quietEndHour = settingsHour(from: $0) }
+                            ),
+                            displayedComponents: .hourAndMinute
+                        )
+                        .labelsHidden()
                     }
                     .padding(.horizontal, 16).padding(.vertical, 8)
                 }
@@ -1585,8 +1752,7 @@ struct ContentPostingSettingsView: View {
                 }
                 .buttonStyle(STPressStyle())
                 STDivider()
-                // Templates: placeholder ContentUnavailableView destination
-                NavigationLink(destination: ContentUnavailableView("Templates", systemImage: "square.on.square", description: Text("Saved post templates are coming soon."))) {
+                NavigationLink(destination: PostTemplatesSettingsView()) {
                     HStack(spacing: 14) {
                         Image(systemName: "square.on.square")
                             .font(.systemScaled(15, weight: .medium))
@@ -1809,11 +1975,7 @@ struct FeedDiscoverySettingsViewNew: View {
             }
         }
         .navigationDestination(isPresented: $navigateInterests) {
-            ContentUnavailableView(
-                "Interest Preferences",
-                systemImage: "tag",
-                description: Text("Personalised interest topics are coming soon.")
-            )
+            InterestPreferencesSettingsView()
         }
     }
 }
@@ -2015,11 +2177,7 @@ struct ChurchNotesSettingsViewNew: View {
             }
         }
         .navigationDestination(isPresented: $navigateColorTheme) {
-            ContentUnavailableView(
-                "Color Theme Defaults",
-                systemImage: "paintpalette",
-                description: Text("Custom note color themes are coming soon.")
-            )
+            ChurchNotesThemeSettingsView()
         }
     }
 }
@@ -2099,6 +2257,7 @@ struct AccessibilitySettingsViewNew: View {
     @State private var navigateDynamicType = false
     @State private var navigateTextSize = false
     @State private var navigateCaptionStyle = false
+    @State private var navigateAdaptiveColors = false
 
     var body: some View {
         STDetailScaffold(title: "Accessibility") {
@@ -2114,6 +2273,13 @@ struct AccessibilitySettingsViewNew: View {
                 SettingsToggleRow(icon: "circle.lefthalf.filled", title: "High Contrast Mode", subtitle: "Increase text and UI contrast", isOn: $highContrast)
                 STDivider()
                 SettingsToggleRow(icon: "bold", title: "Bold Text", subtitle: "Make all text heavier weight", isOn: $boldText)
+                STDivider()
+                // Adaptive Ambient — opt in/out of letting AMEN take on content colors.
+                // Hosted on its own page so the AdaptiveColorsSetting Section/footer
+                // renders in a Form (a bare Section's footer won't show in this ScrollView).
+                SettingsNavigationRow(icon: "paintpalette", title: "Adaptive Colors", subtitle: "Tint AMEN from photos, profiles & rooms") {
+                    navigateAdaptiveColors = true
+                }
             }
 
             SettingsSectionHeader(title: "Text")
@@ -2139,28 +2305,29 @@ struct AccessibilitySettingsViewNew: View {
             }
         }
         .navigationDestination(isPresented: $navigateDynamicType) {
-            // Open iOS Accessibility > Display & Text Size — deep link not available;
-            // show a friendly pointer to the system setting.
-            ContentUnavailableView(
-                "Dynamic Type",
-                systemImage: "textformat.size",
-                description: Text("Adjust text size in iOS Settings → Accessibility → Display & Text Size.")
-            )
+            DynamicTypeSettingsView()
         }
         .navigationDestination(isPresented: $navigateTextSize) {
-            ContentUnavailableView(
-                "Text Size & Display",
-                systemImage: "textformat.size.larger",
-                description: Text("App-level text size controls are coming soon.")
-            )
+            TextDisplaySettingsView()
         }
         .navigationDestination(isPresented: $navigateCaptionStyle) {
-            ContentUnavailableView(
-                "Caption Style",
-                systemImage: "captions.bubble.fill",
-                description: Text("Custom caption styles are coming soon.")
-            )
+            CaptionStyleSettingsView()
         }
+        .navigationDestination(isPresented: $navigateAdaptiveColors) {
+            AdaptiveColorsSettingsPage()
+        }
+    }
+}
+
+// Host page for the Adaptive Ambient control. A Form is used so the
+// AdaptiveColorsSetting Section renders its explanatory footer correctly.
+private struct AdaptiveColorsSettingsPage: View {
+    var body: some View {
+        Form {
+            AdaptiveColorsSetting()
+        }
+        .navigationTitle("Adaptive Colors")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -2299,18 +2466,10 @@ struct StorageDataSettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: { Text("We'll prepare your data and send a download link to your email within 48 hours.") }
         .navigationDestination(isPresented: $navigateDataCollection) {
-            ContentUnavailableView(
-                "Data Collection",
-                systemImage: "list.bullet.clipboard",
-                description: Text("A full breakdown of what AMEN collects and why is coming soon.")
-            )
+            DataCollectionSettingsView()
         }
         .navigationDestination(isPresented: $navigateDataRetention) {
-            ContentUnavailableView(
-                "Account Data Retention",
-                systemImage: "clock.arrow.circlepath",
-                description: Text("Details about data retention periods are coming soon.")
-            )
+            DataRetentionSettingsView()
         }
     }
 
@@ -2373,7 +2532,6 @@ struct SecuritySettingsViewNew: View {
 
             SettingsSectionHeader(title: "Login History")
             STGroup {
-                // Replace static placeholder with real LoginHistoryView
                 NavigationLink(destination: LoginHistoryView()) {
                     HStack(spacing: 14) {
                         Image(systemName: "clock.arrow.circlepath")
@@ -2470,11 +2628,7 @@ struct FamilySafetySettingsView: View {
             }
         }
         .navigationDestination(isPresented: $navigateGuardian) {
-            ContentUnavailableView(
-                "Guardian Supervision",
-                systemImage: "person.2.fill",
-                description: Text("Set up family supervision through iOS Screen Time in the Settings app.")
-            )
+            GuardianSupervisionSettingsView()
         }
         .navigationDestination(isPresented: $navigateBreaks) {
             TakeABreakSettingsView()
@@ -2614,6 +2768,271 @@ struct SupportTransparencySettingsView: View {
     }
 }
 
+private struct SettingsPickerRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String?
+    @Binding var selection: String
+    let options: [String]
+
+    init(icon: String, title: String, subtitle: String? = nil, selection: Binding<String>, options: [String]) {
+        self.icon = icon
+        self.title = title
+        self.subtitle = subtitle
+        self._selection = selection
+        self.options = options
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.systemScaled(15, weight: .medium))
+                .foregroundStyle(ST.secondary)
+                .frame(width: 22, alignment: .center)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(ST.primary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(ST.tertiary)
+                }
+            }
+            Spacer()
+            Picker(title, selection: $selection) {
+                ForEach(options, id: \.self) { Text($0) }
+            }
+            .pickerStyle(.menu)
+            .foregroundStyle(ST.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
+    }
+}
+
+struct PostTemplatesSettingsView: View {
+    @AppStorage("amen_post_template_signature") private var includeSignature: Bool = true
+    @AppStorage("amen_post_template_call_to_action") private var includeCallToAction: Bool = false
+    @AppStorage("amen_post_template_include_scripture") private var includeScripture: Bool = true
+    @AppStorage("amen_default_audience") private var defaultAudience: String = "Public"
+
+    var body: some View {
+        STDetailScaffold(title: "Templates") {
+            SettingsSectionHeader(title: "Smart Defaults")
+            STGroup {
+                SettingsToggleRow(icon: "signature", title: "Include Signature", subtitle: "Prefill your profile signature in long-form posts", isOn: $includeSignature)
+                STDivider()
+                SettingsToggleRow(icon: "quote.bubble", title: "Include Scripture Context", subtitle: "Offer a verse context field when the post mentions scripture", isOn: $includeScripture)
+                STDivider()
+                SettingsToggleRow(icon: "arrow.up.message", title: "Suggest Next Step", subtitle: "Add a gentle prayer, RSVP, or follow-up prompt when useful", isOn: $includeCallToAction)
+            }
+
+            SettingsSectionHeader(title: "Audience")
+            STGroup {
+                SettingsPickerRow(icon: "person.2", title: "Template Audience", subtitle: "Default audience for new post templates", selection: $defaultAudience, options: ["Public", "Followers", "Close Friends", "Only Me"])
+            }
+        }
+    }
+}
+
+struct InterestPreferencesSettingsView: View {
+    @AppStorage("amen_interest_worship") private var worship: Bool = true
+    @AppStorage("amen_interest_scripture") private var scripture: Bool = true
+    @AppStorage("amen_interest_service") private var service: Bool = true
+    @AppStorage("amen_interest_family") private var family: Bool = false
+    @AppStorage("amen_interest_wellness") private var wellness: Bool = true
+    @AppStorage("amen_interest_local_church") private var localChurch: Bool = true
+
+    var body: some View {
+        STDetailScaffold(title: "Interest Preferences") {
+            SettingsSectionHeader(title: "Feed Signals")
+            STGroup {
+                SettingsToggleRow(icon: "music.note", title: "Worship", subtitle: "Songs, setlists, and worship moments", isOn: $worship)
+                STDivider()
+                SettingsToggleRow(icon: "book", title: "Scripture Study", subtitle: "Verse context and study threads", isOn: $scripture)
+                STDivider()
+                SettingsToggleRow(icon: "hands.sparkles", title: "Service", subtitle: "Needs, volunteering, and local help", isOn: $service)
+                STDivider()
+                SettingsToggleRow(icon: "figure.2.and.child.holdinghands", title: "Family", subtitle: "Family discipleship and household rhythms", isOn: $family)
+                STDivider()
+                SettingsToggleRow(icon: "heart.text.square", title: "Wellness", subtitle: "Gentle mental, spiritual, and rest content", isOn: $wellness)
+                STDivider()
+                SettingsToggleRow(icon: "building.columns", title: "Local Church", subtitle: "Community updates and gatherings near you", isOn: $localChurch)
+            }
+        }
+    }
+}
+
+struct ChurchNotesThemeSettingsView: View {
+    @AppStorage("amen_notes_theme") private var theme: String = "Warm White"
+    @AppStorage("amen_notes_use_theme_for_exports") private var useThemeForExports: Bool = true
+
+    var body: some View {
+        STDetailScaffold(title: "Color Theme Defaults") {
+            SettingsSectionHeader(title: "New Notes")
+            STGroup {
+                SettingsPickerRow(icon: "paintpalette", title: "Default Theme", subtitle: "Applied to new Church Notes", selection: $theme, options: ["Warm White", "Quiet Blue", "Sage", "High Contrast", "Midnight"])
+                STDivider()
+                SettingsToggleRow(icon: "square.and.arrow.up", title: "Use Theme in Exports", subtitle: "Carry note color into PDF exports", isOn: $useThemeForExports)
+            }
+        }
+    }
+}
+
+struct DynamicTypeSettingsView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        STDetailScaffold(title: "Dynamic Type") {
+            SettingsSectionHeader(title: "System Text Size")
+            STGroup {
+                HStack(spacing: 14) {
+                    Image(systemName: "textformat.size")
+                        .font(.systemScaled(15, weight: .medium))
+                        .foregroundStyle(ST.secondary)
+                        .frame(width: 22, alignment: .center)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Current Size")
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(ST.primary)
+                        Text(String(describing: dynamicTypeSize).replacingOccurrences(of: "DynamicTypeSize.", with: ""))
+                            .font(AMENFont.regular(12))
+                            .foregroundStyle(ST.tertiary)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+            }
+        }
+    }
+}
+
+struct TextDisplaySettingsView: View {
+    @AppStorage("amen_app_text_scale") private var textScale: Double = 1.0
+    @AppStorage("amen_bold_text") private var boldText: Bool = false
+    @AppStorage("amen_high_contrast") private var highContrast: Bool = false
+
+    var body: some View {
+        STDetailScaffold(title: "Text Size & Display") {
+            SettingsSectionHeader(title: "App Display")
+            STGroup {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("App Text Scale")
+                            .font(AMENFont.regular(15))
+                            .foregroundStyle(ST.primary)
+                        Spacer()
+                        Text("\(Int(textScale * 100))%")
+                            .font(AMENFont.semiBold(13))
+                            .foregroundStyle(ST.secondary)
+                    }
+                    Slider(value: $textScale, in: 0.85...1.35, step: 0.05)
+                    Text("Amen uses this preference for custom surfaces while still honoring iOS Dynamic Type.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(ST.tertiary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                STDivider()
+                SettingsToggleRow(icon: "bold", title: "Bold Text", isOn: $boldText)
+                STDivider()
+                SettingsToggleRow(icon: "circle.lefthalf.filled", title: "Increase Contrast", isOn: $highContrast)
+            }
+        }
+    }
+}
+
+struct CaptionStyleSettingsView: View {
+    @AppStorage("amen_caption_size") private var captionSize: String = "Standard"
+    @AppStorage("amen_caption_background") private var captionBackground: String = "Soft"
+    @AppStorage("amen_caption_speaker_names") private var speakerNames: Bool = true
+
+    var body: some View {
+        STDetailScaffold(title: "Caption Style") {
+            SettingsSectionHeader(title: "Video Captions")
+            STGroup {
+                SettingsPickerRow(icon: "textformat.size", title: "Caption Size", selection: $captionSize, options: ["Compact", "Standard", "Large", "Extra Large"])
+                STDivider()
+                SettingsPickerRow(icon: "rectangle.fill", title: "Background", selection: $captionBackground, options: ["None", "Soft", "High Contrast"])
+                STDivider()
+                SettingsToggleRow(icon: "person.wave.2", title: "Speaker Names", subtitle: "Show names when transcripts identify speakers", isOn: $speakerNames)
+            }
+        }
+    }
+}
+
+struct DataCollectionSettingsView: View {
+    @AppStorage("amen_data_collection_personalization") private var personalization: Bool = true
+    @AppStorage("amen_data_collection_diagnostics") private var diagnostics: Bool = true
+    @AppStorage("amen_data_collection_location") private var locationContext: Bool = false
+
+    var body: some View {
+        STDetailScaffold(title: "Data Collection") {
+            SettingsSectionHeader(title: "Controls")
+            STGroup {
+                SettingsToggleRow(icon: "sparkles", title: "Personalization Signals", subtitle: "Use saved preferences to make defaults smarter", isOn: $personalization)
+                STDivider()
+                SettingsToggleRow(icon: "wrench.and.screwdriver", title: "Diagnostics", subtitle: "Share crash and performance data", isOn: $diagnostics)
+                STDivider()
+                SettingsToggleRow(icon: "location", title: "Location Context", subtitle: "Use approximate context for Sunday, commute, and local church modes", isOn: $locationContext)
+            }
+        }
+    }
+}
+
+struct DataRetentionSettingsView: View {
+    @AppStorage("amen_data_retention_posts") private var posts: String = "Until deleted"
+    @AppStorage("amen_data_retention_search") private var search: String = "30 days"
+    @AppStorage("amen_data_retention_ai") private var ai: String = "90 days"
+
+    var body: some View {
+        STDetailScaffold(title: "Account Data Retention") {
+            SettingsSectionHeader(title: "Retention")
+            STGroup {
+                SettingsPickerRow(icon: "square.text.square", title: "Posts & Profile", selection: $posts, options: ["Until deleted", "Archive after 1 year", "Private after 1 year"])
+                STDivider()
+                SettingsPickerRow(icon: "magnifyingglass", title: "Search History", selection: $search, options: ["Off", "7 days", "30 days", "90 days"])
+                STDivider()
+                SettingsPickerRow(icon: "sparkles", title: "Berean AI Context", selection: $ai, options: ["Off", "30 days", "90 days", "Until cleared"])
+            }
+        }
+    }
+}
+
+struct GuardianSupervisionSettingsView: View {
+    @AppStorage("amen_guardian_review_required") private var reviewRequired: Bool = false
+    @AppStorage("amen_guardian_digest") private var digest: String = "Weekly"
+    @AppStorage("amen_guardian_invite_email") private var inviteEmail: String = ""
+
+    var body: some View {
+        STDetailScaffold(title: "Guardian Supervision") {
+            SettingsSectionHeader(title: "Family Controls")
+            STGroup {
+                SettingsToggleRow(icon: "checkmark.shield", title: "Require Guardian Review", subtitle: "Review sensitive follows, DMs, and visibility changes", isOn: $reviewRequired)
+                STDivider()
+                SettingsPickerRow(icon: "calendar.badge.clock", title: "Guardian Digest", subtitle: "How often to summarize safety events", selection: $digest, options: ["Off", "Daily", "Weekly"])
+                STDivider()
+                HStack(spacing: 14) {
+                    Image(systemName: "envelope")
+                        .font(.systemScaled(15, weight: .medium))
+                        .foregroundStyle(ST.secondary)
+                        .frame(width: 22, alignment: .center)
+                    TextField("Guardian email", text: $inviteEmail)
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .font(AMENFont.regular(15))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+            }
+        }
+    }
+}
+
 // MARK: - 15. About
 
 struct AboutSettingsViewNew: View {
@@ -2643,6 +3062,12 @@ struct AboutSettingsViewNew: View {
                 Text("Version \(appVersion) (Build \(buildNumber))")
                     .font(AMENFont.regular(13))
                     .foregroundStyle(ST.secondary)
+                Text(AMENBuildInfo.displaySummary)
+                    .font(AMENFont.regular(11))
+                    .foregroundStyle(ST.tertiary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
                     .padding(.bottom, 16)
             }
             .frame(maxWidth: .infinity)

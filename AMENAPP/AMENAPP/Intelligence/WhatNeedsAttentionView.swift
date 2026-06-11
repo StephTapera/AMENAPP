@@ -93,10 +93,10 @@ struct BriefContentView: View {
     let brief: IntelligenceBrief
     let onAction: (CardAction, String) -> Void
 
-    /// Cards grouped by Tier in canonical order: SPIRITUAL → COMMUNITY → FAMILY → LOCAL → GLOBAL
-    private var groupedByTier: [(Tier, [IntelligenceCard])] {
+    /// Cards grouped by IntelligenceTier in canonical order: SPIRITUAL → COMMUNITY → FAMILY → LOCAL → GLOBAL
+    private var groupedByTier: [(IntelligenceTier, [IntelligenceCard])] {
         let grouped = Dictionary(grouping: brief.cards, by: \.tier)
-        return Tier.allCases.compactMap { tier in
+        return IntelligenceTier.allCases.compactMap { tier in
             guard let cards = grouped[tier], !cards.isEmpty else { return nil }
             return (tier, cards)
         }
@@ -105,7 +105,7 @@ struct BriefContentView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                // Tier sections
+                // IntelligenceTier sections
                 ForEach(groupedByTier, id: \.0) { tier, cards in
                     tierSection(tier: tier, cards: cards)
                 }
@@ -117,9 +117,9 @@ struct BriefContentView: View {
         }
     }
 
-    // MARK: - Tier Section
+    // MARK: - IntelligenceTier Section
 
-    private func tierSection(tier: Tier, cards: [IntelligenceCard]) -> some View {
+    private func tierSection(tier: IntelligenceTier, cards: [IntelligenceCard]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             IntelligenceTierHeaderView(tier: tier)
 

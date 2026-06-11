@@ -86,7 +86,7 @@ export const createCovenantCheckoutSession = onCall(
         }
 
         // ── 5. Create Stripe checkout session ─────────────────────────────────
-        const stripe = new Stripe(stripeSecretKey, { apiVersion: "2023-10-16" });
+        const stripe = new Stripe(stripeSecretKey, { apiVersion: "2026-05-27.dahlia" });
 
         try {
             const session = await stripe.checkout.sessions.create({

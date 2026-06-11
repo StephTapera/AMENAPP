@@ -9,7 +9,7 @@ import {
 
 const ts = (iso: string) => admin.firestore.Timestamp.fromDate(new Date(iso));
 
-function signal(overrides: Partial<BereanPulseSignal>): BereanPulseSignal {
+function signal(overrides: Partial<BereanPulseSignal> = {}): BereanPulseSignal {
   return {
     id: overrides.id ?? "signal_1",
     source: overrides.source ?? "savedPosts",

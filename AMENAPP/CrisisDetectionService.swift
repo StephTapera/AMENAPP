@@ -147,7 +147,8 @@ class CrisisDetectionService {
             return quickResult
         }
         
-        // Step 2: Call Firebase AI Logic for deep analysis
+        // Step 2: Call Firebase AI Logic for deep analysis (Disabled due to build blockers)
+        /*
         let aiResult = try await callFirebaseAICrisisDetectionAPI(
             prayerText: prayerText,
             userId: userId
@@ -165,6 +166,17 @@ class CrisisDetectionService {
         }
         
         return aiResult
+        */
+        
+        // Fallback since AI is disabled
+        return CrisisDetectionResult(
+            isCrisis: false,
+            crisisTypes: [],
+            urgencyLevel: .none,
+            recommendedResources: [],
+            confidence: 0.0,
+            suggestedIntervention: .none
+        )
     }
     
     // MARK: - Quick Local Crisis Detection

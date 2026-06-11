@@ -2292,36 +2292,23 @@ struct BereanAIAssistantView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         
         switch action {
-        case .attachFile:
-            fileAttachmentPickerPresented = true
-        case .camera:
+        case .bibleVerse:
+            showVerseLookup = true
+            messageText = "Add this Bible verse to our conversation: "
+        case .prayerRequest:
+            messageText = "Help me carry this prayer request with care: "
+        case .churchNotes:
+            messageText = "Summarize these church notes and suggest next steps: "
+        case .safePhoto:
             showCamera = true
         case .voiceNote:
             handleVoiceButtonTap()
-        case .verseLookup:
-            showVerseLookup = true
-        case .summarize:
-            let textToSummarize = messageText
-            guard !textToSummarize.isEmpty else { return }
-            Task {
-                let fn = Functions.functions(region: "us-central1").httpsCallable("bereanSummarize")
-                if let result = try? await fn.call(["text": textToSummarize]),
-                   let summary = (result.data as? [String: Any])?["summary"] as? String {
-                    let response = BereanMessage(content: summary, role: .assistant, timestamp: Date())
-                    await MainActor.run { viewModel.appendMessage(response) }
-                }
-            }
-        case .searchScripture:
-            let query = messageText
-            guard !query.isEmpty else { return }
-            Task {
-                let fn = Functions.functions(region: "us-central1").httpsCallable("bereanScriptureSearch")
-                if let result = try? await fn.call(["query": query]),
-                   let answer = (result.data as? [String: Any])?["results"] as? String {
-                    let response = BereanMessage(content: answer, role: .assistant, timestamp: Date())
-                    await MainActor.run { viewModel.appendMessage(response) }
-                }
-            }
+        case .sermonClip:
+            messageText = "Turn this sermon clip into a clear summary and reflection: "
+        case .reminder:
+            messageText = "Create a gentle reminder for this: "
+        case .shareToSpace:
+            messageText = "Help me share this to a Space safely and thoughtfully: "
         }
     }
     

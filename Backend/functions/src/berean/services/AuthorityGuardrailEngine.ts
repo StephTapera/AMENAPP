@@ -173,7 +173,7 @@ export function buildEscalationContextSummary(
   primaryTopic: string,
   sensitivityFlag: SensitivityFlag
 ): string {
-  const descriptions: Record<SensitivityFlag, string> = {
+  const descriptions: Partial<Record<SensitivityFlag, string>> = {
     crisis_escalation: `A member may be experiencing a crisis moment. Their conversation touched on themes of distress or hopelessness.`,
     pastoral_escalation: `A member had a question about "${primaryTopic}" that is beyond the scope of AI and would benefit from your pastoral wisdom.`,
     scrupulosity_risk: `A member may be experiencing spiritual anxiety around "${primaryTopic}". Gentle pastoral care is recommended.`,
@@ -185,3 +185,22 @@ export function buildEscalationContextSummary(
 
   return descriptions[sensitivityFlag] ?? `A pastoral follow-up is recommended for "${primaryTopic}".`;
 }
+
+export const authorityGuardrailEngine = {
+  auditResponse,
+  createLeadershipReferral,
+  buildEscalationContextSummary,
+  evaluate(messageText: string, flags: SensitivityFlag[]) {
+    const lower = messageText.toLowerCase();
+    const flagSet = new Set(flags);
+    const crisis = flagSet.has("crisis_escalation") || flagSet.has("self_harm") || flagSet.has("suicidal_language");
+    const abuse = flagSet.has("abuse") || flagSet.has("spiritual_abuse") || lower.includes("abuse");
+    const pastoral = crisis || abuse || flagSet.has("pastoral_escalation") || flagSet.has("doctrinal_conflict");
+    return {
+      topicClass: crisis ? "suicidality" : abuse ? "abuse_disclosure" : pastoral ? "pastoral_discernment" : "general",
+      escalationRequired: pastoral,
+      escalationTargets: crisis ? ["crisis_line", "pastor", "trusted_person"] : pastoral ? ["pastor", "mentor"] : [],
+      safeResponsePolicy: crisis ? "crisis_safe" : pastoral ? "leadership_redirect" : "balanced",
+    };
+  },
+};

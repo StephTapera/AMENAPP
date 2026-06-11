@@ -174,22 +174,29 @@ struct BereanEnhancedComposerWrapper: View {
     
     private func handleQuickAction(_ action: BereanLiquidAction.ActionType) {
         switch action {
-        case .attachFile, .camera:
+        case .bibleVerse:
+            composerVM.setState(.scriptureMode)
+            composerVM.showStatus(.verseLookup)
+            messageText = "Add this Bible verse to our conversation: "
+            isInputFocused = true
+        case .prayerRequest:
+            messageText = "Help me carry this prayer request with care: "
+            isInputFocused = true
+        case .churchNotes:
+            messageText = "Summarize these church notes and suggest next steps: "
+            isInputFocused = true
+        case .safePhoto:
             onPlusButtonTap()
         case .voiceNote:
             handleVoiceAction()
-        case .verseLookup:
-            composerVM.setState(.scriptureMode)
-            composerVM.showStatus(.verseLookup)
-            messageText = ""
+        case .sermonClip:
+            messageText = "Turn this sermon clip into a clear summary and reflection: "
             isInputFocused = true
-        case .summarize:
-            messageText = "Summarize this: "
+        case .reminder:
+            messageText = "Create a gentle reminder for this: "
             isInputFocused = true
-        case .searchScripture:
-            composerVM.setState(.searchMode)
-            composerVM.showStatus(.searchMode)
-            messageText = ""
+        case .shareToSpace:
+            messageText = "Help me share this to a Space safely and thoughtfully: "
             isInputFocused = true
         }
     }

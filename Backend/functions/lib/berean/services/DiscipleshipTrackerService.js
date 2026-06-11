@@ -46,6 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.discipleshipTrackerService = void 0;
 exports.recordDiscipleshipEvent = recordDiscipleshipEvent;
 exports.createFollowUpPrompt = createFollowUpPrompt;
 exports.getRecentEvents = getRecentEvents;
@@ -152,4 +153,44 @@ function extractBookFromReference(reference) {
     const match = reference.match(/^([1-3]?\s?[A-Za-z]+(?:\s[A-Za-z]+)?)/);
     return match ? match[1].trim() : reference.split(" ")[0];
 }
+exports.discipleshipTrackerService = {
+    recordDiscipleshipEvent,
+    createFollowUpPrompt,
+    getRecentEvents,
+    async generateNextSteps(userId, conversationId, sourceThemeIds, sourcePassageIds) {
+        const db = admin.firestore();
+        const now = admin.firestore.Timestamp.now();
+        const theme = sourceThemeIds[0] ?? "faithfulness";
+        const passage = sourcePassageIds[0] ?? "Scripture";
+        const recommendation = {
+            userId,
+            title: `Practice ${theme} this week`,
+            description: `Choose one concrete response from ${passage} and revisit it before your next Berean study.`,
+            practiceType: "scripture_application",
+            status: "open",
+            conversationId,
+            sourceThemeIds,
+            sourcePassageIds,
+            createdAt: now,
+            updatedAt: now,
+        };
+        const recommendationRef = db.collection("users").doc(userId).collection("practiceRecommendations").doc();
+        await recommendationRef.set(recommendation);
+        const followUp = {
+            id: (0, uuid_1.v4)(),
+            userId,
+            promptText: `What did you notice as you practiced ${theme}?`,
+            sourceSessionId: conversationId,
+            passageReference: passage,
+            scheduledFor: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+            status: "pending",
+            createdAt: now,
+        };
+        await db.collection("users").doc(userId).collection("followUpPrompts").doc(followUp.id).set(followUp);
+        return {
+            recommendations: [{ id: recommendationRef.id, ...recommendation }],
+            followUps: [followUp],
+        };
+    },
+};
 //# sourceMappingURL=DiscipleshipTrackerService.js.map

@@ -228,6 +228,10 @@ struct PrayerView: View {
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
                         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                         .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
+                        // Center the empty card in a taller block so short content sits in the
+                        // visible vertical center instead of falling under the floating Ask Berean bar.
+                        .frame(maxWidth: .infinity, minHeight: 340, alignment: .center)
+                        .padding(.top, 8)
                     }
                 }
                 .padding(.horizontal)

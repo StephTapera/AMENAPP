@@ -1,12 +1,12 @@
 import * as admin from "firebase-admin";
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { CallableRequest, HttpsError, onCall } from "firebase-functions/v2/https";
 import { enforceRateLimit } from "./rateLimit";
 
 const db = admin.firestore();
 
 const SETTINGS_RATE_LIMIT = [
     { name: "settings_update_1min", windowMs: 60_000, maxCalls: 30 },
-    { name: "settings_update_1day", windowMs: 86_400_000, maxCalls: 1_000 },
+    { name: "settings_update_1day", windowMs: 86_400_000, maxCalls: 1000 },
 ];
 
 const ALLOWED_KEYS = new Set([
@@ -27,7 +27,7 @@ const ALLOWED_KEYS = new Set([
     "amen_creator_weekly_digest", "amen_creator_prayerful_metrics", "amen_creator_growth_prompts",
 ]);
 
-function requireAuth(request: { auth?: { uid?: string } }): string {
+function requireAuth(request: CallableRequest): string {
     const uid = request.auth?.uid;
     if (!uid) {
         throw new HttpsError("unauthenticated", "Authentication required.");
@@ -35,19 +35,12 @@ function requireAuth(request: { auth?: { uid?: string } }): string {
     return uid;
 }
 
-function requireApp(request: { app?: unknown }): void {
-    if (!request.app) {
-        throw new HttpsError("failed-precondition", "App Check required.");
-    }
-}
-
 function cleanValues(raw: unknown): Record<string, string> {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
         throw new HttpsError("invalid-argument", "values must be an object.");
     }
-
     const values: Record<string, string> = {};
-    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(raw)) {
         if (!ALLOWED_KEYS.has(key)) {
             continue;
         }
@@ -60,21 +53,20 @@ function cleanValues(raw: unknown): Record<string, string> {
         }
         values[key] = trimmed;
     }
-
     return values;
 }
 
-export const updateUserSettings = onCall({ region: "us-central1" }, async (request) => {
-    requireApp(request);
-    const uid = requireAuth(request);
-    await enforceRateLimit(uid, SETTINGS_RATE_LIMIT);
-
-    const values = cleanValues((request.data as { values?: unknown } | undefined)?.values);
-    await db.collection("userSettings").doc(uid).set({
-        uid,
-        values,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-
-    return { ok: true, savedKeys: Object.keys(values).length };
-});
+export const updateUserSettings = onCall(
+    { region: "us-central1", enforceAppCheck: true, timeoutSeconds: 20 },
+    async (request: CallableRequest) => {
+        const uid = requireAuth(request);
+        await enforceRateLimit(uid, SETTINGS_RATE_LIMIT);
+        const values = cleanValues(request.data?.values);
+        await db.collection("userSettings").doc(uid).set({
+            uid,
+            values,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        return { ok: true, savedKeys: Object.keys(values).length };
+    }
+);

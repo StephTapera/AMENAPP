@@ -192,8 +192,46 @@ struct ProfileView: View {
     
     var body: some View {
         NavigationStack {
-            profileRootView
+            // Adaptive Ambient: wrap the profile root so the screen's palette/intensity
+            // is installed into the environment. Default-safe: AdaptiveColorsMode == .off
+            // renders byte-identical neutral, and a nil hero image fails closed to neutral.
+            AmbientScope { coordinator in
+                profileRootView
+                    // Collapse progress derived from the existing scroll offset.
+                    // scrollOffset is 0 at top and grows negative as the hero scrolls up;
+                    // it reaches the compact-header threshold at -200pt, so map [-200, 0] -> [1, 0].
+                    .adaptiveNavigationChrome(
+                        collapseProgress: min(max(-scrollOffset / 200.0, 0.0), 1.0)
+                    )
+                    .onAppear { driveAmbient(coordinator) }
+                    // Re-drive when the avatar URL changes (e.g. after a photo edit).
+                    .onChange(of: profileData.profileImageURL) { _, _ in
+                        driveAmbient(coordinator)
+                    }
+                    // Clear the tint on the way out so the next screen starts neutral.
+                    .onDisappear {
+                        coordinator.reset(scheme: ambientScheme, reduceMotion: ambientReduceMotion)
+                    }
+            }
         }
+    }
+
+    // MARK: - Adaptive Ambient wiring
+
+    @Environment(\.colorScheme) private var ambientScheme
+    @Environment(\.accessibilityReduceMotion) private var ambientReduceMotion
+
+    /// Drive the ambient palette from the user's avatar/hero.
+    private func driveAmbient(_ coordinator: AmbientCoordinator) {
+        let uid = Auth.auth().currentUser?.uid ?? "self"
+        // Revision: profileImageURL changes when the photo changes, so use it (or "1") as the revision token.
+        let revision = profileData.profileImageURL ?? "1"
+        let key = AmbientSourceKey(id: "user/\(uid)/hero", revision: revision)
+        // TODO(ambient): the avatar is rendered via CachedAsyncImage(url:) and no decoded
+        // UIImage is reachable at this scope. Pass the decoded hero UIImage here once it is
+        // hoisted (e.g. via a cached image lookup keyed on profileData.profileImageURL) so
+        // the palette extracts real content color instead of failing closed to neutral.
+        coordinator.drive(with: nil, key: key, scheme: ambientScheme, reduceMotion: ambientReduceMotion)
     }
 
     private var profileRootView: some View {
@@ -206,6 +244,11 @@ struct ProfileView: View {
             .task {
             // Load profile data BEFORE view appears (ensures username shows immediately)
             dlog("👁️ ProfileView task started")
+            guard Auth.auth().currentUser?.uid != nil else {
+                dlog("👁️ ProfileView task skipped — no Firebase Auth user")
+                isLoading = false
+                return
+            }
             printDataState(context: "task - Before")
             
             // ⚡️ INSTANT: Pre-populate posts from PostsManager cache so posts show
@@ -4439,6 +4482,13 @@ struct AboutAmenView: View {
                     Text("Version 1.0.0 (Build 100)")
                         .font(AMENFont.regular(14))
                         .foregroundStyle(.secondary)
+
+                    Text(AMENBuildInfo.displaySummary)
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
                 }
                 
                 // Tagline

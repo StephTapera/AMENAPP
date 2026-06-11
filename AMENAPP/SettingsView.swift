@@ -30,6 +30,12 @@ private enum SD {
 // MARK: - SettingsView
 
 struct SettingsView: View {
+    var body: some View {
+        AMENSettingsView()
+    }
+}
+
+struct LegacySettingsView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject private var authViewModel: AuthenticationViewModel
 

@@ -9,6 +9,12 @@
 //  Target: iOS 17+ (Liquid Glass `glassEffect` is guarded behind #available(iOS 26)
 //  in the components layer). This file is SDK-safe on iOS 17.
 //
+//  Isolation note: this module compiles with MainActor-default actor isolation. The
+//  palette currency must cross actor boundaries into the off-main `AdaptiveColorEngine`
+//  (invariant C7 — extraction never runs on the main actor), so the value types and
+//  their members are explicitly `nonisolated`. This is an isolation annotation only;
+//  it does not change the public shape of the frozen types.
+//
 
 import SwiftUI
 
@@ -54,9 +60,9 @@ public struct AmbientPalette: Equatable, Sendable {
     public var shadow: Color          // ambient shadow color (darkened dominant)
     public var isDarkContent: Bool    // drives glass style + status bar style
 
-    public init(dominant: Color, background: Color, accent: Color,
-                textPrimary: Color, textSecondary: Color,
-                glassTint: Color, shadow: Color, isDarkContent: Bool) {
+    nonisolated public init(dominant: Color, background: Color, accent: Color,
+                            textPrimary: Color, textSecondary: Color,
+                            glassTint: Color, shadow: Color, isDarkContent: Bool) {
         self.dominant = dominant; self.background = background; self.accent = accent
         self.textPrimary = textPrimary; self.textSecondary = textSecondary
         self.glassTint = glassTint; self.shadow = shadow; self.isDarkContent = isDarkContent
@@ -64,29 +70,33 @@ public struct AmbientPalette: Equatable, Sendable {
 
     /// Canonical AMEN neutrals — the fail-closed fallback and the .off rendering.
     /// Matches the white/light Liquid Glass system: neutral gray page, white cards, black SF text.
-    public static let neutralLight = AmbientPalette(
-        dominant: Color(white: 0.45),
-        background: Color(uiColor: .systemGroupedBackground),
-        accent: Color.accentColor,
-        textPrimary: .primary,
-        textSecondary: .secondary,
-        glassTint: Color.white.opacity(0.0),
-        shadow: Color.black.opacity(0.12),
-        isDarkContent: false
-    )
+    nonisolated public static var neutralLight: AmbientPalette {
+        AmbientPalette(
+            dominant: Color(white: 0.45),
+            background: Color(uiColor: .systemGroupedBackground),
+            accent: Color.accentColor,
+            textPrimary: .primary,
+            textSecondary: .secondary,
+            glassTint: Color.white.opacity(0.0),
+            shadow: Color.black.opacity(0.12),
+            isDarkContent: false
+        )
+    }
 
-    public static let neutralDark = AmbientPalette(
-        dominant: Color(white: 0.6),
-        background: Color(uiColor: .systemBackground),
-        accent: Color.accentColor,
-        textPrimary: .primary,
-        textSecondary: .secondary,
-        glassTint: Color.black.opacity(0.0),
-        shadow: Color.black.opacity(0.35),
-        isDarkContent: true
-    )
+    nonisolated public static var neutralDark: AmbientPalette {
+        AmbientPalette(
+            dominant: Color(white: 0.6),
+            background: Color(uiColor: .systemBackground),
+            accent: Color.accentColor,
+            textPrimary: .primary,
+            textSecondary: .secondary,
+            glassTint: Color.black.opacity(0.0),
+            shadow: Color.black.opacity(0.35),
+            isDarkContent: true
+        )
+    }
 
-    public static func neutral(for scheme: ColorScheme) -> AmbientPalette {
+    nonisolated public static func neutral(for scheme: ColorScheme) -> AmbientPalette {
         scheme == .dark ? .neutralDark : .neutralLight
     }
 }
@@ -98,8 +108,8 @@ public struct AmbientPalette: Equatable, Sendable {
 public struct AmbientSourceKey: Hashable, Sendable {
     public let id: String          // e.g. "post/abc123" or "user/uid/avatar"
     public let revision: String    // media version hash or updatedAt millis
-    public init(id: String, revision: String) { self.id = id; self.revision = revision }
-    public var cacheKey: String { "\(id)#\(revision)" }
+    nonisolated public init(id: String, revision: String) { self.id = id; self.revision = revision }
+    nonisolated public var cacheKey: String { "\(id)#\(revision)" }
 }
 
 // MARK: - Environment plumbing (frozen keys)

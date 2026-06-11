@@ -68,7 +68,7 @@ struct AmenOrgDiscoveryView: View {
             Image(systemName: "magnifyingglass")
                 .font(.largeTitle)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
-            Text("Organization discovery is coming soon.")
+            Text("Organization discovery is off")
                 .font(.subheadline)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
                 .multilineTextAlignment(.center)

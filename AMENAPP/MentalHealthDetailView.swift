@@ -63,10 +63,9 @@ struct MentalHealthDetailView: View {
                             .padding(.top, 28)
                     }
 
-                    Spacer(minLength: 60)
+                    Spacer(minLength: 220)
                 }
             }
-            .ignoresSafeArea(edges: .top)
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -84,7 +83,7 @@ struct MentalHealthDetailView: View {
     private let wellnessSub     = Color(.secondaryLabel)
 
     private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
@@ -104,28 +103,31 @@ struct MentalHealthDetailView: View {
                     .foregroundStyle(wellnessSub)
 
                 Text("Mind,\nBody & Soul")
-                    .font(.custom("Georgia", size: 38))
+                    .font(.custom("Georgia", size: 36))
                     .fontWeight(.regular)
                     .foregroundStyle(wellnessLight)
-                    .lineSpacing(4)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.86)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(3)
 
                 Text("Faith-based care at every level of need.")
                     .font(.systemScaled(14, weight: .regular))
                     .foregroundStyle(wellnessSub)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 24)
-        .padding(.top, 56)
-        .padding(.bottom, 24)
-        .frame(maxWidth: .infinity)
-        .frame(height: 260, alignment: .top)
+        .padding(.top, 18)
+        .padding(.bottom, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 188, alignment: .topLeading)
         .background(Color(.systemBackground))
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Color(.separator).opacity(0.14))
                 .frame(height: 1)
         }
-        .ignoresSafeArea(edges: .top)
         .opacity(appeared ? 1 : 0)
     }
 
@@ -137,16 +139,16 @@ struct MentalHealthDetailView: View {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.systemScaled(14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(crisisRed)
                 Text("NEED HELP NOW?")
                     .font(.custom("OpenSans-Bold", size: 13))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ink)
                     .kerning(0.5)
                 Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(crisisRed)
+            .background(Color(.systemBackground))
 
             // Quick-dial rows
             VStack(spacing: 0) {
@@ -178,7 +180,7 @@ struct MentalHealthDetailView: View {
                     urlString: "tel:911"
                 )
             }
-            .background(Color(red: 0.99, green: 0.97, blue: 0.97))
+            .background(Color(.systemBackground))
 
             // For a friend row
             Button {
@@ -199,17 +201,15 @@ struct MentalHealthDetailView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color(red: 1.0, green: 0.95, blue: 0.95))
+                .background(Color(.systemBackground))
             }
             .buttonStyle(PlainButtonStyle())
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .amenGlassCard(cornerRadius: 16, shadow: true)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(crisisRed.opacity(0.25), lineWidth: 1)
+                .stroke(crisisRed.opacity(0.24), lineWidth: 1)
         )
-        .shadow(color: crisisRed.opacity(0.10), radius: 12, y: 4)
-        .shadow(color: Color.black.opacity(0.04), radius: 4, y: 2)
     }
 
     // MARK: Tab Switcher

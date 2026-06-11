@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.writeTrustSnapshot = exports.writeTrustEvent = exports.writeAgentExecutionLog = exports.writeAgentRecommendation = exports.writeAgentInsight = void 0;
+exports.requireAppCheck = requireAppCheck;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();

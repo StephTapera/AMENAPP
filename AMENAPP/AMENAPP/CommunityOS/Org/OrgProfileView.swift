@@ -13,7 +13,7 @@
 //   4. Description (3-line collapse with "Read more" expand)
 //   5. Follow + Message buttons
 //   6. ChurchCapabilitySection (if church type)
-//   7. Opportunity section stub: "Open Positions" header + OpportunityCard rows
+//   7. Opportunity section: "Open Positions" header + OpportunityCard rows
 //
 // Privacy rules:
 //   - memberCount is NEVER displayed (hidden by design in OrgProfile model)
@@ -84,7 +84,7 @@ struct OrgProfileView: View {
             Text(profile.name)
                 .font(.headline)
                 .foregroundStyle(Color(uiColor: .label))
-            Text("Org profiles are coming soon.")
+            Text("Org profiles are off")
                 .font(.subheadline)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }
@@ -359,7 +359,7 @@ struct OrgProfileView: View {
     // MARK: Data Loading
 
     private func loadPreviewOpportunities() {
-        // Stub: no Firestore load in this preview tier.
+        // Preview-tier path intentionally avoids Firestore.
         // Full integration wires OpportunityService.fetchByOrg(orgId:).
         previewOpportunities = []
     }

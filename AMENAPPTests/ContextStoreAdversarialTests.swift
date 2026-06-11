@@ -20,6 +20,10 @@
 // the frozen Swift contracts — no Firebase imports required, so this file compiles
 // and runs standalone.
 
+// The file can be discovered by non-test targets because it lives beside the
+// ContextStore sources, so keep the XCTest-only declarations behind a test-target
+// compilation condition. The tests still compile and run in AMENAPPTests.
+#if AMENAPP_TESTS
 import XCTest
 @testable import AMENAPP
 
@@ -231,3 +235,4 @@ final class ContextStoreAdversarialTests: XCTestCase {
                        "Adults must be allowed Context QR, proving the minor gate is specific.")
     }
 }
+#endif

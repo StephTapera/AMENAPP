@@ -70,6 +70,7 @@ struct DiscussionRoomView: View {
                             }
 
                             summaryCard
+                            roomBriefingCard
 
                             if isLocked {
                                 lockedBanner
@@ -166,6 +167,59 @@ struct DiscussionRoomView: View {
             .padding(.top, 8)
             .padding(.bottom, 4)
         }
+    }
+
+    // MARK: - Room Briefing
+
+    @ViewBuilder
+    private var roomBriefingCard: some View {
+        if AMENFeatureFlags.shared.actionIntelligenceEnabled,
+           let briefing = actionIntelligenceBriefing,
+           !briefing.items.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("What matters now", systemImage: "sparkles")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+
+                ForEach(briefing.items.prefix(4)) { item in
+                    HStack(spacing: 10) {
+                        Image(systemName: item.intentKind == .prayerNeed ? "hands.sparkles" : "checklist")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 20)
+                        Text("\(item.count) \(item.title)")
+                            .font(.callout)
+                            .foregroundStyle(Color(uiColor: .label))
+                        Spacer(minLength: 8)
+                        if let suggestedAction = item.suggestedAction {
+                            Text(suggestedAction.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Room briefing: \(briefing.currentGoals.joined(separator: ", "))")
+        }
+    }
+
+    private var actionIntelligenceBriefing: AmenRoomBriefing? {
+        let context = [room.title, room.summaryText ?? ""].joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !context.isEmpty,
+              let analysis = ActionIntelligenceEngine.shared.analyzeText(
+                context,
+                id: room.id,
+                surface: .amenRoom,
+                privacyTier: .publicCommunity
+              ) else { return nil }
+        return ActionIntelligenceEngine.shared.buildRoomBriefing(roomId: room.id, title: room.title, analyses: [analysis])
     }
 
     // MARK: - Locked Banner
@@ -309,9 +363,14 @@ struct DiscussionRoomView: View {
                 .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
-            Text("Discussion rooms are coming soon.")
-                .font(.callout)
+            Text("Discussion rooms are off")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(Color(uiColor: .label))
+            Text("Enable CommunityOS discussions to load the real room, provenance, replies, and Berean actions.")
+                .font(.footnote)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())

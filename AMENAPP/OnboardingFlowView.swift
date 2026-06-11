@@ -1542,22 +1542,18 @@ private struct OnboardingNextButton: View {
     let action: () -> Void
     @State private var isPressed = false
 
-    private var bgColor: Color { onLight ? .black : .black }
-    private var textColor: Color { .white }
-
     var body: some View {
         Button {
             guard isEnabled else { return }
             action()
         } label: {
             Text(title)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
                 .font(.headline)
-                .foregroundColor(textColor)
-                .background(isEnabled ? bgColor : bgColor.opacity(0.35))
-                .cornerRadius(50)
-                .shadow(color: .black.opacity(onLight ? 0.12 : 0.05), radius: 10, x: 0, y: 5)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 56)
+                .amenLiquidGlassCapsuleSurface(isPressed: isPressed, isSelected: isEnabled)
+                .opacity(isEnabled ? 1 : 0.55)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
@@ -1616,25 +1612,17 @@ private struct OnboardingInterestChip: View {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.systemScaled(12, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color.white : Color.black.opacity(isDisabled ? 0.22 : 0.70))
+                    .foregroundStyle(Color.black.opacity(isDisabled && !isSelected ? 0.22 : 0.70))
                 Text(text)
                     .font(.systemScaled(13, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.white : Color.black.opacity(isDisabled ? 0.28 : 0.84))
+                    .foregroundStyle(Color.black.opacity(isDisabled && !isSelected ? 0.28 : 0.84))
                     .lineLimit(1)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
             .frame(maxWidth: .infinity)
-            .background(
-                isSelected
-                ? AnyView(Capsule().fill(Color.black))
-                : AnyView(
-                    Capsule()
-                        .fill(Color.white.opacity(0.82))
-                        .overlay(Capsule().stroke(Color.black.opacity(isDisabled ? 0.05 : 0.10), lineWidth: 1))
-                )
-            )
-            .shadow(color: .black.opacity(isSelected ? 0.12 : 0.04), radius: isSelected ? 10 : 6, x: 0, y: isSelected ? 5 : 2)
+            .amenLiquidGlassCapsuleSurface(isSelected: isSelected)
+            .opacity(isDisabled && !isSelected ? 0.55 : 1)
         }
         .buttonStyle(.plain)
         .scaleEffect(scale)
@@ -1681,13 +1669,8 @@ private struct OnboardingSuggestedUserRow: View {
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 7)
-                .foregroundStyle(isFollowing ? Color.black.opacity(0.58) : Color.white)
-                .background(
-                    isFollowing
-                    ? AnyView(Capsule().fill(Color.white.opacity(0.9)))
-                    : AnyView(Capsule().fill(Color.black))
-                )
-                .overlay(Capsule().stroke(Color.black.opacity(isFollowing ? 0.10 : 0.0), lineWidth: 1))
+                .foregroundStyle(Color.black.opacity(isFollowing ? 0.58 : 0.84))
+                .amenLiquidGlassCapsuleSurface(isSelected: !isFollowing)
                 .buttonStyle(.plain)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
         }

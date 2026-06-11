@@ -232,3 +232,22 @@ async function storeSessionRecord(
       sessionStartedAt: classification.classifiedAt,
     });
 }
+
+export const spiritualStateEngine = {
+  classifySpiritualState,
+  classify(messageText: string) {
+    const signals = extractSignals(messageText.toLowerCase());
+    const primaryState = determinePrimaryState(signals, messageText.toLowerCase());
+    const selectedResponseMode = selectResponseMode(primaryState, signals);
+    return {
+      primaryState,
+      signals,
+      selectedResponseMode,
+      sensitivityFlags: detectSensitivityFlags(messageText, primaryState),
+      escalationTriggered: signals.crisisSignalDetected || primaryState === "crisis",
+      sessionId: "inline",
+      classifiedAt: admin.firestore.Timestamp.now(),
+    };
+  },
+  detectSensitivityFlags,
+};

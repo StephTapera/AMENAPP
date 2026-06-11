@@ -49,6 +49,8 @@ __exportStar(require("./openAIProxy"), exports);
 __exportStar(require("./whisperProxy"), exports);
 __exportStar(require("./generateDailyVerse"), exports);
 __exportStar(require("./amenDaily/getAmenDailyDigest"), exports);
+__exportStar(require("./cameraOS/contextLens"), exports);
+__exportStar(require("./communityOS/core"), exports);
 // Phase P1-4: server-authoritative Think-First / Tone Checker.
 // iOS ThinkFirstGuardrailsService is advisory only; the publish path
 // (CreatePost / comments / replies) MUST call validateThinkFirstCheck
@@ -79,6 +81,7 @@ __exportStar(require("./selahMedia"), exports);
 // Smart Media Attachments (System 22)
 // resolveSmartAttachment, saveMediaGraphItem, getRecentMediaAttachments, getSavedMediaItems
 __exportStar(require("./smartAttachments"), exports);
+__exportStar(require("./noteShare"), exports);
 // Safety OS Reaction Engine
 __exportStar(require("./safetyOSReactionEngine"), exports);
 // Community Hubs & Object Intelligence
@@ -99,6 +102,7 @@ __exportStar(require("./groupLinks"), exports);
 __exportStar(require("./resolveOrCreateConversation"), exports);
 // Suggested Accounts Rail
 __exportStar(require("./suggestedAccounts"), exports);
+__exportStar(require("./userSettings"), exports);
 // UserProfileMini context callable
 __exportStar(require("./profileMini/getUserProfileMiniContext"), exports);
 // Trust + Intelligence (Berean infrastructure)
@@ -108,6 +112,7 @@ __exportStar(require("./legacyAiSafetyBridge"), exports);
 // Action Threads — server-authoritative care workflow CRUD
 // All state transitions and participant invitations are validated server-side.
 __exportStar(require("./actionThreads"), exports);
+__exportStar(require("./actionIntelligence"), exports);
 // Private/Follower Feed Builder
 __exportStar(require("./feedBuilder"), exports);
 __exportStar(require("./postReactions"), exports);
@@ -308,6 +313,7 @@ __exportStar(require("./covenant/setCommunitySaved"), exports);
 __exportStar(require("./covenant/createCovenantThreadReply"), exports);
 __exportStar(require("./covenant/generateThreadSummary"), exports);
 __exportStar(require("./covenant/createPrayerRequestFromMessage"), exports);
+__exportStar(require("./prayer/createPrayerRequest"), exports);
 __exportStar(require("./covenant/generateCatchUpSummary"), exports);
 __exportStar(require("./covenant/calculateCovenantChurnRisk"), exports);
 __exportStar(require("./covenant/publishScheduledCovenantContent"), exports);

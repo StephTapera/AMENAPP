@@ -163,7 +163,12 @@ struct AmenObjectHubView: View {
             }
         }
         .sheet(isPresented: $showUseInPostSheet) {
-            AmenHubUseInPostSheet(canonical: canonical)
+            if let canonical = viewModel.canonicalObject {
+                AmenUniversalComposerView(
+                    source: composerSource(for: canonical),
+                    onDismiss: { showUseInPostSheet = false }
+                )
+            }
         }
     }
 
@@ -446,6 +451,45 @@ struct AmenObjectHubView: View {
         }
     }
 
+    private func composerSource(for canonical: AmenCanonicalObject) -> ComposerSource {
+        ComposerSource(
+            type: composerSourceType(for: canonical.objectType),
+            existingRef: "canonicalObjects/\(canonical.id)",
+            existingOwnerId: nil,
+            prefillText: smartComposerPrefill(for: canonical),
+            prefillTitle: canonical.title
+        )
+    }
+
+    private func composerSourceType(for objectType: AmenSmartObjectType) -> ComposerSourceType {
+        switch objectType {
+        case .event:
+            return .event
+        case .scripture:
+            return .scriptureReference
+        case .mediaTrack, .album, .playlist, .artist, .video, .podcast, .article, .genericLink:
+            return .mediaObject
+        case .person, .place:
+            return .newPost
+        }
+    }
+
+    private func smartComposerPrefill(for canonical: AmenCanonicalObject) -> String {
+        let attribution = canonical.creatorName ?? canonical.subtitle
+        let titleLine = attribution.map { "\(canonical.title) by \($0)" } ?? canonical.title
+
+        switch canonical.contentCategory {
+        case .worship, .music:
+            return "This stood out to me from \(titleLine): "
+        case .sermon, .devotional, .educational, .scripture:
+            return "A thought worth discussing from \(titleLine): "
+        case .prayer, .testimony:
+            return "I want to invite prayer around \(titleLine): "
+        default:
+            return "Sharing \(titleLine) because "
+        }
+    }
+
     // MARK: - Load
 
     private func loadContent() async {
@@ -466,7 +510,7 @@ struct AmenObjectHubView: View {
     }
 }
 
-// MARK: - Supporting Sheets (stub implementations)
+// MARK: - Supporting Sheets
 
 private struct AmenHubReportSheet: View {
     let onReport: (String) -> Void
@@ -495,59 +539,6 @@ private struct AmenHubReportSheet: View {
     }
 }
 
-private struct AmenHubDiscussionComposerSheet: View {
-    let hub: AmenCommunityHub
-    let canonical: AmenCanonicalObject
-    let startingPrompt: String?
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                if let prompt = startingPrompt {
-                    Text(prompt)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal)
-                }
-                Text("Discussion composer coming soon.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .padding()
-                Spacer()
-            }
-            .navigationTitle("Start Discussion")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
-}
-
-private struct AmenHubUseInPostSheet: View {
-    let canonical: AmenCanonicalObject
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Text("Use in Post — coming soon")
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle("Use in Post")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { dismiss() }
-                    }
-                }
-        }
-        .presentationDetents([.medium])
-    }
-}
 
 // MARK: - Error / Empty States
 

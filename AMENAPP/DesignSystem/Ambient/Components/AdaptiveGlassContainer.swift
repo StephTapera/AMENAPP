@@ -7,6 +7,10 @@
 //  alpha floor), thin border, inner highlight, soft ambient shadow.
 //  `glassEffect` is iOS 26+ (Liquid Glass); guarded with an ultraThinMaterial fallback for iOS 17.
 //
+//  Note: borders use `.stroke` (Shape) rather than `.strokeBorder` (InsettableShape) because the
+//  container holds a type-erased `AnyShape`, which conforms only to `Shape`. At ≤ 1pt line widths
+//  the inset difference is visually negligible.
+//
 
 import SwiftUI
 
@@ -42,13 +46,13 @@ public struct AdaptiveGlassContainer<Content: View>: View {
                 }
             }
             .overlay {
-                shape.strokeBorder(
+                shape.stroke(
                     palette.textPrimary.opacity(contrast == .increased ? 0.35 : 0.12),
                     lineWidth: contrast == .increased ? 1.0 : 0.5
                 )
             }
             .overlay(alignment: .top) {   // inner highlight
-                shape.strokeBorder(Color.white.opacity(palette.isDarkContent ? 0.10 : 0.25), lineWidth: 0.5)
+                shape.stroke(Color.white.opacity(palette.isDarkContent ? 0.10 : 0.25), lineWidth: 0.5)
                     .mask(LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center))
                     .allowsHitTesting(false)
             }

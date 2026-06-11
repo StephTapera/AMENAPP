@@ -83,7 +83,7 @@ struct PulseHeroCardView: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(card.eyebrow). \(card.title)")
-        .accessibilityHint(card.action.label.isEmpty ? "" : Text(verbatim: card.action.label).description)
+        .accessibilityHint(card.action.label)
         .accessibilityAddTraits(.isButton)
     }
 

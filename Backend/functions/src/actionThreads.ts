@@ -30,10 +30,14 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
+type CallableAuthContext = {
+    auth?: { uid: string };
+    app?: unknown;
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function requireAuth(context: functions.https.CallableContext): string {
+function requireAuth(context: CallableAuthContext): string {
     if (!context.auth) {
         throw new HttpsError("unauthenticated", "Authentication required");
     }

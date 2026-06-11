@@ -50,6 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.authorityGuardrailEngine = void 0;
 exports.auditResponse = auditResponse;
 exports.createLeadershipReferral = createLeadershipReferral;
 exports.buildEscalationContextSummary = buildEscalationContextSummary;
@@ -173,4 +174,22 @@ function buildEscalationContextSummary(primaryTopic, sensitivityFlag) {
     };
     return descriptions[sensitivityFlag] ?? `A pastoral follow-up is recommended for "${primaryTopic}".`;
 }
+exports.authorityGuardrailEngine = {
+    auditResponse,
+    createLeadershipReferral,
+    buildEscalationContextSummary,
+    evaluate(messageText, flags) {
+        const lower = messageText.toLowerCase();
+        const flagSet = new Set(flags);
+        const crisis = flagSet.has("crisis_escalation") || flagSet.has("self_harm") || flagSet.has("suicidal_language");
+        const abuse = flagSet.has("abuse") || flagSet.has("spiritual_abuse") || lower.includes("abuse");
+        const pastoral = crisis || abuse || flagSet.has("pastoral_escalation") || flagSet.has("doctrinal_conflict");
+        return {
+            topicClass: crisis ? "suicidality" : abuse ? "abuse_disclosure" : pastoral ? "pastoral_discernment" : "general",
+            escalationRequired: pastoral,
+            escalationTargets: crisis ? ["crisis_line", "pastor", "trusted_person"] : pastoral ? ["pastor", "mentor"] : [],
+            safeResponsePolicy: crisis ? "crisis_safe" : pastoral ? "leadership_redirect" : "balanced",
+        };
+    },
+};
 //# sourceMappingURL=AuthorityGuardrailEngine.js.map

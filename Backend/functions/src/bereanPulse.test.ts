@@ -4,6 +4,7 @@ import {
   generateBereanPulseDaily,
   generatePulseForUser,
   refreshBereanPulseForCurrentUser,
+  refreshBereanPulseForCurrentUserHandler,
   savePulseCard,
   writePulseFeedbackEvent,
 } from "./bereanPulse";
@@ -81,7 +82,7 @@ describe("Berean Pulse callable — execution gates", () => {
   test("P0-1: rejects unauthenticated requests and writes nothing to Firestore", async () => {
     const request = { data: {}, app: {} }; // no auth
     await expect(
-      refreshBereanPulseForCurrentUser(request as any)
+      refreshBereanPulseForCurrentUserHandler(request)
     ).rejects.toMatchObject({ code: "unauthenticated" });
 
     expect(mockBatch.commit).not.toHaveBeenCalled();
@@ -98,7 +99,7 @@ describe("Berean Pulse callable — execution gates", () => {
   test("P0-2: rejects requests missing App Check token and writes nothing to Firestore", async () => {
     const request = { data: {}, auth: { uid: "user_1", token: {} } }; // no app
     await expect(
-      refreshBereanPulseForCurrentUser(request as any)
+      refreshBereanPulseForCurrentUserHandler(request)
     ).rejects.toMatchObject({ code: "failed-precondition" });
 
     expect(mockBatch.commit).not.toHaveBeenCalled();
@@ -151,7 +152,7 @@ describe("Berean Pulse callable — rate limit enforcement", () => {
 
     const request = { data: {}, app: {}, auth: { uid: "user_1", token: {} } };
     await expect(
-      refreshBereanPulseForCurrentUser(request as any)
+      refreshBereanPulseForCurrentUserHandler(request)
     ).rejects.toMatchObject({ code: "resource-exhausted" });
 
     expect(mockBatch.commit).not.toHaveBeenCalled();
@@ -177,7 +178,7 @@ describe("Berean Pulse callable — rate limit enforcement", () => {
       app: {},
       auth: { uid: "user_1", token: {} },
     };
-    const result = await refreshBereanPulseForCurrentUser(request as any);
+    const result = await refreshBereanPulseForCurrentUserHandler(request);
     expect(result).toMatchObject({ ok: true, dateKey: "2026-01-01", cardCount: 0 });
   });
 });
@@ -253,7 +254,7 @@ describe("Berean Pulse callable — dateKey handling", () => {
       app: {},
       auth: { uid: "user_1", token: {} },
     };
-    const result = await refreshBereanPulseForCurrentUser(request as any);
+    const result = await refreshBereanPulseForCurrentUserHandler(request);
 
     expect(result).toMatchObject({ ok: true });
     expect(result.dateKey).toMatch(/^\d{4}-\d{2}-\d{2}$/);

@@ -47,6 +47,8 @@ struct ScripturePassage: Codable, Identifiable {
     }
     
     enum BibleVersion: String, Codable {
+        case bsb = "BSB"
+        case web = "WEB"
         case esv = "ESV"
         case niv = "NIV"
         case kjv = "KJV"

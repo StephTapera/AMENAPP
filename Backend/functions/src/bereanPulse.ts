@@ -17,6 +17,18 @@ const db = admin.firestore();
 
 type FirestoreLikeTimestamp = admin.firestore.Timestamp;
 
+export const bereanPulseFirestoreContract = {
+  rootCollection: "bereanPulse",
+  rootDocument: "main",
+  daysCollection: "days",
+  cardsCollection: "cards",
+  preferencesCollection: "preferences",
+  permissionsCollection: "permissions",
+  singletonDocument: "main",
+  eventsCollection: "events",
+  savedCardsCollection: "savedCards",
+} as const;
+
 interface PulseRootRefs {
   userRef: FirebaseFirestore.DocumentReference;
   pulseCollection: FirebaseFirestore.CollectionReference;
@@ -26,31 +38,53 @@ function pulseRefs(userId: string): PulseRootRefs {
   const userRef = db.collection("users").doc(userId);
   return {
     userRef,
-    pulseCollection: userRef.collection("bereanPulse"),
+    pulseCollection: userRef.collection(bereanPulseFirestoreContract.rootCollection),
   };
 }
 
 function dayCardsCollection(userId: string, dateKey: string) {
   return pulseRefs(userId)
     .pulseCollection
+    .doc(bereanPulseFirestoreContract.rootDocument)
+    .collection(bereanPulseFirestoreContract.daysCollection)
     .doc(dateKey)
-    .collection("cards");
+    .collection(bereanPulseFirestoreContract.cardsCollection);
 }
 
 function preferencesDoc(userId: string) {
-  return pulseRefs(userId).pulseCollection.doc("preferences");
+  return pulseRefs(userId)
+    .pulseCollection
+    .doc(bereanPulseFirestoreContract.rootDocument)
+    .collection(bereanPulseFirestoreContract.preferencesCollection)
+    .doc(bereanPulseFirestoreContract.singletonDocument);
 }
 
 function permissionsDoc(userId: string) {
-  return pulseRefs(userId).pulseCollection.doc("permissions");
+  return pulseRefs(userId)
+    .pulseCollection
+    .doc(bereanPulseFirestoreContract.rootDocument)
+    .collection(bereanPulseFirestoreContract.permissionsCollection)
+    .doc(bereanPulseFirestoreContract.singletonDocument);
 }
 
 function eventsCollection(userId: string) {
-  return pulseRefs(userId).pulseCollection.doc("events").collection("items");
+  return pulseRefs(userId)
+    .pulseCollection
+    .doc(bereanPulseFirestoreContract.rootDocument)
+    .collection(bereanPulseFirestoreContract.eventsCollection);
 }
 
 function savedCardsCollection(userId: string) {
-  return pulseRefs(userId).pulseCollection.doc("savedCards").collection("items");
+  return pulseRefs(userId)
+    .pulseCollection
+    .doc(bereanPulseFirestoreContract.rootDocument)
+    .collection(bereanPulseFirestoreContract.savedCardsCollection);
+}
+
+function pulseRootDoc(userId: string) {
+  return pulseRefs(userId)
+    .pulseCollection
+    .doc(bereanPulseFirestoreContract.rootDocument);
 }
 
 function dateKeyFor(date = new Date()) {
@@ -107,7 +141,15 @@ async function collectBereanConversationSignals(
       .limit(4)
       .get();
 
-    const messages = messagesSnapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) }));
+    const messages = messagesSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Record<string, unknown>),
+    })) as Array<{
+      id: string;
+      role?: string;
+      content?: string;
+      createdAt?: FirestoreLikeTimestamp;
+    }>;
     const newest = messages[0];
     const newestTimestamp = (newest?.createdAt as FirestoreLikeTimestamp | undefined) ??
       (conversationData.lastUpdated as FirestoreLikeTimestamp | undefined) ??
@@ -436,18 +478,38 @@ export async function generatePulseForUser(userId: string, dateKey = dateKeyFor(
   return cards;
 }
 
+export async function refreshBereanPulseForCurrentUserHandler(request: {
+  data?: { dateKey?: unknown };
+  app?: unknown;
+  auth?: { uid?: string };
+}) {
+  requireAppCheck(request);
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+
+  const pulseRoot = pulseRootDoc(uid);
+  const rootSnapshot = await pulseRoot.get();
+  const lastManualRefreshAt = rootSnapshot.data()?.lastManualRefreshAt as FirestoreLikeTimestamp | undefined;
+  const now = admin.firestore.Timestamp.now();
+  const secondsSinceRefresh = lastManualRefreshAt ?
+    now.seconds - lastManualRefreshAt.seconds :
+    Number.POSITIVE_INFINITY;
+
+  if (secondsSinceRefresh < 300) {
+    throw new HttpsError("resource-exhausted", "Berean Pulse can be refreshed every five minutes.");
+  }
+
+  const dateKey = typeof request.data?.dateKey === "string" ? request.data.dateKey : dateKeyFor();
+  const cards = await generatePulseForUser(uid, dateKey);
+  await pulseRoot.set({ lastManualRefreshAt: now }, { merge: true });
+  return { ok: true, dateKey, cardCount: cards.length };
+}
+
 export const refreshBereanPulseForCurrentUser = onCall(
   { region: "us-central1", enforceAppCheck: true },
-  async (request) => {
-    requireAppCheck(request);
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError("unauthenticated", "Must be signed in.");
-    }
-    const dateKey = typeof request.data?.dateKey === "string" ? request.data.dateKey : dateKeyFor();
-    const cards = await generatePulseForUser(uid, dateKey);
-    return { ok: true, dateKey, cardCount: cards.length };
-  }
+  refreshBereanPulseForCurrentUserHandler
 );
 
 export const generateBereanPulseDaily = onSchedule(

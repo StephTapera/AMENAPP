@@ -24,26 +24,28 @@ struct BereanComposerBar: View {
     @State private var showActions = false
     @State private var keyboardHeight: CGFloat = 0
 
-    private let expandedPlaceholder = "Ask Berean about scripture, prayer, church notes..."
-    private let compactPlaceholder = "Ask Berean..."
+    private let expandedPlaceholder = "Ask Berean"
+    private let compactPlaceholder = "Ask Berean"
 
     private let quickActions: [BereanLiquidAction] = [
-        BereanLiquidAction(icon: "doc", title: "Attach", color: Color.black.opacity(0.78), action: .attachFile),
-        BereanLiquidAction(icon: "camera", title: "Camera", color: Color.black.opacity(0.72), action: .camera),
-        BereanLiquidAction(icon: "waveform", title: "Voice", color: Color.black.opacity(0.72), action: .voiceNote),
-        BereanLiquidAction(icon: "book.closed", title: "Verse", color: Color.black.opacity(0.76), action: .verseLookup),
-        BereanLiquidAction(icon: "doc.text.magnifyingglass", title: "Summary", color: Color.black.opacity(0.72), action: .summarize),
-        BereanLiquidAction(icon: "magnifyingglass", title: "Search", color: Color.black.opacity(0.72), action: .searchScripture)
+        BereanLiquidAction(icon: "book.closed", title: "Add Bible verse", color: Color.black.opacity(0.78), action: .bibleVerse),
+        BereanLiquidAction(icon: "hands.sparkles", title: "Add prayer request", color: Color.black.opacity(0.74), action: .prayerRequest),
+        BereanLiquidAction(icon: "note.text", title: "Add church notes", color: Color.black.opacity(0.74), action: .churchNotes),
+        BereanLiquidAction(icon: "camera", title: "Add photo safely", color: Color.black.opacity(0.72), action: .safePhoto),
+        BereanLiquidAction(icon: "waveform", title: "Add voice note", color: Color.black.opacity(0.72), action: .voiceNote),
+        BereanLiquidAction(icon: "waveform.badge.magnifyingglass", title: "Add sermon clip", color: Color.black.opacity(0.72), action: .sermonClip),
+        BereanLiquidAction(icon: "bell.badge", title: "Add reminder", color: Color.black.opacity(0.72), action: .reminder),
+        BereanLiquidAction(icon: "person.2.badge.plus", title: "Share to Space", color: Color.black.opacity(0.76), action: .shareToSpace)
     ]
 
     var body: some View {
         let progress = effectiveCollapseProgress
         let shellWidth = interpolatedWidth(for: progress)
-        let cornerRadius = interpolate(30, 24, progress)
-        let verticalOffset = interpolate(0, 18, progress)
-        let scale = interpolate(1.0, 0.96, progress)
-        let shellPadding = interpolate(14, 10, progress)
-        let innerSpacing = interpolate(12, 8, progress)
+        let cornerRadius = interpolate(28, 22, progress)
+        let verticalOffset = interpolate(0, 12, progress)
+        let scale = interpolate(1.0, 0.97, progress)
+        let shellPadding = interpolate(8, 6, progress)
+        let innerSpacing = interpolate(8, 6, progress)
         let glassOpacity = interpolate(0.06, 0.04, progress)
         let shadowOpacity = interpolate(0.13, 0.09, progress)
 
@@ -64,7 +66,7 @@ struct BereanComposerBar: View {
                     collapseProgress: progress,
                     expandedPlaceholder: expandedPlaceholder,
                     compactPlaceholder: compactPlaceholder,
-                    maxHeight: currentScreenHeight < 700 ? 80 : 120
+                    maxHeight: currentScreenHeight < 700 ? 42 : 48
                 )
 
                 rightControls(progress: progress)
@@ -174,7 +176,7 @@ struct BereanComposerBar: View {
             Image(systemName: "plus")
                 .font(.systemScaled(interpolate(19, 17, progress), weight: .semibold))
                 .foregroundStyle(BereanColor.textPrimary)
-                .frame(width: 40, height: 40)
+                .frame(width: 30, height: 30)
                 .background(
                     Circle()
                         .fill(.ultraThinMaterial)
@@ -186,7 +188,7 @@ struct BereanComposerBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("More actions")
-        .accessibilityHint("Opens attachment, camera, voice, verse, summary, and search actions")
+        .accessibilityHint("Opens Bible verse, prayer, church notes, safe photo, voice note, sermon clip, reminder, and Space sharing actions")
         .overlay(alignment: .top) {
             if showActions {
                 GeometryReader { geo in
@@ -278,7 +280,7 @@ struct BereanComposerBar: View {
             Image(systemName: "slider.horizontal.3")
                 .font(.systemScaled(interpolate(16, 14, progress), weight: .semibold))
                 .foregroundStyle(BereanColor.textPrimary.opacity(0.7))
-                .frame(width: 34, height: 34)
+                .frame(width: 30, height: 30)
                 .background(
                     Circle()
                         .fill(.ultraThinMaterial)
@@ -320,24 +322,43 @@ struct BereanComposerBar: View {
         let canSend = !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && composerVM.state != .streaming
 
         return Button {
-            guard canSend else { return }
-            onSend()
+            if canSend {
+                onSend()
+            } else {
+                onVoice()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    composerVM.setState(.voiceReady)
+                }
+            }
             HapticManager.impact(style: .medium)
         } label: {
             ZStack {
                 Circle()
-                    .fill(canSend ? Color.black : Color.black.opacity(0.18))
-                    .frame(width: interpolate(38, 34, progress), height: interpolate(38, 34, progress))
+                    .fill(
+                        canSend
+                        ? Color(red: 0.20, green: 0.47, blue: 0.95)
+                        : Color(red: 0.20, green: 0.47, blue: 0.95).opacity(0.24)
+                    )
+                    .overlay(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.34), Color.white.opacity(0.05)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .frame(width: interpolate(34, 30, progress), height: interpolate(34, 30, progress))
 
-                Image(systemName: "arrow.up")
-                    .font(.systemScaled(interpolate(15, 14, progress), weight: .bold))
+                Image(systemName: canSend ? "arrow.up" : "sparkles")
+                    .font(.systemScaled(interpolate(14, 13, progress), weight: .bold))
                     .foregroundStyle(Color.white)
             }
         }
         .buttonStyle(.plain)
-        .disabled(!canSend)
-        .accessibilityLabel("Send message")
-        .accessibilityHint("Sends your message to Berean")
+        .accessibilityLabel(canSend ? "Send message" : "Start Berean voice")
+        .accessibilityHint(canSend ? "Sends your message to Berean" : "Starts voice input for Berean")
     }
 
     private func stopButton(progress: CGFloat) -> some View {

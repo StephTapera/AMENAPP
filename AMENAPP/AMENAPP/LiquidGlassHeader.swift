@@ -9,6 +9,7 @@
 // Haptics via HapticManager — already in the same module; no import needed.
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - LiquidGlassHeader
 
@@ -24,6 +25,20 @@ struct BereanLiquidGlassHeader: View {
     // MARK: - Environment
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var avatarInitials: String {
+        let user = Auth.auth().currentUser
+        let source = user?.displayName?.isEmpty == false ? user?.displayName : user?.email
+        guard let source, !source.isEmpty else { return "B" }
+        let parts = source
+            .replacingOccurrences(of: "@", with: " ")
+            .split(separator: " ")
+            .map(String.init)
+        if let first = parts.first?.first, let second = parts.dropFirst().first?.first {
+            return "\(first)\(second)".uppercased()
+        }
+        return String(source.prefix(2)).uppercased()
+    }
 
     // MARK: - Body
 
@@ -54,7 +69,7 @@ struct BereanLiquidGlassHeader: View {
         } label: {
             Image(systemName: "line.3.horizontal")
                 .font(.systemScaled(17, weight: .medium))
-                .foregroundColor(.black.opacity(0.78))
+                .foregroundColor(.primary.opacity(0.78))
                 .frame(width: 44, height: 44)
                 .background(glassCircle)
         }
@@ -68,10 +83,10 @@ struct BereanLiquidGlassHeader: View {
         HStack(spacing: 6) {
             Image(systemName: "graduationcap")
                 .font(.systemScaled(13, weight: .medium))
-                .foregroundColor(.black.opacity(0.64))
+                .foregroundColor(.secondary.opacity(0.82))
             Text("Berean")
                 .font(.systemScaled(15, weight: .semibold))
-                .foregroundColor(.black.opacity(0.76))
+                .foregroundColor(.primary.opacity(0.82))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
@@ -91,10 +106,10 @@ struct BereanLiquidGlassHeader: View {
             HStack(spacing: 5) {
                 Image(systemName: "sparkle")
                     .font(.systemScaled(12, weight: .medium))
-                    .foregroundColor(.black.opacity(0.68))
+                    .foregroundColor(.secondary.opacity(0.86))
                 Text("Today's Pulse")
                     .font(.systemScaled(13, weight: .medium))
-                    .foregroundColor(.black.opacity(0.68))
+                    .foregroundColor(.secondary.opacity(0.86))
                     .lineLimit(1)
             }
             .padding(.horizontal, 12)
@@ -114,9 +129,9 @@ struct BereanLiquidGlassHeader: View {
         } label: {
             ZStack {
                 glassCircle
-                Text("ST")
+                Text(avatarInitials)
                     .font(.systemScaled(13, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.72))
+                    .foregroundColor(.primary.opacity(0.76))
             }
             .frame(width: 36, height: 36)
         }

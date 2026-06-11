@@ -66,7 +66,7 @@ final class SmartAccountResumeViewModel: ObservableObject {
     private func validate() async {
         Analytics.logEvent("smart_account_resume_validation_started", parameters: nil)
 
-        let hint = RememberedAccountStore.shared.mostRecentAccount
+        let hint = RememberedAccountStore.shared.mostRecentAccount ?? keychainIdentityHint()
 
         // Step 1: Check Firebase Auth current user
         guard let firebaseUser = Auth.auth().currentUser else {
@@ -183,6 +183,19 @@ final class SmartAccountResumeViewModel: ObservableObject {
             username: nil,
             providerType: user.providerData.first?.providerID,
             lastLoginAt: Date(),
+            isLastActiveAccount: true
+        )
+    }
+
+    private func keychainIdentityHint() -> RememberedAccount? {
+        guard let hint = AmenIdentityHintStore.shared.primary() else { return nil }
+        return RememberedAccount(
+            uid: hint.uid,
+            displayName: hint.displayName ?? hint.username ?? "Welcome back",
+            avatarURL: hint.profilePhotoURL,
+            username: hint.username ?? hint.maskedIdentifier,
+            providerType: hint.lastAuthMethod.providerID,
+            lastLoginAt: Date(timeIntervalSince1970: hint.lastSeenEpoch),
             isLastActiveAccount: true
         )
     }

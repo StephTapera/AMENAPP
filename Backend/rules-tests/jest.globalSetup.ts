@@ -30,6 +30,7 @@ const REPO_ROOT = path.resolve(__dirname, "../..");
 const STRIP_SCRIPT = path.join(REPO_ROOT, "scripts", "strip-rules.js");
 const SRC_RULES = path.join(REPO_ROOT, "AMENAPP", "firestore 18.rules");
 const DST_RULES = path.join(REPO_ROOT, "AMENAPP", "firestore.deploy.rules");
+const ROOT_RULES = path.join(REPO_ROOT, "firestore.rules");
 
 const EMULATOR_HOST = "127.0.0.1";
 const FIRESTORE_PORT = 8080;
@@ -94,24 +95,28 @@ export default async function globalSetup() {
     process.env.FIREBASE_DATABASE_EMULATOR_HOST = `${EMULATOR_HOST}:${DATABASE_PORT}`;
     process.env.FIREBASE_STORAGE_EMULATOR_HOST = `${EMULATOR_HOST}:${STORAGE_PORT}`;
 
-    // ── 1. Verify the rules source / strip script exist. ──────────────
-    if (!fs.existsSync(STRIP_SCRIPT)) {
+    // ── 1. Verify the rules source exists and refresh test artifact. ──
+    if (fs.existsSync(SRC_RULES)) {
+        if (!fs.existsSync(STRIP_SCRIPT)) {
+            throw new Error(
+                `Rules strip script not found at ${STRIP_SCRIPT}. ` +
+                    `Cannot regenerate firestore.deploy.rules from source.`
+            );
+        }
+
+        execFileSync("node", [STRIP_SCRIPT], {
+            cwd: REPO_ROOT,
+            stdio: "inherit",
+        });
+    } else if (fs.existsSync(ROOT_RULES)) {
+        fs.copyFileSync(ROOT_RULES, DST_RULES);
+    } else {
         throw new Error(
-            `Rules strip script not found at ${STRIP_SCRIPT}. ` +
-                `Cannot regenerate firestore.deploy.rules from source.`
-        );
-    }
-    if (!fs.existsSync(SRC_RULES)) {
-        throw new Error(
-            `Canonical rules source not found at ${SRC_RULES}.`
+            `Canonical rules source not found at ${SRC_RULES} or ${ROOT_RULES}.`
         );
     }
 
-    // ── 2. Regenerate the deployed artifact from the canonical source. ─
-    execFileSync("node", [STRIP_SCRIPT], {
-        cwd: REPO_ROOT,
-        stdio: "inherit",
-    });
+    // ── 2. Confirm the deployed artifact exists. ──────────────────────
     if (!fs.existsSync(DST_RULES)) {
         throw new Error(
             `strip-rules.js did not produce ${DST_RULES}.`
@@ -123,7 +128,7 @@ export default async function globalSetup() {
     //    confusing ECONNREFUSED. We probe Firestore (required) plus
     //    RTDB and Storage (only if their tests are part of this run,
     //    but probing is cheap and the message is more useful).
-    const probes = await Promise.all([
+    const probes: Array<number | null> = await Promise.all([
         isEmulatorReachable(FIRESTORE_PORT).then((ok) =>
             ok ? null : FIRESTORE_PORT
         ),

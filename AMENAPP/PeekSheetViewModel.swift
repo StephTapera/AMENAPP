@@ -28,7 +28,7 @@ final class PeekSheetViewModel: ObservableObject {
     @Published var followState: FollowStateManager.FollowState = .notFollowing
     @Published var isLoadingFollow: Bool = false
 
-    @Published var mutualSignals: [ContextSignal] = []
+    @Published var mutualSignals: [MutualContextSignal] = []
     /// Lightweight post preview for the peek sheet.
     struct PostPreview: Identifiable {
         let id: String

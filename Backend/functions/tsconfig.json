@@ -13,5 +13,10 @@
     "noEmitOnError": false
   },
   "compileOnSave": false,
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.static.test.ts",
+    "src/**/__tests__/**"
+  ]
 }

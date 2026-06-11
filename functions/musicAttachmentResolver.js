@@ -72,6 +72,7 @@ function parseSpotifyURI(value) {
     providerID,
     storefront: null,
     canonicalURL: `https://open.spotify.com/${resourceType}/${providerID}`,
+    sanitizedURL: `https://open.spotify.com/${resourceType}/${providerID}`,
   };
 }
 
@@ -91,6 +92,7 @@ function parseSpotifyURL(url) {
     providerID,
     storefront: null,
     canonicalURL: `https://open.spotify.com/${resourceType}/${providerID}`,
+    sanitizedURL: `https://open.spotify.com/${resourceType}/${providerID}`,
   };
 }
 
@@ -148,6 +150,7 @@ function parseAppleMusicURL(url) {
     providerID,
     storefront,
     canonicalURL: canonicalURL.toString(),
+    sanitizedURL: canonicalURL.toString(),
   };
 }
 
@@ -186,6 +189,30 @@ async function fetchSpotifyAccessToken() {
   };
   return spotifyTokenCache.token;
 }
+
+exports.spotifyTokenProxy = onCall(
+    {
+      region: "us-central1",
+      enforceAppCheck: true,
+    },
+    async (request) => {
+      if (!request.auth?.uid) {
+        throw new HttpsError("unauthenticated",
+            "You must be signed in to search Spotify.");
+      }
+
+      const token = await fetchSpotifyAccessToken();
+      const expiresIn = Math.max(
+          300,
+          Math.floor((spotifyTokenCache.expiresAtMs - Date.now()) / 1000),
+      );
+
+      return {
+        accessToken: token,
+        expiresIn,
+      };
+    },
+);
 
 async function resolveSpotifyAttachment(parsed) {
   const token = await fetchSpotifyAccessToken();

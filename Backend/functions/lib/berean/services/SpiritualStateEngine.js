@@ -46,6 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.spiritualStateEngine = void 0;
 exports.classifySpiritualState = classifySpiritualState;
 exports.detectSensitivityFlags = detectSensitivityFlags;
 const admin = __importStar(require("firebase-admin"));
@@ -226,4 +227,22 @@ async function storeSessionRecord(userId, classification, sessionId) {
         sessionStartedAt: classification.classifiedAt,
     });
 }
+exports.spiritualStateEngine = {
+    classifySpiritualState,
+    classify(messageText) {
+        const signals = extractSignals(messageText.toLowerCase());
+        const primaryState = determinePrimaryState(signals, messageText.toLowerCase());
+        const selectedResponseMode = selectResponseMode(primaryState, signals);
+        return {
+            primaryState,
+            signals,
+            selectedResponseMode,
+            sensitivityFlags: detectSensitivityFlags(messageText, primaryState),
+            escalationTriggered: signals.crisisSignalDetected || primaryState === "crisis",
+            sessionId: "inline",
+            classifiedAt: admin.firestore.Timestamp.now(),
+        };
+    },
+    detectSensitivityFlags,
+};
 //# sourceMappingURL=SpiritualStateEngine.js.map

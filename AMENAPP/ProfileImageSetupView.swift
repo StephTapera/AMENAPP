@@ -50,7 +50,7 @@ final class ProfileImageFlowViewModel: ObservableObject {
     private let uploadService: ProfileImageUploadService
 
     init(uploadService: ProfileImageUploadService? = nil) {
-        self.uploadService = uploadService ?? ProfileImageUploadService()
+        self.uploadService = uploadService ?? .init()
     }
 
     var displayImage: UIImage? { croppedImage ?? selectedImage }
@@ -287,7 +287,7 @@ struct LiquidWhiteAvatarPlaceholder: View {
                         .shadow(color: .black.opacity(0.08), radius: 26, y: 14)
                 } else {
                     Circle()
-                        .fill(.regularMaterial)
+                        .fill(Material.regular)
                         .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1.2))
                         .shadow(color: .black.opacity(0.08), radius: 26, y: 14)
                 }

@@ -402,7 +402,7 @@ struct ResourcesView: View {
             ZStack {
                 // Glass background
                 Capsule()
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(.systemBackground).opacity(0.82))
                 
                 // Subtle gradient overlay
                 Capsule()
@@ -548,7 +548,7 @@ struct ResourcesView: View {
                             }
                             .padding(14)
                             .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                            .background(Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 18))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 18)
                                     .strokeBorder(
@@ -599,7 +599,7 @@ struct ResourcesView: View {
                             }
                             .padding(14)
                             .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                            .background(Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 18))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 18)
                                     .strokeBorder(
@@ -630,10 +630,10 @@ struct ResourcesView: View {
                 }
             }
             
-            // ── Support & Wellness ── 3-col grid (smaller cards) ─────────
+            // ── Support & Wellness ── wider cards for readable safety labels ─────────
             if selectedCategory == .all || selectedCategory == .crisis || selectedCategory == .mentalHealth {
                 resourceSection(title: "Support & Wellness") {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         NavigationLink(destination: CrisisResourcesDetailView()) {
                             FolderSquareCard(
                                 icon: "phone.fill",
@@ -695,7 +695,7 @@ struct ResourcesView: View {
                                     .font(.systemScaled(20))
                                     .foregroundStyle(.purple)
                                     .frame(width: 44, height: 44)
-                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                                    .background(Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 12))
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Berean OS")
                                         .font(.systemScaled(15, weight: .semibold))
@@ -710,7 +710,7 @@ struct ResourcesView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .padding(14)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .background(Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 16))
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 20)
@@ -791,7 +791,7 @@ struct ResourcesView: View {
             }
         }
         .padding(.top, 4)
-        .padding(.bottom, 180)
+        .padding(.bottom, 72)
     }
     
     // MARK: - Section builder helper
@@ -1197,7 +1197,7 @@ struct ResourcesView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(40)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .background(Color(.systemBackground).opacity(0.88), in: RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5))
         .shadow(color: AmenTheme.Colors.shadowCard, radius: 8, y: 3)
         .padding(.horizontal)
@@ -1240,7 +1240,7 @@ struct CompactResourceRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .background(Color(.systemBackground).opacity(0.86), in: RoundedRectangle(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(AmenTheme.Colors.borderSoft, lineWidth: 0.5)
@@ -1266,7 +1266,7 @@ struct BibleFactCard: View {
                         .padding(7)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(Color(.systemBackground).opacity(0.82))
                         )
                     
                     Text("Fun Bible Fact")
@@ -1283,7 +1283,7 @@ struct BibleFactCard: View {
                         .padding(7)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(Color(.systemBackground).opacity(0.82))
                         )
                         .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                         .animation(.linear(duration: 1).repeatCount(isRefreshing ? 100 : 0, autoreverses: false), value: isRefreshing)
@@ -1306,7 +1306,7 @@ struct BibleFactCard: View {
             ZStack {
                 // Clean glassmorphic background
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(.systemBackground).opacity(0.82))
                 
                 // Simple border
                 RoundedRectangle(cornerRadius: 16)
@@ -1346,7 +1346,7 @@ struct FeaturedBanner: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
+                        .fill(Color(.systemBackground).opacity(0.82))
                         .frame(width: 56, height: 56)
                         .overlay(
                             Circle()
@@ -1398,7 +1398,7 @@ struct FeaturedBanner: View {
                 .padding(.vertical, 10)
                 .background(
                     Capsule()
-                        .fill(.ultraThinMaterial)
+                        .fill(Color(.systemBackground).opacity(0.82))
                         .overlay(
                             Capsule()
                                 .stroke(.white.opacity(0.4), lineWidth: 1.5)
@@ -1418,7 +1418,7 @@ struct FeaturedBanner: View {
                 
                 // Glass overlay
                 Rectangle()
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(.systemBackground).opacity(0.82))
                     .opacity(0.3)
                 
                 // Shimmer effect
@@ -2158,7 +2158,7 @@ struct FeaturedCommunityBanner: View {
             ZStack {
                 // Base dark glass
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(.systemBackground).opacity(0.82))
                     .background(
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
                             .fill(Color.black.opacity(0.4))
@@ -2211,7 +2211,7 @@ struct FeaturedCommunityBanner: View {
                                     .padding(.vertical, 4)
                                     .background(
                                         Capsule()
-                                            .fill(.ultraThinMaterial)
+                                            .fill(Color(.systemBackground).opacity(0.82))
                                             .overlay(
                                                 Capsule()
                                                     .stroke(Color.white.opacity(0.3), lineWidth: 1)
@@ -2267,7 +2267,7 @@ struct FeaturedCommunityBanner: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                        .fill(Color(.systemBackground).opacity(0.82))
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(Color.black.opacity(0.3))
@@ -2444,7 +2444,7 @@ struct ResourceComingSoonPlaceholder: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             RoundedRectangle(cornerRadius: 20)
-                                .fill(.ultraThinMaterial)
+                                .fill(Color(.systemBackground).opacity(0.82))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 20)
                                         .stroke(iconColor.opacity(0.2), lineWidth: 1)
@@ -2531,7 +2531,7 @@ struct MinimalConnectCard: View {
                 // Clean glassmorphic icon - no glow
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
+                        .fill(Color(.systemBackground).opacity(0.82))
                         .frame(width: isFullWidth ? 48 : 44, height: isFullWidth ? 48 : 44)
                         .overlay(
                             Circle()
@@ -2588,7 +2588,7 @@ struct MinimalConnectCard: View {
             ZStack {
                 // Clean glassmorphic background
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(.systemBackground).opacity(0.82))
                 
                 // Simple border
                 RoundedRectangle(cornerRadius: 16)
@@ -2628,7 +2628,7 @@ struct MinimalResourceCard: View {
                 // Icon
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
+                        .fill(Color(.systemBackground).opacity(0.82))
                         .frame(width: 56, height: 56)
                         .overlay(
                             Circle()
@@ -2655,7 +2655,7 @@ struct MinimalResourceCard: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(.ultraThinMaterial)
+                        .fill(Color(.systemBackground).opacity(0.82))
                     
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(
@@ -2872,7 +2872,7 @@ struct SimplifiedFeatureBanner: View {
             ZStack {
                 // Black and white glassmorphic background
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(.systemBackground).opacity(0.82))
                 
                 // Very subtle accent tint (mostly black and white)
                 RoundedRectangle(cornerRadius: 16)
@@ -2923,7 +2923,7 @@ struct SafeAIDailyVerseCard: View {
                             .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(.primary)
                             .padding(6)
-                            .background(Circle().fill(.ultraThinMaterial))
+                            .background(Circle().fill(Color(.systemBackground).opacity(0.82)))
                         
                         Text("Daily Verse")
                             .font(AMENFont.bold(13))
@@ -2949,7 +2949,7 @@ struct SafeAIDailyVerseCard: View {
                     ZStack {
                         // Clean glassmorphic background
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(.ultraThinMaterial)
+                            .fill(Color(.systemBackground).opacity(0.82))
                         
                         // Simple border
                         RoundedRectangle(cornerRadius: 16)
@@ -3028,16 +3028,10 @@ struct ResourceHubCard: View {
             .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 4)
-                .shadow(color: .black.opacity(0.03), radius: 3, x: 0, y: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .amenGlassCard(cornerRadius: 18, shadow: true)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color(.separator).opacity(0.25), lineWidth: 1)
+                .stroke(Color(.separator).opacity(0.22), lineWidth: 1)
         )
     }
 }
@@ -3104,16 +3098,10 @@ struct WellnessCard: View {
                 .padding(.trailing, 18)
         }
         .frame(minHeight: 76)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: accentColor.opacity(0.10), radius: 12, x: 0, y: 5)
-                .shadow(color: .black.opacity(0.04), radius: 3, x: 0, y: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .amenGlassCard(cornerRadius: 18, shadow: true)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(accentColor.opacity(0.12), lineWidth: 1)
+                .stroke(accentColor.opacity(0.16), lineWidth: 1)
         )
     }
 }

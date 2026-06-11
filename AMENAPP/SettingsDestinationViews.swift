@@ -19,13 +19,13 @@ import SafariServices
 // MARK: - Account Type Settings
 
 struct AccountTypeSettingsView: View {
-    @AppStorage("accountType") private var accountType: String = "personal"
+    @AppStorage("amen_account_type") private var accountType: String = AMENSettingsAccountType.personal.rawValue
     @Environment(\.dismiss) var dismiss
 
     private let types: [(id: String, label: String, icon: String, description: String)] = [
-        ("personal", "Personal", "person.fill", "For individuals sharing faith, reflections, and testimonies."),
-        ("creator", "Creator", "megaphone.fill", "For content creators, pastors, and ministry voices."),
-        ("organization", "Organization", "building.2.fill", "For churches, ministries, and faith-based organizations.")
+        (AMENSettingsAccountType.personal.rawValue, "Personal", "person.fill", "For individuals sharing faith, reflections, and testimonies."),
+        (AMENSettingsAccountType.church.rawValue, "Church", "building.columns.fill", "For churches, ministries, and faith communities."),
+        (AMENSettingsAccountType.business.rawValue, "Business", "briefcase.fill", "For faith-based teams, nonprofits, and organizations.")
     ]
 
     var body: some View {
@@ -1437,18 +1437,39 @@ struct BereanAISettingsView: View {
 // MARK: - Creator Insights View
 
 struct CreatorInsightsView: View {
+    @AppStorage("amen_creator_weekly_digest") private var weeklyDigest: Bool = true
+    @AppStorage("amen_creator_prayerful_metrics") private var prayerfulMetrics: Bool = true
+    @AppStorage("amen_creator_growth_prompts") private var growthPrompts: Bool = true
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                ContentUnavailableView(
-                    "Coming Soon",
-                    systemImage: "chart.line.uptrend.xyaxis",
-                    description: Text("Creator insights and analytics will be available in an upcoming update.")
-                )
-                .padding(.top, 40)
+            VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Dignified Insights", systemImage: "chart.line.uptrend.xyaxis")
+                        .font(AMENFont.semiBold(17))
+                    Text("Amen summarizes reach, saves, replies, and prayerful responses without ranking people by addictive engagement loops.")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
 
-                Spacer(minLength: 32)
+                VStack(spacing: 0) {
+                    Toggle("Weekly creator digest", isOn: $weeklyDigest)
+                        .padding(16)
+                    Divider().padding(.leading, 16)
+                    Toggle("Prayerful metrics", isOn: $prayerfulMetrics)
+                        .padding(16)
+                    Divider().padding(.leading, 16)
+                    Toggle("Gentle growth prompts", isOn: $growthPrompts)
+                        .padding(16)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
             }
+            .padding(16)
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Insights & Analytics")
@@ -1459,18 +1480,39 @@ struct CreatorInsightsView: View {
 // MARK: - Drafts Settings
 
 struct DraftsSettingsView: View {
+    @AppStorage("amen_draft_autosave") private var autosave: Bool = true
+    @AppStorage("amen_draft_berean_resume") private var bereanResume: Bool = true
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                ContentUnavailableView(
-                    "No Drafts",
-                    systemImage: "doc.text",
-                    description: Text("Save posts as drafts when composing to continue later.")
-                )
-                .padding(.top, 40)
+            VStack(spacing: 16) {
+                VStack(spacing: 8) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 34, weight: .light))
+                        .foregroundStyle(.secondary)
+                    Text("No Drafts")
+                        .font(AMENFont.semiBold(18))
+                    Text("Saved drafts will appear here. Autosave can preserve unfinished posts and Berean can help resume the intent later.")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(24)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
 
-                Spacer(minLength: 32)
+                VStack(spacing: 0) {
+                    Toggle("Autosave drafts", isOn: $autosave)
+                        .padding(16)
+                    Divider().padding(.leading, 16)
+                    Toggle("Berean resume suggestions", isOn: $bereanResume)
+                        .padding(16)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
             }
+            .padding(16)
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Drafts")
@@ -1610,7 +1652,18 @@ struct LegalDocView: View {
                 SafariViewWrapper(url: url)
                     .ignoresSafeArea()
             } else {
-                ContentUnavailableView("Not available", systemImage: "doc.text")
+                VStack(spacing: 10) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 32, weight: .light))
+                        .foregroundStyle(.secondary)
+                    Text("Document link is invalid")
+                        .font(AMENFont.semiBold(16))
+                    Text("Amen could not open this policy URL. Please try again from the Support & Transparency screen.")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
             }
         }
         .navigationTitle(title)
@@ -1746,6 +1799,38 @@ struct AccessibilitySettingsView: View {
                 .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                 .padding(.horizontal, 16)
+
+                // Accessibility Intelligence Layer — Reading & Understanding
+                if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                    Text("READING & UNDERSTANDING")
+                        .font(AMENFont.bold(11))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: AILReadingUnderstandingSettingsView()) {
+                            HStack {
+                                Text("Reading & Understanding")
+                                    .font(AMENFont.regular(15))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+                }
 
                 Spacer(minLength: 32)
             }

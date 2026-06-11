@@ -28,5 +28,22 @@ Branch: `feature/connected-intelligence-20260609` · Firebase: `amen-5e359` · R
    - **Rollback:** purely additive. Revert = remove the `exports.ailTransform` line; flags stay OFF ⇒ zero user-facing surface (all mounts are flag-gated). No data migration; `transformCache` is regenerable.
 
 ## Open build items (this session, in progress)
+- **2026-06-10 — Berean auth/guest reality:** AMEN does **not** currently support signed-out/Skip browsing for the main app/Berean runtime. DEBUG `Skip` / `Test Mode` buttons are simulator shortcuts only and must not set `isAuthenticated = true` unless Firebase Auth already has a real current user. `ContentView` main startup is intentionally gated on both `authViewModel.isAuthenticated` and `Auth.auth().currentUser?.uid != nil`.
 - **connectorFetch read-CF** — consent-gated per connector, computed-and-discarded (no persistence, no payloads in logs), fail-closed fallback preserved.
 - **ASWebAuthenticationSession native bridge** — tokens → Keychain, nothing in JS-visible storage; mount `ConnectorsHubScreen` behind flag; retire Berean-v1 connectors screen only after E2E verifies (E2E pending human OAuth secrets).
+
+### 2026-06-10 — FirebaseAI / FirebaseAILogic merge-block diagnosis + resolution
+
+**Symptom (Xcode fresh errors, all from `firebase-ios-sdk/FirebaseAI`):**
+- `Type 'LanguageModelSession' does not conform to protocol '_ModelSession'`
+- `'Error' is only available in iOS 27.0 or newer`
+
+**Root cause (verbatim, logged for the record):** The FoundationModels (Apple Intelligence) on-device wrapper inside FirebaseAI — `LanguageModelSession+ModelSession.swift`, from firebase PR #16111 "[AI] Add hybrid support with Foundation Models" — **landed in `firebase-ios-sdk` 12.13.0** ("[AI] Add wrapper for FoundationModels.SystemLanguageModel"). The project is pinned to **12.14.0**, so that code is compiled; it requires the iOS 26/27 SDK availability and fails against the app's **iOS 17.0** deployment target. These are compile errors *inside the SDK source* — no app-side Swift change can fix them. The last release before that wrapper is **12.12.0**.
+
+**Decision — NO downgrade.** FirebaseAI/FirebaseAILogic are **UNUSED** (imports commented out; `GoogleGenerativeAI` / `generative-ai-swift` is the app's actual AI dependency, grep-confirmed). Pinning the whole `firebase-ios-sdk` to 12.12.x to keep dead products compiling would freeze Auth / Firestore / Functions / App Check behind a stale SDK for nothing.
+
+**Standing fix — unlink.** Remove **FirebaseAI** + **FirebaseAILogic** from the `AMENAPP` target (human, in Xcode GUI; pbxproj grep verification + immediate commit). `firebase-ios-sdk` **stays at 12.14.0** so every *used* product gets current code. Agent did NOT edit `project.pbxproj` (Xcode open ⇒ corruption risk; no MCP tool for package-product dependencies). pbxproj baseline before unlink: 6 FirebaseAI/FirebaseAILogic reference sites (PBXBuildFile ×2, Frameworks phase ×2, packageProductDependencies ×2, XCSwiftPackageProductDependency defs ×2).
+
+**Re-add path (if on-device FoundationModels via FirebaseAI is ever wanted):** deliberate re-add at a compatible deployment target (iOS 26+), not a passive SDK pin — RUNLOG at that time.
+
+**Next:** on unlink commit landing, run build and continue merge pass from next real compiler errors.

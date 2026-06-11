@@ -1,7 +1,10 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 
 import { analyticsService } from "../services/AnalyticsService";
+
+const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
 type NoteSummaryInput = {
   noteId: string;
@@ -21,7 +24,7 @@ type LLMNotesSummary = {
 };
 
 export const bereanGenerateChurchNotesSummary = onCall(
-  { region: "us-central1", timeoutSeconds: 45 },
+  { region: "us-central1", timeoutSeconds: 45, secrets: [anthropicApiKey] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -69,7 +72,6 @@ export const bereanGenerateChurchNotesSummary = onCall(
       `church-notes-summary-${Date.now()}`
     );
 
-    const callable = admin.app().functions().httpsCallable("bereanChatProxy");
     const systemPrompt = [
       "You summarize private church notes for the note owner inside AMEN.",
       "These notes are private. Never claim divine certainty. Speak reflectively and cautiously.",
@@ -93,14 +95,7 @@ export const bereanGenerateChurchNotesSummary = onCall(
     let parsed: LLMNotesSummary | null = null;
 
     try {
-      const result = await callable({
-        message: userPrompt,
-        systemPromptSuffix: systemPrompt,
-        maxTokens: 1200,
-        modelId: "claude-sonnet-4-5",
-      });
-      const data = result.data as Record<string, unknown>;
-      const raw = String(data.response ?? data.text ?? "");
+      const raw = await callAnthropicForNotesSummary(systemPrompt, userPrompt, anthropicApiKey.value());
       parsed = parseSummaryJSON(raw);
     } catch (error) {
       console.error("[bereanGenerateChurchNotesSummary] proxy call failed:", error);
@@ -133,6 +128,35 @@ function parseSummaryJSON(raw: string): LLMNotesSummary | null {
   } catch {
     return null;
   }
+}
+
+async function callAnthropicForNotesSummary(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string
+): Promise<string> {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 1200,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Anthropic notes summary failed: ${response.status} ${body.slice(0, 160)}`);
+  }
+
+  const data = await response.json() as { content?: Array<{ type?: string; text?: string }> };
+  return data.content?.find((block) => block.type === "text")?.text ?? "{}";
 }
 
 function buildFallbackSummary(userId: string, notes: NoteSummaryInput[], nowSeconds: number) {

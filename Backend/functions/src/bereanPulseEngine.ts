@@ -55,7 +55,15 @@ export type PulseActionType =
   | "openDiscoverSearch"
   | "openReadingPlan"
   | "openProjectBrief"
-  | "openWellnessCheckIn";
+  | "openWellnessCheckIn"
+  | "curatePreferences"
+  | "requestPermission"
+  | "shareCard"
+  | "saveCard"
+  | "hideCard"
+  | "openNotifications"
+  | "openMessages"
+  | "openProfile";
 
 export type PulseEventType =
   | "viewed"
@@ -399,7 +407,7 @@ function inferIntents(signal: BereanPulseSignal): PulseIntent[] {
 function buildProjectCandidate(intent: PulseIntent, signals: BereanPulseSignal[], mode: PulseCardMode): CandidateCard {
   const lead = signals[0];
   const projectTitle = lead.metadata?.projectTitle ?? lead.title;
-  const actionPayload = lead.entityId ? { projectId: lead.entityId, projectTitle } : {};
+  const actionPayload: Record<string, string> = lead.entityId ? { projectId: lead.entityId, projectTitle } : {};
   return {
     mode,
     secondaryModes: mode === "founder" ? ["work", "creative"] : ["founder"],
@@ -553,7 +561,7 @@ function buildRelationshipCandidate(signals: BereanPulseSignal[]): CandidateCard
 
 function buildOpenLoopCandidate(signals: BereanPulseSignal[]): CandidateCard {
   const lead = signals[0];
-  const payload = lead.entityType === "post" && lead.entityId ? { postId: lead.entityId } :
+  const payload: Record<string, string> = lead.entityType === "post" && lead.entityId ? { postId: lead.entityId } :
     lead.entityType === "conversation" && lead.entityId ? { conversationId: lead.entityId } :
     lead.entityType === "church" && lead.entityId ? { churchId: lead.entityId } :
     lead.entityType === "project" && lead.entityId ? { projectId: lead.entityId } : {};
@@ -639,7 +647,7 @@ function finalizeCandidate(
   }
 
   if (candidate.recommendedActionTitle.startsWith("Action unavailable") ||
-      candidate.recommendedActionTitle.contains("unavailable")) {
+      candidate.recommendedActionTitle.includes("unavailable")) {
     matchScore = Math.min(matchScore, 0.45);
   }
 

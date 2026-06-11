@@ -51,7 +51,7 @@ struct AmenCommunityOSView: View {
             Text("Community OS")
                 .font(.title2.weight(.bold))
                 .foregroundStyle(Color.amenBlack)
-            Text("Berean-powered pastoral insights for your Space are coming soon.")
+            Text("Berean-powered pastoral insights are off for this Space.")
                 .font(.subheadline)
                 .foregroundStyle(Color.amenSlate)
                 .multilineTextAlignment(.center)

@@ -9,9 +9,14 @@
 
 import Foundation
 
-let NoteShareContractsVersion = "2026-06-09-wave0-v1"
+let NoteShareContractsVersion = "2026-06-09-wave0-v1-decisions"
 let NoteShareFeatureFlagKey = "feature_note_share_viewer"
 let NoteShareFeatureFlagDefault = false
+
+// Signed-off v1 decisions:
+// - `followers` means mutual connections only; one-way follower visibility is out of v1.
+// - Link access is signed-in only through Auth + App Check callables.
+// - `church` is resolved server-side through the Organizations membership/RBAC role edge.
 
 // MARK: - Firestore Paths
 
@@ -44,15 +49,30 @@ enum NoteShareStatus: String, Codable, CaseIterable, Sendable {
 enum NoteShareAudience: String, Codable, CaseIterable, Sendable {
     case ownerOnly = "owner_only"
     case collaborators
+    /// Stored value remains `followers` for backward compatibility, but v1 semantics are mutual connections.
     case followers
+    /// Server resolves through Organizations membership/RBAC. Client-claimed church fields are never authoritative.
     case church
     case publicLink = "public_link"
+
+    var contractDisplayName: String {
+        switch self {
+        case .followers: return "Connections (mutual)"
+        case .church: return "Organization members"
+        case .ownerOnly: return "Only me"
+        case .collaborators: return "Collaborators"
+        case .publicLink: return "Signed-in link"
+        }
+    }
 }
 
 enum NoteShareSignedOutAccess: String, Codable, CaseIterable, Sendable {
+    /// The only allowed v1 value. Public signed-out web links require a future design pass.
     case denied
     case previewOnly = "preview_only"
     case fullSnapshot = "full_snapshot"
+
+    var isAllowedInV1: Bool { self == .denied }
 }
 
 enum NoteShareFollowerPolicy: String, Codable, CaseIterable, Sendable {
@@ -87,7 +107,9 @@ struct NoteShareSourceRef: Codable, Equatable, Sendable {
     let noteId: String
     let ownerUid: String
     let sourcePostId: String?
+    /// Server-resolved organization/church scope used for `church` audience checks.
     let churchId: String?
+    var orgId: String? = nil
     let source: NoteShareSnapshotSource
 }
 

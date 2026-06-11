@@ -6,6 +6,10 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
+type CallableAuthContext = {
+    auth?: { uid: string };
+    app?: unknown;
+};
 const RESERVED_USERNAMES = new Set([
     "admin",
     "amen",
@@ -20,7 +24,7 @@ const RESERVED_USERNAMES = new Set([
     "anonymous",
 ]);
 
-function requireAppAuth(context: functions.https.CallableContext): string {
+function requireAppAuth(context: CallableAuthContext): string {
     if (!context.auth) {
         throw new HttpsError("unauthenticated", "Authentication required.");
     }

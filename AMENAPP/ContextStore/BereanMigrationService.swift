@@ -57,21 +57,9 @@ struct PendingFacetCandidate: Identifiable, Equatable {
     }
 }
 
-/// One line of the interview transcript. Ephemeral; never persisted.
-struct InterviewTurn: Identifiable, Equatable {
-    enum Speaker: String { case berean, user }
-    let id: UUID
-    let speaker: Speaker
-    let text: String
-    let at: Date
-
-    init(id: UUID = UUID(), speaker: Speaker, text: String, at: Date = Date()) {
-        self.id = id
-        self.speaker = speaker
-        self.text = text
-        self.at = at
-    }
-}
+// `InterviewTurn` (ephemeral transcript line) is declared by the interview-ui file
+// (BereanInterviewView.swift) and consumed here — we do not redeclare it. Its
+// `Speaker` is a plain enum (`.berean` / `.user`) with no String raw value.
 
 // MARK: - Errors
 
@@ -270,14 +258,19 @@ final class BereanMigrationService: ObservableObject {
     /// Merge a streamed session-document update into ephemeral state. Tolerant of
     /// missing fields — partial updates simply add nothing.
     private func ingest(_ data: [String: Any]) {
-        // Transcript turns.
+        // Transcript turns. `InterviewTurn.Speaker` is a plain enum (no String raw),
+        // so map the streamed speaker string onto its cases explicitly.
         if let turns = data["transcript"] as? [[String: Any]] {
             let mapped: [InterviewTurn] = turns.compactMap { raw in
                 guard let speakerRaw = raw["speaker"] as? String,
-                      let speaker = InterviewTurn.Speaker(rawValue: speakerRaw),
                       let text = raw["text"] as? String else { return nil }
-                let at = (raw["at"] as? Timestamp)?.dateValue() ?? Date()
-                return InterviewTurn(speaker: speaker, text: text, at: at)
+                let speaker: InterviewTurn.Speaker
+                switch speakerRaw {
+                case "berean": speaker = .berean
+                case "user":   speaker = .user
+                default:       return nil
+                }
+                return InterviewTurn(speaker: speaker, text: text)
             }
             if !mapped.isEmpty { transcript = mapped }
         }

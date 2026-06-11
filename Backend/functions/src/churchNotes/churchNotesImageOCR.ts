@@ -7,6 +7,12 @@ import { requireAuthAndAppCheck, lightweightModeration } from "../amenAI/common"
 const db        = admin.firestore();
 const storage   = admin.storage();
 const visionClient = new ImageAnnotatorClient();
+type VisionTextDetectionClient = ImageAnnotatorClient & {
+    documentTextDetection(request: string): Promise<Array<{
+        fullTextAnnotation?: { text?: string };
+        textAnnotations?: Array<{ description?: string }>;
+    }>>;
+};
 
 const MAX_OCR_CHARS      = 40_000;
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "heic", "heif", "webp"]);
@@ -82,8 +88,10 @@ export const processChurchNoteImageOCR = onCall(
             const bucketName = storage.bucket().name;
             const gcsUri     = `gs://${bucketName}/${storagePath}`;
 
-            const [result] = await visionClient.documentTextDetection(gcsUri);
-            const fullText = result.fullTextAnnotation?.text ?? "";
+            const [result] = await (visionClient as VisionTextDetectionClient).documentTextDetection(gcsUri);
+            const fullText = result.fullTextAnnotation?.text
+                ?? result.textAnnotations?.[0]?.description
+                ?? "";
             ocrText = fullText.substring(0, MAX_OCR_CHARS);
         } catch (err) {
             functions.logger.error("[churchNotes] OCR failed", {

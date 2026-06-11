@@ -181,6 +181,7 @@ exports.callModelCommentCoach = onCall(
   {
     region: "us-central1",
     timeoutSeconds: 30,
+    enforceAppCheck: true,
     secrets: [ANTHROPIC_API_KEY, NVIDIA_API_KEY],
   },
   async (request) => {

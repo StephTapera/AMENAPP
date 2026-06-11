@@ -14,12 +14,12 @@ final class MutualContextViewModel: ObservableObject {
     enum State: Equatable {
         case idle
         case loading
-        case loaded([ContextSignal])
+        case loaded([MutualContextSignal])
     }
 
     @Published private(set) var state: State = .idle
 
-    var signals: [ContextSignal] {
+    var signals: [MutualContextSignal] {
         if case .loaded(let s) = state { return s }
         return []
     }
@@ -35,7 +35,7 @@ final class MutualContextViewModel: ObservableObject {
     }
 
     /// The primary (highest relevance) signal, if any.
-    var primarySignal: ContextSignal? {
+    var primarySignal: MutualContextSignal? {
         signals.first
     }
 

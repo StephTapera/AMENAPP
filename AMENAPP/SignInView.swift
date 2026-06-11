@@ -487,17 +487,10 @@ struct SignInView: View {
                 Text("Continue with Google")
                     .font(AMENFont.semiBold(14))
             }
-            .foregroundStyle(.white.opacity(0.9))
+            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.white.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
-                    )
-            )
+            .amenLiquidGlassCapsuleSurface(isSelected: true)
         }
         .buttonStyle(SubtlePressButtonStyle())
         .padding(.horizontal, 32)
@@ -513,17 +506,10 @@ struct SignInView: View {
                 Text("Continue with Apple")
                     .font(AMENFont.semiBold(14))
             }
-            .foregroundStyle(.white.opacity(0.9))
+            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.white.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
-                    )
-            )
+            .amenLiquidGlassCapsuleSurface(isSelected: true)
         }
         .buttonStyle(SubtlePressButtonStyle())
         .padding(.horizontal, 32)
@@ -549,17 +535,10 @@ struct SignInView: View {
                         Text("Sign in with \(BiometricAuthService.shared.biometricType.displayName)")
                             .font(AMENFont.semiBold(14))
                     }
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(.white.opacity(0.1))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 24)
-                                    .stroke(.white.opacity(0.2), lineWidth: 1)
-                            )
-                    )
+                    .amenLiquidGlassCapsuleSurface(isSelected: true)
                 }
                 .buttonStyle(SubtlePressButtonStyle())
                 .padding(.horizontal, 32)
@@ -580,17 +559,10 @@ struct SignInView: View {
                     Text("Sign in with Email Link")
                         .font(AMENFont.semiBold(14))
                 }
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .background(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(.white.opacity(0.05))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(.white.opacity(0.15), lineWidth: 1)
-                        )
-                )
+                .amenLiquidGlassCapsuleSurface(isSelected: true)
             }
             .buttonStyle(SubtlePressButtonStyle())
             .padding(.horizontal, 32)
@@ -761,47 +733,41 @@ struct SignInView: View {
     }
     
     private func signInWithUsername(_ usernameInput: String) async {
-        // Normalise: strip leading @, lowercase, trim whitespace
         let cleanUsername = usernameInput
             .trimmingCharacters(in: .whitespaces)
             .lowercased()
             .replacingOccurrences(of: "@", with: "")
 
-        dlog("🔍 Username lookup: @\(cleanUsername)")
+        dlog("🔍 Username sign-in: @\(cleanUsername)")
 
         do {
-            // P0 CRASH FIX: Firebase HTTPSCallable.call() uses async let internally.
-            // If the parent Task is cancelled (e.g. view dismissed mid-sign-in),
-            // Swift tries to deallocate the child task → SIGABRT in asyncLet_finish.
-            // Fix: use Task.detached so the callable doesn't inherit cancellation.
             let functions = Functions.functions()
-            let resolvedEmail: String = try await Task.detached {
-                let callable = functions.httpsCallable("resolveUsernameToEmail")
-                let result = try await callable.call(["username": cleanUsername])
+            let customToken: String = try await Task.detached {
+                let callable = functions.httpsCallable("signInWithUsername")
+                let result = try await callable.call([
+                    "username": cleanUsername,
+                    "password": password
+                ])
                 guard let data = result.data as? [String: Any],
-                      let email = data["email"] as? String, !email.isEmpty else {
-                    throw NSError(domain: "SignIn", code: 0, userInfo: [NSLocalizedDescriptionKey: "Username not found"])
+                      let token = data["customToken"] as? String,
+                      !token.isEmpty else {
+                    throw NSError(domain: "SignIn", code: 0, userInfo: [NSLocalizedDescriptionKey: "Incorrect username or password."])
                 }
-                return email
+                return token
             }.value
 
-            dlog("✅ @\(cleanUsername) resolved — proceeding with sign-in")
-            await viewModel.signIn(email: resolvedEmail, password: password)
+            _ = try await Auth.auth().signIn(withCustomToken: customToken)
+            dlog("✅ @\(cleanUsername) signed in with server-issued custom token")
 
         } catch let error as NSError {
-            dlog("❌ resolveUsernameToEmail: domain=\(error.domain) code=\(error.code) — \(error.localizedDescription)")
+            dlog("❌ signInWithUsername: domain=\(error.domain) code=\(error.code) — \(error.localizedDescription)")
 
             let functionsCode = FunctionsErrorCode(rawValue: error.code)
             let message: String
             switch functionsCode {
-            case .notFound, .invalidArgument:
-                // Username doesn't exist — same message as wrong password to avoid enumeration
-                message = "Incorrect username or password."
             case .failedPrecondition:
-                // Account has no password (Google/Apple sign-in only)
                 message = error.localizedDescription
             case .internal, .unavailable, .unknown, .none:
-                // Function not deployed yet or network error
                 message = "Sign-in unavailable right now. Please use your email address to sign in."
             default:
                 message = "Incorrect username or password."

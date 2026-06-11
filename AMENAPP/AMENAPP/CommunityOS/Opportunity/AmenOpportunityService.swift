@@ -280,27 +280,27 @@ enum AmenOpportunityError: LocalizedError {
     }
 }
 
-// MARK: - OpportunityComposerView (stub)
-// Stub referenced by OpportunityHubView. Full implementation is a follow-on task.
+// MARK: - OpportunityComposerView
 
 struct OpportunityComposerView: View {
     var onPost: ((OpportunityPost) -> Void)?
-    @Environment(\.dismiss) private var dismiss
+    @Binding var isPresented: Bool
+
+    init(
+        onPost: ((OpportunityPost) -> Void)? = nil,
+        isPresented: Binding<Bool> = .constant(true)
+    ) {
+        self.onPost = onPost
+        self._isPresented = isPresented
+    }
 
     var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "Post an Opportunity",
-                systemImage: "briefcase.badge.plus",
-                description: Text("Full composer coming soon.")
-            )
-            .navigationTitle("New Opportunity")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
+        AmenUniversalComposer(
+            sourceRef: nil,
+            sourceType: AmenObjectType.job.rawValue,
+            initialIntent: AmenIntent.hire.rawValue,
+            isPresented: $isPresented,
+            onCreated: { _, _ in isPresented = false }
+        )
     }
 }

@@ -30,7 +30,6 @@ export const calculateCovenantChurnRisk = onSchedule(
         let opCount = 0;
 
         for (const [covenantId, docs] of Object.entries(byCovenantId)) {
-            let highCount = 0;
             let mediumCount = 0;
 
             for (const doc of docs) {
@@ -46,16 +45,14 @@ export const calculateCovenantChurnRisk = onSchedule(
 
                 const hasRecentActivity = !activitySnap.empty;
                 const reasons: string[] = [];
-                let risk: "low" | "medium" | "high" = "low";
+                let risk: "low" | "medium" | "high" = hasRecentActivity ? "low" : "medium";
 
                 if (!hasRecentActivity) {
                     reasons.push("inactive_14_days");
-                    risk = "medium";
                 }
 
                 if (risk !== "low") {
-                    if (risk === "high") highCount++;
-                    else mediumCount++;
+                    mediumCount++;
 
                     const signalRef = db.collection("covenants").doc(covenantId)
                         .collection("memberSignals").doc(userId);
@@ -65,9 +62,7 @@ export const calculateCovenantChurnRisk = onSchedule(
                         covenantId,
                         churnRisk: risk,
                         reasons,
-                        suggestedAction: risk === "high"
-                            ? "Consider sending a personal message or a special offer."
-                            : "Consider a check-in post or digest highlight.",
+                        suggestedAction: "Consider a check-in post or digest highlight.",
                         computedAt: admin.firestore.FieldValue.serverTimestamp(),
                     }, { merge: true });
 

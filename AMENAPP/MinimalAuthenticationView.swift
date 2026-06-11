@@ -61,6 +61,11 @@ struct MinimalAuthenticationView: View {
 
     // Landing card → email form transition
     @State private var showEmailForm = false
+    @State private var showPhoneAuth = false
+
+    private var rememberedIdentity: AmenIdentityHint? {
+        AmenIdentityHintStore.shared.primary()
+    }
 
     init(
         initialMode: AppLaunchView.AuthMode = .login,
@@ -75,6 +80,8 @@ struct MinimalAuthenticationView: View {
     private var cachedDisplayName: String? {
         nonEmpty(UserDefaults.standard.string(forKey: "currentUserDisplayName"))
             ?? nonEmpty(UserDefaults.standard.string(forKey: "cachedUsername"))
+            ?? nonEmpty(rememberedIdentity?.displayName)
+            ?? nonEmpty(rememberedIdentity?.username)
     }
 
     private var cachedProfileImageURL: URL? {
@@ -84,14 +91,18 @@ struct MinimalAuthenticationView: View {
         if let cachedPhotoURL = nonEmpty(UserDefaults.standard.string(forKey: "cachedPhotoURL")) {
             return URL(string: cachedPhotoURL)
         }
+        if let hintPhotoURL = nonEmpty(rememberedIdentity?.profilePhotoURL) {
+            return URL(string: hintPhotoURL)
+        }
         return nil
     }
 
     private var cachedUsernameHandle: String? {
-        guard let username = nonEmpty(UserDefaults.standard.string(forKey: "currentUserUsername")) else {
-            return nil
-        }
-        return username.hasPrefix("@") ? username : "@\(username)"
+        let username = nonEmpty(UserDefaults.standard.string(forKey: "currentUserUsername"))
+            ?? nonEmpty(rememberedIdentity?.username)
+            ?? nonEmpty(rememberedIdentity?.maskedIdentifier)
+        guard let username else { return nil }
+        return username.hasPrefix("@") || username.hasPrefix("•") ? username : "@\(username)"
     }
 
     private var cachedInitials: String {
@@ -166,6 +177,10 @@ struct MinimalAuthenticationView: View {
             if newPhase == .active && isLoading {
                 isLoading = false
             }
+        }
+        .fullScreenCover(isPresented: $showPhoneAuth) {
+            SignInView(startWithPhone: true)
+                .environmentObject(authViewModel)
         }
         .alert("Reset Password", isPresented: $showPasswordResetAlert) {
             TextField("Email address", text: $resetEmail)
@@ -299,6 +314,24 @@ struct MinimalAuthenticationView: View {
                         }
                         .buttonStyle(AuthPillButtonStyle())
 
+                        // Phone auth
+                        Button {
+                            errorMessage = nil
+                            showPhoneAuth = true
+                        } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: "phone.fill")
+                                    .font(.systemScaled(15, weight: .regular))
+                                Text(isLogin ? "Sign in with phone" : "Sign up with phone")
+                                    .font(.systemScaled(15, weight: .medium))
+                            }
+                            .foregroundStyle(Color(white: 0.10))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .amenLiquidGlassCapsuleSurface(isSelected: true)
+                        }
+                        .buttonStyle(AuthPillButtonStyle())
+
                         // Email auth
                         Button {
                             errorMessage = nil
@@ -309,15 +342,13 @@ struct MinimalAuthenticationView: View {
                             HStack(spacing: 9) {
                                 Image(systemName: isLogin ? "envelope.badge" : "envelope")
                                     .font(.systemScaled(15, weight: .regular))
-                                    .foregroundStyle(Color(white: 0.15))
                                 Text(landingEmailCTA)
                                     .font(.systemScaled(15, weight: .medium))
-                                    .foregroundStyle(Color(white: 0.10))
                             }
+                            .foregroundStyle(Color(white: 0.10))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Capsule().fill(Color(white: 0.965)))
-                            .overlay(Capsule().stroke(Color(white: 0.88), lineWidth: 1))
+                            .amenLiquidGlassCapsuleSurface(isSelected: true)
                         }
                         .buttonStyle(AuthPillButtonStyle())
                     }
@@ -572,7 +603,7 @@ struct MinimalAuthenticationView: View {
                             ZStack {
                                 if isLoading {
                                     ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .primary))
                                         .scaleEffect(0.9)
                                 } else {
                                     HStack(spacing: 8) {
@@ -581,15 +612,13 @@ struct MinimalAuthenticationView: View {
                                         Image(systemName: isLogin || signUpStep == 2 ? "arrow.right" : "chevron.right")
                                             .font(.systemScaled(13, weight: .semibold))
                                     }
-                                    .foregroundStyle(.white)
                                 }
                             }
+                            .foregroundStyle(.primary)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 17)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(isCurrentStepValid ? Color.black : Color(white: 0.72))
-                            )
+                            .frame(minHeight: 56)
+                            .amenLiquidGlassCapsuleSurface(isSelected: isCurrentStepValid)
+                            .opacity(isCurrentStepValid ? 1 : 0.55)
                             .animation(.amenEaseQuick, value: isCurrentStepValid)
                         }
                         .disabled(isLoading || !isCurrentStepValid)
@@ -883,23 +912,17 @@ struct MinimalAuthenticationView: View {
         Task {
             do {
                 if isLogin {
-                    // Check if input is username or email
                     let loginIdentifier = email.trimmingCharacters(in: .whitespaces).lowercased()
-                    
-                    // Determine if it's a username or email
-                    let finalEmail: String
                     if loginIdentifier.hasPrefix("@") || !loginIdentifier.contains("@") {
-                        // It's a username - resolve to email
-                        finalEmail = try await resolveUsernameToEmail(loginIdentifier)
+                        try await signInWithUsername(loginIdentifier)
                     } else {
-                        // It's an email
-                        finalEmail = loginIdentifier
+                        await authViewModel.signIn(email: loginIdentifier, password: password)
+                        if authViewModel.showError {
+                            throw NSError(domain: "Auth", code: -1, userInfo: [
+                                NSLocalizedDescriptionKey: authViewModel.errorMessage ?? "Sign in failed. Please try again."
+                            ])
+                        }
                     }
-                    
-                    _ = try await FirebaseManager.shared.signIn(
-                        email: finalEmail,
-                        password: password
-                    )
                 } else {
                     _ = try await FirebaseManager.shared.signUp(
                         email: email,
@@ -922,68 +945,28 @@ struct MinimalAuthenticationView: View {
         }
     }
     
-    /// Resolves a username to an email address.
-    /// Primary path: Cloud Function. Fallback: direct Firestore query.
-    private func resolveUsernameToEmail(_ usernameInput: String) async throws -> String {
+    /// Signs in with a username without exposing the account email to the client.
+    /// The callable verifies username + password server-side and returns only a custom token.
+    private func signInWithUsername(_ usernameInput: String) async throws {
         let cleanUsername = usernameInput
             .trimmingCharacters(in: .whitespaces)
             .lowercased()
             .replacingOccurrences(of: "@", with: "")
 
-        // Primary: Cloud Function (preferred — server-side validation)
-        do {
-            let functions = Functions.functions()
-            let callable = functions.httpsCallable("resolveUsernameToEmail")
-            let result = try await callable.call(["username": cleanUsername])
-            if let data = result.data as? [String: Any],
-               let email = data["email"] as? String, !email.isEmpty {
-                return email
-            }
-        } catch let error as NSError {
-            if error.domain == "FIRFunctionsErrorDomain" {
-                let code = FunctionsErrorCode(rawValue: error.code)
-                switch code {
-                case .notFound, .invalidArgument:
-                    throw NSError(domain: "Auth", code: 404, userInfo: [
-                        NSLocalizedDescriptionKey: "Incorrect username or password"
-                    ])
-                case .failedPrecondition:
-                    throw NSError(domain: "Auth", code: 403, userInfo: [
-                        NSLocalizedDescriptionKey: "This account does not have a password. Please sign in another way."
-                    ])
-                default:
-                    break // fall through to Firestore fallback below
-                }
-            }
-            // Non-Functions errors (network, App Check, keychain) — fall through to Firestore
-        }
-
-        // Fallback 1: usernames/{username} document — standard pattern, no index required
-        let db = Firestore.firestore()
-        let usernameDoc = try? await db.collection("usernames").document(cleanUsername).getDocument()
-        if let email = usernameDoc?.data()?["email"] as? String, !email.isEmpty {
-            return email
-        }
-
-        // Fallback 2: users/{username} document — some apps store users keyed by username
-        let userDoc = try? await db.collection("users").document(cleanUsername).getDocument()
-        if let email = userDoc?.data()?["email"] as? String, !email.isEmpty {
-            return email
-        }
-
-        // Fallback 3: users field query — catches accounts stored with auto-generated doc IDs
-        let userSnap = try? await db.collection("users")
-            .whereField("username", isEqualTo: cleanUsername)
-            .limit(to: 1)
-            .getDocuments()
-        if let doc = userSnap?.documents.first,
-           let email = doc.data()["email"] as? String, !email.isEmpty {
-            return email
-        }
-
-        throw NSError(domain: "Auth", code: 404, userInfo: [
-            NSLocalizedDescriptionKey: "Incorrect username or password"
+        let functions = Functions.functions()
+        let callable = functions.httpsCallable("signInWithUsername")
+        let result = try await callable.call([
+            "username": cleanUsername,
+            "password": password
         ])
+        guard let data = result.data as? [String: Any],
+              let token = data["customToken"] as? String,
+              !token.isEmpty else {
+            throw NSError(domain: "Auth", code: 404, userInfo: [
+                NSLocalizedDescriptionKey: "Incorrect username or password"
+            ])
+        }
+        _ = try await Auth.auth().signIn(withCustomToken: token)
     }
 
     private func getErrorMessage(for error: Error) -> String {

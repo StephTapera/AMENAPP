@@ -14,19 +14,19 @@ import FirebaseAuth
 // MARK: - Models
 
 /// A ranked social context signal between the viewer and a profile owner.
-enum ContextSignalType: Equatable {
+enum MutualContextSignalType: Equatable {
     case mutualFollowers(connections: [MutualConnection], totalCount: Int)
     case sharedChurch(name: String)
     case sharedInterests(topics: [String])
 }
 
-struct ContextSignal: Identifiable, Equatable {
+struct MutualContextSignal: Identifiable, Equatable {
     let id = UUID()
-    let type: ContextSignalType
+    let type: MutualContextSignalType
     /// Higher = more relevant. Used for sorting.
     let relevanceScore: Double
 
-    static func == (lhs: ContextSignal, rhs: ContextSignal) -> Bool {
+    static func == (lhs: MutualContextSignal, rhs: MutualContextSignal) -> Bool {
         lhs.id == rhs.id
     }
 }
@@ -43,7 +43,7 @@ final class MutualContextService {
 
     /// Fetch all context signals between the viewer and `profileUID`.
     /// Returns signals sorted by relevance (highest first).
-    func fetchContextSignals(profileUID: String) async -> [ContextSignal] {
+    func fetchContextSignals(profileUID: String) async -> [MutualContextSignal] {
         guard let viewerUID = Auth.auth().currentUser?.uid,
               viewerUID != profileUID else { return [] }
 
@@ -52,7 +52,7 @@ final class MutualContextService {
         async let churchSignal = fetchSharedChurchSignal(viewerUID: viewerUID, profileUID: profileUID)
         async let interestsSignal = fetchSharedInterestsSignal(viewerUID: viewerUID, profileUID: profileUID)
 
-        var signals: [ContextSignal] = []
+        var signals: [MutualContextSignal] = []
 
         if let signal = await mutualsSignal {
             signals.append(signal)
@@ -71,7 +71,7 @@ final class MutualContextService {
 
     // MARK: - Private Signal Fetchers
 
-    private func fetchMutualFollowersSignal(profileUID: String) async -> ContextSignal? {
+    private func fetchMutualFollowersSignal(profileUID: String) async -> MutualContextSignal? {
         let mutuals = await MutualsService.shared.fetchMutuals(profileUID: profileUID, limit: 8)
         guard !mutuals.isEmpty else { return nil }
 
@@ -80,13 +80,13 @@ final class MutualContextService {
         // Mutual followers are the strongest context signal
         let score = min(1.0, Double(totalCount) * 0.15 + 0.3)
 
-        return ContextSignal(
+        return MutualContextSignal(
             type: .mutualFollowers(connections: mutuals, totalCount: totalCount),
             relevanceScore: score
         )
     }
 
-    private func fetchSharedChurchSignal(viewerUID: String, profileUID: String) async -> ContextSignal? {
+    private func fetchSharedChurchSignal(viewerUID: String, profileUID: String) async -> MutualContextSignal? {
         do {
             // Fetch both user docs concurrently
             async let viewerDoc = db.collection(FirebaseManager.CollectionPath.users).document(viewerUID).getDocument()
@@ -102,7 +102,7 @@ final class MutualContextService {
                 return nil
             }
 
-            return ContextSignal(
+            return MutualContextSignal(
                 type: .sharedChurch(name: profileChurch),
                 relevanceScore: 0.7
             )
@@ -112,7 +112,7 @@ final class MutualContextService {
         }
     }
 
-    private func fetchSharedInterestsSignal(viewerUID: String, profileUID: String) async -> ContextSignal? {
+    private func fetchSharedInterestsSignal(viewerUID: String, profileUID: String) async -> MutualContextSignal? {
         do {
             // Fetch both user docs concurrently
             async let viewerDoc = db.collection(FirebaseManager.CollectionPath.users).document(viewerUID).getDocument()
@@ -136,7 +136,7 @@ final class MutualContextService {
             let displayTopics = Array(shared.prefix(3)).map { $0.capitalized }
             let score = min(0.6, Double(shared.count) * 0.1 + 0.1)
 
-            return ContextSignal(
+            return MutualContextSignal(
                 type: .sharedInterests(topics: displayTopics),
                 relevanceScore: score
             )

@@ -8,6 +8,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Premium Church Note Editor
 
@@ -72,6 +73,9 @@ struct ChurchNotesPremiumEditor: View {
     @State private var showFormattingBar = false
     @State private var metadataExpanded = true
     @State private var contentAppeared = false
+    @State private var restoredLocalDraftDate: Date?
+    @State private var showChurchSearch = false
+    @State private var contextualActionInFlight: ContextualNoteAction.Kind?
 
     // Autosave
     @State private var contentChangeTask: Task<Void, Never>?
@@ -92,7 +96,11 @@ struct ChurchNotesPremiumEditor: View {
     var isEditMode: Bool { existingNote != nil }
     var canSave: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty }
     private var persistenceService: ChurchNotesPersistenceService { ChurchNotesPersistenceService(notesService: notesService) }
+    private var localDraftKey: String { existingNote?.id ?? "new" }
     private let commandApplier = RichTextCommandApplier()
+    private let localDraftService = ChurchNotesLocalDraftService.shared
+    private let aiService = ChurchNotesAIService.shared
+    private let reminderService = ChurchNotesReminderService.shared
     private var reviewSummary: ChurchNoteReviewSummary {
         ChurchNotesReviewSummaryService.shared.summary(for: attributedText, blocks: blocks)
     }
@@ -162,6 +170,8 @@ struct ChurchNotesPremiumEditor: View {
 
                         scriptureSection
 
+                        contextualIntelligenceStrip
+
                         personalGrowthCard
 
                         worshipCard
@@ -194,7 +204,10 @@ struct ChurchNotesPremiumEditor: View {
         .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.85)), value: showFormattingBar)
         .interactiveDismissDisabled(hasUnsavedChanges)
         .alert("Unsaved Changes", isPresented: $showUnsavedAlert) {
-            Button("Discard", role: .destructive) { dismiss() }
+            Button("Discard", role: .destructive) {
+                clearLocalDraft()
+                dismiss()
+            }
             Button("Keep Editing", role: .cancel) {}
         } message: {
             Text("You have unsaved changes. Are you sure you want to discard them?")
@@ -214,7 +227,23 @@ struct ChurchNotesPremiumEditor: View {
                 }
             }
         }
+        .sheet(isPresented: $showChurchSearch) {
+            ChurchNotesChurchSearchSheet(
+                initialQuery: churchName,
+                onSelect: { church in
+                    churchName = church.name
+                    if pastor.isEmpty, let seniorPastor = church.seniorPastorName {
+                        pastor = seniorPastor
+                    }
+                    showChurchSearch = false
+                    markChanged()
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .onAppear {
+            restoreLocalDraftIfNeeded()
             withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.82)).delay(0.05)) {
                 contentAppeared = true
             }
@@ -275,6 +304,23 @@ struct ChurchNotesPremiumEditor: View {
 
     @ViewBuilder
     private var autosaveIndicator: some View {
+        if restoredLocalDraftDate != nil && autosaveState == .idle {
+            HStack(spacing: 3) {
+                Image(systemName: "iphone.and.arrow.forward")
+                    .font(.systemScaled(9))
+                    .foregroundStyle(.green.opacity(0.7))
+                Text("Draft restored")
+                    .font(.systemScaled(10))
+                    .foregroundStyle(.tertiary)
+            }
+            .transition(.opacity)
+        } else {
+            autosaveStatusIndicator
+        }
+    }
+
+    @ViewBuilder
+    private var autosaveStatusIndicator: some View {
         switch autosaveState {
         case .idle:
             EmptyView()
@@ -380,8 +426,45 @@ struct ChurchNotesPremiumEditor: View {
                     .padding(.horizontal, 14)
                     .padding(.top, 14)
 
-                    NoteGlassTextField(icon: "building.2", placeholder: "Church", text: $churchName)
-                        .onChange(of: churchName) { _, _ in markChanged() }
+                    Button {
+                        showChurchSearch = true
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "building.2")
+                                .font(.systemScaled(14))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 20)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(churchName.isEmpty ? "Search churches" : churchName)
+                                    .font(.systemScaled(15))
+                                    .foregroundStyle(churchName.isEmpty ? .secondary : .primary)
+                                    .lineLimit(1)
+                                Text("Find a Church directory")
+                                    .font(.systemScaled(11, weight: .medium))
+                                    .foregroundStyle(.tertiary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "magnifyingglass")
+                                .font(.systemScaled(13, weight: .semibold))
+                                .foregroundStyle(ChurchNotesDesignTokens.Colors.personalTint)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.primary.opacity(0.03))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+                                )
+                        )
+                        .padding(.horizontal, 14)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(churchName.isEmpty ? "Search churches" : "Selected church, \(churchName)")
 
                     NoteGlassTextField(icon: "person", placeholder: "Pastor", text: $pastor)
                         .onChange(of: pastor) { _, _ in markChanged() }
@@ -689,6 +772,171 @@ struct ChurchNotesPremiumEditor: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    // MARK: - Contextual Intelligence
+
+    @ViewBuilder
+    private var contextualIntelligenceStrip: some View {
+        let actions = contextualActions
+        if !actions.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(ChurchNotesDesignTokens.Colors.personalTint)
+                    Text("Berean suggestions")
+                        .font(.systemScaled(12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(actions) { action in
+                            Button {
+                                handleContextualAction(action.kind)
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if contextualActionInFlight == action.kind {
+                                        ProgressView()
+                                            .scaleEffect(0.65)
+                                    } else {
+                                        Image(systemName: action.icon)
+                                            .font(.systemScaled(12, weight: .semibold))
+                                    }
+                                    Text(action.title)
+                                        .lineLimit(1)
+                                }
+                                .font(.systemScaled(12, weight: .semibold))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(.thinMaterial, in: Capsule())
+                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(contextualActionInFlight != nil)
+                            .accessibilityLabel(action.title)
+                        }
+                    }
+                }
+            }
+            .padding(14)
+            .churchNotesGlassCard()
+        }
+    }
+
+    private var contextualActions: [ContextualNoteAction] {
+        var actions: [ContextualNoteAction] = []
+        let detectedToAttach = detectedScriptures.filter { !scriptureChips.contains($0) }
+        if !detectedToAttach.isEmpty {
+            actions.append(.init(kind: .attachDetectedScripture, title: "Attach \(detectedToAttach.count) scripture", icon: "book.closed"))
+        }
+        if !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && prayerFromSermon.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            actions.append(.init(kind: .createPrayerPrompt, title: "Create prayer", icon: "hands.sparkles"))
+        }
+        if !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && actionStep.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            actions.append(.init(kind: .createActionStep, title: "Create action", icon: "checkmark.circle"))
+        }
+        if !shouldRevisit && (!actionStep.isEmpty || !prayerFromSermon.isEmpty || !blocks.isEmpty) {
+            actions.append(.init(kind: .scheduleMidweek, title: "Remind midweek", icon: "calendar.badge.clock"))
+        }
+        if !isReviewMode && (!blocks.isEmpty || !scriptureChips.isEmpty || !content.isEmpty) {
+            actions.append(.init(kind: .openReview, title: "Preview note", icon: "eye"))
+        }
+        return actions
+    }
+
+    private func handleContextualAction(_ kind: ContextualNoteAction.Kind) {
+        guard contextualActionInFlight == nil else { return }
+        contextualActionInFlight = kind
+        Task {
+            defer { contextualActionInFlight = nil }
+            do {
+                switch kind {
+                case .attachDetectedScripture:
+                    let additions = detectedScriptures.filter { !scriptureChips.contains($0) }
+                    scriptureChips.append(contentsOf: additions)
+                case .createPrayerPrompt:
+                    prayerFromSermon = try await aiService.generatePrayer(currentNoteSnapshot(), userId: currentUserIdForAI())
+                case .createActionStep:
+                    actionStep = firstActionLine(from: try await aiService.extractKeyTakeaways(currentNoteSnapshot(), userId: currentUserIdForAI()))
+                case .scheduleMidweek:
+                    try await reminderService.scheduleMidweekReminder(
+                        noteTitle: title.isEmpty ? sermonTitle : title,
+                        serviceDate: selectedDate,
+                        draftKey: localDraftKey
+                    )
+                    shouldRevisit = true
+                case .openReview:
+                    withAnimation(CNToken.Anim.reviewToggle) { isReviewMode = true }
+                }
+                markChanged()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+            }
+        }
+    }
+
+    private func currentNoteSnapshot() throws -> ChurchNote {
+        try persistenceService.buildNote(
+            from: existingNote,
+            title: title.isEmpty ? "Untitled Church Note" : title,
+            sermonTitle: sermonTitle,
+            metadata: ChurchNoteMetadata(
+                churchName: churchName,
+                pastorName: pastor,
+                serviceDate: selectedDate
+            ),
+            content: content,
+            attributedText: attributedText,
+            blocks: blocks,
+            tags: noteTags,
+            scriptureReferences: scriptureChips,
+            worshipSongs: worshipSongs,
+            actionStep: actionStep,
+            prayer: prayerFromSermon,
+            revisitMidweek: shouldRevisit
+        )
+    }
+
+    private func currentUserIdForAI() throws -> String {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            throw NSError(
+                domain: "ChurchNotesEditor",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "Sign in to use Berean suggestions."]
+            )
+        }
+        return uid
+    }
+
+    private func firstActionLine(from text: String) -> String {
+        var trimSet = CharacterSet.whitespacesAndNewlines
+        trimSet.formUnion(CharacterSet(charactersIn: " •-*0123456789."))
+        return text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: trimSet) }
+            .first { !$0.isEmpty }
+            ?? text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private struct ContextualNoteAction: Identifiable, Equatable {
+        enum Kind: Hashable {
+            case attachDetectedScripture
+            case createPrayerPrompt
+            case createActionStep
+            case scheduleMidweek
+            case openReview
+        }
+
+        var id: Kind { kind }
+        let kind: Kind
+        let title: String
+        let icon: String
+    }
+
     // MARK: - Personal Growth Card
 
     private var personalGrowthCard: some View {
@@ -738,30 +986,22 @@ struct ChurchNotesPremiumEditor: View {
     // MARK: - Bottom Action Capsule
 
     private var actionCapsule: some View {
-        VStack(spacing: 0) {
-            // Top hairline separator
-            Rectangle()
-                .fill(Color.primary.opacity(0.08))
-                .frame(height: 0.5)
-
-            ChurchNotesBottomActionCapsule(
-                actions: CapsuleAction.allCases.map { action in
-                    .init(
-                        id: action.rawValue,
-                        label: action.label,
-                        icon: action.icon,
-                        handler: {
-                            handleCapsuleAction(action)
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }
-                    )
-                }
-            )
-            .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 8)
-        }
-        .background(.ultraThinMaterial)
+        ChurchNotesBottomActionCapsule(
+            actions: CapsuleAction.allCases.map { action in
+                .init(
+                    id: action.rawValue,
+                    label: action.label,
+                    icon: action.icon,
+                    handler: {
+                        handleCapsuleAction(action)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    }
+                )
+            }
+        )
+        .shadow(color: ChurchNotesDesignTokens.Shadow.capsule.color, radius: ChurchNotesDesignTokens.Shadow.capsule.radius, y: ChurchNotesDesignTokens.Shadow.capsule.y)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 14)
     }
 
     // MARK: - Formatting Bar
@@ -855,6 +1095,74 @@ struct ChurchNotesPremiumEditor: View {
         markChanged()
     }
 
+    // MARK: - Local Drafts
+
+    private func saveLocalDraftSnapshot() {
+        let draft = ChurchNotesLocalDraft(
+            key: localDraftKey,
+            title: title,
+            sermonTitle: sermonTitle,
+            churchName: churchName,
+            pastor: pastor,
+            selectedDate: selectedDate,
+            content: content,
+            scriptureInput: scripture,
+            scriptureReferences: scriptureChips,
+            actionStep: actionStep,
+            prayer: prayerFromSermon,
+            shouldRevisit: shouldRevisit,
+            worshipSongs: worshipSongs,
+            blocks: blocks,
+            noteTags: noteTags,
+            updatedAt: Date()
+        )
+        localDraftService.save(draft)
+    }
+
+    private func restoreLocalDraftIfNeeded() {
+        guard let draft = localDraftService.load(key: localDraftKey), draft.hasMeaningfulContent else { return }
+        if let existingNote, draft.updatedAt <= existingNote.updatedAt { return }
+
+        title = draft.title
+        sermonTitle = draft.sermonTitle
+        churchName = draft.churchName
+        pastor = draft.pastor
+        selectedDate = draft.selectedDate
+        content = draft.content
+        scripture = draft.scriptureInput
+        scriptureChips = draft.scriptureReferences
+        actionStep = draft.actionStep
+        prayerFromSermon = draft.prayer
+        shouldRevisit = draft.shouldRevisit
+        worshipSongs = draft.worshipSongs
+        blocks = draft.blocks
+        noteTags = draft.noteTags
+        attributedText = NSAttributedString(
+            string: draft.content,
+            attributes: [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .foregroundColor: UIColor.label
+            ]
+        )
+        let detectionService = ScriptureDetectionService.shared
+        detectedScriptures = detectionService.detectedReferences(in: draft.content).map(\.reference)
+        suggestedScriptures = detectionService.suggestedReferences(for: draft.content).map {
+            ScriptureThemeSuggestion(
+                theme: "suggested",
+                reference: $0.reference,
+                shortText: "Detected from your note content"
+            )
+        }
+        restoredLocalDraftDate = draft.updatedAt
+        hasUnsavedChanges = true
+        autosaveState = .idle
+    }
+
+    private func clearLocalDraft() {
+        localDraftService.clear(key: localDraftKey)
+        restoredLocalDraftDate = nil
+    }
+
     // MARK: - Actions
 
     private func toggleFormatting(_ style: NoteTextStyle) {
@@ -896,7 +1204,9 @@ struct ChurchNotesPremiumEditor: View {
 
     private func markChanged() {
         hasUnsavedChanges = true
+        restoredLocalDraftDate = nil
         autosaveState = .saving
+        saveLocalDraftSnapshot()
         scheduleAutosave()
     }
 
@@ -904,6 +1214,7 @@ struct ChurchNotesPremiumEditor: View {
         guard isEditMode else { return }
         autosaveService.schedule(after: 900_000_000) {
             try await saveNoteInternal()
+            self.clearLocalDraft()
             self.hasUnsavedChanges = false
             self.autosaveState = .saved
             Task { @MainActor in
@@ -921,6 +1232,7 @@ struct ChurchNotesPremiumEditor: View {
         autosaveState = .saving
         do {
             try await saveNoteInternal()
+            clearLocalDraft()
             hasUnsavedChanges = false
             autosaveState = .saved
             try? await Task.sleep(for: .seconds(2))
@@ -938,6 +1250,7 @@ struct ChurchNotesPremiumEditor: View {
             defer { isSaving = false }
             do {
                 try await saveNoteInternal()
+                clearLocalDraft()
                 hasUnsavedChanges = false
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 dismiss()
@@ -1082,6 +1395,241 @@ private struct NoteScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+// MARK: - Church Search Selector
+
+private struct ChurchNotesChurchSearchSheet: View {
+    let initialQuery: String
+    let onSelect: (ChurchOSProfile) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var service = AmenChurchService()
+    @State private var query: String
+    @State private var results: [ChurchOSProfile] = []
+    @State private var isSearching = false
+    @State private var errorMessage: String?
+    @State private var searchTask: Task<Void, Never>?
+
+    init(initialQuery: String, onSelect: @escaping (ChurchOSProfile) -> Void) {
+        self.initialQuery = initialQuery
+        self.onSelect = onSelect
+        _query = State(initialValue: initialQuery)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                searchField
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+
+                Divider()
+
+                content
+            }
+            .navigationTitle("Choose Church")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .task { await search(query: query) }
+            .onChange(of: query) { _, newValue in
+                searchTask?.cancel()
+                searchTask = Task {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    guard !Task.isCancelled else { return }
+                    await search(query: newValue)
+                }
+            }
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search by church, city, or denomination", text: $query)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if isSearching {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let errorMessage {
+            ContentUnavailableView("Church search unavailable", systemImage: "building.2.crop.circle", description: Text(errorMessage))
+        } else if results.isEmpty {
+            ContentUnavailableView("Search churches", systemImage: "building.2", description: Text("Use the existing Find a Church directory to attach a church to this note."))
+        } else {
+            List(results) { church in
+                Button {
+                    onSelect(church)
+                } label: {
+                    ChurchNotesChurchResultRow(church: church)
+                }
+                .buttonStyle(.plain)
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @MainActor
+    private func search(query: String) async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            results = []
+            errorMessage = nil
+            return
+        }
+
+        isSearching = true
+        errorMessage = nil
+        defer { isSearching = false }
+
+        do {
+            let candidates = try await service.searchChurches(
+                query: trimmed,
+                near: nil,
+                denomination: nil,
+                style: nil
+            )
+            results = try await ChurchNotesChurchSearchRankingService.shared.rank(
+                churches: candidates,
+                query: trimmed,
+                intent: "church notes sermon metadata"
+            )
+        } catch {
+            results = []
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private final class ChurchNotesChurchSearchRankingService {
+    static let shared = ChurchNotesChurchSearchRankingService()
+
+    private let functions = Functions.functions()
+
+    func rank(churches: [ChurchOSProfile], query: String, intent: String) async throws -> [ChurchOSProfile] {
+        guard churches.count > 1 else { return churches }
+
+        let payload: [String: Any] = [
+            "intent": intent,
+            "query": query,
+            "timeContext": [
+                "timestamp": Int(Date().timeIntervalSince1970 * 1000),
+                "timezone": TimeZone.current.identifier
+            ],
+            "candidateChurches": churches.map(Self.payload)
+        ]
+
+        let result = try await functions.httpsCallable("rankChurchesForUser").call(payload)
+        guard let root = result.data as? [String: Any],
+              let ranked = root["results"] as? [[String: Any]] else {
+            return churches
+        }
+
+        let byId = Dictionary(uniqueKeysWithValues: churches.map { ($0.id, $0) })
+        let rankedIds = ranked.compactMap { $0["churchId"] as? String }
+        let ordered = rankedIds.compactMap { byId[$0] }
+        let orderedIds = Set(ordered.map(\.id))
+        return ordered + churches.filter { !orderedIds.contains($0.id) }
+    }
+
+    private static func payload(for church: ChurchOSProfile) -> [String: Any] {
+        let primaryCampus = church.campuses.first(where: { $0.isPrimary }) ?? church.campuses.first
+        let address = [
+            primaryCampus?.address,
+            primaryCampus?.city,
+            primaryCampus?.state
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: ", ")
+
+        return [
+            "churchId": church.id,
+            "name": church.name,
+            "denomination": church.denomination as Any,
+            "address": address,
+            "serviceTime": church.serviceTimesToday.first.map { "\($0.dayName) \($0.startTime)" } ?? "",
+            "tags": [
+                church.denomination,
+                church.missionStatement,
+                church.bio
+            ].compactMap { $0 }
+        ]
+    }
+}
+
+private struct ChurchNotesChurchResultRow: View {
+    let church: ChurchOSProfile
+
+    private var primaryCampus: ChurchCampus? {
+        church.campuses.first(where: { $0.isPrimary }) ?? church.campuses.first
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: church.isVerified ? "checkmark.seal.fill" : "building.2")
+                .font(.systemScaled(18, weight: .semibold))
+                .foregroundStyle(church.isVerified ? Color.green : ChurchNotesDesignTokens.Colors.personalTint)
+                .frame(width: 34, height: 34)
+                .background(Color.primary.opacity(0.05), in: Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(church.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var subtitle: String {
+        let campus = primaryCampus
+        let place = [campus?.city, campus?.state]
+            .compactMap { value in
+                let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
+            .joined(separator: ", ")
+        return [church.denomination, place]
+            .compactMap { value in
+                let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
+            .joined(separator: " · ")
     }
 }
 

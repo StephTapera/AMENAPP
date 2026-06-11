@@ -13,6 +13,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Audience levels
 
@@ -34,24 +35,55 @@ private enum AudienceLevel: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - CommunityOSService stub
+// MARK: - CommunityOSService
 
-/// Placeholder service stub — wire to the real CommunityOSService when available.
 private struct CommunityOSService {
     static let shared = CommunityOSService()
+
+    private let functions = Functions.functions()
+
     private init() {}
 
-    /// Transforms a source object using the given intent and returns (newObjectId, newObjectType).
-    /// Calls the `communityOSTransform` Cloud Function when deployed; returns a local stub ID until then.
+    /// Transforms a source object using the server-owned `transformObject` callable.
     func transform(
         sourceRef: String?,
         sourceType: String?,
         intent: String,
         actorId: String,
-        audience: String
+        audience: String,
+        title: String
     ) async throws -> (objectId: String, objectType: String) {
-        dlog("[CommunityOSService] transform intent=\(intent) actor=\(actorId) audience=\(audience)")
-        return ("placeholder_\(UUID().uuidString)", intent)
+        var payload: [String: Any] = [
+            "intent": intent,
+            "actorId": actorId,
+            "audienceOverride": audience,
+            "title": title
+        ]
+        if let sourceRef, !sourceRef.isEmpty { payload["sourceRef"] = sourceRef }
+        if let sourceType, !sourceType.isEmpty { payload["sourceType"] = sourceType }
+
+        let result = try await functions.httpsCallable("transformObject").call(payload)
+        guard let data = result.data as? [String: Any] else {
+            throw CommunityOSServiceError.invalidResponse
+        }
+
+        if let objectId = data["newObjectId"] as? String,
+           let objectType = data["newObjectType"] as? String {
+            return (objectId, objectType)
+        }
+        if let objectId = data["objectId"] as? String,
+           let objectType = data["objectType"] as? String {
+            return (objectId, objectType)
+        }
+        throw CommunityOSServiceError.invalidResponse
+    }
+}
+
+private enum CommunityOSServiceError: LocalizedError {
+    case invalidResponse
+
+    var errorDescription: String? {
+        "CommunityOS returned an invalid transform response."
     }
 }
 
@@ -384,7 +416,8 @@ struct AmenUniversalComposer: View {
                     sourceType: sourceType,
                     intent: intent,
                     actorId: actorId,
-                    audience: audienceLevel
+                    audience: audienceLevel,
+                    title: trimmedTitle
                 )
                 onCreated?(result.objectId, result.objectType)
                 isPresented = false

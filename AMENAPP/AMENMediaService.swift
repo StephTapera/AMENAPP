@@ -6,6 +6,7 @@
 // Results are cached in-memory per session.
 
 import Foundation
+import FirebaseFunctions
 
 // MARK: - Configuration
 
@@ -45,6 +46,7 @@ final class AMENMediaService: @unchecked Sendable {
     private var spotifyToken: String?
     private var spotifyTokenExpiry: Date = .distantPast
     private let session = URLSession.shared
+    private let functions = Functions.functions()
 
     // MARK: - YouTube Sermons
 
@@ -202,10 +204,33 @@ final class AMENMediaService: @unchecked Sendable {
 
     // MARK: - Spotify Token (Client Credentials)
 
-    // Calls `spotifyTokenProxy` CF when deployed; returns nil until then so Spotify features
-    // fall back to curated content (secret never touches the device).
+    // Calls `spotifyTokenProxy` CF. The Spotify client secret stays server-side.
     private func fetchSpotifyToken(clientID: String) async -> String? {
-        return nil
+        if let spotifyToken, spotifyTokenExpiry > Date().addingTimeInterval(60) {
+            return spotifyToken
+        }
+
+        do {
+            let result = try await functions.httpsCallable("spotifyTokenProxy").safeCall([
+                "clientId": clientID,
+            ])
+            guard let payload = result.data as? [String: Any] else { return nil }
+            let token = payload["accessToken"] as? String ?? payload["token"] as? String
+            guard let token, !token.isEmpty else { return nil }
+
+            let expiresIn = payload["expiresIn"] as? TimeInterval
+                ?? (payload["expires_in"] as? TimeInterval)
+                ?? (payload["expiresIn"] as? Int).map(TimeInterval.init)
+                ?? (payload["expires_in"] as? Int).map(TimeInterval.init)
+                ?? 3_000
+
+            spotifyToken = token
+            spotifyTokenExpiry = Date().addingTimeInterval(max(300, expiresIn))
+            return token
+        } catch {
+            dlog("⚠️ [AMENMediaService] Spotify token proxy failed: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // MARK: - Helpers

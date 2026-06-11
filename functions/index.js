@@ -36,6 +36,11 @@ const {
   generateChurchNoteShareLink,
 } = require("./churchNotesShare");
 
+const {
+  resolveMusicAttachment,
+  spotifyTokenProxy,
+} = require("./musicAttachmentResolver");
+
 // AI Personalization: Import ML-powered feed and notification functions
 const {
   generatePersonalizedFeed,
@@ -118,6 +123,9 @@ const {
   onNewPrayerFellowshipCheck,
 } = require("./fellowshipMatcher");
 
+// Amen Action Intelligence: commitment economy callable workflows
+const actionIntelligence = require("./actionIntelligenceFunctions");
+
 // Hey Feed: NL-driven feed control intelligence layer
 const {
   submitHeyFeedNLRequest,
@@ -147,6 +155,8 @@ exports.onMessageReaction = onMessageReaction;
 exports.shareChurchNote = shareChurchNote;
 exports.revokeChurchNoteShare = revokeChurchNoteShare;
 exports.generateChurchNoteShareLink = generateChurchNoteShareLink;
+exports.resolveMusicAttachment = resolveMusicAttachment;
+exports.spotifyTokenProxy = spotifyTokenProxy;
 
 // AI Personalization: Export ML-powered functions
 exports.generatePersonalizedFeed = generatePersonalizedFeed;
@@ -687,6 +697,13 @@ exports.onActionThreadCreated        = actionThreads.onActionThreadCreated;
 exports.onActionStepCompleted        = actionThreads.onActionStepCompleted;
 exports.processActionThreadReminders = actionThreads.processActionThreadReminders;
 exports.cleanupExpiredActionThreads  = actionThreads.cleanupExpiredActionThreads;
+
+exports.createAmenInitiative = actionIntelligence.createAmenInitiative;
+exports.assignAmenVolunteer = actionIntelligence.assignAmenVolunteer;
+exports.indexAmenMemoryGraph = actionIntelligence.indexAmenMemoryGraph;
+exports.recordAmenRelationshipSignal = actionIntelligence.recordAmenRelationshipSignal;
+exports.writeAmenKnowledgeGraph = actionIntelligence.writeAmenKnowledgeGraph;
+exports.executeAmenAction = actionIntelligence.executeAmenAction;
 
 // Topic Enrichment (System 11) — server-side fallback for post topic tagging
 const topicEnrichment = require("./topicEnrichment");

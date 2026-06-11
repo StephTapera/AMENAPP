@@ -87,11 +87,10 @@ struct CrisisResourcesDetailView: View {
                 // and real human services — never route the user to an AI chatbot.
                 safetyFooter
                     .padding(.top, 24)
-                    .padding(.bottom, 48)
+                    .padding(.bottom, 220)
                     .opacity(appeared ? 1 : 0)
             }
         }
-        .ignoresSafeArea(edges: .top)
         .background(Color(.systemBackground))
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -134,27 +133,30 @@ struct CrisisResourcesDetailView: View {
                 .foregroundStyle(crisisSubLight)
 
             Text("You are\nnot alone.")
-                .font(.custom("Georgia", size: 38))
+                .font(.custom("Georgia", size: 36))
                 .fontWeight(.regular)
                 .foregroundStyle(crisisInkLight)
-                .lineSpacing(4)
+                .lineLimit(2)
+                .minimumScaleFactor(0.88)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(3)
 
             Text("Confidential human help is here, 24/7.")
                 .font(.systemScaled(14, weight: .regular))
                 .foregroundStyle(crisisSubLight)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 24)
-        .padding(.top, 88)
-        .padding(.bottom, 24)
-        .frame(maxWidth: .infinity)
-        .frame(height: 260, alignment: .bottomLeading)
+        .padding(.top, 18)
+        .padding(.bottom, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 178, alignment: .bottomLeading)
         .background(Color(.systemBackground))
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Color(.separator).opacity(0.14))
                 .frame(height: 1)
         }
-        .ignoresSafeArea(edges: .top)
         .opacity(appeared ? 1 : 0)
     }
 
@@ -167,25 +169,27 @@ struct CrisisResourcesDetailView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.circle.fill")
                         .font(.systemScaled(18))
+                        .foregroundStyle(crisisAccent)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Immediate danger — call 911")
                             .font(.custom("OpenSans-Bold", size: 15))
+                            .foregroundStyle(.primary)
                         Text("Emergency services in the US")
                             .font(.custom("OpenSans-Regular", size: 12))
-                            .opacity(0.8)
+                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "phone.fill")
                         .font(.systemScaled(14))
+                        .foregroundStyle(crisisAccent)
                 }
-                .foregroundStyle(.white)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(red: 0.72, green: 0.12, blue: 0.12))
-                        .shadow(color: Color(red: 0.72, green: 0.12, blue: 0.12).opacity(0.28), radius: 10, y: 4)
-                )
+                .amenGlassCard(cornerRadius: 16, shadow: true)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(crisisAccent.opacity(0.30), lineWidth: 1)
+                }
             }
             .buttonStyle(SquishButtonStyle())
 

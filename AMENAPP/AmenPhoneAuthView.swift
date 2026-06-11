@@ -327,20 +327,18 @@ struct AmenPhoneAuthView: View {
                 ZStack {
                     if isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .primary))
                             .scaleEffect(0.9)
                     } else {
-                        Text("Send Code →")
+                        Text("Send Code")
                             .font(.systemScaled(15, weight: .semibold))
-                            .foregroundStyle(.white)
                     }
                 }
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 17)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(canSendCode ? Color.black : Color(white: 0.72))
-                )
+                .frame(minHeight: 56)
+                .amenLiquidGlassCapsuleSurface(isSelected: canSendCode)
+                .opacity(canSendCode ? 1 : 0.55)
                 .animation(.amenEaseQuick, value: canSendCode)
             }
             .disabled(isLoading || !canSendCode)
@@ -422,20 +420,18 @@ struct AmenPhoneAuthView: View {
                 ZStack {
                     if isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .primary))
                             .scaleEffect(0.9)
                     } else {
-                        Text("Verify & Sign In ✓")
+                        Text("Verify & Sign In")
                             .font(.systemScaled(15, weight: .semibold))
-                            .foregroundStyle(.white)
                     }
                 }
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 17)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(canVerify ? Color.black : Color(white: 0.72))
-                )
+                .frame(minHeight: 56)
+                .amenLiquidGlassCapsuleSurface(isSelected: canVerify)
+                .opacity(canVerify ? 1 : 0.55)
                 .animation(.amenEaseQuick, value: canVerify)
             }
             .disabled(isLoading || !canVerify)

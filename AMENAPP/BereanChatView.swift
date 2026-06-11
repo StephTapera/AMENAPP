@@ -297,6 +297,7 @@ struct BereanChatView: View {
     @StateObject private var composerVM = BereanComposerViewModel()
     @StateObject private var scrollCoordinator = BereanScrollCoordinator()
     @StateObject private var wallpaperManager = BereanWallpaperManager()
+    @StateObject private var pulseViewModel = BereanPulseViewModel()
     @State private var showModeSheet = false
     @State private var showModeDrawer = false
     @State private var showWallpaperPicker = false
@@ -482,6 +483,9 @@ struct BereanChatView: View {
                     showHero = false
                 }
             }
+            .task {
+                await pulseViewModel.load()
+            }
             .onChange(of: vm.isThinking) { _, thinking in
                 if thinking {
                     composerVM.setState(.streaming)
@@ -630,8 +634,8 @@ struct BereanChatView: View {
                 LazyVStack(spacing: 0) {
                     // Empty state: centered Today's Pulse module before the conversation starts.
                     if showHero && vm.messages.count <= 1 {
-                        BereanAssistantEmptyState(onOpenPulse: { showDailyFormation = true })
-                            .frame(minHeight: max(360, metrics.size.height * 0.54))
+                        bereanPulseEmptyState
+                            .frame(minHeight: max(360, metrics.screenHeight * 0.54))
                             .padding(.top, 8)
                             .padding(.bottom, 24)
                             .id("hero")
@@ -752,6 +756,139 @@ struct BereanChatView: View {
         }
     }
 
+    private var topPulseCard: BereanPulseCard? {
+        pulseViewModel.filteredCards.first ?? pulseViewModel.cards.first
+    }
+
+    private var bereanPulseEmptyState: some View {
+        VStack(spacing: 16) {
+            if let card = topPulseCard {
+                livePulseCard(card)
+                    .padding(.horizontal, 24)
+            } else {
+                BereanAssistantEmptyState(onOpenPulse: { showDailyFormation = true })
+            }
+        }
+        .onAppear {
+            if let card = topPulseCard {
+                trackPulse(card: card, eventType: .viewed, surface: "chat_empty_state")
+            }
+        }
+    }
+
+    private func livePulseCard(_ card: BereanPulseCard) -> some View {
+        Button {
+            handlePulseCard(card)
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.white.opacity(0.34))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.44), lineWidth: 0.7)
+                        )
+                        .frame(width: 58, height: 58)
+                    Image(systemName: pulseIcon(for: card))
+                        .font(.systemScaled(23, weight: .semibold))
+                        .foregroundStyle(Color.primary.opacity(0.74))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(card.title.isEmpty ? "Today's Berean Pulse" : card.title)
+                        .font(.systemScaled(20, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.84)
+
+                    Text(card.whyNow.isEmpty ? card.subtitle : card.whyNow)
+                        .font(.systemScaled(15, weight: .regular))
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(2)
+                        .lineLimit(3)
+                }
+
+                Spacer(minLength: 4)
+
+                Image(systemName: "chevron.right")
+                    .font(.systemScaled(18, weight: .semibold))
+                    .foregroundStyle(.secondary.opacity(0.7))
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity)
+            .background(
+                LiquidGlassCapsuleBackground(
+                    cornerRadius: 28,
+                    glassOpacity: 0.11,
+                    shadowOpacity: 0.09,
+                    highlightOpacity: 0.22
+                )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Today's Berean Pulse. \(card.title). \(card.whyNow)")
+    }
+
+    private func pulseIcon(for card: BereanPulseCard) -> String {
+        switch card.mode {
+        case .spiritual, .prayer:
+            return "hands.sparkles"
+        case .learning:
+            return "book.pages"
+        case .relationships:
+            return "person.2"
+        case .church:
+            return "building.columns"
+        case .work, .business, .founder, .openLoops:
+            return "checklist"
+        case .creative:
+            return "sparkles"
+        default:
+            return "sparkle.magnifyingglass"
+        }
+    }
+
+    private func handlePulseCard(_ card: BereanPulseCard) {
+        trackPulse(card: card, eventType: .actionTapped, surface: "chat_empty_state")
+        let prompt = card.actionPayload["prompt"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let fallback = card.expandedBody.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query: String
+        if !prompt.isEmpty {
+            query = prompt
+        } else if !fallback.isEmpty {
+            query = fallback
+        } else {
+            query = card.whyNow.isEmpty ? card.subtitle : card.whyNow
+        }
+        if let modeRaw = card.actionPayload["mode"], let mode = BereanPersonalityMode(rawValue: modeRaw) {
+            vm.currentMode = mode
+        }
+        vm.inputText = query
+        pendingUserSend = true
+        withAnimation(BereanAnimationCoordinator.compactSpring) {
+            showHero = false
+        }
+        vm.send()
+    }
+
+    private func trackPulse(card: BereanPulseCard, eventType: BereanPulseEventType, surface: String) {
+        let event = BereanPulseEvent(
+            id: "\(card.id)_\(eventType.rawValue)_\(UUID().uuidString)",
+            cardId: card.id,
+            eventType: eventType,
+            mode: card.mode,
+            timestamp: Date(),
+            metadata: ["surface": surface]
+        )
+        Task { await pulseViewModel.service.track(event) }
+    }
+
     private struct ContentHeightKey: PreferenceKey {
         static var defaultValue: CGFloat = 0
         static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -799,18 +936,28 @@ struct BereanChatView: View {
 
     private func handleQuickAction(_ action: BereanLiquidAction.ActionType) {
         switch action {
-        case .attachFile, .camera:
-            dlog("Berean: attach/camera tapped")
+        case .bibleVerse:
+            vm.inputText = "Add this Bible verse to our conversation: "
+            inputFocused = true
+        case .prayerRequest:
+            vm.inputText = "Help me carry this prayer request with care: "
+            inputFocused = true
+        case .churchNotes:
+            vm.inputText = "Summarize these church notes and suggest next steps: "
+            inputFocused = true
+        case .safePhoto:
+            vm.inputText = "Help me describe and share this photo safely: "
+            inputFocused = true
         case .voiceNote:
             handleVoiceAction()
-        case .verseLookup:
-            vm.inputText = ""
+        case .sermonClip:
+            vm.inputText = "Turn this sermon clip into a clear summary and reflection: "
             inputFocused = true
-        case .summarize:
-            vm.inputText = "Summarize this: "
+        case .reminder:
+            vm.inputText = "Create a gentle reminder for this: "
             inputFocused = true
-        case .searchScripture:
-            vm.inputText = "Search scripture for "
+        case .shareToSpace:
+            vm.inputText = "Help me share this to a Space safely and thoughtfully: "
             inputFocused = true
         }
     }
@@ -1358,29 +1505,194 @@ struct BereanChatView: View {
     }
 
     private var focusedSuggestionRow: some View {
-        SmartActionPills(actions: SmartAction.allCases, onSelect: handleSmartAction)
+        SmartActionPills(actions: rankedSmartActions, onSelect: handleSmartAction)
             .simultaneousGesture(DragGesture(minimumDistance: 0))
     }
 
-    private func handleSmartAction(_ action: SmartAction) {
+    private var rankedSmartActions: [SmartAction] {
+        SmartAction.allCases
+            .map { action in
+                (action: action, score: smartActionScore(action))
+            }
+            .sorted { lhs, rhs in
+                if lhs.score == rhs.score {
+                    return SmartAction.allCases.firstIndex(of: lhs.action) ?? 0 < SmartAction.allCases.firstIndex(of: rhs.action) ?? 0
+                }
+                return lhs.score > rhs.score
+            }
+            .prefix(7)
+            .map(\.action)
+    }
+
+    private func smartActionScore(_ action: SmartAction) -> Double {
+        var score = 1.0
+        if let card = topPulseCard {
+            score += pulseCardScore(action, card: card)
+        }
+        score += pulseSignalScore(action)
+        score += timeAwareScore(action, date: Date())
+        score += typedIntentScore(action, text: vm.inputText)
+        if let latestAssistant = vm.messages.last(where: { $0.role == .assistant && !$0.content.isEmpty }) {
+            score += typedIntentScore(action, text: latestAssistant.content) * 0.35
+        }
+        return score
+    }
+
+    private func pulseCardScore(_ action: SmartAction, card: BereanPulseCard) -> Double {
+        let directActions = smartActions(for: card.actionType, mode: card.mode)
+        let modeActions = smartActions(for: card.mode)
+        var score = 0.0
+        if directActions.contains(action) { score += 6.0 }
+        if modeActions.contains(action) { score += 3.0 }
+        if card.sourceSignals.contains(where: { smartActions(for: $0.source).contains(action) }) { score += 2.5 }
+        score += min(2.5, (card.confidenceScore + card.urgencyScore + card.relevanceScore + card.matchScore) / 4.0 * 2.5)
+        return score
+    }
+
+    private func pulseSignalScore(_ action: SmartAction) -> Double {
+        pulseViewModel.signals.reduce(0.0) { partial, signal in
+            partial + (smartActions(for: signal.source).contains(action) ? 1.4 : 0.0)
+        }
+    }
+
+    private func timeAwareScore(_ action: SmartAction, date: Date) -> Double {
+        let components = Calendar.current.dateComponents([.hour, .weekday], from: date)
+        let hour = components.hour ?? 12
+        let weekday = components.weekday ?? 1
+        switch action {
+        case .createPrayer:
+            return (hour < 10 || hour >= 21 || weekday == 1) ? 2.4 : 0.4
+        case .summarizeNotes:
+            return weekday == 1 || (hour >= 11 && hour <= 14) ? 2.0 : 0.2
+        case .saveReflection:
+            return hour >= 19 ? 2.1 : 0.5
+        case .startDiscussion:
+            return hour >= 9 && hour <= 20 ? 1.1 : 0.1
+        case .explainVerse, .compareTranslations:
+            return hour < 12 ? 1.4 : 0.6
+        case .shareSafely:
+            return 0.7
+        }
+    }
+
+    private func typedIntentScore(_ action: SmartAction, text: String) -> Double {
+        let lower = text.lowercased()
+        guard !lower.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return 0 }
         switch action {
         case .explainVerse:
-            vm.inputText = "Explain this verse: "
+            return containsAny(lower, ["verse", "scripture", "john ", "romans", "psalm", "meaning"]) ? 3.0 : 0
         case .createPrayer:
-            vm.inputText = "Create a prayer for: "
+            return containsAny(lower, ["pray", "prayer", "anxious", "grief", "help me"]) ? 3.0 : 0
         case .summarizeNotes:
-            vm.inputText = "Summarize these notes: "
+            return containsAny(lower, ["notes", "sermon", "recap", "summary", "summarize"]) ? 3.0 : 0
         case .compareTranslations:
-            vm.inputText = "Compare translations for: "
+            return containsAny(lower, ["translation", "greek", "hebrew", "compare", "kjv", "niv", "esv"]) ? 3.0 : 0
         case .saveReflection:
-            vm.inputText = "Help me save this reflection: "
+            return containsAny(lower, ["reflect", "remember", "journal", "save", "learned"]) ? 3.0 : 0
         case .startDiscussion:
-            vm.inputText = "Start a safe discussion about: "
+            return containsAny(lower, ["group", "community", "discussion", "space", "what do people"]) ? 3.0 : 0
         case .shareSafely:
-            vm.inputText = "Help me share this safely: "
+            return containsAny(lower, ["post", "share", "caption", "send", "safe"]) ? 3.0 : 0
+        }
+    }
+
+    private func smartActions(for actionType: BereanPulseActionType, mode: BereanPulseMode) -> Set<SmartAction> {
+        switch actionType {
+        case .createPrayer, .openPrayerJournal:
+            return [.createPrayer, .saveReflection]
+        case .openReadingPlan:
+            return [.explainVerse, .compareTranslations]
+        case .draftMessage, .openMessages, .openGroup:
+            return [.startDiscussion, .shareSafely]
+        case .createPost, .shareCard:
+            return [.shareSafely, .startDiscussion]
+        case .startReflection, .saveCard:
+            return [.saveReflection, .createPrayer]
+        case .openChurch:
+            return [.summarizeNotes, .startDiscussion]
+        case .askBerean, .continueChat:
+            return smartActions(for: mode)
+        default:
+            return smartActions(for: mode)
+        }
+    }
+
+    private func smartActions(for mode: BereanPulseMode) -> Set<SmartAction> {
+        switch mode {
+        case .spiritual, .learning:
+            return [.explainVerse, .compareTranslations, .saveReflection]
+        case .prayer, .wellness:
+            return [.createPrayer, .saveReflection]
+        case .church:
+            return [.summarizeNotes, .startDiscussion, .shareSafely]
+        case .relationships:
+            return [.startDiscussion, .createPrayer, .shareSafely]
+        case .founder, .business, .work, .openLoops:
+            return [.summarizeNotes, .saveReflection]
+        case .creative:
+            return [.shareSafely, .saveReflection]
+        case .all:
+            return [.explainVerse, .createPrayer, .saveReflection]
+        }
+    }
+
+    private func smartActions(for source: BereanPulsePermissionSource) -> Set<SmartAction> {
+        switch source {
+        case .bereanChatHistory:
+            return [.explainVerse, .compareTranslations, .saveReflection]
+        case .prayerJournal:
+            return [.createPrayer, .saveReflection]
+        case .churchActivity:
+            return [.summarizeNotes, .startDiscussion]
+        case .savedPosts:
+            return [.startDiscussion, .shareSafely, .saveReflection]
+        case .calendar, .notifications, .appUsageBehavior, .workProjectContext:
+            return [.summarizeNotes, .saveReflection]
+        case .contacts:
+            return [.startDiscussion, .shareSafely]
+        case .location:
+            return [.startDiscussion]
+        case .wellnessHealth:
+            return [.createPrayer, .saveReflection]
+        case .amenActivity:
+            return [.explainVerse, .createPrayer, .saveReflection]
+        }
+    }
+
+    private func containsAny(_ text: String, _ needles: [String]) -> Bool {
+        needles.contains { text.contains($0) }
+    }
+
+    private func handleSmartAction(_ action: SmartAction) {
+        vm.inputText = prompt(for: action)
+        if let card = topPulseCard {
+            trackPulse(card: card, eventType: .followUpAsked, surface: "chat_smart_action_\(action.rawValue)")
         }
         inputFocused = true
         HapticManager.impact(style: .light)
+    }
+
+    private func prompt(for action: SmartAction) -> String {
+        let pulseContext = topPulseCard.map { card in
+            let whyNow = card.whyNow.isEmpty ? card.subtitle : card.whyNow
+            return "\(card.title). \(whyNow)"
+        }
+        switch action {
+        case .explainVerse:
+            return pulseContext.map { "Explain the Scripture context connected to this: \($0)" } ?? "Explain this verse: "
+        case .createPrayer:
+            return pulseContext.map { "Create a grounded prayer for this moment: \($0)" } ?? "Create a prayer for: "
+        case .summarizeNotes:
+            return pulseContext.map { "Summarize the church or study notes behind this: \($0)" } ?? "Summarize these notes: "
+        case .compareTranslations:
+            return pulseContext.map { "Compare translations and original-language nuance for this: \($0)" } ?? "Compare translations for: "
+        case .saveReflection:
+            return pulseContext.map { "Turn this into a saved reflection with one next step: \($0)" } ?? "Help me save this reflection: "
+        case .startDiscussion:
+            return pulseContext.map { "Start a safe, thoughtful community discussion from this: \($0)" } ?? "Start a safe discussion about: "
+        case .shareSafely:
+            return pulseContext.map { "Help me share this safely and with care: \($0)" } ?? "Help me share this safely: "
+        }
     }
 
     private var compactContextRail: some View {

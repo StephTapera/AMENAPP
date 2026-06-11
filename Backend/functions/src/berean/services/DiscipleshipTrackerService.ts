@@ -155,3 +155,51 @@ function extractBookFromReference(reference: string): string {
   const match = reference.match(/^([1-3]?\s?[A-Za-z]+(?:\s[A-Za-z]+)?)/);
   return match ? match[1].trim() : reference.split(" ")[0];
 }
+
+export const discipleshipTrackerService = {
+  recordDiscipleshipEvent,
+  createFollowUpPrompt,
+  getRecentEvents,
+  async generateNextSteps(
+    userId: string,
+    conversationId: string,
+    sourceThemeIds: string[],
+    sourcePassageIds: string[]
+  ) {
+    const db = admin.firestore();
+    const now = admin.firestore.Timestamp.now();
+    const theme = sourceThemeIds[0] ?? "faithfulness";
+    const passage = sourcePassageIds[0] ?? "Scripture";
+    const recommendation = {
+      userId,
+      title: `Practice ${theme} this week`,
+      description: `Choose one concrete response from ${passage} and revisit it before your next Berean study.`,
+      practiceType: "scripture_application",
+      status: "open" as const,
+      conversationId,
+      sourceThemeIds,
+      sourcePassageIds,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const recommendationRef = db.collection("users").doc(userId).collection("practiceRecommendations").doc();
+    await recommendationRef.set(recommendation);
+
+    const followUp = {
+      id: uuidv4(),
+      userId,
+      promptText: `What did you notice as you practiced ${theme}?`,
+      sourceSessionId: conversationId,
+      passageReference: passage,
+      scheduledFor: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+      status: "pending" as const,
+      createdAt: now,
+    };
+    await db.collection("users").doc(userId).collection("followUpPrompts").doc(followUp.id).set(followUp);
+
+    return {
+      recommendations: [{ id: recommendationRef.id, ...recommendation }],
+      followUps: [followUp],
+    };
+  },
+};

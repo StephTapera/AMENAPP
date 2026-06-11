@@ -16,6 +16,9 @@ struct PostDetailView: View {
     let post: Post
 
     @Environment(\.dismiss) var dismiss
+    // Adaptive Ambient: scheme + reduce-motion feed coordinator.drive()/reset().
+    @Environment(\.colorScheme) private var ambientScheme
+    @Environment(\.accessibilityReduceMotion) private var ambientReduceMotion
     @ObservedObject private var commentService = CommentService.shared
     @ObservedObject private var commentFocusCoordinator = CommentFocusCoordinator.shared
     @ObservedObject private var userService = UserService.shared
@@ -25,6 +28,8 @@ struct PostDetailView: View {
 
     @State private var isLoading = false
     @State private var commentText = ""
+    // AIL C10/C11 pre-send gate — proposal-only, no-op unless enabled in a11y prefs.
+    @State private var commentSendGate = AILPreSendGate(messageKey: "comment-composer")
     @State private var isFollowInFlight = false
     @State private var expandedCommentClusters: Set<String> = []
     @State private var highlightedCommentIDs: Set<String> = []
@@ -34,6 +39,12 @@ struct PostDetailView: View {
     // CommentService uses the full firestoreId as the Realtime Database key.
     // Truncating to prefix(8) produces a path that doesn't exist, resulting in empty comments.
     private var postId: String { post.firestoreId }
+
+    // Adaptive Ambient source identity: post doc id + media revision (falls back to "1").
+    private var ambientSourceKey: AmbientSourceKey {
+        let rev = post.imageURLs?.first(where: { !$0.isEmpty }).map { String($0.hashValue) } ?? "1"
+        return AmbientSourceKey(id: "post/\(post.firestoreId)", revision: rev)
+    }
 
     // Derived from @Published CommentService state — no local copy, no concurrent mutation.
     // SwiftUI re-renders automatically whenever commentService.comments or commentReplies changes.
@@ -151,6 +162,7 @@ struct PostDetailView: View {
     }
 
     var body: some View {
+        AmbientScope { coordinator in
         VStack(spacing: 0) {
             // ── Top nav bar ─────────────────────────────────────────
             topNavBar
@@ -167,6 +179,9 @@ struct PostDetailView: View {
                     }
 
                     // ── Full post text (expanded by default in detail view) ──
+                    // Adaptive Ambient C6: post body is a reading plane — neutral card,
+                    // tint hard-capped at 0.04 × intensity, never a chroma background.
+                    AdaptiveContentCard(isReadingPlane: true) {
                     VStack(alignment: .leading, spacing: 10) {
                         if let quote = post.quote {
                             quoteSnippetView(quote)
@@ -244,9 +259,32 @@ struct PostDetailView: View {
                                 .padding(.vertical, 4)
                                 .background(Capsule().fill(Color(.secondarySystemBackground)))
                         }
+
+                        // Accessibility Intelligence Layer — translate / culture notes (C1).
+                        // Fails open to the original; "View original" always available.
+                        if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled,
+                           !post.content.isEmpty {
+                            AILTranslatePill(
+                                originalText: post.content,
+                                originalRef: post.firestoreId
+                            )
+                            .padding(.top, 2)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    } // end AdaptiveContentCard (post body reading plane)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 16)
+
+                    // Accessibility Intelligence Layer — scripture explanation (C1, iron rule 2).
+                    // Canonical verse rendered verbatim; explanation is labeled, never re-leveled.
+                    if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled,
+                       let ref = post.verseReference, !ref.isEmpty,
+                       let verse = post.verseText, !verse.isEmpty {
+                        AILScriptureExplanationPanel(canonicalVerse: verse, reference: ref)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                    }
 
                     // ── Music attachment card ────────────────────────────────
                     if let music = post.music {
@@ -258,14 +296,15 @@ struct PostDetailView: View {
                     Divider()
 
                     // ── Engagement bar ──────────────────────────────────────
-                    engagementBar
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
-                        .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 4)
+                    // Adaptive Ambient: reaction/controls bar on the only sanctioned glass
+                    // primitive (tint × intensity, Reduce Transparency / iOS17 fallback handled).
+                    AdaptiveGlassContainer(shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                        engagementBar
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
 
                     // ── Prayer Status Track — prayer posts, author only ────────
                     if post.category == .prayer {
@@ -322,6 +361,11 @@ struct PostDetailView: View {
                     }
 
                     // ── Conversation Thread (Threads-style wisdom UI) ────────
+                    // TODO(ambient) C6: each comment card must be a reading plane
+                    // (AdaptiveContentCard(isReadingPlane: true)). Comment row chrome is owned
+                    // by ConversationThreadView (separate file), so wrap per-row there rather than
+                    // wrapping the whole thread in one card here — wrapping the container would
+                    // collapse all comments into a single card and break the threaded layout.
                     if showCommentsLoadError {
                         commentsErrorView
                     } else {
@@ -395,7 +439,11 @@ struct PostDetailView: View {
             }
             } // end ScrollViewReader
         }
-        .background(Color(.systemBackground).ignoresSafeArea())
+        // Adaptive Ambient: page wash behind cards (light touch — cards stay dominant).
+        // Renders byte-identical neutral when AdaptiveColorsMode == .off / Reduce Transparency.
+        // TODO(ambient): pass the decoded hero UIImage as `bleedImage:` once the carousel
+        // exposes a decoded thumbnail (currently media is AsyncImage-by-URL, no UIImage reachable).
+        .background(AdaptiveAmbientBackground())
         .sheet(isPresented: $showAnsweredComposer) {
             AnsweredPrayerComposerView(originalPrayerPost: post)
         }
@@ -491,8 +539,16 @@ struct PostDetailView: View {
                 witnessService.startWitnessing(postId: postId)
                 strengthService.startListening(postId: postId)
             }
+            // Adaptive Ambient: drive palette from the post media.
+            // TODO(ambient): supply the decoded hero UIImage here (image arg currently nil ⇒
+            // fails closed to neutral). Carousel uses AsyncImage-by-URL, so no UIImage is
+            // reachable in this view yet. Key is stable; once a decoded thumbnail exists, pass it.
+            coordinator.drive(with: nil, key: ambientSourceKey,
+                              scheme: ambientScheme, reduceMotion: ambientReduceMotion)
         }
         .onDisappear {
+            // Adaptive Ambient: clear tint so the next screen starts neutral.
+            coordinator.reset(scheme: ambientScheme, reduceMotion: ambientReduceMotion)
             highlightResetTask?.cancel()
             highlightResetTask = nil
             clearTextSelection()
@@ -516,6 +572,7 @@ struct PostDetailView: View {
         // commentsWithReplies is now a computed property derived from @Published
         // CommentService state, so no notification handlers are needed here.
         // SwiftUI automatically re-renders when commentService.comments changes.
+        } // end AmbientScope
     }
 
     // MARK: - Category gradient (used by textOnlyBanner)
@@ -1085,13 +1142,32 @@ struct PostDetailView: View {
     // MARK: - Comment Input Bar (ThreadComposerView)
 
     private var commentInputBar: some View {
-        ThreadComposerView(
-            text: $commentText,
-            replyingToUsername: $replyingToUsername,
-            isFocused: $isCommentFocused,
-            onSubmit: { submitComment() },
-            onBerean: { query in activeDetailSheet = .berean(query) }
-        )
+        VStack(spacing: 8) {
+            // Accessibility Intelligence Layer — comment intent picker (C8).
+            // Tapping an intent focuses the composer ready to write in that spirit.
+            if AMENFeatureFlags.shared.accessibilityIntelligenceEnabled {
+                AILCommentIntentPicker { _ in
+                    isCommentFocused = true
+                }
+            }
+
+            ThreadComposerView(
+                text: $commentText,
+                replyingToUsername: $replyingToUsername,
+                isFocused: $isCommentFocused,
+                onSubmit: {
+                    // Route through the AIL pre-send gate. When disabled (default),
+                    // this forwards straight to submitComment — zero interference.
+                    let draft = commentText
+                    commentSendGate.submit(draft: draft) { finalText in
+                        commentText = finalText
+                        submitComment()
+                    }
+                },
+                onBerean: { query in activeDetailSheet = .berean(query) }
+            )
+        }
+        .ailPreSendGate(commentSendGate)
     }
 
     // MARK: - Helpers

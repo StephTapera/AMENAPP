@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Privacy lane for intent detection. Public/community content can be indexed server-side;
 /// confidential and sacred content should keep detection local unless a user acts.
-enum ActionIntelligencePrivacyTier: String, Codable, CaseIterable, Sendable {
+enum ActionIntelligencePrivacyTier: String, Codable, CaseIterable {
     case publicCommunity = "tier_p"
     case confidential = "tier_c"
     case sacred = "tier_s"
@@ -15,7 +15,7 @@ enum ActionIntelligencePrivacyTier: String, Codable, CaseIterable, Sendable {
     }
 }
 
-enum ActionIntelligenceSurface: String, Codable, CaseIterable, Sendable {
+enum ActionIntelligenceSurface: String, Codable, CaseIterable {
     case feedPost = "feed_post"
     case comment = "comment"
     case message = "message"
@@ -29,7 +29,7 @@ enum ActionIntelligenceSurface: String, Codable, CaseIterable, Sendable {
     case organizationUpdate = "organization_update"
 }
 
-enum CommitmentObjectClass: String, Codable, CaseIterable, Sendable {
+enum CommitmentObjectClass: String, Codable, CaseIterable {
     case moment
     case commitment
     case need
@@ -45,7 +45,7 @@ enum CommitmentObjectClass: String, Codable, CaseIterable, Sendable {
     }
 }
 
-enum AmenIntentKind: String, Codable, CaseIterable, Sendable {
+enum AmenIntentKind: String, Codable, CaseIterable {
     case prayerNeed = "prayer_need"
     case prayerCommitment = "prayer_commitment"
     case scriptureReference = "scripture_reference"
@@ -88,7 +88,7 @@ enum AmenIntentKind: String, Codable, CaseIterable, Sendable {
     }
 }
 
-enum AmenActionVerb: String, Codable, CaseIterable, Sendable {
+enum AmenActionVerb: String, Codable, CaseIterable {
     case prayNow = "pray_now"
     case commitToPray = "commit_to_pray"
     case setPrayerReminder = "set_prayer_reminder"
@@ -215,7 +215,7 @@ enum AmenActionVerb: String, Codable, CaseIterable, Sendable {
     }
 }
 
-struct AmenActionSuggestion: Identifiable, Codable, Equatable, Sendable {
+struct AmenActionSuggestion: Identifiable, Codable, Equatable {
     let id: String
     let verb: AmenActionVerb
     let title: String
@@ -244,7 +244,7 @@ struct AmenActionSuggestion: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-struct AmenIntentAnalysis: Identifiable, Codable, Equatable, Sendable {
+struct AmenIntentAnalysis: Identifiable, Codable, Equatable {
     let id: String
     let sourceId: String
     let surface: ActionIntelligenceSurface
@@ -264,7 +264,7 @@ struct AmenIntentAnalysis: Identifiable, Codable, Equatable, Sendable {
     var allActions: [AmenActionSuggestion] { primaryActions + secondaryActions }
 }
 
-struct ActionIntelligenceSource: Sendable {
+struct ActionIntelligenceSource {
     let id: String
     let text: String
     let surface: ActionIntelligenceSurface
@@ -298,8 +298,8 @@ struct ActionIntelligenceSource: Sendable {
     }
 }
 
-struct AmenCommitmentObject: Identifiable, Codable, Equatable, Sendable {
-    enum LifecycleState: String, Codable, CaseIterable, Sendable {
+struct AmenCommitmentObject: Identifiable, Codable, Equatable {
+    enum LifecycleState: String, Codable, CaseIterable {
         case detected
         case proposed
         case acknowledged
@@ -327,9 +327,9 @@ struct AmenCommitmentObject: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-struct AmenRoomBriefing: Identifiable, Codable, Equatable, Sendable {
-    struct BriefingItem: Identifiable, Codable, Equatable, Sendable {
-        enum Priority: String, Codable, Sendable { case low, normal, high, urgent }
+struct AmenRoomBriefing: Identifiable, Codable, Equatable {
+    struct BriefingItem: Identifiable, Codable, Equatable {
+        enum Priority: String, Codable { case low, normal, high, urgent }
 
         let id: String
         let title: String
@@ -830,7 +830,46 @@ struct AmenActionIntelligenceCapsule: View {
     }
 }
 
-// MARK: - Bridges
+// MARK: - Surface Bridges
+
+extension AppMessage {
+    var amenIntentAnalysis: AmenIntentAnalysis? {
+        ActionIntelligenceEngine.shared.analyze(
+            source: ActionIntelligenceSource(
+                id: id,
+                text: text,
+                surface: isFromCurrentUser ? .directMessage : .message,
+                privacyTier: .confidential,
+                authorId: senderId,
+                createdAt: timestamp
+            )
+        )
+    }
+}
+
+extension PostComment {
+    var amenIntentAnalysis: AmenIntentAnalysis? {
+        ActionIntelligenceEngine.shared.analyze(
+            source: ActionIntelligenceSource(
+                id: id.uuidString,
+                text: content,
+                surface: .comment,
+                privacyTier: .confidential,
+                authorId: authorId,
+                createdAt: createdAt
+            )
+        )
+    }
+}
+
+extension Sequence where Element == AppMessage {
+    func amenRoomBriefing(roomId: String, title: String) -> AmenRoomBriefing {
+        let analyses = compactMap { $0.amenIntentAnalysis }
+        return ActionIntelligenceEngine.shared.buildRoomBriefing(roomId: roomId, title: title, analyses: analyses)
+    }
+}
+
+// MARK: - Action Thread Bridges
 
 extension AmenIntentAnalysis {
     var suggestedActionThreadType: ActionThreadType {

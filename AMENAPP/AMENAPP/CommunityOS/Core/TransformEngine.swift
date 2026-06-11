@@ -2,7 +2,7 @@
 // AMENAPP — CommunityOS / Core
 //
 // Phase 1 Core Spine: transform operation contract, result type,
-// moderation tier, and the Firebase-backed stub implementation.
+// moderation tier, and the Firebase callable implementation.
 //
 // Source contracts: C2 §5 "Transform Operation Contract"
 //
@@ -94,12 +94,11 @@ protocol TransformEngine: Actor {
 
 // MARK: - FirebaseTransformEngine
 
-/// Stub implementation of `TransformEngine` that calls the `transformObject`
-/// Cloud Function via Firebase Callable Functions.
+/// `TransformEngine` implementation that calls the server-authoritative
+/// `transformObject` Cloud Function via Firebase Callable Functions.
 ///
-/// The `transformObject` CF does not yet exist in production — this stub is
-/// wired to call it correctly once deployed. All calls gate on
-/// `AMENFeatureFlags.shared.communityOSEnabled`.
+/// The callable owns RBAC, provenance writes, rate limits, and smart suggestion
+/// policy. Client calls gate on `AMENFeatureFlags.shared.communityOSEnabled`.
 actor FirebaseTransformEngine: TransformEngine {
 
     private let functions: Functions

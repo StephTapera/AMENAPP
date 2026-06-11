@@ -57,16 +57,8 @@ struct TestimoniesView: View {
     var filteredPosts: [Post] {
         var posts = postsManager.testimoniesPosts
 
-        // Apply category filter if selected.
-        // Match loosely: "Relationships" matches topicTag "relationship", "relationships", etc.
         if let category = selectedCategory {
-            let titleLower = category.title.lowercased()
-            posts = posts.filter { post in
-                guard let tag = post.topicTag?.lowercased() else { return false }
-                return tag == titleLower
-                    || titleLower.hasPrefix(tag)
-                    || tag.hasPrefix(titleLower)
-            }
+            posts = posts.filter { category.matches($0) }
         }
 
         // Apply sorting based on filter
@@ -422,23 +414,8 @@ struct TestimoniesView: View {
                         let categoryCounts: [String: Int] = {
                             var counts: [String: Int] = [:]
                             for post in allPosts {
-                                guard let tag = post.topicTag?.lowercased() else { continue }
-                                switch tag {
-                                case "healing":
-                                    counts["healing", default: 0] += 1
-                                case "career":
-                                    counts["career", default: 0] += 1
-                                case "relationships", "relationship":
-                                    counts["relationship", default: 0] += 1
-                                case "financial":
-                                    counts["financial", default: 0] += 1
-                                case "spiritual growth", "spiritual":
-                                    counts["spiritual", default: 0] += 1
-                                case "family":
-                                    counts["family", default: 0] += 1
-                                default:
-                                    break
-                                }
+                                guard let category = TestimonyCategory.category(for: post) else { continue }
+                                counts[category.id, default: 0] += 1
                             }
                             return counts
                         }()
@@ -972,8 +949,7 @@ struct TestimonyPostCard: View {
                     .foregroundStyle(.primary)
                 
                 // Category badge
-                if let topicTag = post.topicTag,
-                   let category = [TestimonyCategory.healing, .career, .relationship, .financial, .spiritual, .family].first(where: { $0.title.lowercased() == topicTag.lowercased() }) {
+                if let category = TestimonyCategory.category(for: post) {
                     HStack(spacing: 3) {
                         Image(systemName: category.icon)
                             .font(.systemScaled(9, weight: .semibold))
@@ -1414,6 +1390,8 @@ struct TestimonyCommentSection: View {
     
     @State private var commentText = ""
     @State private var showQuickResponses = false
+    @State private var isSubmittingComment = false
+    @State private var coachingMessage: String? = nil
     @FocusState private var isCommentFocused: Bool
     
     // Real comments - loaded from backend
@@ -1502,7 +1480,10 @@ struct TestimonyCommentSection: View {
                             .font(AMENFont.regular(14))
                             .focused($isCommentFocused)
                         
-                        if !commentText.isEmpty {
+                        if isSubmittingComment {
+                            ProgressView()
+                                .scaleEffect(0.75)
+                        } else if !commentText.isEmpty {
                             Button {
                                 postComment()
                             } label: {
@@ -1548,6 +1529,16 @@ struct TestimonyCommentSection: View {
             // Load comments when view appears
             await loadComments()
         }
+        .alert("Comment Coach", isPresented: Binding(
+            get: { coachingMessage != nil },
+            set: { if !$0 { coachingMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {
+                coachingMessage = nil
+            }
+        } message: {
+            Text(coachingMessage ?? "")
+        }
     }
     
     // MARK: - Helper Functions
@@ -1571,7 +1562,25 @@ struct TestimonyCommentSection: View {
     }
     
     var quickResponses: [String] {
-        [
+        let contextualResponses: [String]
+        switch TestimonyCategory.category(for: post)?.id {
+        case "healing":
+            contextualResponses = ["Praying for continued healing.", "Praise God for restoration."]
+        case "career":
+            contextualResponses = ["That is such a clear answer.", "Praying your calling keeps opening."]
+        case "relationship":
+            contextualResponses = ["Thank you for sharing this reconciliation.", "This gives me hope."]
+        case "financial":
+            contextualResponses = ["God is faithful to provide.", "Rejoicing with you for this provision."]
+        case "spiritual":
+            contextualResponses = ["This stirred my faith.", "Thank you for pointing us back to God."]
+        case "family":
+            contextualResponses = ["Praying blessing over your family.", "This is a beautiful family testimony."]
+        default:
+            contextualResponses = []
+        }
+
+        return contextualResponses + [
             "Amen! 🙏",
             "So encouraging!",
             "Praise God! 🙌",
@@ -1582,13 +1591,44 @@ struct TestimonyCommentSection: View {
     }
     
     private func postComment() {
-        guard !commentText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let draft = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !draft.isEmpty, !isSubmittingComment else { return }
 
         Task {
             do {
+                await MainActor.run {
+                    isSubmittingComment = true
+                }
+
+                if UserDefaults.standard.bool(forKey: "consentSmartComment") {
+                    let review = try await SmartCommentService.shared.reviewComment(
+                        commentText: draft,
+                        postContext: post.content
+                    )
+
+                    if review.isBlocked {
+                        await MainActor.run {
+                            coachingMessage = review.nudgeMessage ?? "This comment needs revision before it can be posted."
+                            isSubmittingComment = false
+                        }
+                        return
+                    }
+
+                    if review.action == .nudge {
+                        await MainActor.run {
+                            if let rewriteSuggestion = review.rewriteSuggestion, !rewriteSuggestion.isEmpty {
+                                commentText = rewriteSuggestion
+                            }
+                            coachingMessage = review.nudgeMessage ?? "Berean suggested a gentler wording before posting."
+                            isSubmittingComment = false
+                        }
+                        return
+                    }
+                }
+
                 let newComment = try await commentService.addComment(
                     postId: post.id.uuidString,
-                    content: commentText
+                    content: draft
                 )
                 await MainActor.run {
                     withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
@@ -1596,11 +1636,41 @@ struct TestimonyCommentSection: View {
                         commentCount += 1
                         commentText = ""
                     }
+                    isSubmittingComment = false
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                 }
+            } catch SmartCommentError.consentRequired {
+                await publishWithoutCoaching(draft)
             } catch {
                 dlog("❌ Failed to post comment: \(error.localizedDescription)")
+                await MainActor.run {
+                    coachingMessage = error.localizedDescription
+                    isSubmittingComment = false
+                }
+            }
+        }
+    }
+
+    private func publishWithoutCoaching(_ draft: String) async {
+        do {
+            let newComment = try await commentService.addComment(
+                postId: post.id.uuidString,
+                content: draft
+            )
+            await MainActor.run {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                    comments.insert(newComment.toTestimonyFeedComment(), at: 0)
+                    commentCount += 1
+                    commentText = ""
+                }
+                isSubmittingComment = false
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        } catch {
+            await MainActor.run {
+                coachingMessage = error.localizedDescription
+                isSubmittingComment = false
             }
         }
     }
@@ -1744,15 +1814,7 @@ struct TestimonyCategoryDetailInlineView: View {
     // Real filtered posts from Firebase via PostsManager
     private var categoryPosts: [Post] {
         let allPosts = postsManager.testimoniesPosts
-        // Match both singular and plural forms (e.g. "Relationships" → "relationship")
-        let titleLower = category.title.lowercased()
-        let filtered = allPosts.filter { post in
-            guard let tag = post.topicTag?.lowercased() else { return false }
-            return tag == titleLower
-                || tag == titleLower.trimmingCharacters(in: .init(charactersIn: "s"))
-                || titleLower.hasPrefix(tag)
-                || tag.hasPrefix(titleLower)
-        }
+        let filtered = allPosts.filter { category.matches($0) }
         switch selectedFilter {
         case .recent:
             return filtered.sorted { $0.createdAt > $1.createdAt }
@@ -1901,6 +1963,8 @@ struct TestimonyFullCommentSheet: View {
     @State private var commentText = ""
     @State private var showQuickResponses = false
     @State private var isLoading = true
+    @State private var isSubmittingComment = false
+    @State private var coachingMessage: String? = nil
     @FocusState private var isCommentFocused: Bool
     @ObservedObject private var commentService = CommentService.shared
     
@@ -1944,7 +2008,10 @@ struct TestimonyFullCommentSheet: View {
     
     @ViewBuilder
     private var inputActionButton: some View {
-        if !commentText.isEmpty {
+        if isSubmittingComment {
+            ProgressView()
+                .scaleEffect(0.75)
+        } else if !commentText.isEmpty {
             Button {
                 postComment()
             } label: {
@@ -1990,8 +2057,7 @@ struct TestimonyFullCommentSheet: View {
                                     .foregroundStyle(.primary)
                                 
                                 // Category badge
-                                if let topicTag = post.topicTag,
-                                   let category = [TestimonyCategory.healing, .career, .relationship, .financial, .spiritual, .family].first(where: { $0.title.lowercased() == topicTag.lowercased() }) {
+                                if let category = TestimonyCategory.category(for: post) {
                                     HStack(spacing: 3) {
                                         Image(systemName: category.icon)
                                             .font(.systemScaled(8, weight: .semibold))
@@ -2150,6 +2216,16 @@ struct TestimonyFullCommentSheet: View {
             .task {
                 await loadComments()
             }
+            .alert("Comment Coach", isPresented: Binding(
+                get: { coachingMessage != nil },
+                set: { if !$0 { coachingMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {
+                    coachingMessage = nil
+                }
+            } message: {
+                Text(coachingMessage ?? "")
+            }
         }
     }
     
@@ -2174,7 +2250,25 @@ struct TestimonyFullCommentSheet: View {
     }
     
     var quickResponses: [String] {
-        [
+        let contextualResponses: [String]
+        switch TestimonyCategory.category(for: post)?.id {
+        case "healing":
+            contextualResponses = ["Praying for continued healing.", "Praise God for restoration."]
+        case "career":
+            contextualResponses = ["That is such a clear answer.", "Praying your calling keeps opening."]
+        case "relationship":
+            contextualResponses = ["Thank you for sharing this reconciliation.", "This gives me hope."]
+        case "financial":
+            contextualResponses = ["God is faithful to provide.", "Rejoicing with you for this provision."]
+        case "spiritual":
+            contextualResponses = ["This stirred my faith.", "Thank you for pointing us back to God."]
+        case "family":
+            contextualResponses = ["Praying blessing over your family.", "This is a beautiful family testimony."]
+        default:
+            contextualResponses = []
+        }
+
+        return contextualResponses + [
             "Amen! 🙏",
             "So encouraging!",
             "Praise God! 🙌",
@@ -2185,13 +2279,44 @@ struct TestimonyFullCommentSheet: View {
     }
     
     private func postComment() {
-        guard !commentText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let draft = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !draft.isEmpty, !isSubmittingComment else { return }
         
         Task {
             do {
+                await MainActor.run {
+                    isSubmittingComment = true
+                }
+
+                if UserDefaults.standard.bool(forKey: "consentSmartComment") {
+                    let review = try await SmartCommentService.shared.reviewComment(
+                        commentText: draft,
+                        postContext: post.content
+                    )
+
+                    if review.isBlocked {
+                        await MainActor.run {
+                            coachingMessage = review.nudgeMessage ?? "This comment needs revision before it can be posted."
+                            isSubmittingComment = false
+                        }
+                        return
+                    }
+
+                    if review.action == .nudge {
+                        await MainActor.run {
+                            if let rewriteSuggestion = review.rewriteSuggestion, !rewriteSuggestion.isEmpty {
+                                commentText = rewriteSuggestion
+                            }
+                            coachingMessage = review.nudgeMessage ?? "Berean suggested a gentler wording before posting."
+                            isSubmittingComment = false
+                        }
+                        return
+                    }
+                }
+
                 let newComment = try await commentService.addComment(
                     postId: post.id.uuidString,
-                    content: commentText
+                    content: draft
                 )
                 
                 await MainActor.run {
@@ -2199,12 +2324,40 @@ struct TestimonyFullCommentSheet: View {
                     comments.insert(newComment.toTestimonyFeedComment(), at: 0)
                     commentCount += 1
                     commentText = ""
+                    isSubmittingComment = false
                     
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                 }
+            } catch SmartCommentError.consentRequired {
+                await publishWithoutCoaching(draft)
             } catch {
                 dlog("❌ Failed to post comment: \(error)")
+                await MainActor.run {
+                    coachingMessage = error.localizedDescription
+                    isSubmittingComment = false
+                }
+            }
+        }
+    }
+
+    private func publishWithoutCoaching(_ draft: String) async {
+        do {
+            let newComment = try await commentService.addComment(
+                postId: post.id.uuidString,
+                content: draft
+            )
+            await MainActor.run {
+                comments.insert(newComment.toTestimonyFeedComment(), at: 0)
+                commentCount += 1
+                commentText = ""
+                isSubmittingComment = false
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        } catch {
+            await MainActor.run {
+                coachingMessage = error.localizedDescription
+                isSubmittingComment = false
             }
         }
     }

@@ -262,7 +262,7 @@ struct BereanInterviewView: View {
                 tierBadge(pending.tier)
                 Spacer()
                 Button {
-                    dismiss(pending)
+                    dismissCandidate(pending)
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.body)
@@ -354,7 +354,7 @@ struct BereanInterviewView: View {
                                 }
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
-                                        dismiss(pending)
+                                        dismissCandidate(pending)
                                     } label: {
                                         Label("Dismiss", systemImage: "xmark")
                                     }
@@ -474,7 +474,7 @@ struct BereanInterviewView: View {
         }
     }
 
-    private func dismiss(_ pending: PendingFacetCandidate) {
+    private func dismissCandidate(_ pending: PendingFacetCandidate) {
         withAnimation(Motion.adaptive(Motion.unpopToggle)) {
             service.dismissCandidate(pending.id)
         }

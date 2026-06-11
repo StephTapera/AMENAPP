@@ -20,7 +20,9 @@
 //   /edges/{edgeId}                  — praysFor edges (via AmenEdgeService)
 
 import Foundation
+import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import UserNotifications
 import WidgetKit
 
@@ -37,6 +39,7 @@ final class AmenPrayerService: ObservableObject {
     // MARK: - Private
 
     private let db = Firestore.firestore()
+    private let functions = Functions.functions(region: "us-central1")
     private let edgeService = AmenEdgeService()
 
     private var prayersCollection: CollectionReference {
@@ -69,66 +72,46 @@ final class AmenPrayerService: ObservableObject {
         creatorId: String,
         provenance: SpawnProvenance?
     ) async throws -> String {
-        let docRef = prayersCollection.document()
-        let docId = docRef.documentID
-
-        // Identity shielding: strip identity fields for anonymous requests.
-        let authorName  = isAnonymous ? "Anonymous" : ""
-        let churchField = isAnonymous ? nil : churchRef
-        let spaceField  = isAnonymous ? nil : spaceRef
+        guard let uid = Auth.auth().currentUser?.uid, uid == creatorId else {
+            throw AmenPrayerServiceError.notAuthenticated
+        }
 
         var payload: [String: Any] = [
-            "id":                docId,
-            "_type":             "prayer",
-            "title":             title,
-            "body":              body,
-            "privacyLevel":      privacy.rawValue,
-            "isAnonymous":       isAnonymous,
-            // ownerUidEncrypted is NEVER set here — CF sets it server-side.
-            "displayAuthorName": authorName,
-            "tags":              tags,
-            "prayerCount":       0,
-            "followUps":         [] as [Any],
-            "isAnswered":        false,
-            "reminderScheduled": false,
-            "createdBy":         creatorId,
-            "createdAt":         FieldValue.serverTimestamp(),
-            "updatedAt":         FieldValue.serverTimestamp(),
-            "isDeleted":         false
+            "title": title,
+            "body": body,
+            "privacyLevel": privacy.rawValue,
+            "isAnonymous": isAnonymous,
+            "tags": tags,
+            "displayAuthorName": Auth.auth().currentUser?.displayName ?? ""
         ]
 
-        if let church = churchField { payload["churchRef"] = church }
-        if let space  = spaceField  { payload["spaceRef"]  = space }
-
-        if let prov = provenance {
+        if let churchRef, !isAnonymous {
+            payload["churchRef"] = churchRef
+        }
+        if let spaceRef, !isAnonymous {
+            payload["spaceRef"] = spaceRef
+        }
+        if let provenance {
             payload["provenance"] = [
-                "sourceType":    prov.sourceType,
-                "sourceRef":     prov.sourceRef as Any,
-                "sourceOwnerId": prov.sourceOwnerId as Any,
-                "intent":        prov.intent,
-                "createdAt":     FieldValue.serverTimestamp()
+                "sourceType": provenance.sourceType,
+                "sourceRef": provenance.sourceRef as Any,
+                "sourceOwnerId": provenance.sourceOwnerId as Any,
+                "intent": provenance.intent,
+                "createdAt": provenance.createdAt.timeIntervalSince1970
             ]
         }
 
-        try await docRef.setData(payload)
+        let result = try await functions.httpsCallable("createPrayerRequest").call(payload)
+        guard
+            let data = result.data as? [String: Any],
+            let docId = data["prayerId"] as? String
+        else {
+            throw AmenPrayerServiceError.invalidServerResponse
+        }
 
-        // Mirror to prayerRequests/{id} for Phase 2 Live Activity push counter.
-        let prayerRequestPayload: [String: Any] = [
-            "requesterUid":       creatorId,
-            "requesterName":      authorName.isEmpty ? "Anonymous" : authorName,
-            "title":              title,
-            "prayingCount":       0,
-            "encouragementCount": 0,
-            "isAnswered":         false,
-            "lastUpdated":        FieldValue.serverTimestamp(),
-            "pushToStartEnabled": true
-        ]
-        try? await db.collection("prayerRequests").document(docId).setData(prayerRequestPayload)
-
-        // Start the push-driven Live Activity on the requester's device.
         await PrayerRequestLiveActivityManager.shared.startActivity(
             for: docId,
-            requesterName: authorName.isEmpty ? "Anonymous" : authorName,
+            requesterName: isAnonymous ? "Anonymous" : (Auth.auth().currentUser?.displayName ?? "Anonymous"),
             title: title
         )
 
@@ -519,5 +502,19 @@ final class AmenPrayerService: ObservableObject {
             createdAt:         createdAt,
             isDeleted:         isDeleted
         )
+    }
+}
+
+private enum AmenPrayerServiceError: LocalizedError {
+    case notAuthenticated
+    case invalidServerResponse
+
+    var errorDescription: String? {
+        switch self {
+        case .notAuthenticated:
+            return "Sign in before creating a prayer request."
+        case .invalidServerResponse:
+            return "Prayer request could not be created."
+        }
     }
 }

@@ -74,12 +74,14 @@ struct BereanLiquidAction: Identifiable, Equatable {
     let action: ActionType
     
     enum ActionType: Equatable {
-        case attachFile
-        case camera
+        case bibleVerse
+        case prayerRequest
+        case churchNotes
+        case safePhoto
         case voiceNote
-        case verseLookup
-        case summarize
-        case searchScripture
+        case sermonClip
+        case reminder
+        case shareToSpace
     }
 }
 

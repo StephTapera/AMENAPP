@@ -12,6 +12,11 @@ struct SpaceFeedView: View {
     @State private var showPostSheet = false
     @Environment(\.dismiss) private var dismiss
 
+    // Ambient — drives room tint from the banner image (fails closed to neutral when .off / no image).
+    @Environment(\.colorScheme) private var ambientScheme
+    @Environment(\.accessibilityReduceMotion) private var ambientReduceMotion
+    @State private var bannerImage: UIImage?
+
     private let background    = Color(red: 0.039, green: 0.039, blue: 0.059)
     private let accentPurple  = Color(red: 0.6,   green: 0.35,  blue: 1.0)
     private let accentPurple2 = Color(red: 0.45,  green: 0.2,   blue: 0.85)
@@ -20,38 +25,75 @@ struct SpaceFeedView: View {
     private let columns = [GridItem(.flexible(), spacing: 2), GridItem(.flexible(), spacing: 2)]
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            background.ignoresSafeArea()
+        AmbientScope { coordinator in
+            ZStack(alignment: .bottom) {
+                background.ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // Cover header
-                    coverHeader
-                        .padding(.bottom, 16)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        // Cover header
+                        coverHeader
+                            .padding(.bottom, 16)
 
-                    // Filter pills
-                    filterPills
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 20)
+                        // Filter pills
+                        filterPills
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 20)
 
-                    // Content
-                    contentArea
-                        .padding(.horizontal, isGridMode ? 0 : 16)
-                        .padding(.bottom, 100) // clearance for FAB
+                        // Content
+                        contentArea
+                            .padding(.horizontal, isGridMode ? 0 : 16)
+                            .padding(.bottom, 100) // clearance for FAB
+                    }
                 }
-            }
 
-            // Floating "Post Here" button
-            postHereButton
-                .padding(.bottom, 28)
+                // Floating "Post Here" button
+                postHereButton
+                    .padding(.bottom, 28)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .preferredColorScheme(.dark)
+            .onAppear {
+                feedVM.startListening(spaceId: space.id ?? "")
+                driveAmbient(coordinator)
+            }
+            .onChange(of: bannerImage) { _, _ in driveAmbient(coordinator) }
+            .onDisappear {
+                feedVM.stopListening()
+                coordinator.reset(scheme: ambientScheme, reduceMotion: ambientReduceMotion)
+            }
+            .sheet(isPresented: $showPostSheet) {
+                PostToSpaceSheet(space: space, feedVM: feedVM)
+            }
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .preferredColorScheme(.dark)
-        .onAppear { feedVM.startListening(spaceId: space.id ?? "") }
-        .onDisappear { feedVM.stopListening() }
-        .sheet(isPresented: $showPostSheet) {
-            PostToSpaceSheet(space: space, feedVM: feedVM)
+    }
+
+    /// Drive room tint from the banner. `bannerImage` is nil until the cover decodes a UIImage;
+    /// nil fails closed to neutral. Key is stable per-space so the 250ms debounce/activeKey gate applies.
+    private func driveAmbient(_ coordinator: AmbientCoordinator) {
+        let id = space.id ?? "unknown"
+        coordinator.drive(
+            with: bannerImage,
+            key: AmbientSourceKey(id: "space/\(id)/banner", revision: "1"),
+            scheme: ambientScheme,
+            reduceMotion: ambientReduceMotion
+        )
+    }
+
+    /// Lightweight banner decode for Ambient palette extraction. Fails closed (leaves nil) on any error.
+    private func loadBannerImage() async {
+        guard let urlString = space.coverImageURL, let url = URL(string: urlString) else {
+            bannerImage = nil
+            return
+        }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let image = UIImage(data: data) {
+                bannerImage = image
+            }
+        } catch {
+            // Leave bannerImage nil — Ambient stays neutral.
         }
     }
 
@@ -84,6 +126,9 @@ struct SpaceFeedView: View {
                     endPoint: .bottom
                 )
             )
+            // Decode the banner once so Ambient can extract a palette from it (reuses the same URL
+            // the AsyncImage above renders). nil ⇒ neutral by construction.
+            .task(id: space.coverImageURL) { await loadBannerImage() }
 
             // Overlaid info card
             HStack(alignment: .bottom) {
@@ -108,23 +153,28 @@ struct SpaceFeedView: View {
                 Button {
                     Task { await vm.toggleJoin(space: space) }
                 } label: {
-                    Text(isJoined ? "Joined" : "Join")
-                        .font(AMENFont.semiBold(13))
-                        .foregroundStyle(isJoined ? accentPurple : .white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(isJoined
-                                      ? LinearGradient(colors: [accentPurple.opacity(0.15), accentPurple.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                      : LinearGradient(colors: [accentPurple, accentPurple2],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing))
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(accentPurple.opacity(isJoined ? 0.45 : 0), lineWidth: 1)
-                                )
-                        )
+                    // Absorb room tint via Ambient glass when joined; keep the brand gradient CTA when not.
+                    if isJoined {
+                        AdaptiveGlassContainer(shape: Capsule()) {
+                            Text("Joined")
+                                .font(AMENFont.semiBold(13))
+                                .foregroundStyle(accentPurple)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                        }
+                    } else {
+                        Text("Join")
+                            .font(AMENFont.semiBold(13))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(LinearGradient(colors: [accentPurple, accentPurple2],
+                                                         startPoint: .topLeading,
+                                                         endPoint: .bottomTrailing))
+                            )
+                    }
                 }
                 .buttonStyle(ScaleButtonStyle())
             }
@@ -169,30 +219,29 @@ struct SpaceFeedView: View {
                 feedVM.selectedContentType = type
             }
         } label: {
-            HStack(spacing: 5) {
+            let pillLabel = HStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.systemScaled(11, weight: .medium))
                 Text(label)
                     .font(AMENFont.semiBold(13))
             }
-            .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
+            .foregroundStyle(isSelected ? .white : .white.opacity(0.7))
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected
-                          ? LinearGradient(colors: [accentPurple, accentPurple2],
-                                           startPoint: .topLeading,
-                                           endPoint: .bottomTrailing)
-                          : LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.06)],
-                                           startPoint: .topLeading,
-                                           endPoint: .bottomTrailing))
-                    .overlay(
+
+            if isSelected {
+                pillLabel
+                    .background(
                         Capsule()
-                            .strokeBorder(Color.white.opacity(isSelected ? 0 : 0.08), lineWidth: 1)
+                            .fill(LinearGradient(colors: [accentPurple, accentPurple2],
+                                                 startPoint: .topLeading,
+                                                 endPoint: .bottomTrailing))
+                            .shadow(color: accentPurple.opacity(0.4), radius: 6, y: 2)
                     )
-                    .shadow(color: accentPurple.opacity(isSelected ? 0.4 : 0), radius: 6, y: 2)
-            )
+            } else {
+                // Unselected tab-strip pills absorb the room tint via Ambient glass.
+                AdaptiveGlassContainer(shape: Capsule()) { pillLabel }
+            }
         }
         .buttonStyle(.plain)
     }
@@ -255,26 +304,18 @@ struct SpaceFeedView: View {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             showPostSheet = true
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "square.and.pencil")
-                    .font(.systemScaled(15, weight: .semibold))
-                Text("Post Here")
-                    .font(AMENFont.semiBold(15))
+            // Composer FAB absorbs the room tint via Ambient glass (glow = focal affordance).
+            AdaptiveGlassContainer(shape: Capsule(), tintAlpha: 0.28, glow: true) {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.pencil")
+                        .font(.systemScaled(15, weight: .semibold))
+                    Text("Post Here")
+                        .font(AMENFont.semiBold(15))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 14)
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 28)
-            .padding(.vertical, 14)
-            .background(
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [accentPurple, accentPurple2],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: accentPurple.opacity(0.5), radius: 14, y: 5)
-            )
         }
         .buttonStyle(ScaleButtonStyle())
     }
@@ -286,6 +327,8 @@ private struct SpacePostRow: View {
     let post: SpacePost
 
     var body: some View {
+        // Message list is a READING PLANE — bubbles stay neutral (C6).
+        AdaptiveContentCard(isReadingPlane: true) {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 // Author avatar
@@ -346,15 +389,7 @@ private struct SpacePostRow: View {
                 Spacer()
             }
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
-                )
-        )
+        }
     }
 }
 

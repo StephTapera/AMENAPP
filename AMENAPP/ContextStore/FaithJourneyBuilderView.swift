@@ -397,7 +397,7 @@ struct FaithJourneyBuilderView: View {
             let supportKey = "faith.journey.areas_needing_support"
             let tier = ContextTierTable.tier(for: .faith_journey, key: supportKey)
             // Carry ONLY the support list so this private facet never co-mingles Tier-C data.
-            var supportOnly = FaithJourneyValue(
+            let supportOnly = FaithJourneyValue(
                 currentChurchId: nil, currentChurchName: nil, currentStudy: nil,
                 favoriteBooks: [], spiritualGoals: [], prayerHabits: [], areasOfGrowth: [],
                 areasNeedingSupport: value.areasNeedingSupport
@@ -409,7 +409,6 @@ struct FaithJourneyBuilderView: View {
                 value: .faithJourney(supportOnly),
                 tier: tier
             ))
-            _ = supportOnly // silence unused-mutation note in non-mutating builds
         }
 
         // Invariant: every facet's tier must match the canonical table.
@@ -419,8 +418,19 @@ struct FaithJourneyBuilderView: View {
         }
 
         savedFacets = facets
-        // TODO(store): persist `facets` via ContextStoreService (write path enforces tier +
-        // userApproved). Until that service lands, facets live in ephemeral @State only.
+        // Persist through ContextStoreService — its write path re-enforces tier validity,
+        // userApproved, and the Aegis C59 sanitization receipt. Tier-P facets are written
+        // to the owner-only path and never leave the device through a server-readable route.
+        Task {
+            for facet in facets {
+                do {
+                    try await ContextStoreService.shared.saveFacet(facet)
+                } catch {
+                    print("[FaithJourney] saveFacet failed for \(facet.key): \(error)")
+                    await MainActor.run { triggerSaveError() }
+                }
+            }
+        }
     }
 
     /// Removes the Tier-P support list from the general value so it is never written into

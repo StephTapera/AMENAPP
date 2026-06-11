@@ -60,9 +60,14 @@ struct AmenChurchProfileView: View {
             Image(systemName: "building.columns")
                 .font(.largeTitle)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
-            Text("Church profiles are coming soon.")
+            Text("Church profiles are off")
                 .font(.headline)
                 .foregroundStyle(Color(uiColor: .label))
+            Text("Enable Church OS in feature flags to load profile, service, notes, event, and volunteer data.")
+                .font(.subheadline)
+                .foregroundStyle(Color(uiColor: .secondaryLabel))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
@@ -322,7 +327,7 @@ struct AmenChurchProfileView: View {
                 ChurchObjectHub(churchId: church.id, churchName: church.name)
             } else {
                 tabEmptyState(icon: "person.3",
-                              title: "Community coming soon",
+                              title: "Community is off",
                               message: "Prayer requests and discussions will appear here.")
             }
         }

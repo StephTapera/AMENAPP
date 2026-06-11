@@ -154,7 +154,6 @@ export const evolveLivingEntriesScheduled = onSchedule({ schedule: "every 6 hour
   for (const user of users.docs) {
     await evolveEntriesForUser(user.id);
   }
-  return null;
 });
 
 async function evolveEntriesForUser(uid: string) {

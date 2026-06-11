@@ -248,7 +248,7 @@ final class AmenComposerViewModel: ObservableObject {
                 .flatMap { $0.split(separator: "/").last.map(String.init) }
                 ?? UUID().uuidString
 
-            let stub = ComposerObjectStub(
+            let stub = ComposerSourceObject(
                 id:         lastPathComponent,
                 createdBy:  config.source.existingOwnerId ?? actorId,
                 provenance: provenanceFromDraft(actorId: actorId)
@@ -317,14 +317,14 @@ private extension TransformError {
     }
 }
 
-// MARK: - ComposerObjectStub
+// MARK: - ComposerSourceObject
 
 /// A minimal SpawnableObject passed to `AmenObjectRepository.createSpawnedObject()`
 /// when the composer is creating a brand-new or transform-derived object.
 ///
 /// This avoids importing a full domain model for the sole purpose of satisfying
 /// the generic `<S: SpawnableObject>` constraint in the repository.
-struct ComposerObjectStub: SpawnableObject {
+struct ComposerSourceObject: SpawnableObject {
     let id: String
     let createdBy: String
     let createdAt: Date = Date()

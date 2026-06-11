@@ -551,7 +551,7 @@ struct ProfilePhotoEditView: View {
             } label: {
                 glassActionLabel(icon: "photo.on.rectangle", text: "Library")
             }
-            .buttonStyle(ProfilePhotoGlassPillButtonStyle())
+            .buttonStyle(LocalGlassPillButtonStyle())
 
             // Camera button
             Button {
@@ -559,7 +559,7 @@ struct ProfilePhotoEditView: View {
             } label: {
                 glassActionLabel(icon: "camera.fill", text: "Camera")
             }
-            .buttonStyle(ProfilePhotoGlassPillButtonStyle())
+            .buttonStyle(LocalGlassPillButtonStyle())
         }
     }
 
@@ -883,7 +883,7 @@ struct ProfilePhotoEditView: View {
 
         do {
             try handler.perform([request])
-            let faces = (request.results as? [VNFaceObservation]) ?? []
+                        let faces = request.results as? [VNFaceObservation] ?? []
             await MainActor.run {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                     faceDetectionState = faces.isEmpty ? .noFace : .faceFound
@@ -1078,7 +1078,7 @@ struct ProfilePhotoEditView: View {
 
 // MARK: - Glass Pill Button Style
 
-private struct ProfilePhotoGlassPillButtonStyle: ButtonStyle {
+private struct LocalGlassPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(.regularMaterial, in: Capsule())

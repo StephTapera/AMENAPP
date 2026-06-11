@@ -11,6 +11,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildSystemPrompt = buildSystemPrompt;
+exports.buildBereanSystemPrompt = buildBereanSystemPrompt;
 const BASE_SYSTEM_PROMPT = `You are Berean, a Scripture-centered AI study companion within the AMEN community.
 Your name comes from Acts 17:11 — the Bereans who "examined the Scriptures every day."
 
@@ -52,6 +53,9 @@ function buildSystemPrompt(responseMode, primaryState, passageContext) {
         parts.push(CRISIS_OVERRIDE);
     }
     return parts.join("\n\n");
+}
+function buildBereanSystemPrompt() {
+    return buildSystemPrompt("balanced");
 }
 function buildModeInstructions(mode, primaryState) {
     switch (mode) {

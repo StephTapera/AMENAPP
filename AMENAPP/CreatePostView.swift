@@ -1807,8 +1807,8 @@ struct CreatePostView: View {
                 .animation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75)), value: isHighlighted)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityHint(isHighlighted ? "Recommended for this post" : "")
+        .accessibilityLabel(Text(label))
+        .accessibilityHint(Text(isHighlighted ? "Recommended for this post" : ""))
     }
 
     // MARK: - Glass Attachment Picker Card

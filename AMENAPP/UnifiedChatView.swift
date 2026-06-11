@@ -2963,6 +2963,7 @@ struct UnifiedChatView: View {
                     MessageActionCluster(
                         message: msg,
                         onAction: { action in handleMessageClusterAction(action, message: msg) },
+                        onIntentAction: { action, analysis in handleIntentAction(action, analysis: analysis, message: msg) },
                         onDismiss: {
                             withAnimation(Motion.adaptive(.spring(response: 0.25))) {
                                 showMessageActionCluster = false
@@ -3382,6 +3383,61 @@ struct UnifiedChatView: View {
         case .report:
             messageToReport = message
         }
+    }
+
+    private func handleIntentAction(_ action: AmenActionSuggestion, analysis: AmenIntentAnalysis, message: AppMessage) {
+        let source = actionIntelligenceSource(for: message, analysis: analysis)
+
+        withAnimation(Motion.adaptive(.spring(response: 0.25))) {
+            showMessageActionCluster = false
+            actionClusterMessage = nil
+        }
+
+        Task {
+            do {
+                let result = try await ActionIntelligenceService.shared.execute(
+                    action: action,
+                    analysis: analysis,
+                    source: source
+                )
+                toastManager.showSuccess(result.successMessage)
+            } catch {
+                toastManager.showInfo(error.localizedDescription)
+            }
+        }
+    }
+
+    private func actionIntelligenceSource(for message: AppMessage, analysis: AmenIntentAnalysis) -> ActionIntelligenceSourcePayload {
+        ActionIntelligenceSourcePayload(
+            sourceId: message.id,
+            sourceType: "message",
+            sourceText: message.text,
+            conversationId: conversation.id,
+            roomId: conversation.isGroup ? conversation.id : nil,
+            authorId: message.senderId.isEmpty ? nil : message.senderId,
+            targetUserId: message.isFromCurrentUser ? nil : nonEmpty(message.senderId),
+            targetDisplayName: message.senderName,
+            title: actionIntelligenceTitle(for: message, analysis: analysis),
+            scriptureReference: scriptureReferenceCandidate(from: message.text, analysis: analysis),
+            resourceUrl: nonEmpty(message.linkURL)
+        )
+    }
+
+    private func actionIntelligenceTitle(for message: AppMessage, analysis: AmenIntentAnalysis) -> String {
+        if let senderName = message.senderName, !senderName.isEmpty {
+            return "\(analysis.intentKind.title) from \(senderName)"
+        }
+        return analysis.intentKind.title
+    }
+
+    private func scriptureReferenceCandidate(from text: String, analysis: AmenIntentAnalysis) -> String? {
+        guard analysis.intentKind == .scriptureReference else { return nil }
+        return nonEmpty(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func nonEmpty(_ value: String?) -> String? {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return value
     }
 
     // Phase 4A: Route smart pill taps to the appropriate action.

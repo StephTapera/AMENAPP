@@ -17,6 +17,7 @@
 //
 // Feature flag gate: AMENFeatureFlags.shared.communityOSPrayerOSEnabled
 
+import FirebaseAuth
 import SwiftUI
 
 // MARK: - AmenPrayerFeedView
@@ -67,7 +68,7 @@ struct AmenPrayerFeedView: View {
             }
         }
         .sheet(isPresented: $showCompose) {
-            AmenPrayerComposeStubView(
+            AmenPrayerComposeView(
                 service: service,
                 context: context,
                 isPresented: $showCompose
@@ -153,7 +154,7 @@ struct AmenPrayerFeedView: View {
                 .font(.systemScaled(44, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
-            Text("Prayer is coming soon.")
+            Text("Prayer is off")
                 .font(.callout)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }
@@ -411,11 +412,10 @@ struct AmenPrayerCard: View {
     }
 }
 
-// MARK: - AmenPrayerComposeStubView
+// MARK: - AmenPrayerComposeView
 
-/// Stub compose sheet presented from the feed's "Request Prayer" toolbar button.
-/// Replace with AmenUniversalComposerView when that surface supports prayer source.
-private struct AmenPrayerComposeStubView: View {
+/// Prayer compose sheet presented from the feed's "Request Prayer" toolbar button.
+private struct AmenPrayerComposeView: View {
 
     let service: AmenPrayerService
     let context: PrayerContext
@@ -581,6 +581,10 @@ private struct AmenPrayerComposeStubView: View {
         }
 
         do {
+            guard let uid = Auth.auth().currentUser?.uid else {
+                throw AmenPrayerComposeError.notAuthenticated
+            }
+
             _ = try await service.createPrayerRequest(
                 title:      title.trimmingCharacters(in: .whitespacesAndNewlines),
                 body:       prayerBody.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -589,16 +593,22 @@ private struct AmenPrayerComposeStubView: View {
                 churchRef:  churchRef,
                 spaceRef:   spaceRef,
                 tags:       [],
-                creatorId:  "current_user",  // inject Auth.auth().currentUser?.uid in production
+                creatorId:  uid,
                 provenance: nil
             )
             isPresented = false
-            // Refresh the feed after successful creation.
             try await service.loadPrayerRequests(context: context)
         } catch {
-            // Surface error to user in production via errorMessage binding.
-            print("[AmenPrayerComposeStubView] submit failed: \(error.localizedDescription)")
+            print("[AmenPrayerComposeView] submit failed: \(error.localizedDescription)")
         }
+    }
+}
+
+private enum AmenPrayerComposeError: LocalizedError {
+    case notAuthenticated
+
+    var errorDescription: String? {
+        "Sign in before requesting prayer."
     }
 }
 

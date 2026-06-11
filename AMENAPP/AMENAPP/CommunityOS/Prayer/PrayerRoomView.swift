@@ -18,12 +18,12 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 import UIKit
 
-// MARK: - PrayerUpdateCard (stub)
+// MARK: - PrayerUpdateCard
 
-/// Stub card for a prayer update or testimony in the updates feed.
-/// Replace with a full Firestore-backed model once PrayerUpdateService is built.
+/// Card for a prayer update or testimony in the updates feed.
 private struct PrayerUpdateCard: View {
     let updateType: PrayerType
     let updateBody: String
@@ -86,7 +86,7 @@ struct PrayerRoomView: View {
     @State private var showMarkAnsweredConfirm = false
     @State private var showInviteSheet = false
     @State private var updateSheetType: PrayerType = .update
-    @State private var stubUpdates: [PrayerUpdateStub] = []
+    @State private var localUpdates: [PrayerUpdateItem] = []
     @State private var isPraying = false
     @State private var hasPrayed = false
     @State private var didFinishLoading = false
@@ -152,8 +152,8 @@ struct PrayerRoomView: View {
                     updateType: updateSheetType,
                     isPresented: $showUpdateSheet,
                     onSubmit: { text in
-                        stubUpdates.insert(
-                            PrayerUpdateStub(type: updateSheetType, body: text, createdAt: Date()),
+                        localUpdates.insert(
+                            PrayerUpdateItem(type: updateSheetType, body: text, createdAt: Date()),
                             at: 0
                         )
                     }
@@ -408,7 +408,7 @@ struct PrayerRoomView: View {
 
     @ViewBuilder
     private var updatesSection: some View {
-        if !stubUpdates.isEmpty {
+        if !localUpdates.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Updates")
                     .font(.subheadline)
@@ -417,7 +417,7 @@ struct PrayerRoomView: View {
                     .padding(.horizontal, 16)
                     .accessibilityAddTraits(.isHeader)
 
-                ForEach(stubUpdates) { stub in
+                ForEach(localUpdates) { stub in
                     PrayerUpdateCard(
                         updateType: stub.type,
                         updateBody: stub.body,
@@ -528,7 +528,7 @@ struct PrayerRoomView: View {
                 .font(.systemScaled(40, weight: .ultraLight))
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 .accessibilityHidden(true)
-            Text("Prayer rooms are coming soon.")
+            Text("Prayer rooms are off")
                 .font(.callout)
                 .foregroundStyle(Color(uiColor: .secondaryLabel))
         }
@@ -541,32 +541,62 @@ struct PrayerRoomView: View {
     // MARK: - Data Loading
 
     private func loadPrayer() async {
-        // Stub: load from Firestore /prayers/{prayerId} once PrayerService is built.
-        // For now, populate with a placeholder so the layout renders correctly.
-        // When PrayerService is wired, replace with a real async throw call and
-        // remove the stub; errors will naturally leave `prayer` nil and surface
-        // `prayerNotFoundState` to the user.
-        prayer = PrayerRequest(
-            id: prayerId,
-            authorId: "uid_author",
-            title: "For healing and peace",
-            body: "Praying for strength and peace through this difficult season. Trust in the Lord with all your heart and lean not on your own understanding. In all your ways acknowledge Him and He will make your paths straight.",
-            prayerType: .request,
-            privacyLevel: .private,
-            status: .active,
-            partnerIds: [],
-            reminderEnabled: false,
-            provenance: nil,
-            createdAt: Date(),
-            softDeleted: false
-        )
-        didFinishLoading = true
+        defer { didFinishLoading = true }
+
+        do {
+            let document = try await Firestore.firestore()
+                .collection("prayers")
+                .document(prayerId)
+                .getDocument()
+
+            guard document.exists, let data = document.data() else {
+                prayer = nil
+                return
+            }
+
+            let isDeleted = data["isDeleted"] as? Bool ?? data["softDeleted"] as? Bool ?? false
+            guard !isDeleted else {
+                prayer = nil
+                return
+            }
+
+            guard
+                let title = data["title"] as? String,
+                let body = data["body"] as? String
+            else {
+                prayer = nil
+                return
+            }
+
+            let privacyRaw = data["privacyLevel"] as? String ?? PrayerPrivacyLevel.private.rawValue
+            let prayerTypeRaw = data["prayerType"] as? String ?? PrayerType.request.rawValue
+            let statusRaw = data["status"] as? String
+                ?? ((data["isAnswered"] as? Bool) == true ? PrayerStatus.answered.rawValue : PrayerStatus.active.rawValue)
+            let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+
+            prayer = PrayerRequest(
+                id: document.documentID,
+                authorId: data["createdBy"] as? String ?? data["authorId"] as? String ?? "",
+                title: title,
+                body: body,
+                prayerType: PrayerType(rawValue: prayerTypeRaw) ?? .request,
+                privacyLevel: PrayerPrivacyLevel(rawValue: privacyRaw) ?? .private,
+                status: PrayerStatus(rawValue: statusRaw) ?? .active,
+                partnerIds: data["partnerIds"] as? [String] ?? [],
+                reminderEnabled: data["reminderScheduled"] as? Bool ?? data["reminderEnabled"] as? Bool ?? false,
+                provenance: nil,
+                createdAt: createdAt,
+                softDeleted: false
+            )
+        } catch {
+            prayer = nil
+        }
     }
 }
 
-// MARK: - Stub Model (internal to PrayerRoomView)
+// MARK: - Local Update Model
 
-private struct PrayerUpdateStub: Identifiable {
+private struct PrayerUpdateItem: Identifiable {
     let id = UUID()
     let type: PrayerType
     let body: String

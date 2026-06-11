@@ -82,7 +82,7 @@ final class AmenBereanConversionService: ObservableObject {
         let provenance = buildProvenance(from: capture, intent: intent)
 
         // Build a synthetic spawnable stub that satisfies the repository contract.
-        let stub = BereanInsightStub(
+        let stub = BereanInsightSourceObject(
             id:         capture.id,
             createdBy:  actorId,
             capturedAt: capture.capturedAt,
@@ -152,7 +152,7 @@ final class AmenBereanConversionService: ObservableObject {
         let intent = AmenIntent.discuss
         let provenance = buildProvenance(from: capture, intent: intent)
 
-        let stub = BereanInsightStub(
+        let stub = BereanInsightSourceObject(
             id:         capture.id,
             createdBy:  actorId,
             capturedAt: capture.capturedAt,
@@ -230,7 +230,7 @@ final class AmenBereanConversionService: ObservableObject {
         let intent = AmenIntent.pray
         let provenance = buildProvenance(from: capture, intent: intent)
 
-        let stub = BereanInsightStub(
+        let stub = BereanInsightSourceObject(
             id:         capture.id,
             createdBy:  actorId,
             capturedAt: capture.capturedAt,
@@ -293,7 +293,7 @@ final class AmenBereanConversionService: ObservableObject {
         let intent = AmenIntent.study
         let provenance = buildProvenance(from: capture, intent: intent)
 
-        let stub = BereanInsightStub(
+        let stub = BereanInsightSourceObject(
             id:         capture.id,
             createdBy:  actorId,
             capturedAt: capture.capturedAt,
@@ -432,7 +432,7 @@ final class AmenBereanConversionService: ObservableObject {
         let intent = AmenIntent.mentor
         let provenance = buildProvenance(from: capture, intent: intent)
 
-        let stub = BereanInsightStub(
+        let stub = BereanInsightSourceObject(
             id:         capture.id,
             createdBy:  actorId,
             capturedAt: capture.capturedAt,
@@ -509,7 +509,7 @@ final class AmenBereanConversionService: ObservableObject {
     }
 }
 
-// MARK: - BereanInsightStub (internal)
+// MARK: - BereanInsightSourceObject (internal)
 
 /// Minimal `SpawnableObject` stub used to feed `AmenObjectRepository.createSpawnedObject`.
 ///
@@ -517,7 +517,7 @@ final class AmenBereanConversionService: ObservableObject {
 /// `AmenBereanInsight` document may live in a user sub-collection that requires a
 /// separate read, we construct a lightweight stub with the provenance already set.
 /// The repository uses the stub only to extract `id`, `createdBy`, and `provenance`.
-private struct BereanInsightStub: SpawnableObject {
+private struct BereanInsightSourceObject: SpawnableObject {
     let id: String
     let createdBy: String
     let createdAt: Date

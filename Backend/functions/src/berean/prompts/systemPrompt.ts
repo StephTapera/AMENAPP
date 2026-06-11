@@ -63,6 +63,10 @@ export function buildSystemPrompt(
   return parts.join("\n\n");
 }
 
+export function buildBereanSystemPrompt(): string {
+  return buildSystemPrompt("balanced");
+}
+
 function buildModeInstructions(
   mode: ResponseMode,
   primaryState?: SpiritualPrimaryState

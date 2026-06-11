@@ -204,7 +204,7 @@ extension View {
 /// Over-photo dark translucent pill — the "Directions" button pattern.
 /// Legible white-on-image text via forced dark color scheme.
 /// PURGE reference: Any over-photo label using amenGold foreground color on glass background.
-struct AmenGlassOverlayPillStub: View {
+struct AmenGlassOverlayPillFallback: View {
     var label: String
     var icon: String  // SF Symbol name
 

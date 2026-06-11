@@ -12,6 +12,8 @@ export * from "./openAIProxy";
 export * from "./whisperProxy";
 export * from "./generateDailyVerse";
 export * from "./amenDaily/getAmenDailyDigest";
+export * from "./cameraOS/contextLens";
+export * from "./communityOS/core";
 
 // Phase P1-4: server-authoritative Think-First / Tone Checker.
 // iOS ThinkFirstGuardrailsService is advisory only; the publish path
@@ -47,6 +49,7 @@ export * from "./selahMedia";
 // Smart Media Attachments (System 22)
 // resolveSmartAttachment, saveMediaGraphItem, getRecentMediaAttachments, getSavedMediaItems
 export * from "./smartAttachments";
+export * from "./noteShare";
 
 // Safety OS Reaction Engine
 export * from "./safetyOSReactionEngine";
@@ -73,6 +76,7 @@ export * from "./resolveOrCreateConversation";
 
 // Suggested Accounts Rail
 export * from "./suggestedAccounts";
+export * from "./userSettings";
 
 // UserProfileMini context callable
 export * from "./profileMini/getUserProfileMiniContext";
@@ -85,6 +89,7 @@ export * from "./legacyAiSafetyBridge";
 // Action Threads — server-authoritative care workflow CRUD
 // All state transitions and participant invitations are validated server-side.
 export * from "./actionThreads";
+export * from "./actionIntelligence";
 
 // Private/Follower Feed Builder
 export * from "./feedBuilder";
@@ -94,6 +99,12 @@ export * from "./postCountTriggers";
 // Smart Context Label scoring, ranking, feedback, and preference sync
 export * from "./feedContext";
 export * from "./bereanPulse";
+
+// Amen Pulse — BOUNDED daily surface (NOT a feed). Server selects a finite,
+// ordered set of cards once per day and writes ONE doc per user/day.
+//   refreshAmenPulseForCurrentUser (onCall) · generateAmenPulseDaily (onSchedule)
+//   seedWhatsNewStories (onCall, admin-only)
+export * from "./pulse";
 
 // Dynamic Reply Preview system — server-ranked inline PostCard preview candidates
 export * from "./generateDynamicReplyPreviews";
@@ -316,6 +327,7 @@ export * from "./covenant/setCommunitySaved";
 export * from "./covenant/createCovenantThreadReply";
 export * from "./covenant/generateThreadSummary";
 export * from "./covenant/createPrayerRequestFromMessage";
+export * from "./prayer/createPrayerRequest";
 export * from "./covenant/generateCatchUpSummary";
 export * from "./covenant/calculateCovenantChurnRisk";
 export * from "./covenant/publishScheduledCovenantContent";

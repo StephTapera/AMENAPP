@@ -47,23 +47,32 @@ struct AILCalmMode: ViewModifier {
 
         return Group {
             if calmActive {
-                content
-                    .environment(\.ailCalmModeActive, true)
-                    // Compose with Simple Mode's chosen scale when it is active;
-                    // otherwise leave the system Dynamic Type size untouched.
-                    .dynamicTypeSize(effectiveDynamicTypeSize)
-                    // Focus-card feel: generous breathing room, one thing at a time.
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 12)
-                    // Defer entirely to Apple's Reduce Motion — never animate when off-limits.
-                    .transaction { txn in
-                        if reduceMotion { txn.animation = nil }
-                    }
+                calmContent(content)
             } else {
                 content
                     .environment(\.ailCalmModeActive, false)
             }
         }
+    }
+
+    @ViewBuilder
+    private func calmContent(_ content: Content) -> some View {
+        if let dynamicTypeSize = effectiveDynamicTypeSize {
+            decoratedCalmContent(content)
+                .dynamicTypeSize(dynamicTypeSize)
+        } else {
+            decoratedCalmContent(content)
+        }
+    }
+
+    private func decoratedCalmContent(_ content: Content) -> some View {
+        content
+            .environment(\.ailCalmModeActive, true)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 12)
+            .transaction { txn in
+                if reduceMotion { txn.animation = nil }
+            }
     }
 
     /// When Simple Mode is also on, stack its font scale; otherwise pass through.

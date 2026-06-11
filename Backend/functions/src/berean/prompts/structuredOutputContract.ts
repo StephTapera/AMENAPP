@@ -45,6 +45,10 @@ CONSTRAINTS FOR YOUR JSON:
 - "sensitivityFlags" must only contain values from this set: divine_authority_assertion, scripture_contradiction, pastoral_escalation, crisis_escalation, controversial_doctrine, minor_user, scrupulosity_risk
 `;
 
+export function buildStructuredOutputContract(): string {
+  return STRUCTURED_OUTPUT_INSTRUCTION;
+}
+
 /**
  * Validates that a parsed JSON object loosely conforms to the BereanStructuredResponse shape.
  * Returns the validated object or throws if critically malformed.

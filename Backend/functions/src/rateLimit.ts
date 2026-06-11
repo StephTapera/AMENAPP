@@ -51,6 +51,11 @@ export const RATE_LIMITS = {
     // Berean Spiritual Intelligence — same budget as AI proxy (used by berean/controllers)
     bereanPerMinute:    { name: "berean_1min", windowMs: 60_000, maxCalls: 20 } as RateLimitConfig,
     bereanDailyBudget:  { name: "berean_1day", windowMs: 86_400_000, maxCalls: 200 } as RateLimitConfig,
+    bereanContextualActionPerMinute: { name: "berean_contextual_action_1min", windowMs: 60_000, maxCalls: 30 } as RateLimitConfig,
+    COMMUNITY_SAVE_PER_MINUTE: { name: "community_save_1min", windowMs: 60_000, maxCalls: 30 } as RateLimitConfig,
+    COMMUNITY_SAVE_PER_DAY: { name: "community_save_1day", windowMs: 86_400_000, maxCalls: 300 } as RateLimitConfig,
+    COMMUNITY_TONE_CHECK_PER_MINUTE: { name: "community_tone_check_1min", windowMs: 60_000, maxCalls: 20 } as RateLimitConfig,
+    COMMUNITY_TONE_CHECK_PER_DAY: { name: "community_tone_check_1day", windowMs: 86_400_000, maxCalls: 200 } as RateLimitConfig,
 } as const;
 
 /**
