@@ -176,11 +176,7 @@ struct AmenAIHostAssistantPanel: View {
                         signals: payload.questions,
                         actionLabel: "Reply",
                         onAction: { signal in
-                            NotificationCenter.default.post(
-                                name: Notification.Name("AmenLiveChatReply"),
-                                object: nil,
-                                userInfo: ["signalId": signal.id, "authorName": signal.authorName, "text": signal.text]
-                            )
+                            openLiveSignal(signal)
                         }
                     )
 
@@ -191,11 +187,7 @@ struct AmenAIHostAssistantPanel: View {
                         signals: payload.prayerRequests,
                         actionLabel: "Acknowledge",
                         onAction: { signal in
-                            NotificationCenter.default.post(
-                                name: Notification.Name("AmenLiveAcknowledge"),
-                                object: nil,
-                                userInfo: ["signalId": signal.id, "authorName": signal.authorName]
-                            )
+                            acknowledgePrayerSignal(signal)
                         }
                     )
 
@@ -214,6 +206,15 @@ struct AmenAIHostAssistantPanel: View {
                 }
         }
         .shadow(color: .black.opacity(0.45), radius: 20, x: 0, y: -4)
+    }
+
+    private func openLiveSignal(_ signal: HostSignal) {
+        DeepLinkRouter.shared.navigate(to: .space(spaceId: streamId))
+        payload.questions.removeAll { $0.id == signal.id }
+    }
+
+    private func acknowledgePrayerSignal(_ signal: HostSignal) {
+        payload.prayerRequests.removeAll { $0.id == signal.id }
     }
 
     // MARK: - AI Suggestion Banner

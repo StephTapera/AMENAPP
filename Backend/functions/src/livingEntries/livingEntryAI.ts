@@ -1,4 +1,8 @@
 import { clamp01 } from "./livingEntryScoring";
+import { defineSecret } from "firebase-functions/params";
+
+export const openaiLivingEntriesApiKey = defineSecret("OPENAI_API_KEY");
+export const anthropicLivingEntriesApiKey = defineSecret("ANTHROPIC_API_KEY");
 
 export interface ClassificationInput {
   title?: string;
@@ -51,7 +55,7 @@ export async function classifyWithFallback(
 }
 
 export async function openAIClassification(input: ClassificationInput): Promise<ClassificationResult | null> {
-  if (!process.env.OPENAI_API_KEY) return null;
+  if (!openaiLivingEntriesApiKey.value()) return null;
 
   const response = await postOpenAIJSON(
     systemPrompt("Classify a Living Entry for a spiritually-aware productivity app."),
@@ -71,7 +75,7 @@ export async function openAIClassification(input: ClassificationInput): Promise<
 }
 
 export async function claudeClassification(input: ClassificationInput): Promise<ClassificationResult | null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!anthropicLivingEntriesApiKey.value()) return null;
 
   const response = await postClaudeJSON(
     systemPrompt("Classify a Living Entry for a spiritually-aware productivity app."),
@@ -201,7 +205,7 @@ async function generateClaudeReflectionLearning(input: {
   answer?: string;
   helpfulness?: string;
 }): Promise<ReflectionLearningResult | null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!anthropicLivingEntriesApiKey.value()) return null;
 
   const response = await postClaudeJSON(
     systemPrompt("Write gentle, pastoral reflection follow-up copy for a productivity app."),
@@ -233,7 +237,7 @@ async function generateOpenAIReflectionLearning(input: {
   answer?: string;
   helpfulness?: string;
 }): Promise<ReflectionLearningResult | null> {
-  if (!process.env.OPENAI_API_KEY) return null;
+  if (!openaiLivingEntriesApiKey.value()) return null;
 
   const response = await postOpenAIJSON(
     systemPrompt("Write gentle reflection follow-up copy for a spiritually-aware productivity app."),
@@ -294,7 +298,7 @@ async function generateClaudeEvolutionSuggestion(input: {
   churchName?: string;
   state?: string;
 }): Promise<EvolutionResult | null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!anthropicLivingEntriesApiKey.value()) return null;
 
   const response = await postClaudeJSON(
     systemPrompt("Generate gentle next-step suggestions for a spiritually-aware productivity app."),
@@ -322,7 +326,7 @@ async function generateOpenAIEvolutionSuggestion(input: {
   churchName?: string;
   state?: string;
 }): Promise<EvolutionResult | null> {
-  if (!process.env.OPENAI_API_KEY) return null;
+  if (!openaiLivingEntriesApiKey.value()) return null;
 
   const response = await postOpenAIJSON(
     systemPrompt("Generate gentle next-step suggestions for a spiritually-aware productivity app."),
@@ -497,7 +501,7 @@ async function postOpenAIJSON(system: string, instructions: string, payload: unk
   const response = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Authorization": `Bearer ${openaiLivingEntriesApiKey.value()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -520,7 +524,7 @@ async function postClaudeJSON(system: string, payload: unknown): Promise<unknown
   const response = await fetch(CLAUDE_URL, {
     method: "POST",
     headers: {
-      "x-api-key": String(process.env.ANTHROPIC_API_KEY),
+      "x-api-key": anthropicLivingEntriesApiKey.value(),
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },

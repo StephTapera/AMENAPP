@@ -663,11 +663,7 @@ struct AmenCommunityAIManagerView: View {
                     QuestionRow(
                         question: question,
                         onReply: {
-                            NotificationCenter.default.post(
-                                name: Notification.Name("AmenOpenDMComposer"),
-                                object: nil,
-                                userInfo: ["questionId": question.id, "prefillText": question.text]
-                            )
+                            DeepLinkRouter.shared.navigate(to: .space(spaceId: spaceId))
                         }
                     )
                     if index < questions.count - 1 {
@@ -713,12 +709,7 @@ struct AmenCommunityAIManagerView: View {
                             }
                         },
                         onRespond: {
-                            NotificationCenter.default.post(
-                                name: Notification.Name("AmenOpenDMComposer"),
-                                object: nil,
-                                userInfo: ["requestId": request.id,
-                                           "prefillText": "Praying for you regarding: \(request.text)"]
-                            )
+                            DeepLinkRouter.shared.navigate(to: .space(spaceId: spaceId))
                         }
                     )
                     if index < requests.count - 1 {

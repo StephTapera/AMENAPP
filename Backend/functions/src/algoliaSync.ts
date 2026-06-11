@@ -23,13 +23,15 @@ import {
     onDocumentUpdated,
 } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions/v2";
+import { defineSecret } from "firebase-functions/params";
 
 const ALGOLIA_APP_ID = "182SCN7O9S";
+const algoliaAdminKey = defineSecret("ALGOLIA_ADMIN_KEY");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function getAlgoliaKey(): Promise<string> {
-    return process.env.ALGOLIA_ADMIN_KEY ?? "";
+    return algoliaAdminKey.value();
 }
 
 async function algoliaRequest(
@@ -67,7 +69,9 @@ async function algoliaRequest(
  * Patches the Algolia record when a post document is updated.
  * Only syncs fields that are search-relevant to minimize Algolia write units.
  */
-export const algoliaPostUpdateSync = onDocumentUpdated("posts/{postId}", async (event) => {
+export const algoliaPostUpdateSync = onDocumentUpdated(
+    { document: "posts/{postId}", secrets: [algoliaAdminKey] },
+    async (event) => {
     const postId = event.params.postId;
     const after = event.data?.after.data();
     const before = event.data?.before.data();
@@ -96,7 +100,8 @@ export const algoliaPostUpdateSync = onDocumentUpdated("posts/{postId}", async (
 
     await algoliaRequest("PUT", `posts/${encodeURIComponent(postId)}`, record);
     logger.info(`[algoliaSync] Updated Algolia record for post ${postId}`);
-});
+    }
+);
 
 // ─── Post Delete Sync ─────────────────────────────────────────────────────────
 
@@ -104,8 +109,11 @@ export const algoliaPostUpdateSync = onDocumentUpdated("posts/{postId}", async (
  * Removes the post record from Algolia when the Firestore document is deleted.
  * Belt-and-suspenders alongside postDeletionCascade's Algolia removal.
  */
-export const algoliaPostDeleteSync = onDocumentDeleted("posts/{postId}", async (event) => {
+export const algoliaPostDeleteSync = onDocumentDeleted(
+    { document: "posts/{postId}", secrets: [algoliaAdminKey] },
+    async (event) => {
     const postId = event.params.postId;
     await algoliaRequest("DELETE", `posts/${encodeURIComponent(postId)}`);
     logger.info(`[algoliaSync] Removed deleted post ${postId} from Algolia`);
-});
+    }
+);

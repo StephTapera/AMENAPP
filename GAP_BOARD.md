@@ -160,3 +160,32 @@ Scope: full-app gap audit, eight lanes. Lanes 1-6 were delegated read-only; lane
 
 - No build or test run was performed; this was a read-only evidence audit except for `GAP_BOARD.md` and swarm registration in `AGENT_LANES.md`.
 - Auditor 6 did not return before report generation; the test section uses Xcode MCP `GetTestList` plus local project glob evidence.
+
+## Fix Wave Closure — 2026-06-11
+
+| Row | Gap | Evidence | Severity | Owner/Lane | Fix Size | Status |
+|---|---|---|---|---|---|---|
+| FW-01 | Report-user control posted an unobserved notification. | `AMENAPP/AMENAPP/ConnectSpaces/AmenConnectProfileView.swift` now calls `AmenSafetyReportService.shared.submitReport(...)`; `XcodeRefreshCodeIssuesInFile` returned no issues for the Xcode path. | P0 | Connect / Safety | M | CLOSED-WITH-PROOF |
+| FW-02 | Profile Pray/Message actions posted unobserved notifications. | `AMENAPP/AMENAPP/ConnectSpaces/AmenConnectProfileView.swift` now routes Pray via `DeepLinkRouter.shared.navigate(to: .prayer(...))` and Message via `.chat(...)`; `DeepLinkRouter.swift` and `ContentView.swift` now map message routes to tab 2. | P0 | Connect / Navigation | M | CLOSED-WITH-PROOF |
+| FW-03 | Known unobserved NotificationCenter actions remained fleet-wide. | `XcodeGrep` for `AmenOpenDMComposer|AmenLiveChatReply|AmenLiveAcknowledge|AmenOpenVideoPlayer|AmenOpenContactPicker|amenPrayForUser|amenOpenDM|amenReportUser` returned 0 matches after direct routing/local handlers were added. | P0 | Cross-app Wiring | M | CLOSED-WITH-PROOF |
+| FW-04 | Raw phone numbers were logged client-side. | `AMENAPP/PhoneVerificationService.swift` logs only `last4`; `AMENAPP/AuthenticationViewModel.swift` logs only `last4`; grep for old `Sending verification code to:` / `Verifying code:` strings returned no app matches. | P0 | Privacy / Auth | S | CLOSED-WITH-PROOF |
+| FW-05 | Raw phone number was written to `/users`, and rules did not block it. | `/users` writes now set `phoneHash` + `phoneLast4` and delete `phoneNumber` in `AuthenticationViewModel.swift` and `PhoneVerificationService.swift`; `DiscoveryService.swift` and `SignInView.swift` query `phoneHash`; `AMENAPP/firestore.deploy.rules:240-243` includes `phoneNumber` in `hasRawPII()`. | P0 | Privacy / Rules | M | CLOSED-WITH-PROOF |
+| FW-06 | `textModerationEnabled` could fail open when absent from Remote Config. | `AMENAPP/AMENFeatureFlags.swift:823-824` adds camelCase moderation defaults ON, and related CommunicationOS safety flags default ON. `XcodeRefreshCodeIssuesInFile` returned no issues for `AMENFeatureFlags.swift`. | P0 | Flags / Safety | M | CLOSED-WITH-PROOF |
+| FW-07 | Crisis keyword detector shipped empty. | `AMENAPP/AIIntelligence/AmenSmartContextDetectionEngine.swift` now has `defaultCrisisKeywords` and resets empty runtime config to that baseline; `AMENAPPTests/ActionIntelligenceDetectorTests.swift` adds `smartContextDetectorHasCrisisBaseline`. | P0 | Privacy / Safety | M | CLOSED-WITH-PROOF |
+| FW-08 | Safe Zone used the Apple Park placeholder coordinate. | Worker changed `AMENAPP/AMENAPP/CameraOS/Safety/SafeZoneService.swift`; proof: `XcodeRefreshCodeIssuesInFile` passed and grep for `37.3318`, `-122.0312`, `Apple Park`, `placeholder` returned no matches in the file. | P1 | CameraOS Safety | M | CLOSED-WITH-PROOF |
+| FW-09 | Server logging emitted full payloads. | Worker changed `AMENAPP/AMENAPP/CloudFunction_NotificationRoutingPipeline.ts` and `Backend/functions/src/discover/discoverTelemetry.ts`; `npm test -- --runTestsByPath src/discover/discoverTelemetry.test.ts --runInBand` passed. | P1 | Backend / Privacy | M | CLOSED-WITH-PROOF |
+| FW-10 | Church trust callables deployed as stubs. | Worker added `Backend/functions/src/church/controllers/churchTrustCallables.ts`, exports in `Backend/functions/src/index.ts`, and test `churchTrustCallables.test.ts`; `npm run build` and focused Jest passed after integration. | P1 | Backend Parity | L | CLOSED-WITH-PROOF |
+| FW-11 | Church Notes media callables lacked standard callable guards. | Worker added App Check and per-user rate-limit evidence in `functions/churchNotesMediaPipeline.js`; `npx jest --testMatch '**/test/churchNotesMediaPipeline.test.js' --runInBand` passed. | P1 | Backend / Church Notes | L | CLOSED-WITH-PROOF |
+| FW-12 | Church Notes media flags had default/comment and alias kill-switch gaps. | Worker added `AMENAPPTests/ChurchNotesMediaIntelligenceTests.swift`; source already had default-off media gates and alias non-resurrection in `AMENAPP/AMENFeatureFlags.swift`; worker `git diff --check` passed. | P1 | Flags / Church Notes | M | CLOSED-WITH-PROOF |
+| FW-13 | Provider/payment secrets used env/config instead of Secret Manager. | Added `defineSecret` and function `secrets` options in `Backend/functions/src/ambient/summarizeAmbientContext.ts`, `generateLiveKitToken.ts`, `livingEntries/*`, `covenant/*`, `onPostCreated.ts`, `deleteAlgoliaUser.ts`, and `algoliaSync.ts`; `npm run build` in `Backend/functions` passed. Human must set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`, `STRIPE_SECRET_KEY`, `STRIPE_COVENANT_WEBHOOK_SECRET`, `ALGOLIA_ADMIN_KEY`. | P1 | Backend / Secrets | M | CLOSED-WITH-PROOF |
+
+### Fix Wave Verification
+
+| Check | Result |
+|---|---|
+| Dead notification grep | 0 matches for the banned profile/live/contact/video notification names. |
+| Swift live diagnostics | No issues for edited Connect profile, PhoneVerificationService, DiscoveryService, SignInView, crisis detector, flag defaults, zero-observer replacement files; `AuthenticationViewModel.swift` only retains unrelated pre-existing weak-capture warnings at lines 2034 and 2044. |
+| Backend build | `npm run build` in `Backend/functions` passed after the Secret Manager migration. |
+| Backend focused tests | `Backend/functions`: discover telemetry + church trust callable tests passed, 4 tests total. |
+| Church Notes callable tests | `functions`: church notes media pipeline guard tests passed, 3 tests total. |
+| Xcode full build/tests | Blocked by Xcode dependency graph/CoreSimulator errors reported by worker lanes; fast diagnostics were used for edited Swift files. |

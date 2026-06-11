@@ -8,6 +8,8 @@ import {
   claudeClassification,
   generateEvolutionSuggestion,
   generateReflectionLearning,
+  openaiLivingEntriesApiKey,
+  anthropicLivingEntriesApiKey,
 } from "./livingEntryAI";
 import { evaluateContext } from "./livingEntryContext";
 import { buildGentleRegretCopy, calculateIntentGravityScore, clamp01 } from "./livingEntryScoring";
@@ -45,7 +47,9 @@ async function enforceLivingEntryRateLimit(userId: string, key: string, maxReque
   });
 }
 
-export const classifyLivingEntry = onCall(async (request) => {
+const livingEntryAISecrets = [openaiLivingEntriesApiKey, anthropicLivingEntriesApiKey];
+
+export const classifyLivingEntry = onCall({ secrets: livingEntryAISecrets }, async (request) => {
   const data = request.data as any;
   const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
@@ -91,7 +95,7 @@ export const calculateRegretRisk = onCall(async (request) => {
   };
 });
 
-export const completeLivingEntryWithReflection = onCall(async (request) => {
+export const completeLivingEntryWithReflection = onCall({ secrets: livingEntryAISecrets }, async (request) => {
   const data = request.data as any;
   const context = { auth: request.auth, app: request.app };
   const uid = requireAuth(context);
@@ -139,7 +143,7 @@ export const completeLivingEntryWithReflection = onCall(async (request) => {
   return { ok: true, reflectionId: reflectionRef.id };
 });
 
-export const evolveLivingEntries = onCall(async (request) => {
+export const evolveLivingEntries = onCall({ secrets: livingEntryAISecrets }, async (request) => {
     const _data = request.data as any;
     const data = _data;
     const context = { auth: request.auth, app: request.app };

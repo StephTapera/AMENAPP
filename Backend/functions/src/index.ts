@@ -369,15 +369,16 @@ export * from "./creationAI";
 // Church Trust & Safety OS — verification pipeline, moderation, grounding, livestream
 // Callables: submitChurchVerificationRequest, submitChurchProfileUpdate,
 //   reviewChurchModerationItem, refreshChurchLivestreamState, generateGroundedChurchAnswer,
-//   syncYouTubeChurchStreams, updateChurchLiveSignals, moderateChurchMediaUpload
+//   moderateChurchMediaUpload
 // Trigger:   onChurchVerificationReviewed
 export {
+  submitChurchVerificationRequest,
   submitChurchProfileUpdate,
   reviewChurchModerationItem,
   refreshChurchLivestreamState,
   generateGroundedChurchAnswer,
-  syncYouTubeChurchStreams,
-  updateChurchLiveSignals,
+  moderateChurchMediaUpload,
+  onChurchVerificationReviewed,
 } from "./church/controllers/churchTrustCallables";
 
 // Berean Operating Layer — integrated Berean AI response with full context pipeline

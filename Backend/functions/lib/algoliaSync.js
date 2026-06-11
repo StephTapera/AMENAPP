@@ -22,10 +22,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.algoliaPostDeleteSync = exports.algoliaPostUpdateSync = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const v2_1 = require("firebase-functions/v2");
+const params_1 = require("firebase-functions/params");
 const ALGOLIA_APP_ID = "182SCN7O9S";
+const algoliaAdminKey = (0, params_1.defineSecret)("ALGOLIA_ADMIN_KEY");
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 async function getAlgoliaKey() {
-    return process.env.ALGOLIA_ADMIN_KEY ?? "";
+    return algoliaAdminKey.value();
 }
 async function algoliaRequest(method, path, body) {
     const apiKey = await getAlgoliaKey();
@@ -52,7 +54,7 @@ async function algoliaRequest(method, path, body) {
  * Patches the Algolia record when a post document is updated.
  * Only syncs fields that are search-relevant to minimize Algolia write units.
  */
-exports.algoliaPostUpdateSync = (0, firestore_1.onDocumentUpdated)("posts/{postId}", async (event) => {
+exports.algoliaPostUpdateSync = (0, firestore_1.onDocumentUpdated)({ document: "posts/{postId}", secrets: [algoliaAdminKey] }, async (event) => {
     const postId = event.params.postId;
     const after = event.data?.after.data();
     const before = event.data?.before.data();
@@ -84,7 +86,7 @@ exports.algoliaPostUpdateSync = (0, firestore_1.onDocumentUpdated)("posts/{postI
  * Removes the post record from Algolia when the Firestore document is deleted.
  * Belt-and-suspenders alongside postDeletionCascade's Algolia removal.
  */
-exports.algoliaPostDeleteSync = (0, firestore_1.onDocumentDeleted)("posts/{postId}", async (event) => {
+exports.algoliaPostDeleteSync = (0, firestore_1.onDocumentDeleted)({ document: "posts/{postId}", secrets: [algoliaAdminKey] }, async (event) => {
     const postId = event.params.postId;
     await algoliaRequest("DELETE", `posts/${encodeURIComponent(postId)}`);
     v2_1.logger.info(`[algoliaSync] Removed deleted post ${postId} from Algolia`);

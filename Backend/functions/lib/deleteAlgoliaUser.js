@@ -47,8 +47,9 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteAlgoliaUser = void 0;
-const functions = __importStar(require("firebase-functions"));
 const https_1 = require("firebase-functions/v2/https");
+const v2_1 = require("firebase-functions/v2");
+const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 // ── Algolia REST helpers ─────────────────────────────────────────────────────
@@ -56,11 +57,9 @@ const db = admin.firestore();
 // The algoliasearch SDK can be added later if the codebase adopts it broadly.
 const ALGOLIA_APP_ID = "182SCN7O9S";
 const ALGOLIA_WRITE_KEY_SECRET = "ALGOLIA_ADMIN_KEY"; // Firebase Secret Manager key name
+const algoliaAdminKey = (0, params_1.defineSecret)(ALGOLIA_WRITE_KEY_SECRET);
 async function getAlgoliaAdminKey() {
-    // In production the key is injected via Firebase Secret Manager.
-    // During local emulator development, fall back to process.env.
-    const secretValue = process.env[ALGOLIA_WRITE_KEY_SECRET] ??
-        functions.config()?.algolia?.adminkey ?? "";
+    const secretValue = algoliaAdminKey.value();
     if (!secretValue) {
         throw new Error("[deleteAlgoliaUser] Algolia admin key not configured. " +
             `Set the '${ALGOLIA_WRITE_KEY_SECRET}' secret in Firebase Secret Manager: ` +
@@ -100,7 +99,7 @@ async function algoliaDeleteByFilter(indexName, filterExpression, adminKey) {
     }
 }
 // ── Cloud Function ────────────────────────────────────────────────────────────
-exports.deleteAlgoliaUser = (0, https_1.onCall)(async (request) => {
+exports.deleteAlgoliaUser = (0, https_1.onCall)({ secrets: [algoliaAdminKey] }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -134,32 +133,32 @@ exports.deleteAlgoliaUser = (0, https_1.onCall)(async (request) => {
     }
     catch (err) {
         // Key not configured — log and return success to avoid blocking deletion
-        functions.logger.error("[deleteAlgoliaUser] Admin key unavailable — skipping Algolia delete", err);
+        v2_1.logger.error("[deleteAlgoliaUser] Admin key unavailable — skipping Algolia delete", err);
         return { success: false, reason: "algolia_key_not_configured" };
     }
     const errors = [];
     // 1. Delete the user's own record from the "users" index
     try {
         await algoliaDeleteObject("users", requestedUid, adminKey);
-        functions.logger.info(`[deleteAlgoliaUser] Deleted users/${requestedUid}`);
+        v2_1.logger.info(`[deleteAlgoliaUser] Deleted users/${requestedUid}`);
     }
     catch (err) {
         errors.push(`users record: ${String(err)}`);
-        functions.logger.warn("[deleteAlgoliaUser] Failed to delete user record", err);
+        v2_1.logger.warn("[deleteAlgoliaUser] Failed to delete user record", err);
     }
     // 2. Delete all posts authored by the user from the "posts" index.
     // The "posts" index stores authorId as an attribute — deleteBy filters on it.
     try {
         await algoliaDeleteByFilter("posts", `authorId:${requestedUid}`, adminKey);
-        functions.logger.info(`[deleteAlgoliaUser] Deleted posts for authorId=${requestedUid}`);
+        v2_1.logger.info(`[deleteAlgoliaUser] Deleted posts for authorId=${requestedUid}`);
     }
     catch (err) {
         errors.push(`posts records: ${String(err)}`);
-        functions.logger.warn("[deleteAlgoliaUser] Failed to delete post records", err);
+        v2_1.logger.warn("[deleteAlgoliaUser] Failed to delete post records", err);
     }
     if (errors.length > 0) {
         // Partial failure — log for ops investigation but don't block account deletion
-        functions.logger.error("[deleteAlgoliaUser] Partial failure", { errors });
+        v2_1.logger.error("[deleteAlgoliaUser] Partial failure", { errors });
         return { success: false, errors };
     }
     return { success: true };

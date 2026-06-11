@@ -206,3 +206,13 @@ Firebase Console → App Check → each CF → Enforce
 7. **Server-side RBAC on org/church mutations** (finding #48): requires dedicated CF audit pass — follow-on PR
 8. **Phone auth Gen2 migration** (finding #51): low-risk, schedule for next infra sprint
 9. **Age verification vendor decision** (finding #11): legal/product must decide on third-party COPPA-compliant age verification before minor-serving features are enabled at scale
+
+## 2026-06-11 Gap Board Fix Wave Addendum
+
+| Area | Deploy Note | Evidence |
+|---|---|---|
+| Firestore rules | Deploy updated `AMENAPP/firestore.deploy.rules`; `hasRawPII()` now blocks raw `phoneNumber` on protected client writes. | `AMENAPP/firestore.deploy.rules:240-243` |
+| Phone PII migration | Existing `/users/{uid}.phoneNumber` values must be backfilled to `phoneHash` + `phoneLast4`, then raw `phoneNumber` deleted. New client writes only write hash/last4 and delete raw. | `AMENAPP/AuthenticationViewModel.swift`, `AMENAPP/PhoneVerificationService.swift`, `AMENAPP/DiscoveryService.swift`, `AMENAPP/SignInView.swift` |
+| Secret Manager | Before deploying `Backend/functions`, set: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`, `STRIPE_SECRET_KEY`, `STRIPE_COVENANT_WEBHOOK_SECRET`, `ALGOLIA_ADMIN_KEY`. | `defineSecret(...)` added in cited backend files |
+| Backend callables/triggers | Deploy `Backend/functions` after Secret Manager values exist; build proof: `npm run build` passed. | `Backend/functions/src/*` |
+| Church Notes media callables | Deploy `functions` for App Check + per-user rate-limit guards on OCR/video/PDF media callables. | `functions/churchNotesMediaPipeline.js`; Jest guard tests passed |

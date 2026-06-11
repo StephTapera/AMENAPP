@@ -19,6 +19,7 @@
 
 import Foundation
 import Combine
+import CryptoKit
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -289,27 +290,27 @@ final class DiscoveryService: ObservableObject {
 
     // MARK: - Public: Contact-Based Suggestions
 
-    /// Looks up normalized phone numbers against Firestore `users.phoneNumber`.
+    /// Looks up normalized phone hashes against Firestore `users.phoneHash`.
     /// Call after fetching E.164-normalized numbers from CNContactStore.
     func loadContactSuggestions(phoneNumbers: [String]) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isContactSuggestionsLoading = true
         defer { isContactSuggestionsLoading = false }
 
-        let normalized = Set(phoneNumbers.map { normalizePhone($0) }.filter { !$0.isEmpty })
-        guard !normalized.isEmpty else { contactSuggestions = []; return }
+        let phoneHashes = Set(phoneNumbers.map { phoneHash(for: normalizePhone($0)) }.filter { !$0.isEmpty })
+        guard !phoneHashes.isEmpty else { contactSuggestions = []; return }
 
         let followingSet = FollowService.shared.following
         var suggestions: [FollowSuggestion] = []
         var seen = Set<String>()
 
         // Firestore `in` supports up to 30 items per query
-        let chunks = Array(normalized).chunked(into: 30)
+        let chunks = Array(phoneHashes).chunked(into: 30)
         do {
             for chunk in chunks {
                 let snapshot = try await db
                     .collection("users")
-                    .whereField("phoneNumber", in: chunk)
+                    .whereField("phoneHash", in: chunk)
                     .limit(to: 30)
                     .getDocuments()
 
@@ -354,6 +355,13 @@ final class DiscoveryService: ObservableObject {
         case 11...: return "+" + digits
         default: return ""
         }
+    }
+
+    private func phoneHash(for normalizedPhone: String) -> String {
+        let digits = normalizedPhone.filter { $0.isNumber }
+        guard !digits.isEmpty else { return "" }
+        let digest = SHA256.hash(data: Data(digits.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Public: Recent Searches
@@ -997,5 +1005,3 @@ final class DiscoveryService: ObservableObject {
         recentSearches = decoded.filter { $0.timestamp > cutoff }
     }
 }
-
-

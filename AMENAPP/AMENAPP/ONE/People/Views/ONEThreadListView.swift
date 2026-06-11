@@ -145,7 +145,7 @@ struct ONEThreadListView: View {
             }
 
             Button("New Conversation") {
-                NotificationCenter.default.post(name: Notification.Name("AmenOpenContactPicker"), object: nil)
+                DeepLinkRouter.shared.navigate(to: .search(query: ""))
             }
                 .buttonStyle(.borderedProminent)
                 .tint(ONE.Colors.privateIndigo)
@@ -159,7 +159,7 @@ struct ONEThreadListView: View {
 
     private var newConversationButton: some View {
         Button {
-            NotificationCenter.default.post(name: Notification.Name("AmenOpenContactPicker"), object: nil)
+            DeepLinkRouter.shared.navigate(to: .search(query: ""))
         } label: {
             Image(systemName: "square.and.pencil")
                 .font(.systemScaled(16))

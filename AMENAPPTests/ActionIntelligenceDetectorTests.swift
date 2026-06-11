@@ -75,4 +75,14 @@ struct ActionIntelligenceDetectorTests {
         #expect(analysis.primaryActions.isEmpty)
         #expect(analysis.secondaryActions.isEmpty)
     }
+
+    @Test("Smart context detector ships a crisis keyword baseline")
+    func smartContextDetectorHasCrisisBaseline() async {
+        let engine = AmenSmartContextDetectionEngine.shared
+        await engine.configureRuntimeCrisisKeywords([])
+
+        let result = await engine.detect(in: "I want to kill myself tonight.")
+
+        #expect(result.safetySignals.contains { $0.category == "self-harm" })
+    }
 }

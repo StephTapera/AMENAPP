@@ -5,6 +5,7 @@
 | Swarm | Branch | Lead File | Status |
 |---|---|---|---|
 | **Connect Redesign (5 waves)** | safety-hardening | AmenConnectV2View.swift | IN PROGRESS — 2026-06-10 |
+| **Full-App Gap Audit + Fix Wave** | audit/gap-board | GAP_BOARD.md | FIX WAVE CLOSED — 2026-06-11; 13 rows closed with proof in board |
 
 ---
 

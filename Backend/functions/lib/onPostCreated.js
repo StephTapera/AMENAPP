@@ -61,15 +61,16 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.finalizePostOnCreate = void 0;
-const functions = __importStar(require("firebase-functions")); // kept for logger in helpers
 const firestore_1 = require("firebase-functions/v2/firestore");
 const v2_1 = require("firebase-functions/v2");
+const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 // ─── Constants ────────────────────────────────────────────────────────────────
 // Must match the App ID in deleteAlgoliaUser.ts and AlgoliaConfig.swift.
 const ALGOLIA_APP_ID = "182SCN7O9S";
 const ALGOLIA_WRITE_KEY_SECRET = "ALGOLIA_ADMIN_KEY";
+const algoliaAdminKey = (0, params_1.defineSecret)(ALGOLIA_WRITE_KEY_SECRET);
 // ─── Text Moderation ─────────────────────────────────────────────────────────
 //
 // Server-side prohibited pattern detection. Each entry has:
@@ -126,9 +127,7 @@ function runTextModeration(text) {
 }
 // ─── Algolia Helpers ──────────────────────────────────────────────────────────
 async function getAlgoliaAdminKey() {
-    const key = process.env[ALGOLIA_WRITE_KEY_SECRET] ??
-        functions.config()?.algolia?.adminkey ??
-        "";
+    const key = algoliaAdminKey.value();
     return key || null;
 }
 async function algoliaIndexPost(postId, record, adminKey) {
@@ -148,7 +147,7 @@ async function algoliaIndexPost(postId, record, adminKey) {
     }
 }
 // ─── Trigger ──────────────────────────────────────────────────────────────────
-exports.finalizePostOnCreate = (0, firestore_1.onDocumentCreated)("posts/{postId}", async (event) => {
+exports.finalizePostOnCreate = (0, firestore_1.onDocumentCreated)({ document: "posts/{postId}", secrets: [algoliaAdminKey] }, async (event) => {
     const postId = event.params.postId;
     const snap = event.data;
     if (!snap)

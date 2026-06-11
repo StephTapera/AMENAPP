@@ -12,8 +12,9 @@
  * exposed to the client binary (AlgoliaConfig.writeAPIKey is intentionally empty).
  */
 
-import * as functions from "firebase-functions";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions/v2";
+import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -24,13 +25,10 @@ const db = admin.firestore();
 
 const ALGOLIA_APP_ID = "182SCN7O9S";
 const ALGOLIA_WRITE_KEY_SECRET = "ALGOLIA_ADMIN_KEY"; // Firebase Secret Manager key name
+const algoliaAdminKey = defineSecret(ALGOLIA_WRITE_KEY_SECRET);
 
 async function getAlgoliaAdminKey(): Promise<string> {
-    // In production the key is injected via Firebase Secret Manager.
-    // During local emulator development, fall back to process.env.
-    const secretValue =
-        process.env[ALGOLIA_WRITE_KEY_SECRET] ??
-        functions.config()?.algolia?.adminkey ?? "";
+    const secretValue = algoliaAdminKey.value();
 
     if (!secretValue) {
         throw new Error(
@@ -89,7 +87,7 @@ async function algoliaDeleteByFilter(
 
 // ── Cloud Function ────────────────────────────────────────────────────────────
 
-export const deleteAlgoliaUser = onCall(async (request) => {
+export const deleteAlgoliaUser = onCall({ secrets: [algoliaAdminKey] }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -137,7 +135,7 @@ export const deleteAlgoliaUser = onCall(async (request) => {
         adminKey = await getAlgoliaAdminKey();
     } catch (err) {
         // Key not configured — log and return success to avoid blocking deletion
-        functions.logger.error("[deleteAlgoliaUser] Admin key unavailable — skipping Algolia delete", err);
+        logger.error("[deleteAlgoliaUser] Admin key unavailable — skipping Algolia delete", err);
         return { success: false, reason: "algolia_key_not_configured" };
     }
 
@@ -146,25 +144,25 @@ export const deleteAlgoliaUser = onCall(async (request) => {
     // 1. Delete the user's own record from the "users" index
     try {
         await algoliaDeleteObject("users", requestedUid, adminKey);
-        functions.logger.info(`[deleteAlgoliaUser] Deleted users/${requestedUid}`);
+        logger.info(`[deleteAlgoliaUser] Deleted users/${requestedUid}`);
     } catch (err) {
         errors.push(`users record: ${String(err)}`);
-        functions.logger.warn("[deleteAlgoliaUser] Failed to delete user record", err);
+        logger.warn("[deleteAlgoliaUser] Failed to delete user record", err);
     }
 
     // 2. Delete all posts authored by the user from the "posts" index.
     // The "posts" index stores authorId as an attribute — deleteBy filters on it.
     try {
         await algoliaDeleteByFilter("posts", `authorId:${requestedUid}`, adminKey);
-        functions.logger.info(`[deleteAlgoliaUser] Deleted posts for authorId=${requestedUid}`);
+        logger.info(`[deleteAlgoliaUser] Deleted posts for authorId=${requestedUid}`);
     } catch (err) {
         errors.push(`posts records: ${String(err)}`);
-        functions.logger.warn("[deleteAlgoliaUser] Failed to delete post records", err);
+        logger.warn("[deleteAlgoliaUser] Failed to delete post records", err);
     }
 
     if (errors.length > 0) {
         // Partial failure — log for ops investigation but don't block account deletion
-        functions.logger.error("[deleteAlgoliaUser] Partial failure", { errors });
+        logger.error("[deleteAlgoliaUser] Partial failure", { errors });
         return { success: false, errors };
     }
 

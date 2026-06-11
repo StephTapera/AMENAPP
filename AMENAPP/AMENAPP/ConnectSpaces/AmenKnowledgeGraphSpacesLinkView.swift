@@ -209,13 +209,8 @@ private struct AmenLinkedTeachingRowView: View {
 
             Spacer()
 
-            // "Open in Connect" — opens the video player in the Connect tab
-            Button {
-                NotificationCenter.default.post(
-                    name: Notification.Name("AmenOpenVideoPlayer"),
-                    object: nil,
-                    userInfo: ["videoId": videoId]
-                )
+            NavigationLink {
+                AmenConnectPlayerView(video: fallbackVideo)
             } label: {
                 Text("Open in Connect")
                     .font(.caption.weight(.semibold))
@@ -231,5 +226,27 @@ private struct AmenLinkedTeachingRowView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title ?? videoId). Open in Connect.")
+    }
+
+    private var fallbackVideo: AmenConnectSpacesConnectVideo {
+        AmenConnectSpacesConnectVideo(
+            id: videoId,
+            provenance: AmenConnectSpacesVideoProvenance(
+                humanRecorded: true,
+                aiEdited: false,
+                aiGenerated: false,
+                synthVoice: false,
+                synthFace: false,
+                deepfakeRisk: 0,
+                verifiedOriginal: false
+            ),
+            teacherId: "unknown",
+            transcriptRef: "connect/videos/\(videoId)/transcript",
+            claims: [],
+            scriptureRefs: [],
+            sponsored: false,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
     }
 }

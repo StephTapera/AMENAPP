@@ -202,3 +202,13 @@ curl -X POST https://us-central1-amen-5e359.cloudfunctions.net/ingestChurchesFro
 - [ ] `firebase functions:log --only processConnectQueuedDraft` — idempotency key deduplication working
 - [ ] iOS 26 simulator: flip `connect_layout_v2_enabled` to true, verify glass bar renders
 - [ ] iOS 17 simulator: same flag, verify fallback matte Capsule bar renders
+
+## Gap Board Fix Wave Addendum — 2026-06-11
+
+| Area | Action |
+|---|---|
+| Rules | Include `AMENAPP/firestore.deploy.rules` in the next rules deploy so raw `phoneNumber` is blocked by `hasRawPII()`. |
+| User phone migration | Backfill existing `/users/{uid}.phoneNumber` into `phoneHash` + `phoneLast4`; delete raw `phoneNumber` after verification. |
+| Secret Manager | Set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_SERVER_URL`, `STRIPE_SECRET_KEY`, `STRIPE_COVENANT_WEBHOOK_SECRET`, and `ALGOLIA_ADMIN_KEY` before deploying `Backend/functions`. |
+| Backend/functions | Deploy after secrets are set; current TypeScript proof: `npm run build` passed. |
+| functions | Deploy `functions/churchNotesMediaPipeline.js` guard update; current proof: `npx jest --testMatch '**/test/churchNotesMediaPipeline.test.js' --runInBand` passed. |

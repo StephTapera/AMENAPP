@@ -26,9 +26,9 @@
  * onPostCreateFeed trigger in feedBuilder.ts.
  */
 
-import * as functions from "firebase-functions"; // kept for logger in helpers
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions/v2";
+import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 
 const db = admin.firestore();
@@ -38,6 +38,7 @@ const db = admin.firestore();
 // Must match the App ID in deleteAlgoliaUser.ts and AlgoliaConfig.swift.
 const ALGOLIA_APP_ID = "182SCN7O9S";
 const ALGOLIA_WRITE_KEY_SECRET = "ALGOLIA_ADMIN_KEY";
+const algoliaAdminKey = defineSecret(ALGOLIA_WRITE_KEY_SECRET);
 
 // ─── Text Moderation ─────────────────────────────────────────────────────────
 //
@@ -106,10 +107,7 @@ function runTextModeration(text: string): {
 // ─── Algolia Helpers ──────────────────────────────────────────────────────────
 
 async function getAlgoliaAdminKey(): Promise<string | null> {
-    const key =
-        process.env[ALGOLIA_WRITE_KEY_SECRET] ??
-        (functions.config()?.algolia?.adminkey as string | undefined) ??
-        "";
+    const key = algoliaAdminKey.value();
     return key || null;
 }
 
@@ -138,7 +136,9 @@ async function algoliaIndexPost(
 
 // ─── Trigger ──────────────────────────────────────────────────────────────────
 
-export const finalizePostOnCreate = onDocumentCreated("posts/{postId}", async (event) => {
+export const finalizePostOnCreate = onDocumentCreated(
+    { document: "posts/{postId}", secrets: [algoliaAdminKey] },
+    async (event) => {
     const postId = event.params.postId;
     const snap = event.data;
     if (!snap) return;
@@ -176,7 +176,8 @@ export const finalizePostOnCreate = onDocumentCreated("posts/{postId}", async (e
                         status: "moderation_hold",
                         moderationCategory: modResult.category,
                         moderationHeldAt: admin.firestore.FieldValue.serverTimestamp(),
-                    });
+    }
+);
                 } catch (e) {
                     logger.error(`[onPostCreated] Failed to hold post ${postId}`, e);
                 }

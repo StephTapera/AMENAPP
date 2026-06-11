@@ -464,6 +464,39 @@ struct ChurchNoteJobCreationRequestTests {
     }
 }
 
+// MARK: - Church Notes Feature Flags
+
+@Suite("Church Notes Feature Flag Integrity")
+@MainActor
+struct ChurchNotesFeatureFlagIntegrityTests {
+
+    @Test("Unapproved media processing surfaces default off")
+    func mediaProcessingSurfacesDefaultOff() {
+        let flags = AMENFeatureFlags.shared
+        #expect(flags.churchNotesAudioCaptureEnabled == false)
+        #expect(flags.churchNotesPhotoOCREnabled == false)
+        #expect(flags.churchNotesVideoCaptureEnabled == false)
+        #expect(flags.sermonAudioCaptureEnabled == false)
+        #expect(flags.sermonVideoCaptureEnabled == false)
+        #expect(flags.churchPhotoOCRCaptureEnabled == false)
+    }
+
+    @Test("Legacy media aliases cannot OR killed canonical surfaces back on")
+    func legacyAliasesCannotReviveKilledCanonicalSurfaces() throws {
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        let repoRootURL = testFileURL.deletingLastPathComponent().deletingLastPathComponent()
+        let flagsURL = repoRootURL.appendingPathComponent("AMENAPP/AMENFeatureFlags.swift")
+        let source = try String(contentsOf: flagsURL, encoding: .utf8)
+
+        #expect(!source.contains("churchNotesAudioCaptureEnabled = churchNotesAudioCaptureEnabled || sermonAudioCaptureEnabled"))
+        #expect(!source.contains("churchNotesVideoCaptureEnabled = churchNotesVideoCaptureEnabled || sermonVideoCaptureEnabled"))
+        #expect(!source.contains("churchNotesPhotoOCREnabled = churchNotesPhotoOCREnabled || churchPhotoOCRCaptureEnabled"))
+        #expect(source.contains("sermonAudioCaptureEnabled = churchNotesAudioCaptureRemote && config[\"sermon_audio_capture_enabled\"].boolValue"))
+        #expect(source.contains("sermonVideoCaptureEnabled = churchNotesVideoCaptureRemote && config[\"sermon_video_capture_enabled\"].boolValue"))
+        #expect(source.contains("churchPhotoOCRCaptureEnabled = churchNotesPhotoOCRRemote && config[\"church_photo_ocr_capture_enabled\"].boolValue"))
+    }
+}
+
 #else
 import Foundation
 
@@ -476,4 +509,5 @@ struct ChurchNoteUploadStateTests {}
 struct ChurchNoteProcessingJobAvailableFieldsTests {}
 struct ChurchNoteDraftApprovalResultTests {}
 struct ChurchNoteJobCreationRequestTests {}
+struct ChurchNotesFeatureFlagIntegrityTests {}
 #endif

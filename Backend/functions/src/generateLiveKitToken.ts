@@ -13,10 +13,17 @@
 
 import * as functions from "firebase-functions";
 import * as crypto from "crypto";
+import { defineSecret } from "firebase-functions/params";
+
+const livekitApiKey = defineSecret("LIVEKIT_API_KEY");
+const livekitApiSecret = defineSecret("LIVEKIT_API_SECRET");
+const livekitServerUrl = defineSecret("LIVEKIT_SERVER_URL");
 
 // MARK: - generateLiveKitToken
 
-export const generateLiveKitToken = functions.https.onCall(
+export const generateLiveKitToken = functions
+    .runWith({ secrets: [livekitApiKey, livekitApiSecret, livekitServerUrl] })
+    .https.onCall(
     async (data: any, context: functions.https.CallableContext) => {
         if (!context.auth) {
             throw new functions.https.HttpsError(
@@ -36,17 +43,9 @@ export const generateLiveKitToken = functions.https.onCall(
             );
         }
 
-        // Resolve credentials — prefer runtime secrets, fall back to legacy config.
-        const cfg = functions.config();
-        const apiKey: string | undefined =
-            process.env.LIVEKIT_API_KEY ?? cfg?.livekit?.api_key;
-        const apiSecret: string | undefined =
-            process.env.LIVEKIT_API_SECRET ?? cfg?.livekit?.api_secret;
-        const serverUrl: string | undefined =
-            process.env.LIVEKIT_SERVER_URL ??
-            process.env.LIVEKIT_URL ??
-            cfg?.livekit?.server_url ??
-            cfg?.livekit?.url;
+        const apiKey = livekitApiKey.value();
+        const apiSecret = livekitApiSecret.value();
+        const serverUrl = livekitServerUrl.value();
 
         if (!apiKey || !apiSecret || !serverUrl) {
             throw new functions.https.HttpsError(

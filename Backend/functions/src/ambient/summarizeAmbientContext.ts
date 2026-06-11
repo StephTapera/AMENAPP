@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import type {
     ActionSource,
     ActionTier,
@@ -10,14 +11,14 @@ import type {
 } from "./types";
 import { enforceAmbientAIRateLimit, requireAmbientOSEnabled } from "./guards";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 const validTiers = new Set<ActionTier>(["high", "medium", "low"]);
 const validSources = new Set<ActionSource>(["prayer", "note", "message", "church", "selah", "berean"]);
 const validChips = new Set(["photo", "churchNote", "event", "prayerRequest", "sermon", "scripture"]);
 const validPostTypes = new Set(["PrayerRequest", "Testimony", "ChurchNote"]);
 
 export const summarizeAmbientContext = onCall(
-    { enforceAppCheck: true, maxInstances: 20, timeoutSeconds: 30 },
+    { enforceAppCheck: true, maxInstances: 20, timeoutSeconds: 30, secrets: [anthropicApiKey] },
     async (req): Promise<AmbientSummary> => {
         if (!req.auth) {
             throw new HttpsError("unauthenticated", "Sign in required.");
@@ -30,10 +31,12 @@ export const summarizeAmbientContext = onCall(
             throw new HttpsError("invalid-argument", "context required.");
         }
 
-        if (!process.env.ANTHROPIC_API_KEY) {
+        const apiKey = anthropicApiKey.value();
+        if (!apiKey) {
             return deterministicSummary(context);
         }
 
+        const client = new Anthropic({ apiKey });
         const response = await client.messages.create({
             model: "claude-opus-4-5",
             max_tokens: 1024,
@@ -53,7 +56,7 @@ export const summarizeAmbientContext = onCall(
 );
 
 export const classifyComposerIntent = onCall(
-    { enforceAppCheck: true, maxInstances: 30, timeoutSeconds: 10 },
+    { enforceAppCheck: true, maxInstances: 30, timeoutSeconds: 10, secrets: [anthropicApiKey] },
     async (req): Promise<SmartComposerIntent> => {
         if (!req.auth) {
             throw new HttpsError("unauthenticated", "Sign in required.");
@@ -66,10 +69,12 @@ export const classifyComposerIntent = onCall(
             return { chips: [] };
         }
 
-        if (!process.env.ANTHROPIC_API_KEY) {
+        const apiKey = anthropicApiKey.value();
+        if (!apiKey) {
             return deterministicComposerIntent(text);
         }
 
+        const client = new Anthropic({ apiKey });
         const response = await client.messages.create({
             model: "claude-haiku-4-5-20251001",
             max_tokens: 128,

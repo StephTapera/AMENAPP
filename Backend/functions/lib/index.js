@@ -36,8 +36,8 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onPostCreatedRunMediaModeration = exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.updateChurchLiveSignals = exports.syncYouTubeChurchStreams = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.updateAlignmentProfile = exports.getWeeklyAlignmentSummary = exports.voteKnowledgeIntegrity = exports.attachSharedKnowledgeIntegrity = exports.sendNotification = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = void 0;
-exports.getLivekitToken = exports.generateLiveKitToken = exports.onSabbathNotificationWrite = exports.syncFamilySabbathPresence = exports.setSabbathPreference = exports.evaluateSabbathMode = exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = void 0;
+exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.onChurchVerificationReviewed = exports.moderateChurchMediaUpload = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.submitChurchVerificationRequest = exports.updateAlignmentProfile = exports.getWeeklyAlignmentSummary = exports.voteKnowledgeIntegrity = exports.attachSharedKnowledgeIntegrity = exports.sendNotification = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = void 0;
+exports.getLivekitToken = exports.generateLiveKitToken = exports.onSabbathNotificationWrite = exports.syncFamilySabbathPresence = exports.setSabbathPreference = exports.evaluateSabbathMode = exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.processGiving = exports.reportMedia = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = void 0;
 const admin = __importStar(require("firebase-admin"));
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -183,6 +183,13 @@ __exportStar(require("./createBlock"), exports);
 // in a single batch. Prevents follows_index missing entries that silently break
 // follower-only post visibility.
 __exportStar(require("./createFollow"), exports);
+// Find Church 2.0 — Wave 2 backend
+// ingestChurchesFromGooglePlaces  (onCall, admin-only) — Google Places ingestion + dedup
+// computeAvailabilityStatus        (onCall) — compute + cache service-time availability for one church
+// scheduleAvailabilityRefresh      (onSchedule, every 30 min) — batch-refresh stale availability caches
+__exportStar(require("./findChurch2/ingestion"), exports);
+// detectChurchMedia                (onCall) — YouTube / podcast RSS / livestream auto-detection
+__exportStar(require("./findChurch2/mediaDetection"), exports);
 // Notification Functions — Server-side pipeline
 //
 // Firestore triggers use gen2 syntax (firebase-functions/v2/firestore) so they
@@ -348,15 +355,16 @@ __exportStar(require("./creationAI"), exports);
 // Church Trust & Safety OS — verification pipeline, moderation, grounding, livestream
 // Callables: submitChurchVerificationRequest, submitChurchProfileUpdate,
 //   reviewChurchModerationItem, refreshChurchLivestreamState, generateGroundedChurchAnswer,
-//   syncYouTubeChurchStreams, updateChurchLiveSignals, moderateChurchMediaUpload
+//   moderateChurchMediaUpload
 // Trigger:   onChurchVerificationReviewed
 var churchTrustCallables_1 = require("./church/controllers/churchTrustCallables");
+Object.defineProperty(exports, "submitChurchVerificationRequest", { enumerable: true, get: function () { return churchTrustCallables_1.submitChurchVerificationRequest; } });
 Object.defineProperty(exports, "submitChurchProfileUpdate", { enumerable: true, get: function () { return churchTrustCallables_1.submitChurchProfileUpdate; } });
 Object.defineProperty(exports, "reviewChurchModerationItem", { enumerable: true, get: function () { return churchTrustCallables_1.reviewChurchModerationItem; } });
 Object.defineProperty(exports, "refreshChurchLivestreamState", { enumerable: true, get: function () { return churchTrustCallables_1.refreshChurchLivestreamState; } });
 Object.defineProperty(exports, "generateGroundedChurchAnswer", { enumerable: true, get: function () { return churchTrustCallables_1.generateGroundedChurchAnswer; } });
-Object.defineProperty(exports, "syncYouTubeChurchStreams", { enumerable: true, get: function () { return churchTrustCallables_1.syncYouTubeChurchStreams; } });
-Object.defineProperty(exports, "updateChurchLiveSignals", { enumerable: true, get: function () { return churchTrustCallables_1.updateChurchLiveSignals; } });
+Object.defineProperty(exports, "moderateChurchMediaUpload", { enumerable: true, get: function () { return churchTrustCallables_1.moderateChurchMediaUpload; } });
+Object.defineProperty(exports, "onChurchVerificationReviewed", { enumerable: true, get: function () { return churchTrustCallables_1.onChurchVerificationReviewed; } });
 // Berean Operating Layer — integrated Berean AI response with full context pipeline
 // Callable: generateBereanOperatingResponse
 __exportStar(require("./berean/bereanOperatingLayer"), exports);
@@ -504,11 +512,16 @@ __exportStar(require("./churchNotes/churchNotesDraftApproval"), exports);
 __exportStar(require("./churchNotes/churchNotesExtendedCallables"), exports);
 __exportStar(require("./churchNotes/churchNotesPrivacyAudit"), exports);
 // Social OS — Media Provenance and Authenticity
-// registerMediaProvenance, createMediaSession, completeMediaSession, saveToMediaQueue,
-// updateMediaProgress, reportMedia, and getMediaTrustContext are all owned by the
-// default codebase (functions/index.js). No re-exports here.
+// reportMedia source lives in ./media/createMediaSession.ts (Backend TS codebase).
+// Comment "owned by default codebase" was stale after commit f3db8fe8 removed it from
+// functions/index.js. Re-exporting here so the Backend codebase deploys it correctly.
+var createMediaSession_1 = require("./media/createMediaSession");
+Object.defineProperty(exports, "reportMedia", { enumerable: true, get: function () { return createMediaSession_1.reportMedia; } });
 // In-App Giving — server-side Stripe charge (Apple Pay + card tokenization)
 __exportStar(require("./giving/processGivingCharge"), exports);
+// GAP A3-P1 processGiving alias for client compatibility
+var processGivingCharge_1 = require("./giving/processGivingCharge");
+Object.defineProperty(exports, "processGiving", { enumerable: true, get: function () { return processGivingCharge_1.processGivingCharge; } });
 __exportStar(require("./giving/analyzePostTrustLogoMatch"), exports);
 // Creator Spaces OS — Community AI, Events, Livestream AI, Monetization, Discovery, Legal, Mentorship, Discussions
 // Built: 2026-06-04
@@ -594,4 +607,19 @@ __exportStar(require("./spaces/spaceEvents"), exports);
 __exportStar(require("./covenant/verifyCovenantMembership"), exports);
 // Prayer Recap — weekly prayer summary generation for the calling user
 __exportStar(require("./prayer/generatePrayerRecap"), exports);
+// ONE Private Social OS — P5 gate CFs (deploy before any one_* flag flips on)
+__exportStar(require("./one/oneRelayMoment"), exports);
+__exportStar(require("./one/oneSendMoment"), exports);
+// A3 Safety Callables — Stage-3 deploy (evaluateDmRisk, reportDmAbuse,
+// contentSafetyScreen, analyzeRelationshipRisk, assessDogpileRisk)
+// Client-side callers: DmRiskFirewallService, SuspiciousRelationshipDetectorService,
+// SafetyServiceImpl, DogpileDetectionService
+__exportStar(require("./safety/a3Callables"), exports);
+// Connect Offline Queue — Stage-3 deploy
+// Idempotent: UUID idempotencyKey prevents duplicate sends on retry.
+// Called by ConnectOfflineQueueManager.swift (Wave 5) when connectivity restores.
+__exportStar(require("./connectQueue/processConnectQueuedDraft"), exports);
+__exportStar(require("./one/oneExpireMoment"), exports);
+__exportStar(require("./one/oneVerifyEntitlement"), exports);
+__exportStar(require("./one/oneActivateLegacy"), exports);
 //# sourceMappingURL=index.js.map

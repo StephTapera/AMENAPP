@@ -1,7 +1,10 @@
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
+import { defineSecret } from "firebase-functions/params";
 import Stripe from "stripe";
+
+const stripeSecretKeyParam = defineSecret("STRIPE_SECRET_KEY");
 
 // createCovenantCheckoutSession
 //
@@ -21,7 +24,7 @@ interface CheckoutInput {
 }
 
 export const createCovenantCheckoutSession = onCall(
-    { enforceAppCheck: true, region: "us-central1" },
+    { enforceAppCheck: true, region: "us-central1", secrets: [stripeSecretKeyParam] },
     async (request) => {
         // ── 1. Auth ────────────────────────────────────────────────────────────
         if (!request.auth?.uid) {
@@ -39,7 +42,7 @@ export const createCovenantCheckoutSession = onCall(
             throw new HttpsError("invalid-argument", "tierId is required.");
         }
 
-        const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+        const stripeSecretKey = stripeSecretKeyParam.value();
         if (!stripeSecretKey) {
             logger.error("[createCovenantCheckoutSession] STRIPE_SECRET_KEY not configured");
             throw new HttpsError("internal", "Payment service not configured.");

@@ -1,7 +1,11 @@
 import * as admin from "firebase-admin";
 import { onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
+import { defineSecret } from "firebase-functions/params";
 import StripeConstructor from "stripe";
+
+const stripeSecretKeyParam = defineSecret("STRIPE_SECRET_KEY");
+const stripeCovenantWebhookSecret = defineSecret("STRIPE_COVENANT_WEBHOOK_SECRET");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -235,15 +239,15 @@ export async function handleStripeEvent(
 // ── Cloud Function ────────────────────────────────────────────────────────────
 
 export const stripeCovenantWebhook = onRequest(
-    { region: "us-central1" },
+    { region: "us-central1", secrets: [stripeSecretKeyParam, stripeCovenantWebhookSecret] },
     async (req, res) => {
         if (req.method !== "POST") {
             res.status(405).send("Method Not Allowed");
             return;
         }
 
-        const stripeSecretKey    = process.env.STRIPE_SECRET_KEY;
-        const webhookSecret      = process.env.STRIPE_COVENANT_WEBHOOK_SECRET;
+        const stripeSecretKey    = stripeSecretKeyParam.value();
+        const webhookSecret      = stripeCovenantWebhookSecret.value();
 
         if (!stripeSecretKey || !webhookSecret) {
             logger.error("[stripeCovenantWebhook] Missing Stripe credentials in environment");
