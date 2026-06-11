@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<!--
+  DESIGN REFERENCE ONLY — Never add to the app.
+  orb.html — Floating Creator Orb Radial Menu
+  AMEN App composer reference prototype
+  2026-06-11
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMEN Creator Orb — Design Reference</title>
+<style>
+  /* ── Reset & Base ───────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+    min-height: 100vh;
+    overflow: hidden;
+    position: relative;
+    color: #fff;
+  }
+
+  /* ── Debug grid background ─────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ── Reference label ───────────────────────────────────── */
+  .ref-badge {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 59, 48, 0.85);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 0.5px solid rgba(255,255,255,0.3);
+    white-space: nowrap;
+    z-index: 9999;
+    pointer-events: none;
+  }
+
+  /* ── Controls panel ────────────────────────────────────── */
+  .controls {
+    position: fixed;
+    top: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 0.5px solid rgba(255,255,255,0.18);
+    border-radius: 20px;
+    padding: 8px 16px;
+    z-index: 9998;
+    user-select: none;
+  }
+
+  .controls label {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .controls input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #30d158;
+    cursor: pointer;
+  }
+
+  /* ── Hint text ─────────────────────────────────────────── */
+  .hint {
+    position: fixed;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* ── Dim overlay ────────────────────────────────────────── */
+  .dim-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+    z-index: 100;
+  }
+
+  .dim-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+    cursor: pointer;
+  }
+
+  /* ── Orb container — positions the entire radial system ── */
+  .orb-container {
+    position: fixed;
+    bottom: 32px;
+    right: 24px;
+    width: 52px;
+    height: 52px;
+    z-index: 200;
+    /* JS will manage position via transform/left/bottom */
+  }
+
+  /* ── Main orb button ────────────────────────────────────── */
+  .orb {
+    position: absolute;
+    inset: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 0.5px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255,255,255,0.25);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 120ms cubic-bezier(0.32, 0.72, 0, 1),
+                box-shadow 120ms ease,
+                background 120ms ease;
+    z-index: 210;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .orb:hover {
+    background: rgba(255, 255, 255, 0.24);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  .orb:active {
+    transform: scale(0.93);
+  }
+
+  .orb.open {
+    background: rgba(255, 255, 255, 0.28);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+
+  /* ── Orb icon ───────────────────────────────────────────── */
+  .orb-icon {
+    font-size: 22px;
+    line-height: 1;
+    transition: transform 350ms cubic-bezier(0.32, 0.72, 0, 1);
+    pointer-events: none;
+  }
+
+  .orb.open .orb-icon {
+    transform: rotate(45deg);
+  }
+
+  /* ── Action items ───────────────────────────────────────── */
+  .action-item {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    /* centered on the orb center (52/2=26 offset) */
+    top: 4px;   /* (52 - 44) / 2 = 4 */
+    left: 4px;  /* (52 - 44) / 2 = 4 */
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 0.5px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255,255,255,0.25);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    cursor: pointer;
+    opacity: 0;
+    transform: translate(0px, 0px) scale(0.4);
+    pointer-events: none;
+    z-index: 205;
+    transition: transform 350ms cubic-bezier(0.32, 0.72, 0, 1),
+                opacity 350ms cubic-bezier(0.32, 0.72, 0, 1);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .action-item:hover {
+    background: rgba(255, 255, 255, 0.28);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  .action-item:active {
+    transform: scale(0.88) !important;
+  }
+
+  .action-item .item-icon {
+    font-size: 16px;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .action-item .item-label {
+    font-size: 7px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgba(255,255,255,0.8);
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* Bloom open state — JS adds this class */
+  .action-item.bloomed {
+    opacity: 1;
+    pointer-events: all;
+    /* transform is set dynamically by JS with radial offset */
+  }
+
+  /* ── Reduce-motion: grid fade fallback ──────────────────── */
+  .reduce-motion .action-item {
+    transition: opacity 150ms ease, transform 150ms ease !important;
+  }
+
+  /* Grid layout for reduce-motion (JS sets positions directly) */
+
+  /* ── Tooltip ─────────────────────────────────────────────── */
+  .tooltip {
+    position: fixed;
+    background: rgba(0,0,0,0.72);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 8px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 100ms ease, transform 100ms ease;
+    z-index: 300;
+    white-space: nowrap;
+  }
+
+  .tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Snap indicator ─────────────────────────────────────── */
+  .snap-side {
+    position: fixed;
+    top: 50%;
+    width: 3px;
+    height: 80px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 200ms ease;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .snap-side.left { left: 8px; }
+  .snap-side.right { right: 8px; }
+  .snap-side.active { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- Reference badge -->
+<div class="ref-badge">DESIGN REFERENCE — Not in app</div>
+
+<!-- Controls -->
+<div class="controls">
+  <label>
+    <input type="checkbox" id="reduceMotionToggle">
+    Toggle Reduce Motion
+  </label>
+</div>
+
+<!-- Hint -->
+<div class="hint">
+  Tap orb to bloom · Tap outside to collapse · Drag to reposition · Drag left edge to snap
+</div>
+
+<!-- Dim overlay (tap to close) -->
+<div class="dim-overlay" id="dimOverlay"></div>
+
+<!-- Snap side indicators -->
+<div class="snap-side left" id="snapLeft"></div>
+<div class="snap-side right" id="snapRight"></div>
+
+<!-- Orb container -->
+<div class="orb-container" id="orbContainer">
+
+  <!-- Action items (rendered before orb so orb sits on top) -->
+  <!-- Index 0–9, angle computed by JS -->
+  <div class="action-item" data-index="0" data-label="Photo">
+    <span class="item-icon">📷</span>
+    <span class="item-label">Photo</span>
+  </div>
+  <div class="action-item" data-index="1" data-label="Bible">
+    <span class="item-icon">📖</span>
+    <span class="item-label">Bible</span>
+  </div>
+  <div class="action-item" data-index="2" data-label="Prayer">
+    <span class="item-icon">🙏</span>
+    <span class="item-label">Prayer</span>
+  </div>
+  <div class="action-item" data-index="3" data-label="Event">
+    <span class="item-icon">📅</span>
+    <span class="item-label">Event</span>
+  </div>
+  <div class="action-item" data-index="4" data-label="Poll">
+    <span class="item-icon">📊</span>
+    <span class="item-label">Poll</span>
+  </div>
+  <div class="action-item" data-index="5" data-label="Church Note">
+    <span class="item-icon">✏️</span>
+    <span class="item-label">Church</span>
+  </div>
+  <div class="action-item" data-index="6" data-label="Music">
+    <span class="item-icon">🎵</span>
+    <span class="item-label">Music</span>
+  </div>
+  <div class="action-item" data-index="7" data-label="Voice">
+    <span class="item-icon">🎤</span>
+    <span class="item-label">Voice</span>
+  </div>
+  <div class="action-item" data-index="8" data-label="Location">
+    <span class="item-icon">📍</span>
+    <span class="item-label">Location</span>
+  </div>
+  <div class="action-item" data-index="9" data-label="File">
+    <span class="item-icon">📎</span>
+    <span class="item-label">File</span>
+  </div>
+
+  <!-- Main orb (on top of action items) -->
+  <div class="orb" id="orb">
+    <span class="orb-icon">✦</span>
+  </div>
+
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+'use strict';
+
+// ── Config ────────────────────────────────────────────────────────
+const BLOOM_RADIUS    = 88;       // px from orb center to action item center
+const ITEM_COUNT      = 10;
+const STAGGER_MS      = 30;       // per-item delay
+const BLOOM_DURATION  = 350;      // ms
+const COLLAPSE_DURATION = 250;    // ms
+const ORB_SIZE        = 52;       // px
+const ITEM_SIZE       = 44;       // px
+const SNAP_THRESHOLD  = 120;      // px from edge to trigger snap zone indicator
+const EDGE_MARGIN     = 24;       // px from edge when snapped
+const BOTTOM_MARGIN   = 32;       // px from bottom
+
+// Arc: items spread in a 270° arc above/around the orb
+// (0° = right, going counter-clockwise from bottom-right quadrant)
+const ARC_START_DEG = 190;  // degrees (pointing roughly left-down)
+const ARC_SPAN_DEG  = 280;  // total arc span
+
+// ── State ─────────────────────────────────────────────────────────
+let isOpen       = false;
+let isDragging   = false;
+let dragOffsetX  = 0;
+let dragOffsetY  = 0;
+let orbX         = null;  // right offset (from right edge)
+let orbY         = null;  // bottom offset (from bottom edge)
+let reduceMotion = false;
+let collapseTimers = [];
+let bloomTimers    = [];
+
+// ── DOM refs ──────────────────────────────────────────────────────
+const orbContainer  = document.getElementById('orbContainer');
+const orb           = document.getElementById('orb');
+const dimOverlay    = document.getElementById('dimOverlay');
+const tooltip       = document.getElementById('tooltip');
+const snapLeft      = document.getElementById('snapLeft');
+const snapRight     = document.getElementById('snapRight');
+const reduceToggle  = document.getElementById('reduceMotionToggle');
+const actionItems   = Array.from(document.querySelectorAll('.action-item'));
+
+// ── Init orb position ─────────────────────────────────────────────
+function initOrbPosition() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  orbX = vw - EDGE_MARGIN - ORB_SIZE;  // left offset from left edge
+  orbY = vh - BOTTOM_MARGIN - ORB_SIZE; // top offset from top edge
+  applyOrbPosition();
+}
+
+function applyOrbPosition() {
+  orbContainer.style.left   = orbX + 'px';
+  orbContainer.style.top    = orbY + 'px';
+  orbContainer.style.right  = 'auto';
+  orbContainer.style.bottom = 'auto';
+}
+
+// ── Compute radial positions ──────────────────────────────────────
+function getItemPosition(index, total) {
+  // Spread items evenly across the arc
+  const angleDeg = ARC_START_DEG + (index / (total - 1)) * ARC_SPAN_DEG;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  // Center of orb relative to container = (26, 26)
+  // We want item center at (26 + dx, 26 + dy)
+  // Item is 44px, positioned at top:4 left:4 in base (= center at 26,26)
+  // So translate = (dx, dy)
+  const dx = BLOOM_RADIUS * Math.cos(angleRad);
+  const dy = BLOOM_RADIUS * Math.sin(angleRad);
+  return { dx, dy };
+}
+
+// ── Grid positions for reduce-motion fallback ─────────────────────
+function getGridPosition(index) {
+  // 5-column grid centered around orb
+  const cols = 5;
+  const col  = index % cols;
+  const row  = Math.floor(index / cols);
+  const cellSize = ITEM_SIZE + 8;
+  const gridW = cols * cellSize;
+  // Position grid above the orb, centered
+  const startX = -(gridW / 2) + (ORB_SIZE / 2) - (ITEM_SIZE / 2);
+  const startY = -(cellSize * 2) - 16;
+  const dx = startX + col * cellSize;
+  const dy = startY + row * cellSize;
+  return { dx, dy };
+}
+
+// ── Clear pending timers ──────────────────────────────────────────
+function clearTimers(arr) {
+  arr.forEach(t => clearTimeout(t));
+  arr.length = 0;
+}
+
+// ── Bloom open ────────────────────────────────────────────────────
+function bloom() {
+  if (isOpen) return;
+  isOpen = true;
+
+  clearTimers(collapseTimers);
+  orb.classList.add('open');
+  dimOverlay.classList.add('visible');
+
+  actionItems.forEach((item, i) => {
+    const pos = reduceMotion ? getGridPosition(i) : getItemPosition(i, ITEM_COUNT);
+    const delay = reduceMotion ? i * 20 : i * STAGGER_MS;
+    const duration = reduceMotion ? 150 : BLOOM_DURATION;
+
+    // Reset to center first (no transition)
+    item.style.transition = 'none';
+    item.style.transform  = 'translate(0px, 0px) scale(0.4)';
+    item.style.opacity    = '0';
+
+    // Force reflow
+    void item.offsetWidth;
+
+    // Apply transition
+    item.style.transition =
+      `transform ${duration}ms cubic-bezier(0.32, 0.72, 0, 1) ${delay}ms,
+       opacity   ${duration}ms cubic-bezier(0.32, 0.72, 0, 1) ${delay}ms`;
+
+    const t = setTimeout(() => {
+      item.style.transform = `translate(${pos.dx}px, ${pos.dy}px) scale(1)`;
+      item.style.opacity   = '1';
+      item.classList.add('bloomed');
+      item.style.pointerEvents = 'all';
+    }, 0); // transition handles delay
+    bloomTimers.push(t);
+  });
+}
+
+// ── Collapse closed ───────────────────────────────────────────────
+function collapse() {
+  if (!isOpen) return;
+  isOpen = false;
+
+  clearTimers(bloomTimers);
+  orb.classList.remove('open');
+  dimOverlay.classList.remove('visible');
+  hideTooltip();
+
+  // Reverse stagger: last item collapses first
+  const total    = ITEM_COUNT;
+  const duration = reduceMotion ? 100 : COLLAPSE_DURATION;
+
+  actionItems.forEach((item, i) => {
+    const reverseIndex = (total - 1) - i;
+    const delay = reduceMotion ? reverseIndex * 15 : reverseIndex * STAGGER_MS;
+
+    item.style.transition =
+      `transform ${duration}ms cubic-bezier(0.32, 0.72, 0, 1) ${delay}ms,
+       opacity   ${duration}ms cubic-bezier(0.32, 0.72, 0, 1) ${delay}ms`;
+
+    const t = setTimeout(() => {
+      item.style.transform     = 'translate(0px, 0px) scale(0.4)';
+      item.style.opacity       = '0';
+      item.classList.remove('bloomed');
+      item.style.pointerEvents = 'none';
+    }, 0);
+    collapseTimers.push(t);
+  });
+}
+
+// ── Toggle ────────────────────────────────────────────────────────
+function toggleOrb() {
+  if (isOpen) {
+    collapse();
+  } else {
+    bloom();
+  }
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────
+function showTooltip(item, label) {
+  const rect = item.getBoundingClientRect();
+  tooltip.textContent = label;
+  tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+  tooltip.style.top  = (rect.top - 32) + 'px';
+  tooltip.style.transform = 'translateX(-50%) translateY(4px)';
+  // Force reflow
+  void tooltip.offsetWidth;
+  tooltip.classList.add('visible');
+  tooltip.style.transform = 'translateX(-50%) translateY(0)';
+}
+
+function hideTooltip() {
+  tooltip.classList.remove('visible');
+}
+
+// ── Action item interactions ───────────────────────────────────────
+actionItems.forEach((item) => {
+  const label = item.dataset.label;
+
+  item.addEventListener('mouseenter', () => {
+    if (isOpen) showTooltip(item, label);
+  });
+
+  item.addEventListener('mouseleave', hideTooltip);
+
+  item.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!isOpen) return;
+    // Visual feedback then collapse
+    const icon = item.querySelector('.item-icon');
+    item.style.background = 'rgba(255,255,255,0.38)';
+    setTimeout(() => {
+      item.style.background = '';
+      collapse();
+    }, 180);
+  });
+});
+
+// ── Orb click ─────────────────────────────────────────────────────
+orb.addEventListener('click', (e) => {
+  if (isDragging) return;
+  e.stopPropagation();
+  toggleOrb();
+});
+
+// ── Dim overlay click (close) ─────────────────────────────────────
+dimOverlay.addEventListener('click', () => {
+  collapse();
+});
+
+// ── Drag logic (touch + mouse) ────────────────────────────────────
+let pointerStartX = 0;
+let pointerStartY = 0;
+let hasMoved      = false;
+const DRAG_THRESHOLD = 6; // px movement before considered drag
+
+function onDragStart(clientX, clientY) {
+  isDragging   = false;
+  hasMoved     = false;
+  pointerStartX = clientX;
+  pointerStartY = clientY;
+
+  const rect = orbContainer.getBoundingClientRect();
+  dragOffsetX = clientX - rect.left;
+  dragOffsetY = clientY - rect.top;
+
+  orbContainer.style.transition = 'none';
+}
+
+function onDragMove(clientX, clientY) {
+  const dx = clientX - pointerStartX;
+  const dy = clientY - pointerStartY;
+
+  if (!hasMoved && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+    hasMoved  = true;
+    isDragging = true;
+    if (isOpen) collapse();
+  }
+
+  if (!isDragging) return;
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  let newX = clientX - dragOffsetX;
+  let newY = clientY - dragOffsetY;
+
+  // Clamp within viewport
+  newX = Math.max(0, Math.min(vw - ORB_SIZE, newX));
+  newY = Math.max(0, Math.min(vh - ORB_SIZE, newY));
+
+  orbX = newX;
+  orbY = newY;
+  applyOrbPosition();
+
+  // Snap zone indicators
+  const nearLeft  = newX < SNAP_THRESHOLD;
+  const nearRight = newX > vw - ORB_SIZE - SNAP_THRESHOLD;
+
+  snapLeft.classList.toggle('active', nearLeft);
+  snapRight.classList.toggle('active', nearRight);
+}
+
+function onDragEnd(clientX) {
+  snapLeft.classList.remove('active');
+  snapRight.classList.remove('active');
+
+  if (!isDragging) return;
+  isDragging = false;
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Snap to nearest horizontal edge
+  const midpoint = vw / 2;
+  let targetX;
+
+  if (orbX < midpoint - ORB_SIZE / 2) {
+    // Snap to left edge
+    targetX = EDGE_MARGIN;
+  } else {
+    // Snap to right edge
+    targetX = vw - EDGE_MARGIN - ORB_SIZE;
+  }
+
+  // Keep Y clamped with margin
+  const targetY = Math.max(BOTTOM_MARGIN, Math.min(vh - ORB_SIZE - BOTTOM_MARGIN, orbY));
+
+  // Spring snap animation
+  orbContainer.style.transition =
+    'left 400ms cubic-bezier(0.32, 0.72, 0, 1), top 400ms cubic-bezier(0.32, 0.72, 0, 1)';
+
+  orbX = targetX;
+  orbY = targetY;
+  applyOrbPosition();
+
+  // Clear transition after animation
+  setTimeout(() => {
+    orbContainer.style.transition = 'none';
+    isDragging = false;
+  }, 420);
+}
+
+// Mouse events
+orb.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  onDragStart(e.clientX, e.clientY);
+
+  const onMove = (e) => onDragMove(e.clientX, e.clientY);
+  const onUp   = (e) => {
+    onDragEnd(e.clientX);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
+// Touch events
+orb.addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  onDragStart(t.clientX, t.clientY);
+}, { passive: true });
+
+orb.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  onDragMove(t.clientX, t.clientY);
+}, { passive: true });
+
+orb.addEventListener('touchend', (e) => {
+  const t = e.changedTouches[0];
+  onDragEnd(t.clientX);
+});
+
+// ── Reduce Motion toggle ───────────────────────────────────────────
+reduceToggle.addEventListener('change', () => {
+  reduceMotion = reduceToggle.checked;
+  document.body.classList.toggle('reduce-motion', reduceMotion);
+
+  // If currently open, re-bloom with new animation mode
+  if (isOpen) {
+    // Instantly collapse then re-bloom
+    actionItems.forEach((item) => {
+      item.style.transition    = 'none';
+      item.style.transform     = 'translate(0px, 0px) scale(0.4)';
+      item.style.opacity       = '0';
+      item.classList.remove('bloomed');
+      item.style.pointerEvents = 'none';
+    });
+    isOpen = false;
+    orb.classList.remove('open');
+    setTimeout(() => bloom(), 50);
+  }
+});
+
+// ── Window resize: re-clamp orb position ──────────────────────────
+window.addEventListener('resize', () => {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  orbX = Math.max(EDGE_MARGIN, Math.min(vw - EDGE_MARGIN - ORB_SIZE, orbX));
+  orbY = Math.max(BOTTOM_MARGIN, Math.min(vh - ORB_SIZE - BOTTOM_MARGIN, orbY));
+  applyOrbPosition();
+
+  // Re-bloom if open to recompute positions
+  if (isOpen) {
+    const wasOpen = isOpen;
+    actionItems.forEach((item) => {
+      item.style.transition    = 'none';
+      item.style.transform     = 'translate(0px, 0px) scale(0.4)';
+      item.style.opacity       = '0';
+      item.classList.remove('bloomed');
+      item.style.pointerEvents = 'none';
+    });
+    isOpen = false;
+    if (wasOpen) setTimeout(() => bloom(), 16);
+  }
+});
+
+// ── Check system prefers-reduced-motion ───────────────────────────
+const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+if (prefersReduced.matches) {
+  reduceMotion = true;
+  reduceToggle.checked = true;
+  document.body.classList.add('reduce-motion');
+}
+
+prefersReduced.addEventListener('change', (e) => {
+  reduceMotion = e.matches;
+  reduceToggle.checked = e.matches;
+  document.body.classList.toggle('reduce-motion', e.matches);
+});
+
+// ── Init ──────────────────────────────────────────────────────────
+initOrbPosition();
+
+// Pre-position all items at center (hidden)
+actionItems.forEach((item) => {
+  item.style.transform     = 'translate(0px, 0px) scale(0.4)';
+  item.style.opacity       = '0';
+  item.style.pointerEvents = 'none';
+});
+
+</script>
+</body>
+</html>

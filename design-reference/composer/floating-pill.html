@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AMEN — Floating Composer Pill Reference</title>
+  <style>
+    /* ─────────────────────────────────────────────────────────────────────
+       DESIGN REFERENCE ONLY — Never added to the app
+       Apple Mail-style floating composer pill
+    ───────────────────────────────────────────────────────────────────── */
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #1C1C1E;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Label strip ────────────────────────────────────────────────────── */
+    .label-strip {
+      padding: 16px 20px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.35);
+      user-select: none;
+    }
+
+    /* ── Simulated iOS chat surface ─────────────────────────────────────── */
+    .chat-surface {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Fake message bubbles for realism */
+    .bubbles {
+      flex: 1;
+      padding: 20px 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .bubble {
+      border-radius: 18px;
+      padding: 10px 14px;
+      font-size: 15px;
+      line-height: 1.4;
+      max-width: 72%;
+    }
+
+    .bubble.incoming {
+      background: rgba(255, 255, 255, 0.12);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+
+    .bubble.outgoing {
+      background: rgba(10, 132, 255, 0.6);
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+
+    /* ── Composer row ───────────────────────────────────────────────────── */
+    .composer-row {
+      position: relative;
+      padding: 10px 16px 28px;
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    /* Simulated text input */
+    .text-input-mock {
+      flex: 1;
+      min-height: 44px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0.5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 22px;
+      padding: 11px 16px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 15px;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      user-select: none;
+      transition: border-color 200ms ease;
+    }
+
+    .text-input-mock.active {
+      border-color: rgba(255, 255, 255, 0.35);
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 16px;
+      background: #0A84FF;
+      margin-left: 1px;
+      vertical-align: middle;
+      opacity: 0;
+      transition: opacity 100ms;
+    }
+
+    .cursor.visible {
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    /* ── Floating pill ──────────────────────────────────────────────────── */
+    .pill-anchor {
+      /* Anchors pill to right side of composer row */
+      position: absolute;
+      right: 16px;
+      bottom: 36px;         /* sits above composer row */
+      display: flex;
+      justify-content: flex-end;
+      pointer-events: none; /* children handle events */
+    }
+
+    .pill {
+      /* Glass capsule */
+      display: flex;
+      align-items: center;
+      height: 44px;
+      padding: 0 12px;
+      border-radius: 22px;
+      gap: 2px;
+
+      /* Glass */
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 0.5px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+
+      /* Layout transition — expand spring */
+      overflow: hidden;
+      white-space: nowrap;
+      pointer-events: all;
+      cursor: default;
+
+      /* Width animated via JS-set CSS var; transitions swap on state */
+      transition: width var(--pill-duration, 300ms) var(--pill-ease, cubic-bezier(0.32, 0.72, 0, 1));
+    }
+
+    /* ── Pill buttons ───────────────────────────────────────────────────── */
+    .pill-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;    /* 36px tap target */
+      height: 36px;
+      border-radius: 18px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+      color: rgba(255, 255, 255, 0.88);
+      transition: opacity 150ms linear, transform 100ms ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .pill-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .pill-btn:active {
+      transform: scale(0.88);
+    }
+
+    .pill-btn svg {
+      width: 22px;
+      height: 22px;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    /* ── Icon group — handles crossfade between context sets ─────────────── */
+    .icon-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      transition: opacity 150ms linear;
+    }
+
+    .icon-group.fading-out {
+      opacity: 0;
+    }
+
+    /* Collapse: all pill-btn except + get hidden */
+    .pill-btn.collapsible {
+      /* Width and opacity transition together for smooth collapse */
+      transition:
+        opacity 200ms ease-in-out,
+        width   200ms ease-in-out,
+        margin  200ms ease-in-out,
+        padding 200ms ease-in-out;
+    }
+
+    .pill.collapsed .pill-btn.collapsible {
+      opacity: 0;
+      width: 0 !important;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    /* Plus button always visible */
+    .pill-btn.plus-btn {
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    /* ── Expanded picker ────────────────────────────────────────────────── */
+    .picker-sheet {
+      position: absolute;
+      right: 16px;
+      bottom: 100px;
+      width: 280px;
+      background: rgba(44, 44, 46, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 0.5px solid rgba(255, 255, 255, 0.18);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      padding: 6px 0;
+
+      /* Hidden by default */
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition:
+        opacity  200ms ease,
+        transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    .picker-sheet.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: all;
+    }
+
+    .picker-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 11px 16px;
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      border-radius: 8px;
+      margin: 0 4px;
+      transition: background 120ms ease;
+    }
+
+    .picker-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .picker-item:active {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .picker-item svg {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .picker-item .item-label {
+      font-weight: 400;
+    }
+
+    .picker-separator {
+      height: 0.5px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 4px 0;
+    }
+
+    /* ── Control bar ────────────────────────────────────────────────────── */
+    .control-bar {
+      padding: 12px 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+      background: rgba(28, 28, 30, 0.9);
+    }
+
+    .ctrl-btn {
+      flex: 1;
+      min-width: 140px;
+      height: 40px;
+      border-radius: 12px;
+      border: 0.5px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.85);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 120ms ease, transform 80ms ease;
+      white-space: nowrap;
+      padding: 0 14px;
+    }
+
+    .ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.13);
+    }
+
+    .ctrl-btn:active {
+      transform: scale(0.97);
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* ── State indicator ────────────────────────────────────────────────── */
+    .state-badge {
+      position: absolute;
+      top: -28px;
+      right: 0;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.5);
+      white-space: nowrap;
+      transition: color 200ms, background 200ms;
+    }
+
+    .state-badge.typing {
+      color: #30D158;
+      background: rgba(48, 209, 88, 0.15);
+    }
+
+    .state-badge.paused {
+      color: #FFD60A;
+      background: rgba(255, 214, 10, 0.15);
+    }
+
+    /* ── Context label in pill ──────────────────────────────────────────── */
+    .context-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: rgba(255, 255, 255, 0.45);
+      padding: 0 4px 0 2px;
+      transition: opacity 150ms linear;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── Typed text display ─────────────────────────────────────────────── */
+    #typed-text {
+      transition: color 150ms;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="label-strip">Design Reference — Floating Composer Pill (AMEN App)</div>
+
+  <div class="chat-surface">
+    <!-- Fake message bubbles -->
+    <div class="bubbles">
+      <div class="bubble incoming">Excited to see you all at the prayer meeting tonight!</div>
+      <div class="bubble outgoing">Can't wait — do you want me to bring anything?</div>
+      <div class="bubble incoming">Just your prayers. And maybe some coffee ☕</div>
+    </div>
+
+    <!-- Composer row -->
+    <div class="composer-row" id="composer-row">
+
+      <!-- State badge -->
+      <div class="state-badge" id="state-badge">Idle</div>
+
+      <!-- Simulated text input -->
+      <div class="text-input-mock" id="text-input">
+        <span id="typed-text">Message</span>
+        <span class="cursor" id="cursor"></span>
+      </div>
+
+      <!-- Floating pill -->
+      <div class="pill-anchor">
+        <div class="pill" id="pill">
+
+          <!-- Context label crossfades on context switch -->
+          <span class="context-label" id="context-label">Messages</span>
+
+          <!-- Icon group A (default context) -->
+          <div class="icon-group" id="icon-group-a">
+
+            <!-- Aa / Format -->
+            <button class="pill-btn collapsible" title="Format" aria-label="Format text">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <text x="3" y="17" font-size="12" font-weight="700" fill="currentColor" stroke="none" font-family="-apple-system, sans-serif">Aa</text>
+              </svg>
+            </button>
+
+            <!-- Bible -->
+            <button class="pill-btn collapsible" title="Bible verse" aria-label="Attach Bible verse">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                <path d="M12 7v5M9.5 9.5h5"/>
+              </svg>
+            </button>
+
+            <!-- Photo -->
+            <button class="pill-btn collapsible" title="Photo / media" aria-label="Attach photo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="3"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </button>
+
+            <!-- Prayer -->
+            <button class="pill-btn collapsible" title="Prayer request" aria-label="Send prayer request">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <!-- Praying hands icon -->
+                <path d="M9 11l-3 8c-.4 1 .3 2 1.3 2h2L12 17"/>
+                <path d="M15 11l3 8c.4 1-.3 2-1.3 2h-2L12 17"/>
+                <path d="M9 11V7a3 3 0 0 1 6 0v4"/>
+                <path d="M9 11h6"/>
+              </svg>
+            </button>
+
+            <!-- Voice -->
+            <button class="pill-btn collapsible" title="Voice message" aria-label="Record voice message">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="2" width="6" height="11" rx="3"/>
+                <path d="M5 10a7 7 0 0 0 14 0"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+                <line x1="9" y1="21" x2="15" y2="21"/>
+              </svg>
+            </button>
+
+          </div>
+
+          <!-- Icon group B (Groups context) — hidden initially, crossfades in -->
+          <div class="icon-group" id="icon-group-b" style="display:none; opacity:0;">
+
+            <!-- Poll -->
+            <button class="pill-btn collapsible" title="Create poll" aria-label="Create poll">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6"  y1="20" x2="6"  y2="14"/>
+              </svg>
+            </button>
+
+            <!-- Event -->
+            <button class="pill-btn collapsible" title="Create event" aria-label="Create event">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8"  y1="2" x2="8"  y2="6"/>
+                <line x1="3"  y1="10" x2="21" y2="10"/>
+              </svg>
+            </button>
+
+            <!-- Announcement -->
+            <button class="pill-btn collapsible" title="Announcement" aria-label="Post announcement">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 7l-10 5-10-5"/>
+                <path d="M2 7v10l10 5 10-5V7"/>
+              </svg>
+            </button>
+
+            <!-- Photo -->
+            <button class="pill-btn collapsible" title="Photo / media" aria-label="Attach photo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="3"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </button>
+
+            <!-- Pin -->
+            <button class="pill-btn collapsible" title="Pin message" aria-label="Pin message">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l2 7h7l-5.5 4 2 7L12 16l-5.5 4 2-7L3 9h7z"/>
+              </svg>
+            </button>
+
+          </div>
+
+          <!-- Plus button — always visible -->
+          <button class="pill-btn plus-btn" id="plus-btn" title="More options" aria-label="More composer options">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5"  y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Expanded picker sheet -->
+      <div class="picker-sheet" id="picker-sheet" role="menu">
+        <div class="picker-item" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            <path d="M12 7v5M9.5 9.5h5"/>
+          </svg>
+          <span class="item-label">Bible Verse</span>
+        </div>
+        <div class="picker-item" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l-3 8c-.4 1 .3 2 1.3 2h2L12 17"/>
+            <path d="M15 11l3 8c.4 1-.3 2-1.3 2h-2L12 17"/>
+            <path d="M9 11V7a3 3 0 0 1 6 0v4"/>
+            <path d="M9 11h6"/>
+          </svg>
+          <span class="item-label">Prayer Request</span>
+        </div>
+        <div class="picker-item" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span class="item-label">Photo or Video</span>
+        </div>
+        <div class="picker-separator"></div>
+        <div class="picker-item" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+            <line x1="9" y1="21" x2="15" y2="21"/>
+          </svg>
+          <span class="item-label">Voice Message</span>
+        </div>
+        <div class="picker-item" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 7 4 4 20 4 20 7"/>
+            <line x1="9" y1="20" x2="15" y2="20"/>
+            <line x1="12" y1="4" x2="12" y2="20"/>
+          </svg>
+          <span class="item-label">Rich Text Format</span>
+        </div>
+        <div class="picker-item" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8v4l3 3"/>
+          </svg>
+          <span class="item-label">Scheduled Message</span>
+        </div>
+      </div>
+
+    </div><!-- /composer-row -->
+  </div><!-- /chat-surface -->
+
+  <!-- Control bar -->
+  <div class="control-bar">
+    <button class="ctrl-btn" id="btn-start">Start typing</button>
+    <button class="ctrl-btn" id="btn-stop">Stop typing</button>
+    <button class="ctrl-btn" id="btn-context">Switch context (Messages → Groups)</button>
+  </div>
+
+  <script>
+    /* ─────────────────────────────────────────────────────────────────────
+       Floating pill state machine
+       States: idle | typing | paused | collapsed
+    ───────────────────────────────────────────────────────────────────── */
+
+    const pill        = document.getElementById('pill');
+    const cursor      = document.getElementById('cursor');
+    const typedText   = document.getElementById('typed-text');
+    const textInput   = document.getElementById('text-input');
+    const stateBadge  = document.getElementById('state-badge');
+    const plusBtn     = document.getElementById('plus-btn');
+    const pickerSheet = document.getElementById('picker-sheet');
+    const iconGroupA  = document.getElementById('icon-group-a');
+    const iconGroupB  = document.getElementById('icon-group-b');
+    const contextLabel = document.getElementById('context-label');
+
+    const SHRINK_DURATION  = 200;  // ms ease-in-out
+    const EXPAND_DURATION  = 300;  // ms spring
+    const ICON_FADE        = 150;  // ms linear
+    const PAUSE_THRESHOLD  = 600;  // ms before re-expand
+
+    // ── Pill width constants (px) ────────────────────────────────────────
+    const PILL_EXPANDED_WIDTH  = 252; // all icons visible
+    const PILL_COLLAPSED_WIDTH = 52;  // just the + button
+
+    // ── State ────────────────────────────────────────────────────────────
+    let isTyping       = false;
+    let isCollapsed    = false;
+    let pickerOpen     = false;
+    let pauseTimer     = null;
+    let typeInterval   = null;
+    let contextIndex   = 0; // 0=Messages, 1=Groups
+
+    const CONTEXTS = ['Messages', 'Groups'];
+
+    // Simulated typing text snippets
+    const TYPE_PHRASES = [
+      'Can you share ',
+      'the verse about ',
+      'walking by faith',
+    ];
+    let phraseIndex = 0;
+    let charIndex   = 0;
+    let currentText = '';
+
+    // ── Pill width setter ────────────────────────────────────────────────
+    function setPillWidth(targetPx, duration, ease) {
+      pill.style.setProperty('--pill-duration', duration + 'ms');
+      pill.style.setProperty('--pill-ease', ease);
+      pill.style.width = targetPx + 'px';
+    }
+
+    function collapsePill() {
+      if (isCollapsed) return;
+      isCollapsed = true;
+      // Apply collapsed class to hide collapsible buttons via CSS
+      pill.classList.add('collapsed');
+      setPillWidth(PILL_COLLAPSED_WIDTH, SHRINK_DURATION, 'ease-in-out');
+    }
+
+    function expandPill() {
+      if (!isCollapsed) return;
+      isCollapsed = false;
+      pill.classList.remove('collapsed');
+      setPillWidth(PILL_EXPANDED_WIDTH, EXPAND_DURATION, 'cubic-bezier(0.32, 0.72, 0, 1)');
+    }
+
+    // ── State badge helper ───────────────────────────────────────────────
+    function setStateBadge(label, cls) {
+      stateBadge.textContent = label;
+      stateBadge.className = 'state-badge' + (cls ? ' ' + cls : '');
+    }
+
+    // ── Pause timer management ───────────────────────────────────────────
+    function resetPauseTimer() {
+      if (pauseTimer) clearTimeout(pauseTimer);
+      pauseTimer = setTimeout(() => {
+        if (isTyping) {
+          // Simulate pause > 600ms — expand pill
+          setStateBadge('Paused', 'paused');
+          expandPill();
+        }
+      }, PAUSE_THRESHOLD);
+    }
+
+    // ── Typing simulation ────────────────────────────────────────────────
+    function startTyping() {
+      if (isTyping) return;
+      isTyping = true;
+
+      textInput.classList.add('active');
+      cursor.classList.add('visible');
+      typedText.style.color = 'rgba(255,255,255,0.9)';
+      setStateBadge('Typing', 'typing');
+
+      // Close picker if open
+      closePicker();
+
+      typeInterval = setInterval(() => {
+        const phrase = TYPE_PHRASES[phraseIndex % TYPE_PHRASES.length];
+
+        if (charIndex < phrase.length) {
+          currentText += phrase[charIndex];
+          charIndex++;
+          typedText.textContent = currentText;
+
+          // Collapse pill on first char
+          collapsePill();
+          resetPauseTimer();
+        } else {
+          // Finished a phrase — brief pause then next
+          phraseIndex++;
+          charIndex = 0;
+          // Do NOT reset currentText — keep accumulating
+          clearInterval(typeInterval);
+          setTimeout(() => {
+            if (isTyping) {
+              typeInterval = setInterval(arguments.callee, 80);
+            }
+          }, 400);
+        }
+      }, 80);
+    }
+
+    function stopTyping() {
+      if (!isTyping) return;
+      isTyping = false;
+
+      if (typeInterval)  { clearInterval(typeInterval);  typeInterval = null; }
+      if (pauseTimer)    { clearTimeout(pauseTimer);     pauseTimer = null; }
+
+      textInput.classList.remove('active');
+      cursor.classList.remove('visible');
+      typedText.textContent = 'Message';
+      typedText.style.color = '';
+      currentText = '';
+      phraseIndex = 0;
+      charIndex   = 0;
+
+      setStateBadge('Idle');
+      expandPill();
+    }
+
+    // ── Plus button — picker toggle ───────────────────────────────────────
+    function openPicker() {
+      pickerOpen = true;
+      pickerSheet.classList.add('visible');
+      // Rotate + into x
+      plusBtn.style.transform = 'rotate(45deg)';
+      plusBtn.style.transition = 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1)';
+    }
+
+    function closePicker() {
+      if (!pickerOpen) return;
+      pickerOpen = false;
+      pickerSheet.classList.remove('visible');
+      plusBtn.style.transform = 'rotate(0deg)';
+    }
+
+    plusBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (pickerOpen) {
+        closePicker();
+      } else {
+        // Expand pill first if collapsed
+        expandPill();
+        requestAnimationFrame(openPicker);
+      }
+    });
+
+    // Close picker on outside click
+    document.addEventListener('click', (e) => {
+      if (pickerOpen && !pickerSheet.contains(e.target) && e.target !== plusBtn) {
+        closePicker();
+      }
+    });
+
+    // ── Context switch ────────────────────────────────────────────────────
+    function switchContext() {
+      contextIndex = (contextIndex + 1) % CONTEXTS.length;
+      const nextContext = CONTEXTS[contextIndex];
+      const outGroup = contextIndex === 0 ? iconGroupB : iconGroupA;
+      const inGroup  = contextIndex === 0 ? iconGroupA : iconGroupB;
+
+      // Fade context label
+      contextLabel.style.transition = 'opacity ' + ICON_FADE + 'ms linear';
+      contextLabel.style.opacity = '0';
+
+      // Fade out current group
+      outGroup.style.transition = 'opacity ' + ICON_FADE + 'ms linear';
+      outGroup.style.opacity = '0';
+
+      setTimeout(() => {
+        // Swap groups
+        outGroup.style.display = 'none';
+        outGroup.style.opacity = '';
+        outGroup.style.transition = '';
+
+        inGroup.style.display = 'flex';
+        inGroup.style.opacity = '0';
+
+        contextLabel.textContent = nextContext;
+
+        // Force reflow
+        void inGroup.offsetWidth;
+
+        inGroup.style.transition = 'opacity ' + ICON_FADE + 'ms linear';
+        inGroup.style.opacity = '1';
+
+        contextLabel.style.opacity = '1';
+      }, ICON_FADE);
+    }
+
+    // ── Control button listeners ──────────────────────────────────────────
+    document.getElementById('btn-start').addEventListener('click', startTyping);
+    document.getElementById('btn-stop').addEventListener('click', stopTyping);
+    document.getElementById('btn-context').addEventListener('click', () => {
+      // Ensure pill is expanded before switching
+      expandPill();
+      switchContext();
+    });
+
+    // ── Initialise pill at expanded width ─────────────────────────────────
+    (function init() {
+      pill.style.width = PILL_EXPANDED_WIDTH + 'px';
+      // Ensure group B is hidden
+      iconGroupB.style.display = 'none';
+    })();
+  </script>
+</body>
+</html>

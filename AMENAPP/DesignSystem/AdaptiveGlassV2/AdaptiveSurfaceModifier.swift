@@ -10,12 +10,15 @@
 //    - Feature views do not need to guard against the flag themselves.
 //
 //  Behaviour when adaptiveGlassV2Enabled is ON:
-//    - Resolved GlassSurfaceState is published via \.glassSurfaceState
-//      so custom surface implementations (e.g. AMENTabBar) can read it.
-//    - The modifier also directly handles .hidden (opacity 0).
-//    - For surfaces that use the modifier as their sole glass provider
-//      (composerTray, actionStrip, card) it applies a native glass
-//      background through the iOS 26 / iOS 17 compatibility shim.
+//    - Resolved GlassSurfaceState is published via \.glassSurfaceState so
+//      custom surface implementations (e.g. AMENTabBar) can read it.
+//    - The modifier also handles .hidden (opacity 0) universally.
+//    - For roles that own their own glass renderer (topBar, bottomNav,
+//      statusZone) the modifier only publishes state — it never adds a
+//      second glass layer (no-glass-on-glass invariant).
+//    - For standalone roles (composerTray, actionStrip, card) the modifier
+//      applies a glass background directly via the existing project shims
+//      (amenRegularGlassEffect / amenProminentGlassEffect).
 //
 
 import SwiftUI
@@ -26,7 +29,6 @@ public struct AdaptiveSurfaceModifier: ViewModifier {
     let role: SurfaceRole
 
     @Environment(\.adaptiveSurfaceEngine) private var engine
-    @Environment(\.colorScheme)           private var colorScheme
 
     public func body(content: Content) -> some View {
         // Flag OFF: zero-cost passthrough.
@@ -34,14 +36,16 @@ public struct AdaptiveSurfaceModifier: ViewModifier {
             return AnyView(content)
         }
 
-        let state = SurfaceStateResolver.resolve(context: engine.context, role: role)
-        let reduceMotion = engine.context.a11y.reduceMotion
+        let ctx   = engine.context
+        let state = SurfaceStateResolver.resolve(context: ctx, role: role)
+        let reduceMotion = ctx.a11y.reduceMotion
 
         return AnyView(
             content
-                // Publish state into environment for custom renderers.
+                // Publish state for custom renderers (AMENTabBar, nav chrome, etc.).
                 .environment(\.glassSurfaceState, state)
-                // Handle hidden state universally — custom renderers don't need to.
+                // Hidden state: slide off-screen (caller drives layout).
+                // Opacity to 0 gives instant visual hide; layout offset handled per-surface.
                 .opacity(state == .hidden ? 0 : 1)
                 .animation(
                     reduceMotion
@@ -49,26 +53,19 @@ public struct AdaptiveSurfaceModifier: ViewModifier {
                         : .spring(response: 0.32, dampingFraction: 0.80),
                     value: state
                 )
-                // For roles that don't have their own glass renderer,
-                // apply a background directly.
-                .background(
-                    standaloneBackground(state: state, role: role)
-                )
+                // Standalone glass background for roles that don't own their renderer.
+                .background(standaloneBackground(state: state, role: role))
         )
     }
 
     // MARK: - Standalone glass background
 
-    /// Applied to roles that don't own their own glass renderer
-    /// (composerTray, actionStrip, card). Top-bar / bottom-nav / status-zone
-    /// have their own implementations that read glassSurfaceState; this
-    /// background would stack on top of their existing glass and violate
-    /// the no-glass-on-glass rule, so those roles are excluded.
     @ViewBuilder
     private func standaloneBackground(state: GlassSurfaceState, role: SurfaceRole) -> some View {
         switch role {
         case .topBar, .bottomNav, .statusZone:
-            // These roles own their glass rendering — don't add a second layer.
+            // These roles own their glass rendering. Adding a second background
+            // would violate the no-glass-on-glass rule.
             Color.clear
 
         case .composerTray, .actionStrip, .card:
@@ -77,39 +74,27 @@ public struct AdaptiveSurfaceModifier: ViewModifier {
     }
 
     @ViewBuilder
-    private func standaloneGlass(state: GlassSurfaceState, cornerRadius: CGFloat) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    private func standaloneGlass(state: GlassSurfaceState, cornerRadius cr: CGFloat) -> some View {
+        // Use project shims — they handle availability + correct iOS 17 fallback.
+        // We never call Glass.regular / Glass.prominent directly to avoid
+        // type-inference ambiguity in @ViewBuilder switch contexts.
+        let rect = RoundedRectangle(cornerRadius: cr, style: .continuous)
         switch state {
-        case .transparent:
+        case .transparent, .hidden:
             Color.clear
 
         case .frosted:
-            if #available(iOS 26, *) {
-                shape.fill(.clear).glassEffect(.regular, in: shape)
-            } else {
-                shape.fill(.ultraThinMaterial)
-            }
+            Color.clear.amenRegularGlassEffect(in: rect)
 
         case .frostedStrong:
-            if #available(iOS 26, *) {
-                shape.fill(.clear).glassEffect(.prominent, in: shape)
-            } else {
-                shape.fill(.regularMaterial)
-            }
+            Color.clear.amenProminentGlassEffect(in: rect)
 
         case .solidLight:
-            shape.fill(Color(uiColor: .systemBackground).opacity(0.97))
+            rect.fill(Color(uiColor: .systemBackground).opacity(0.97))
 
         case .collapsed:
-            let capsule = Capsule()
-            if #available(iOS 26, *) {
-                capsule.fill(.clear).glassEffect(.regular, in: capsule)
-            } else {
-                capsule.fill(.ultraThinMaterial)
-            }
-
-        case .hidden:
-            Color.clear
+            // Collapsed pills use a capsule shape.
+            Color.clear.amenRegularGlassEffect(in: Capsule())
         }
     }
 
@@ -130,7 +115,7 @@ public extension View {
     ///
     /// The engine (installed via .adaptiveSurfaceScene() at the scene root)
     /// resolves context + role into a GlassSurfaceState and publishes it via
-    /// \.glassSurfaceState — custom renderers can read it from there.
+    /// \.glassSurfaceState — custom renderers read the state from there.
     ///
     /// This modifier is a no-op when adaptiveGlassV2Enabled is OFF.
     func adaptiveSurface(_ role: SurfaceRole) -> some View {
@@ -138,11 +123,10 @@ public extension View {
     }
 }
 
-// MARK: - Convenience: ambient palette bridge
+// MARK: - Ambient palette bridge
 
 public extension View {
-    /// Drive the scene engine from the current AmbientCoordinator palette.
-    /// Attach to a view that already owns an AmbientCoordinator.
+    /// Drive the scene engine from an existing AmbientCoordinator palette.
     ///
     ///     feedContent
     ///         .adaptiveSurfaceMediaBridge(palette: coordinator.palette, kind: .image)

@@ -3,277 +3,173 @@ import Foundation
 
 // MARK: - AmenDailyDigestView
 //
-// Placement: inserted at the TOP of the Home tab, above the existing feed.
-// The feed below is never removed — this surface is purely additive.
-//
-// Feature-flagged via AppStorage key "spiritualOS_daily_enabled" (matches
-// Remote Config flag name exactly). Renders EmptyView when flag is false.
+// Home presentation for Agent A. This extends the canonical Pulse engine rather than
+// reading a parallel spiritualOS_digest collection or calling getSpiritualDigest.
+// Placement: top of Home tab, above the feed. Bounded, finite, and flag-off invisible.
 
 struct AmenDailyDigestView: View {
 
     @ObservedObject var viewModel: AmenDailyDigestViewModel
     var userId: String
 
-    // Feature flag — requires the Spiritual OS master flag plus this surface gate.
     @AppStorage("spiritualOS_enabled") private var masterEnabled: Bool = false
     @AppStorage("spiritualOS_daily_enabled") private var isEnabled: Bool = false
 
+    @StateObject private var pulseViewModel = AmenPulseViewModel()
+    @Namespace private var morph
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    // Category filter state
-    @State private var selectedFilter: DigestFilter = .all
 
     var body: some View {
         if !(masterEnabled && isEnabled) {
             EmptyView()
         } else {
             content
-                .task {
-                    await viewModel.load(userId: userId)
-                }
+                .task { await pulseViewModel.load() }
         }
     }
 
-    // MARK: - Main content
-
+    @ViewBuilder
     private var content: some View {
-        VStack(spacing: 16) {
-            // Greeting header
-            greetingHeader
+        switch pulseViewModel.phase {
+        case .loading:
+            loadingState
+        case .failed(let message):
+            errorState(message)
+        case .empty:
+            quietState
+        case .loaded:
+            pulseDailyContent
+        }
+    }
 
-            // Category filter chips
-            filterChipRow
+    @ViewBuilder
+    private var pulseDailyContent: some View {
+        if let card = primaryPulseCard {
+            VStack(alignment: .leading, spacing: 12) {
+                header
+                PulseHeroCardView(
+                    card: card,
+                    namespace: morph,
+                    isSourceForMorph: true,
+                    isHidden: false,
+                    onOpen: { route(card) }
+                )
+                .accessibilityHint(PulseActionRouter.shared.canRoute(card) ? "Double tap to open" : "Open Pulse for the full daily briefing")
 
-            // "Today" section label
-            Text("Today")
-                .font(.caption2.weight(.heavy))
-                .tracking(1.2)
-                .foregroundStyle(Color.amenSlate.opacity(0.55))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                openPulseButton
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+        } else {
+            quietState
+        }
+    }
 
-            // Timeline body
-            timelineBody
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Amen Daily")
+                    .font(.systemScaled(26, weight: .bold))
+                    .foregroundStyle(Color.amenBlack)
+                Text("A bounded Pulse briefing for today")
+                    .font(.systemScaled(13, weight: .medium))
+                    .foregroundStyle(Color.amenSlate.opacity(0.72))
+            }
+            Spacer(minLength: 12)
+            Text(Self.dateEyebrow)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(Color.amenSlate.opacity(0.58))
+                .textCase(.uppercase)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var primaryPulseCard: PulseCard? {
+        pulseViewModel.visibleCards.first(where: { $0.kind == .dailyBriefHero })
+            ?? pulseViewModel.visibleCards.first(where: { $0.kind != .terminus })
+            ?? pulseViewModel.digest?.cards.first(where: { $0.kind != .terminus })
+    }
+
+    private var loadingState: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.amenSlate.opacity(0.12))
+                .frame(width: 152, height: 22)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(Color.amenSlate.opacity(0.10))
+                .frame(height: 260)
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
+        .accessibilityLabel("Loading Amen Daily")
     }
 
-    // MARK: - Greeting header
-
-    private var greetingHeader: some View {
-        Text(viewModel.greeting)
-            .font(.systemScaled(28, weight: .light))
-            .foregroundStyle(Color.amenBlack)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityLabel(viewModel.greeting.isEmpty
-                ? "Good \(viewModel.timeOfDay)"
-                : viewModel.greeting)
-    }
-
-    // MARK: - Filter chip row
-
-    private var filterChipRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(DigestFilter.allCases) { filter in
-                    GlassChip(
-                        label: filter.label,
-                        icon: filter.icon,
-                        tint: filter.tint,
-                        size: .compact,
-                        isActive: selectedFilter == filter
-                    ) {
-                        withAnimation(.soAdaptive(reduceMotion: reduceMotion)) {
-                            selectedFilter = filter
-                        }
-                    }
-                    .accessibilityLabel(filter.accessibilityLabel)
-                }
-            }
-            .padding(.vertical, 2)
+    private var quietState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "wind")
+                .font(.system(size: 24, weight: .regular))
+                .foregroundStyle(Color.amenSlate.opacity(0.7))
+            Text("Nothing needs you right now.")
+                .font(.systemScaled(17, weight: .semibold))
+                .foregroundStyle(Color.amenBlack)
+            Text("Pulse will be here when there is something timely to carry.")
+                .font(.systemScaled(13))
+                .foregroundStyle(Color.amenSlate.opacity(0.75))
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 20)
+        .accessibilityElement(children: .combine)
     }
 
-    // MARK: - Timeline body
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(Color.amenSlate.opacity(0.7))
+            Text("Amen Daily could not load.")
+                .font(.systemScaled(17, weight: .semibold))
+                .foregroundStyle(Color.amenBlack)
+            Text(message)
+                .font(.systemScaled(12))
+                .foregroundStyle(Color.amenSlate.opacity(0.75))
+                .multilineTextAlignment(.center)
+            Button("Try Again") {
+                Task { await pulseViewModel.load() }
+            }
+            .font(.systemScaled(14, weight: .semibold))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 20)
+    }
 
-    @ViewBuilder
-    private var timelineBody: some View {
-        if viewModel.isLoading {
-            loadingSkeleton
-        } else if filteredItems.isEmpty {
-            emptyState
+    private var openPulseButton: some View {
+        Button {
+            DeepLinkRouter.shared.navigate(to: .intelligence(cardId: nil))
+        } label: {
+            Label("Open full Pulse", systemImage: "sparkles")
+                .font(.systemScaled(14, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.regular)
+        .accessibilityHint("Opens the bounded Pulse surface")
+    }
+
+    private func route(_ card: PulseCard) {
+        if PulseActionRouter.shared.canRoute(card) {
+            PulseActionRouter.shared.route(card)
         } else {
-            LazyVStack(spacing: 0) {
-                ForEach(filteredItems) { item in
-                    TimelineRow(
-                        icon: item.type.sfSymbol,
-                        iconTint: item.type.iconTint,
-                        title: item.title,
-                        subtitle: item.body,
-                        timestamp: nil,
-                        badge: item.isRead ? nil : .dot(item.type.iconTint),
-                        isCompleted: item.isRead,
-                        onTap: {
-                            viewModel.markRead(itemId: item.id)
-                            navigateIfNeeded(to: item.sourceRef)
-                        }
-                    )
-                    .accessibilityHint("Double tap to open")
-                }
-            }
+            DeepLinkRouter.shared.navigate(to: .intelligence(cardId: card.id))
         }
     }
 
-    // MARK: - Loading skeleton
-
-    private var loadingSkeleton: some View {
-        LazyVStack(spacing: 0) {
-            ForEach(0..<3, id: \.self) { _ in
-                TimelineRow(
-                    icon: "circle.fill",
-                    iconTint: Color.amenSlate,
-                    title: "Loading…",
-                    subtitle: nil,
-                    timestamp: nil,
-                    badge: nil,
-                    isCompleted: false,
-                    onTap: nil
-                )
-                .opacity(0.3)
-                .accessibilityHidden(true)
-            }
-        }
-    }
-
-    // MARK: - Empty state
-
-    private var emptyState: some View {
-        Text("Your day is clear \u{2014} a good time for quiet prayer")
-            .font(.subheadline)
-            .foregroundStyle(Color.amenSlate)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel("Your day is clear, a good time for quiet prayer")
-    }
-
-    // MARK: - Filtered items
-
-    private var filteredItems: [DigestItem] {
-        switch selectedFilter {
-        case .all:
-            return viewModel.items
-        case .verse:
-            return viewModel.items.filter { $0.type == .verse || $0.type == .readingPlan || $0.type == .bereanStudy }
-        case .prayer:
-            return viewModel.items.filter { $0.type == .prayerReminder }
-        case .events:
-            return viewModel.items.filter { $0.type == .eventToday || $0.type == .spaceUpdate || $0.type == .birthday }
-        case .mentions:
-            return viewModel.items.filter { $0.type == .mention }
-        }
-    }
-
-    // MARK: - Navigation helper
-
-    private func navigateIfNeeded(to sourceRef: String?) {
-        // Navigation is handled at the parent level via deep link / NavigationStack.
-        // sourceRef is a path string (e.g. "spaces/abc123") that the parent coordinator
-        // can interpret. This view surfaces the tap; routing is the caller's responsibility.
-        guard let ref = sourceRef, !ref.isEmpty else { return }
-        NotificationCenter.default.post(
-            name: .amenDigestItemTapped,
-            object: nil,
-            userInfo: ["sourceRef": ref]
-        )
-    }
-}
-
-// MARK: - Notification name
-
-extension Notification.Name {
-    static let amenDigestItemTapped = Notification.Name("amenDigestItemTapped")
-}
-
-// MARK: - DigestFilter
-
-private enum DigestFilter: String, CaseIterable, Identifiable {
-    case all      = "all"
-    case verse    = "verse"
-    case prayer   = "prayer"
-    case events   = "events"
-    case mentions = "mentions"
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .all:      return "All"
-        case .verse:    return "Verse"
-        case .prayer:   return "Prayer"
-        case .events:   return "Events"
-        case .mentions: return "Mentions"
-        }
-    }
-
-    var icon: String? {
-        switch self {
-        case .all:      return "list.bullet"
-        case .verse:    return "book.fill"
-        case .prayer:   return "hands.sparkles"
-        case .events:   return "calendar"
-        case .mentions: return "at"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .all:      return .accentColor
-        case .verse:    return .amenPurple
-        case .prayer:   return .amenBlue
-        case .events:   return .accentColor
-        case .mentions: return .amenSlate
-        }
-    }
-
-    var accessibilityLabel: String {
-        switch self {
-        case .all:      return "Show all items"
-        case .verse:    return "Show verse and study items"
-        case .prayer:   return "Show prayer reminders"
-        case .events:   return "Show events and spaces"
-        case .mentions: return "Show mentions"
-        }
-    }
-}
-
-// MARK: - DigestItemType view helpers
-
-private extension DigestItemType {
-
-    var sfSymbol: String {
-        switch self {
-        case .verse:          return "book.fill"
-        case .prayerReminder: return "hands.sparkles"
-        case .eventToday:     return "calendar"
-        case .mention:        return "at"
-        case .bereanStudy:    return "sparkles"
-        case .birthday:       return "gift"
-        case .spaceUpdate:    return "bubble.left.fill"
-        case .readingPlan:    return "list.bullet"
-        }
-    }
-
-    var iconTint: Color {
-        switch self {
-        case .verse, .bereanStudy, .readingPlan:
-            return .amenPurple
-        case .prayerReminder:
-            return .amenBlue
-        case .eventToday, .birthday, .spaceUpdate:
-            return .accentColor
-        case .mention:
-            return .amenSlate
-        }
+    private static var dateEyebrow: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d"
+        return formatter.string(from: Date())
     }
 }

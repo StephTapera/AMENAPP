@@ -10,45 +10,45 @@
 //
 // Also exported as getLivekitToken (alias) to match the callable name used by
 // AmenLivekitLiveRoomProvider.swift in the iOS client.
+//
+// Migrated from Gen-1 to Gen-2 (onCall from firebase-functions/v2/https) to resolve
+// the "Cannot set CPU on Gen-1 function" error blocking Backend codebase deploys.
 
-import * as functions from "firebase-functions";
 import * as crypto from "crypto";
 import { defineSecret } from "firebase-functions/params";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
 
-const livekitApiKey = defineSecret("LIVEKIT_API_KEY");
+const livekitApiKey    = defineSecret("LIVEKIT_API_KEY");
 const livekitApiSecret = defineSecret("LIVEKIT_API_SECRET");
 const livekitServerUrl = defineSecret("LIVEKIT_SERVER_URL");
 
-// MARK: - generateLiveKitToken
-
-export const generateLiveKitToken = functions
-    .runWith({ secrets: [livekitApiKey, livekitApiSecret, livekitServerUrl] })
-    .https.onCall(
-    async (data: any, context: functions.https.CallableContext) => {
-        if (!context.auth) {
-            throw new functions.https.HttpsError(
-                "unauthenticated",
-                "Must be signed in to join a live room."
-            );
+export const generateLiveKitToken = onCall(
+    {
+        enforceAppCheck: false, // LiveKit join does not require App Check
+        secrets: [livekitApiKey, livekitApiSecret, livekitServerUrl],
+    },
+    async (request) => {
+        if (!request.auth) {
+            throw new HttpsError("unauthenticated", "Must be signed in to join a live room.");
         }
 
-        const roomId: string | undefined = data?.roomId ?? data?.spaceId;
+        const data = request.data as Record<string, unknown>;
+        const roomId: string | undefined = (data?.roomId ?? data?.spaceId) as string | undefined;
         const displayName: string =
-            data?.displayName ?? context.auth.token?.name ?? context.auth.uid;
+            (data?.displayName as string) ??
+            request.auth.token?.name ??
+            request.auth.uid;
 
         if (!roomId) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "roomId is required."
-            );
+            throw new HttpsError("invalid-argument", "roomId is required.");
         }
 
-        const apiKey = livekitApiKey.value();
+        const apiKey    = livekitApiKey.value();
         const apiSecret = livekitApiSecret.value();
         const serverUrl = livekitServerUrl.value();
 
         if (!apiKey || !apiSecret || !serverUrl) {
-            throw new functions.https.HttpsError(
+            throw new HttpsError(
                 "failed-precondition",
                 "LiveKit credentials are not configured. " +
                     "Set LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and LIVEKIT_SERVER_URL " +
@@ -58,7 +58,7 @@ export const generateLiveKitToken = functions
 
         // Build a signed LiveKit JWT.
         // Spec: https://docs.livekit.io/reference/server-apis/#creating-tokens
-        const now = Math.floor(Date.now() / 1000);
+        const now    = Math.floor(Date.now() / 1000);
         const expiry = now + 7200; // 2-hour TTL
 
         const header = Buffer.from(
@@ -67,7 +67,7 @@ export const generateLiveKitToken = functions
 
         const claims = {
             iss: apiKey,
-            sub: context.auth.uid,
+            sub: request.auth.uid,
             iat: now,
             exp: expiry,
             name: displayName,

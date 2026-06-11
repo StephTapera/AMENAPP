@@ -37,7 +37,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.onChurchVerificationReviewed = exports.moderateChurchMediaUpload = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.submitChurchVerificationRequest = exports.updateAlignmentProfile = exports.getWeeklyAlignmentSummary = exports.voteKnowledgeIntegrity = exports.attachSharedKnowledgeIntegrity = exports.sendNotification = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = void 0;
-exports.getLivekitToken = exports.generateLiveKitToken = exports.onSabbathNotificationWrite = exports.syncFamilySabbathPresence = exports.setSabbathPreference = exports.evaluateSabbathMode = exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.processGiving = exports.reportMedia = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = void 0;
+exports.aggregatePrayerCount = exports.incrementVolunteerSlot = exports.generateCalendarPayload = exports.unfurlLink = exports.getLivekitToken = exports.generateLiveKitToken = exports.onSabbathNotificationWrite = exports.syncFamilySabbathPresence = exports.setSabbathPreference = exports.evaluateSabbathMode = exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.processGiving = exports.reportMedia = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = void 0;
 const admin = __importStar(require("firebase-admin"));
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -327,7 +327,10 @@ __exportStar(require("./covenant/setCommunitySaved"), exports);
 __exportStar(require("./covenant/createCovenantThreadReply"), exports);
 __exportStar(require("./covenant/generateThreadSummary"), exports);
 __exportStar(require("./covenant/createPrayerRequestFromMessage"), exports);
-__exportStar(require("./prayer/createPrayerRequest"), exports);
+// createPrayerRequest suppressed: added in orphan sweep da327018 (2026-06-10),
+// never deployed; PRAYER_IDENTITY_ENCRYPTION_KEY secret not yet provisioned.
+// Restore this export only after the secret is set in Secret Manager.
+// export * from "./prayer/createPrayerRequest";
 __exportStar(require("./covenant/generateCatchUpSummary"), exports);
 __exportStar(require("./covenant/calculateCovenantChurnRisk"), exports);
 __exportStar(require("./covenant/publishScheduledCovenantContent"), exports);
@@ -622,4 +625,12 @@ __exportStar(require("./connectQueue/processConnectQueuedDraft"), exports);
 __exportStar(require("./one/oneExpireMoment"), exports);
 __exportStar(require("./one/oneVerifyEntitlement"), exports);
 __exportStar(require("./one/oneActivateLegacy"), exports);
+// Adaptive Composer Attachments — link unfurling, calendar payload generation,
+// volunteer slot management, and prayer count aggregation.
+// All callables require Auth + App Check. Transactions used for atomic counters.
+var composerAttachments_1 = require("./composerAttachments");
+Object.defineProperty(exports, "unfurlLink", { enumerable: true, get: function () { return composerAttachments_1.unfurlLink; } });
+Object.defineProperty(exports, "generateCalendarPayload", { enumerable: true, get: function () { return composerAttachments_1.generateCalendarPayload; } });
+Object.defineProperty(exports, "incrementVolunteerSlot", { enumerable: true, get: function () { return composerAttachments_1.incrementVolunteerSlot; } });
+Object.defineProperty(exports, "aggregatePrayerCount", { enumerable: true, get: function () { return composerAttachments_1.aggregatePrayerCount; } });
 //# sourceMappingURL=index.js.map

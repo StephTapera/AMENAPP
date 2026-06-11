@@ -337,7 +337,10 @@ export * from "./covenant/setCommunitySaved";
 export * from "./covenant/createCovenantThreadReply";
 export * from "./covenant/generateThreadSummary";
 export * from "./covenant/createPrayerRequestFromMessage";
-export * from "./prayer/createPrayerRequest";
+// createPrayerRequest suppressed: added in orphan sweep da327018 (2026-06-10),
+// never deployed; PRAYER_IDENTITY_ENCRYPTION_KEY secret not yet provisioned.
+// Restore this export only after the secret is set in Secret Manager.
+// export * from "./prayer/createPrayerRequest";
 export * from "./covenant/generateCatchUpSummary";
 export * from "./covenant/calculateCovenantChurnRisk";
 export * from "./covenant/publishScheduledCovenantContent";
@@ -665,3 +668,8 @@ export * from "./connectQueue/processConnectQueuedDraft";
 export * from "./one/oneExpireMoment";
 export * from "./one/oneVerifyEntitlement";
 export * from "./one/oneActivateLegacy";
+
+// Adaptive Composer Attachments — link unfurling, calendar payload generation,
+// volunteer slot management, and prayer count aggregation.
+// All callables require Auth + App Check. Transactions used for atomic counters.
+export { unfurlLink, generateCalendarPayload, incrementVolunteerSlot, aggregatePrayerCount } from "./composerAttachments";
