@@ -635,6 +635,21 @@ const {onUserProfileUpdated} = require("./profilePropagation");
 exports.onUserProfileUpdated = onUserProfileUpdated;
 
 // ============================================================================
+// TESTIMONY FEATURES — testimony strength scoring, witness cleanup, and
+// SECURITY (H8): NeMo Guard moderation trigger on testimonies/{testimonyId}.
+// ============================================================================
+const {
+  cleanStaleWitnesses,
+  updateTestimonyStrength,
+  onNeededThisWrite,
+  moderateTestimony,
+} = require("./testimonyFeatures");
+exports.cleanStaleWitnesses      = cleanStaleWitnesses;
+exports.updateTestimonyStrength  = updateTestimonyStrength;
+exports.onNeededThisWrite        = onNeededThisWrite;
+exports.moderateTestimony        = moderateTestimony;
+
+// ============================================================================
 // NOTIFICATION CLEANUP — daily scheduled job (3 AM UTC).
 // Deletes read notifications >90 days old, unread >180 days old,
 // and caps each user's notification subcollection at 500 documents.

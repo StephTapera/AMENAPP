@@ -8,10 +8,98 @@
  * Fields propagated:
  *   posts:    authorName, authorUsername, authorProfileImageURL, authorInitials
  *   comments: authorName, authorUsername, authorProfileImageURL, authorInitials
+ *
+ * SECURITY (H8 fix): displayName and bio are screened through NeMo Guard before
+ * propagation. Unsafe values are reverted to the prior value and a moderationQueue
+ * entry is created. The trigger fails closed: a NIM error is treated as unsafe.
  */
 
 const admin = require("firebase-admin");
 const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {defineSecret} = require("firebase-functions/params");
+
+const NVIDIA_API_KEY = defineSecret("NVIDIA_API_KEY");
+
+const NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+const SAFETY_MODEL = "nvidia/llama-3.1-nemoguard-8b-content-safety";
+
+/**
+ * Calls NeMo Guard and returns { safe: boolean, categories: string[] }.
+ * Fails closed on any error (network failure, non-OK status, parse error).
+ *
+ * @param {string} text
+ * @returns {Promise<{safe: boolean, categories: string[]}>}
+ */
+async function moderateText(text) {
+  const apiKey = process.env.NVIDIA_API_KEY;
+  const delays = [500, 1000, 2000];
+  let res = null;
+
+  for (let attempt = 0; attempt <= 3; attempt++) {
+    try {
+      res = await fetch(NIM_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: SAFETY_MODEL,
+          messages: [{role: "user", content: text}],
+          max_tokens: 100,
+          temperature: 0,
+        }),
+      });
+    } catch (err) {
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, delays[Math.min(attempt, delays.length - 1)]));
+        continue;
+      }
+      // Network-level failure — fail closed.
+      console.error("[profilePropagation] moderateText NIM fetch failed:", err.message);
+      return {safe: false, categories: ["network_error"]};
+    }
+
+    if (res.status === 429 || res.status >= 500) {
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, delays[Math.min(attempt, delays.length - 1)]));
+        continue;
+      }
+      console.error("[profilePropagation] moderateText NIM status:", res.status);
+      return {safe: false, categories: [`nim_${res.status}`]};
+    }
+    break;
+  }
+
+  if (!res || !res.ok) {
+    console.error("[profilePropagation] moderateText NIM non-OK:", res ? res.status : "no response");
+    return {safe: false, categories: ["nim_error"]};
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return {safe: false, categories: ["parse_error"]};
+  }
+
+  const raw = data.choices?.[0]?.message?.content ?? "";
+
+  // Jailbreak-resistant parsing — fail closed on any ambiguity.
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "User Safety" in parsed) {
+      const safe = String(parsed["User Safety"]).trim().toLowerCase() === "safe";
+      const categories = parsed["Safety Categories"]
+        ? String(parsed["Safety Categories"]).split(",").map((c) => c.trim().toLowerCase()).filter(Boolean)
+        : [];
+      return {safe, categories};
+    }
+    return {safe: false, categories: []};
+  } catch {
+    return {safe: false, categories: ["parse_error"]};
+  }
+}
 
 const REGION = "us-central1";
 
@@ -38,6 +126,7 @@ exports.onUserProfileUpdated = onDocumentUpdated(
     {
       document: "users/{userId}",
       region: REGION,
+      secrets: [NVIDIA_API_KEY],
     },
     async (event) => {
       const before = event.data.before.data();
@@ -48,21 +137,94 @@ exports.onUserProfileUpdated = onDocumentUpdated(
       const nameChanged = before.displayName !== after.displayName;
       const usernameChanged = before.username !== after.username;
       const imageChanged = before.profileImageURL !== after.profileImageURL;
+      const bioChanged = before.bio !== after.bio;
 
-      if (!nameChanged && !usernameChanged && !imageChanged) {
+      if (!nameChanged && !usernameChanged && !imageChanged && !bioChanged) {
         return; // Nothing relevant changed
       }
 
       const db = admin.firestore();
 
-      const newDisplayName = after.displayName ?? before.displayName ?? "";
+      // ── SECURITY (H8): Moderate displayName and bio before propagation ──────
+      // If either field is unsafe: revert the field to its prior value on the
+      // user document and enqueue a moderation review. Never propagate unsafe
+      // profile text to denormalized copies. Fails closed on NIM errors.
+      const profileRevertFields = {};
+      const profileModerationFlags = [];
+
+      if (nameChanged && after.displayName) {
+        const nameResult = await moderateText(after.displayName);
+        if (!nameResult.safe) {
+          console.warn(
+              `[profilePropagation] displayName unsafe for userId=${userId}`,
+              nameResult.categories,
+          );
+          profileRevertFields.displayName = before.displayName ?? "";
+          profileModerationFlags.push({
+            field: "displayName",
+            value: after.displayName,
+            categories: nameResult.categories,
+          });
+        }
+      }
+
+      if (bioChanged && after.bio) {
+        const bioResult = await moderateText(after.bio);
+        if (!bioResult.safe) {
+          console.warn(
+              `[profilePropagation] bio unsafe for userId=${userId}`,
+              bioResult.categories,
+          );
+          profileRevertFields.bio = before.bio ?? "";
+          profileModerationFlags.push({
+            field: "bio",
+            value: after.bio,
+            categories: bioResult.categories,
+          });
+        }
+      }
+
+      if (Object.keys(profileRevertFields).length > 0) {
+        // Revert unsafe fields and add a moderationQueue entry atomically.
+        const revertBatch = db.batch();
+        revertBatch.update(event.data.after.ref, {
+          ...profileRevertFields,
+          "moderation.profileLastFlagged": admin.firestore.FieldValue.serverTimestamp(),
+          "moderation.profileFlaggedFields": profileModerationFlags.map((f) => f.field),
+        });
+        const queueRef = db.collection("moderationQueue").doc();
+        revertBatch.set(queueRef, {
+          contentRef: `users/${userId}`,
+          contentType: "profile_field",
+          authorId: userId,
+          flaggedFields: profileModerationFlags,
+          status: "pending",
+          priority: "normal",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        });
+        await revertBatch.commit();
+        console.log(`[profilePropagation] Reverted unsafe profile fields for ${userId}:`, profileModerationFlags.map((f) => f.field));
+      }
+
+      // Use the (possibly reverted) values for propagation.
+      // Re-read from Firestore is not needed: if reverted, use before values directly.
+      const safeDisplayName = profileRevertFields.displayName !== undefined
+        ? profileRevertFields.displayName
+        : (after.displayName ?? before.displayName ?? "");
+      const effectiveNameChanged = nameChanged && profileRevertFields.displayName === undefined;
+
+      const newDisplayName = safeDisplayName;
       const newUsername = after.username ?? before.username ?? "";
       const newImageURL = after.profileImageURL ?? null;
       const newInitials = makeInitials(newDisplayName);
 
-      // Build the update payload for Firestore posts
+      // Build the update payload for Firestore posts.
+      // Use effectiveNameChanged: only propagate if the new displayName passed moderation
+      // (i.e., was not reverted). Reverted names stay at the prior value and must not
+      // overwrite existing denormalized copies.
       const postUpdate = {};
-      if (nameChanged) {
+      if (effectiveNameChanged) {
         postUpdate.authorName = newDisplayName;
         postUpdate.authorInitials = newInitials;
       }
@@ -71,7 +233,7 @@ exports.onUserProfileUpdated = onDocumentUpdated(
 
       console.log(
           `[profilePropagation] userId=${userId} fields changed:`,
-          {nameChanged, usernameChanged, imageChanged},
+          {effectiveNameChanged, usernameChanged, imageChanged, bioChanged},
       );
 
       // ── Propagate to Firestore posts ──────────────────────────────────────
@@ -125,7 +287,7 @@ exports.onUserProfileUpdated = onDocumentUpdated(
           commentIndexSnap.docs.forEach((doc) => {
             const {postId, commentId} = doc.data();
             const basePath = `postInteractions/${postId}/comments/${commentId}`;
-            if (nameChanged) {
+            if (effectiveNameChanged) {
               rtdbUpdates[`${basePath}/authorName`] = newDisplayName;
               rtdbUpdates[`${basePath}/authorInitials`] = newInitials;
             }
