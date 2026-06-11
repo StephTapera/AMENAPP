@@ -484,7 +484,9 @@ exports.stripeGetAccountStatus       = stripe.stripeGetAccountStatus;
 exports.stripeCreatePaymentIntent    = stripe.stripeCreatePaymentIntent;
 exports.stripeRequestPayout          = stripe.stripeRequestPayout;
 
-const { stripeWebhook } = require("./stripeWebhook");
+// Hardened webhook handler: signature verification, idempotency, entitlement writes,
+// audit log. See functions/stripe/stripeWebhook.js for full security posture.
+const { stripeWebhook } = require("./stripe/stripeWebhook");
 exports.stripeWebhook = stripeWebhook;
 
 // ============================================================================
@@ -1810,3 +1812,13 @@ exports.onPrayerRequestCreated    = liveActivity.onPrayerRequestCreated;
 // ============================================================================
 const reportAI = require("./reportAIFunctions");
 exports.reportUnsafeAIResponse = reportAI.reportUnsafeAIResponse;
+
+// ============================================================================
+// MODERATION APPEALS (v2) — moderation/appeals.js
+//   submitAppeal — onCall (enforceAppCheck): authenticated user submits appeal
+//   decideAppeal — onCall (enforceAppCheck): moderator approves or denies appeal
+// Deploy: firebase deploy --only functions:submitAppeal,decideAppeal --project amen-5e359
+// ============================================================================
+const moderationAppeals = require("./moderation/appeals");
+exports.submitAppeal = moderationAppeals.submitAppeal;
+exports.decideAppeal = moderationAppeals.decideAppeal;
