@@ -50,7 +50,9 @@ final class AmenPulseViewModel: ObservableObject {
     private let service: PulseService
     private var observeTask: Task<Void, Never>?
 
-    init(service: PulseService = .shared, previewDigest: PulseDigest? = nil) {
+    // nonisolated so the View's (nonisolated) init can use AmenPulseViewModel()
+    // as a default argument. Body only assigns stored properties — safe.
+    nonisolated init(service: PulseService = .shared, previewDigest: PulseDigest? = nil) {
         self.service = service
         if let previewDigest {
             self.digest = previewDigest
