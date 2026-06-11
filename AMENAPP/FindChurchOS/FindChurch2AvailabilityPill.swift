@@ -227,6 +227,5 @@ struct FindChurch2AvailabilityPillRow: View {
     )
     FindChurch2AvailabilityPillRow(status: status)
         .padding()
-        .environment(\.accessibilityReduceTransparency, true)
 }
 #endif
