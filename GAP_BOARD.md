@@ -10,8 +10,16 @@
 
 ## ❗ P0 LIST (security / privacy / safety / crash — verbatim, read first)
 
-| # | P0 gap | Evidence | Owner / lane | Fix |
-|---|---|---|---|---|
+> **FIX WAVE 1 STATUS (2026-06-10):** P0-1, P0-3, P0-4, P0-2, P0-11 **CLOSED** with named
+> tests + emulator/jest proof (commits `9bbfe47f`, `41bdf467`, `7af3204b`, `248df4ac`). Rules/PII
+> changes are bundled in `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` — **AWAITING HUMAN REVIEW + DEPLOY**
+> (no deploy run). Remaining P0s **OPEN, next wave:** P0-5 (consent), P0-6 (auto-adult), P0-7
+> (kill-switch wiring), P0-8/9/10 (CI + emulator coverage — P0-9 CI workflow added). Per-row status
+> in the **Fix-wave-1 closure** column below.
+
+| # | P0 gap | Evidence | Owner / lane | Fix | Status |
+|---|---|---|---|---|---|
+| | *(closure)* | | | | P0-1 ✅ · P0-2 ✅ · P0-3 ✅ · P0-4 ✅ (build-gated) · P0-11 ✅ · P0-5/6/7/8/9/10 ⏳ |
 | P0-1 | **Every DM is denied by deployed rules — field-name mismatch.** Client writes/reads `conversations` with `participantIds` (195 refs); `firestore.rules` gates conversations + messages entirely on `participantUids`, which is never populated → `uid in []` → all conversation create/read/list + message read/create DENIED. User taps Send / opens Messages → permission-denied. | `firestore.rules:1042,1049,1061,1072-1073,1081` (`participantUids`); `MessagingImplementation.swift:265` writes `participantIds`; `firestore.indexes.json:300` also indexes `participantIds` (rules disagree with indexes) | Messaging / Trust&Safety (rules C5 §2r) | S |
 | P0-2 | **Plaintext phone numbers (Tier-P PII) written to Cloud Logging + used as Firestore doc IDs.** Full E.164 numbers logged in 6 statements and used as document paths — retained, broadly readable, PII in the path. | `functions/phoneAuthRateLimit.js:60,84,164,231,252,305` (`console.warn(... ${phoneNumber} ...)`); PII-as-doc-id `:48,236,295` (`.doc(phoneNumber)`) | Auth/Security lane | S |
 | P0-3 | **COPPA minor gate is DEAD — rules check tier strings the system never emits.** `firestore.rules isMinor()` keys on `ageTier ∈ ['teen','under_minimum']`; the only producer (`computeAgeTier`) emits `blocked/tierB/tierC/tierD`. So `isMinor()`/`isUnderMinimum()` are always false → a 13-year-old gets full adult Firestore access on every gate (public-post confirm, prayer privacy, external discover, space church-verify, job listings, actionIntents). | `firestore.rules:85-92` vs `functions/authenticationHelpers.js:886-893`; `Backend/functions/src/syncAgeTierClaim.ts:38`; note `isMinorAccount()` at `firestore.rules:196` correctly lists tierB/tierC — proving the value set is known | age-gating lane (rules + functions auth) | S |
