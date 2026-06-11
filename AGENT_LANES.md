@@ -123,7 +123,7 @@ This harness class cannot run SwiftPM manifest evaluation or complete an Xcode p
 ## Active Lanes
 | Agent / task | Owned paths | Started | Status |
 |---|---|---|---|
-| **Codex — Full-App Gap Audit Swarm** | `GAP_BOARD.md`, `audit/full-app-gap-audit/**` (read-only evidence elsewhere) | 2026-06-10 | active — 8-auditor read-only swarm, report-only writes |
+| ~~**Codex — Full-App Gap Audit Swarm**~~ | `GAP_BOARD.md`, `audit/full-app-gap-audit/**` | 2026-06-10 | **TERMINATED** — duplicate of the claude audit+fix mission (one-swarm registry rule). Outputs used as inputs; no further Codex gap-audit runs. |
 | **Codex — Resolve Missing Package Products** | `AMENAPP.xcodeproj/project.pbxproj`, `SourcePackages`, `DerivedData`, `PackageCache` | 2026-06-09 | released — package graph/build blocked by this harness; capable-lane handoff logged |
 | Onboarding / MERGE | `AMENAuthLandingView.swift`, `MinimalAuthenticationView.swift`, `Onboarding*.swift`, GlassButton primitives | 2026-06-09 | active |
 | Church notes.1 / Church Note.0 | `**/ChurchNotes/**`, `Backend/functions/src/churchNotes/**`, `ChurchNotesLocalDraftService.swift` | 2026-06-09 | active |
