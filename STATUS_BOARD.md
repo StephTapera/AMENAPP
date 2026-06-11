@@ -1,9 +1,8 @@
 # STATUS BOARD
 
-Generated: 2026-06-11 09:28:43 MST
-Workspace HEAD at refresh: `5e98b922`
+Generated: 2026-06-11 09:28:43 MST (last full refresh)
+**Updated:** 2026-06-11 — HEAD: `37d9dfc8`
 Evidence bundle HEADs cited: `4526d792` where proof bundles were generated before this refresh
-Refresh commit: pending
 
 Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11.md`, `STAGE3_DEPLOY_PACKAGE_2026-06-11.md`, `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md`, `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md`, `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md`, `DECISION_DOC_SAFETY.md`, `AMENAPP/ContextStore/RUNLOG.md`, `AMENAPP/MusicContentLayer/WIRING_CERT.md`, `Docs/find-church/WIRING_CERT.md`, `src/features/connectedIntelligence.RUNLOG.md`.
 
@@ -15,7 +14,7 @@ Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11
 | P0/P1/P2 open counts | `0/0/0` from `GAP_BOARD_CLOSED.md`; safety follow-ons are explicit rows below: `5` machine-work rows and `3` human-decision rows |
 | Lanes DONE vs total | `7/24` board rows are `✅ DONE-PROVEN`; remaining rows are human-pending, in-flight, parked, blocked, or deferred |
 | Deploys completed vs pending | `0/16` human checklist items have deploy/console proof in this workspace |
-| Last green build sha+time | `5e98b922` at `2026-06-11T09:28:35-07:00`; `BuildProject` succeeded in `7.3s`, log `BuildProject-Log-20260611-092835.txt` |
+| Last green build sha+time | `37d9dfc8` at `2026-06-11T10:51-07:00`; `BuildProject` succeeded in `270s` (full compile), 0 errors |
 
 ## SECTION 1 - FEATURES & SYSTEMS
 
