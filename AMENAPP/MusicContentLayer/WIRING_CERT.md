@@ -105,3 +105,28 @@
 ## Dedup Status
 
 No duplicate type definitions remain. Previous collisions (`ModerationWarningBanner`, `ContextPill`, duplicate group registration) were resolved. `RightsPolicy`, `VisibilityPolicy`, `PostIntentType` exist once each in MusicContentContracts.swift.
+
+## Stage-3 Cloud Functions — Named and Targeted
+
+Approved 2026-06-11 by product owner. Both are extend-only — they append to existing
+documents and wire into existing services; neither replaces or shadows an existing CF.
+
+| CF name | Extends | Wiring target (iOS) | Auth+AppCheck | Firestore write |
+|---|---|---|---|---|
+| `getMusicPulseItems` | Existing `/users/{uid}/pulse/{dateKey}` digest doc | `AmenPulseDigestService.loadDailyDigest()` calls `PulseService.shared.fetchDigest()` first, then calls this CF to append music-specific signals (new releases, listening rooms, worship charts) as additional `PulseCard` items | Required — same rules as `generatePulse` | Appends to existing digest doc only; never creates or overwrites |
+| `joinListeningRoom` | Existing `AmenLivekitLiveRoomProvider` (ConnectSpaces/Live/) | `ListeningRoomService.joinRoom()` calls this CF, receives a LiveKit token, passes to `AmenLivekitLiveRoomProvider.connect(token:)` | App Check enforced; user must be authenticated; minor accounts denied | Creates/updates `listeningRooms/{roomId}/participants/{uid}` |
+
+### Dual-gate standard (approved pattern for extension-features)
+
+An extension surface may only activate when BOTH the base surface gate AND its own gate are true.
+No extension can outlive or out-launch the surface it extends.
+
+```swift
+// Example: music digest
+guard AMENFeatureFlags.shared.amenPulseEnabled,
+      AMENFeatureFlags.shared.musicContentLayerEnabled else { return }
+
+// Example: listening rooms
+guard AMENFeatureFlags.shared.musicContentLayerEnabled else { return }
+// LiveKit gate handled inside AmenLivekitLiveRoomProvider
+```
