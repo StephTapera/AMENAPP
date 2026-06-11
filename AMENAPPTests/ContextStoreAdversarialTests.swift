@@ -23,7 +23,7 @@
 // The file can be discovered by non-test targets because it lives beside the
 // ContextStore sources, so keep the XCTest-only declarations behind a test-target
 // compilation condition. The tests still compile and run in AMENAPPTests.
-#if AMENAPP_TESTS
+#if canImport(XCTest)
 import XCTest
 @testable import AMENAPP
 

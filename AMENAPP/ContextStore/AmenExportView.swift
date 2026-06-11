@@ -18,6 +18,7 @@
 // IMPORTANT: OperatingManualView.swift and LifeCapsuleView.swift already exist — do not modify.
 
 import SwiftUI
+import UniformTypeIdentifiers
 import FirebaseAuth
 
 // MARK: - AmenExportView

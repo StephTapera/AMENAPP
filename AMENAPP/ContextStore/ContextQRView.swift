@@ -239,7 +239,7 @@ struct ContextQRView: View {
             .background(
                 Group {
                     if let image = qrImage {
-                        ShareSheet(activityItems: [image], isPresented: $showShareSheet)
+                        ContextShareSheet(activityItems: [image], isPresented: $showShareSheet)
                     }
                 }
             )
@@ -466,7 +466,7 @@ private struct TokenPasteField: View {
 // MARK: - UIKit share sheet bridge
 
 /// Thin SwiftUI bridge over UIActivityViewController.
-private struct ShareSheet: UIViewControllerRepresentable {
+private struct ContextShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]
     @Binding var isPresented: Bool
 

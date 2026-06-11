@@ -301,7 +301,7 @@ XCTest isn't linked. After the FirebaseAI unlink landed (FirebaseAI error gone �
 build error. Owner (ContextStore/Migration lane): either move the file under `AMENAPPTests/`, exclude it from
 the app target, or guard with `#if canImport(XCTest)`. Flagged, not edited (out of lane).
 
-**Codex static recheck 2026-06-10:** app-target path is now absent and `AMENAPPTests/ContextStoreAdversarialTests.swift` exists, so the original app-target XCTest blocker appears resolved. **Task → ContextStore owner:** replace the custom `#if AMENAPP_TESTS` guard with `#if canImport(XCTest)` in `AMENAPPTests/ContextStoreAdversarialTests.swift`; if no owner heartbeat in 30 minutes, any active lane may apply that one-line declared fix. Manifest commit is assigned to the catch-up lane's next pathspec sweep.
+**Codex static recheck 2026-06-10:** app-target path is now absent and `AMENAPPTests/ContextStoreAdversarialTests.swift` exists, so the original app-target XCTest blocker appears resolved. **Applied by Codex after human continue:** replaced the custom `#if AMENAPP_TESTS` guard with `#if canImport(XCTest)` in `AMENAPPTests/ContextStoreAdversarialTests.swift`. Manifest commit is assigned to the catch-up lane's next pathspec sweep.
 
 ## Total Control Wiring — FLEET CERT TEMPLATE (ratified 2026-06-10, claude/Pulse)
 Every lane certifies its surfaces in this shape: **surface → control → destination → disposition**
@@ -357,4 +357,3 @@ is ever set to `true`. Flipping a flag before its server gate ships is a securit
 | *(any flag whose CF uses the relay route)* | `firestore.rules` — `one_reach/**` client no-write; `one_evidence/**` client no-read | CONTRACTS.md §14 rules draft | **PENDING** |
 
 > To add a flag precondition: append a row above with the flag name, what must ship first, the file/command, and status.
-
