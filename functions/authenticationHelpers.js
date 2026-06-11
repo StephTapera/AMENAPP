@@ -431,10 +431,11 @@ exports.backfillUsernameLookup = onCall(
       enforceAppCheck: true, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
     },
     async (request) => {
-      // Only allow authenticated admins (add your uid here)
-      const callerUid = request.auth?.uid;
-      if (!callerUid) {
-        throw new HttpsError("unauthenticated", "Must be authenticated");
+      // SECURITY FIX (HIGH 2026-06-11): Previously only checked callerUid != null.
+      // Any signed-in user could trigger a full users-collection scan, exposing all UIDs.
+      // Now requires the admin custom claim (same guard as setAdminClaim and banUserPhone).
+      if (!request.auth || request.auth.token.admin !== true) {
+        throw new HttpsError("permission-denied", "Admin only.");
       }
 
       const db = admin.firestore();
@@ -874,7 +875,8 @@ exports.cascadeDeleteUserData = cascadeDeleteUserData;
 //   blocked  — birth year implies age < 13  (COPPA hard block)
 //   tierB    — 13–15
 //   tierC    — 16–17
-//   tierD    — 18+  (default when birthYear is absent)
+//   tierD    — 18+
+// Missing, malformed, or out-of-range birth years fail closed to blocked.
 // ============================================================================
 
 const {onDocumentCreated: onDocCreated} = require("firebase-functions/v2/firestore");
@@ -1135,7 +1137,7 @@ exports.updateBirthYear = onCall(
       }
 
       const existingData = userDoc.data();
-      const currentTier = existingData.ageTier || "tierD";
+      const currentTier = existingData.ageTier || "blocked";
       const currentYear = new Date().getFullYear();
       const newTier = computeAgeTier(birthYear, currentYear);
 

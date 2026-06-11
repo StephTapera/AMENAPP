@@ -13,6 +13,13 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function isOrgMediaWriter(orgId) {
+      return isSignedIn()
+          && firestore.exists(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+          && firestore.get(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+             .data.role in ['owner', 'admin', 'moderator', 'mediaManager'];
+    }
+
     // ── Size limits ───────────────────────────────────────────────────────────
 
     function withinVideoLimit() {
@@ -79,12 +86,17 @@ service firebase.storage {
           || (isAllowedDocumentType() && withinImageLimit()); // PDF capped at 25 MB
     }
 
-    // Helper for image-only content types (used in profile photos).
-    function isAnyImageType() {
-      return request.resource.contentType.matches('image/.*');
-    }
-
-    // ── Legacy content-type helpers (preserved for churchNotes paths) ─────────
+    // ── Legacy content-type helpers (DEPRECATED — DO NOT USE ON NEW PATHS) ──────
+    //
+    // SECURITY NOTE (HIGH 2026-06-11): These regex helpers are inherently less safe
+    // than the explicit allowlist variants (isAllowedImageType, isAllowedVideoType,
+    // isAllowedAudioType) because:
+    //   1. .matches() evaluates the client-provided content-type header.
+    //   2. A crafted content-type could pass the regex but be mislabelled.
+    //   3. They cannot be used in isAllowedQuarantineType() (which uses explicit allowlists).
+    // All new paths MUST use the explicit allowlist helpers above.
+    // These helpers are retained ONLY for the legacy churchNotes paths below.
+    // TODO(security): migrate churchNotes paths to explicit allowlists and remove these helpers.
 
     function isAudioType()  {
       return request.resource.contentType.matches('audio/.*');
@@ -119,13 +131,21 @@ service firebase.storage {
     //  DELETE  : owner may remove their own quarantine file
 
     match /uploads/quarantine/{uid}/{mediaId} {
+      // SECURITY FIX (HIGH 2026-06-11): UPDATE removed — only CREATE allowed.
+      // Previously, a user could overwrite a file mid-flight through the moderation
+      // queue (race condition: upload benign file, trigger CF scan, re-upload offending
+      // content before CF moves it to approved/).  By allowing create-only, the user
+      // must use a new mediaId for any re-upload; the original file under review cannot
+      // be overwritten.  This closes the evidence-substitution race window.
+      //
+      // File size cap: 50 MB (enforced by withinQuarantineSizeLimit per MIME type).
+      // MIME type restriction: image/*, video/mp4|quicktime, audio/*, application/pdf only.
       allow create: if isOwner(uid)
                     && isAllowedQuarantineType()
                     && withinQuarantineSizeLimit();
 
-      allow update: if isOwner(uid)
-                    && isAllowedQuarantineType()
-                    && withinQuarantineSizeLimit();
+      // No update allowed — force new mediaId for re-uploads.
+      allow update: if false;
 
       allow read:   if isOwner(uid);
 
@@ -170,9 +190,39 @@ service firebase.storage {
     match /profilePhotos/{uid}/{photoId} {
       allow read:   if true;
       allow write:  if isOwner(uid)
-                    && isAnyImageType()
+                    && isAllowedImageType()
                     && withinProfilePhotoLimit();
       allow delete: if isOwner(uid);
+    }
+
+    // ── Organization / church / event media ──────────────────────────────────
+    // Writes require an organization membership role. No wildcard image/* MIME.
+
+    match /organizations/{orgId}/media/{filename} {
+      allow read: if true;
+      allow write: if isOrgMediaWriter(orgId)
+                   && (isAllowedImageType() || isAllowedVideoType())
+                   && ((isAllowedImageType() && withinImageLimit()) ||
+                       (isAllowedVideoType() && withinVideoLimit()));
+      allow delete: if isOrgMediaWriter(orgId);
+    }
+
+    match /churches/{orgId}/media/{filename} {
+      allow read: if true;
+      allow write: if isOrgMediaWriter(orgId)
+                   && (isAllowedImageType() || isAllowedVideoType())
+                   && ((isAllowedImageType() && withinImageLimit()) ||
+                       (isAllowedVideoType() && withinVideoLimit()));
+      allow delete: if isOrgMediaWriter(orgId);
+    }
+
+    match /events/{orgId}/{eventId}/media/{filename} {
+      allow read: if true;
+      allow write: if isOrgMediaWriter(orgId)
+                   && (isAllowedImageType() || isAllowedVideoType())
+                   && ((isAllowedImageType() && withinImageLimit()) ||
+                       (isAllowedVideoType() && withinVideoLimit()));
+      allow delete: if isOrgMediaWriter(orgId);
     }
 
     // =========================================================================
@@ -215,6 +265,52 @@ service firebase.storage {
       allow read:   if isSignedIn();
       allow write:  if isOwner(uid) && isImageType() && withinImageLimit();
       allow delete: if isOwner(uid);
+    }
+
+    // =========================================================================
+    // CHAT VIDEO ATTACHMENTS
+    // =========================================================================
+    //
+    // Path: chat_videos/{conversationId}/{filename}
+    //
+    // SECURITY FIX (HIGH 2026-06-11): Previously this path had no explicit rule
+    // and fell to the catch-all deny.  The absence of an explicit rule is a
+    // maintenance risk — a rules refactor could accidentally expose it.
+    // Added explicit rule:
+    //   - Upload: uploader must be a participant of the conversation (Firestore lookup).
+    //   - MIME type: video/mp4 or video/quicktime only.
+    //   - Size cap: 100 MB (withinVideoLimit).
+    //   - Reads: conversation participants only.
+    //   - No update (create-only to prevent evidence substitution race).
+    //
+    // NOTE: A video scanning CF must be configured to cover this path.
+    // Minor users can participate in DMs only if the mutual-follow gate passes;
+    // that gate is enforced at the conversations/{conversationId} Firestore rule.
+
+    match /chat_videos/{conversationId}/{filename} {
+      function isConversationParticipant() {
+        return isSignedIn() &&
+          firestore.exists(/databases/(default)/documents/conversations/$(conversationId)) &&
+          request.auth.uid in firestore.get(
+            /databases/(default)/documents/conversations/$(conversationId)
+          ).data.get('participantIds', firestore.get(
+            /databases/(default)/documents/conversations/$(conversationId)
+          ).data.get('participantUids', []));
+      }
+
+      // Participants only; video MIME types only; 100 MB cap; create-only (no overwrite).
+      allow create: if isConversationParticipant()
+                    && isAllowedVideoType()
+                    && withinVideoLimit();
+
+      // No update — force new filename for re-uploads to prevent mid-flight substitution.
+      allow update: if false;
+
+      // Only conversation participants may read.
+      allow read:   if isConversationParticipant();
+
+      // Soft-delete pattern: no client deletes — CF Admin SDK only.
+      allow delete: if false;
     }
 
     // ── Default deny (catch-all) ──────────────────────────────────────────────

@@ -1,13 +1,27 @@
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
-// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
-// stripeWebhook.js — v1 Cloud Function (avoids Cloud Run quota)
-// Stripe webhook endpoint with mandatory signature verification.
-// Every event is verified with stripe.webhooks.constructEvent() before processing.
-// STRIPE_WEBHOOK_SECRET must be set:
+// SECURITY FIX (HIGH 2026-06-11): Migrated from Gen1 runWith() secrets to
+// Gen2 defineSecret() for stronger secret isolation.  The legacy Gen1 pattern
+// using runWith({ secrets: [...] }) has been replaced with defineSecret().
+// Secrets must be provisioned:
+//   firebase functions:secrets:set STRIPE_SECRET_KEY
 //   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
+//
+// IDEMPOTENCY NOTE: handleSubscriptionUpdated and handleSubscriptionDeleted
+// both accept _eventId but do not guard against duplicate Stripe deliveries.
+// TODO(idempotency): check processedStripeEvents before writing, matching the
+// pattern in functions/stripe/stripeWebhook.js (the canonical hardened version).
+//
+// CANONICAL VERSION: The fully hardened version with defineSecret, idempotency,
+// and audit logging lives at functions/stripe/stripeWebhook.js.
+// This file is the root-level legacy export.  Both files must stay in sync or
+// this file must be retired in favour of the canonical version.
 
 const admin = require("firebase-admin");
-const functions = require("firebase-functions/v1");
+const { onRequest } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
+
+// defineSecret provides Gen2-grade secret isolation (Secret Manager + per-invocation binding).
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
+const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
 
 const db = () => admin.firestore();
 const serverTimestamp = () => admin.firestore.FieldValue.serverTimestamp();
@@ -15,17 +29,19 @@ const serverTimestamp = () => admin.firestore.FieldValue.serverTimestamp();
 let stripeClient = null;
 function getStripe() {
   if (!stripeClient) {
-    stripeClient = require("stripe")(process.env.STRIPE_SECRET_KEY);
+    stripeClient = require("stripe")(STRIPE_SECRET_KEY.value());
   }
   return stripeClient;
 }
 
 // ─── Webhook Entry Point ─────────────────────────────────────────────────────
 
-exports.stripeWebhook = functions
-  .region("us-central1")
-  .runWith({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] })
-  .https.onRequest(async (req, res) => {
+exports.stripeWebhook = onRequest(
+  {
+    region: "us-central1",
+    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET],
+  },
+  async (req, res) => {
     const sig = req.headers["stripe-signature"];
 
     let event;
@@ -33,7 +49,7 @@ exports.stripeWebhook = functions
       event = getStripe().webhooks.constructEvent(
         req.rawBody,
         sig,
-        process.env.STRIPE_WEBHOOK_SECRET
+        STRIPE_WEBHOOK_SECRET.value()
       );
     } catch (err) {
       console.error("[Stripe] Signature verification failed:", err.message);
@@ -74,7 +90,8 @@ exports.stripeWebhook = functions
     }
 
     return res.status(200).send({ received: true });
-  });
+  }
+);
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 

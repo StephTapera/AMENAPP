@@ -309,9 +309,33 @@ service cloud.firestore {
     // =========================================================================
 
     match /users/{userId} {
-      // Read: any signed-in user can read public profile data.
+      // Read: signed-in users may read public profile data, with minor-protection gate.
       // Unauthenticated access is denied (all PII lives in subcollections).
-      allow read: if isSignedIn();
+      //
+      // [MINOR SAFETY] Minor accounts (ageTier in blocked/tierB/tierC, or minorScoped==true)
+      // must not be surfaced in public search queries or read by arbitrary authenticated users.
+      // Enforce: only the user themselves, a linked guardian, or a moderator/admin with the
+      // appropriate custom claim may read a minor's user document.
+      // All other signed-in users may read non-minor profiles.
+      //
+      // SECURITY NOTE (HIGH): Previously allow read: if isSignedIn() — this leaked ageTier
+      // (exposing minor status) and all other user-doc fields to every authenticated user,
+      // enabling minor-enumeration attacks.  Fixed 2026-06-11.
+      allow read: if isSignedIn() && (
+        // Always: user reads their own document.
+        request.auth.uid == userId ||
+        // Admin / moderator / pastoral roles may always read.
+        hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']) ||
+        // Guardian relationship: the guardian's UID is stored in
+        // users/{minorUid}/private/age_assurance.guardianUid (CF-written, immutable).
+        // Reading here is safe because we only expose the parent-doc, not the private subcollection.
+        (exists(/databases/$(database)/documents/users/$(userId)/private/age_assurance) &&
+         get(/databases/$(database)/documents/users/$(userId)/private/age_assurance)
+           .data.get('guardianUid', '') == request.auth.uid) ||
+        // Non-minor profiles are readable by all signed-in users (public profile data).
+        // Minor accounts: access is restricted to the clauses above.
+        !isMinorAccount(userId)
+      );
 
       // Create: must create your own profile; no premium spoof fields.
       allow create: if isOwner(userId) && !hasRawPII() &&
@@ -908,15 +932,27 @@ service cloud.firestore {
 
         // Self-join for public spaces; admin roles can add members.
         // [MINOR] Minors may only join church-verified spaces.
+        //
+        // SECURITY FIX (HIGH 2026-06-11): Admin roles can add any member to any space,
+        // but when the member being added is a minor (isMinorAccount(memberId)), the space
+        // must be church-verified to prevent private adult+minor spaces.
+        // This blocks the vector where an adult creates a private 1:1 space with a minor
+        // to bypass the DM mutual-follow gate.
         allow create: if
           isSignedIn() && !isUnderMinimum() &&
           (
             (request.auth.uid == memberId &&
              get(/databases/$(database)/documents/spaces/$(spaceId)).data.get('privacyLevel', '') == 'public' &&
-             // [MINOR] Church verification check for minors
+             // [MINOR] Church verification check for minors joining public spaces
              (!isMinor() || get(/databases/$(database)/documents/spaces/$(spaceId)).data.get('churchVerified', false) == true))
             ||
-            hasAnyClaimRole(['owner', 'pastor', 'leader', 'executive_admin'])
+            // Admin roles may add members, but must ensure church-verification when adding minors.
+            // [MINOR SAFETY] An adult cannot create a private space with only a minor member —
+            // adding a minor to any space requires the space to be church-verified.
+            // Adult-minor DM blocking enforced here and in createDMThread Cloud Function.
+            (hasAnyClaimRole(['owner', 'pastor', 'leader', 'executive_admin']) &&
+             (!isMinorAccount(memberId) ||
+              get(/databases/$(database)/documents/spaces/$(spaceId)).data.get('churchVerified', false) == true))
           );
 
         allow update, delete: if
@@ -1053,6 +1089,24 @@ service cloud.firestore {
     // =========================================================================
     // /conversations/{conversationId}
     // C5 §2r — PrivateMessage / DM Resource
+    //
+    // [MINOR SAFETY] Adult-minor DM blocking enforced here and in createDMThread
+    // Cloud Function.  The Firestore rule blocks conversation creation when minor
+    // safety conditions are not met (mutual-follow gate via dmRequiresMinorSafety +
+    // twoPersonMinorSafeDM).  The CF callable provides an additional server-side
+    // layer that calls checkAdultMinorInteraction() before writing any conversation
+    // document, ensuring the block fires even on paths that bypass this rule.
+    //
+    // New conversation threads between an adult and a minor are blocked unless:
+    //   1. They have a mutual-follow relationship (both follow each other), AND
+    //   2. The DM safety check (minorProtection.js checkAdultMinorInteraction) passes.
+    // A guardian relationship (stored in private/age_assurance.guardianUid) is the
+    // only other exemption — not yet wired at the rules layer (see OPEN-2).
+    //
+    // SECURITY NOTE: All conversation paths in the iOS app MUST go through the
+    // createDMThread CF callable.  Direct Firestore writes that bypass the callable
+    // will be blocked by the minor-safety rule below, but the iOS app must not
+    // create conversation documents directly.
     // =========================================================================
 
     match /conversations/{conversationId} {
@@ -1063,6 +1117,7 @@ service cloud.firestore {
 
       // Create: signed in + not under minimum age + participant in conversation.
       // [MINOR] C-MINOR-DM: minors require mutual-follow with all participants.
+      // [MINOR] Adult-minor DM blocking enforced here and in createDMThread Cloud Function.
       // Visitors cannot initiate DMs (per §2r — Visitor row: create = deny).
       allow create: if
         isSignedIn() && !isUnderMinimum() &&
@@ -1276,12 +1331,42 @@ service cloud.firestore {
       // Create: Admin SDK only (CF-generated reports; clients escalate via CF callable).
       allow create: if isAdminSDK();
 
-      // Update: moderators and above can action items.
+      // Update: moderators and above can action items, BUT only for their own org/church context.
+      // SECURITY FIX (HIGH 2026-06-11): Previously any moderator could update any item regardless
+      // of which church or org the report belongs to — cross-context moderation was possible.
+      // Now: moderator/pastor/owner are scoped to their own org or church.
+      // executive_admin retains global cross-context access.
+      // Items with no orgId/churchId (platform-level reports) require executive_admin.
       allow update: if
-        hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']);
+        hasClaimRole('executive_admin') ||
+        (hasAnyClaimRole(['moderator', 'pastor', 'owner']) && (
+          sameOrg(resource.data.get('orgId', '__no_org__')) ||
+          sameChurch(resource.data.get('churchId', '__no_church__'))
+        ));
 
       // Delete: owner/executive admin only (via CF + audit log). No client deletes.
       allow delete: if false;
+    }
+
+    // =========================================================================
+    // /legalHolds/{holdId}
+    // COPPA / GDPR litigation-hold documents — CF Admin SDK with legalReviewer
+    // authorization only.  NO client access at any tier.
+    //
+    // SECURITY FIX (HIGH 2026-06-11): This collection had no explicit rule; it
+    // depended on the catch-all deny. Formal protection added here so that a future
+    // rules refactor cannot accidentally expose it, and so that legalReviewer-claim
+    // gating is enforced as soon as the collection is populated.
+    // Define and mint the 'legalReviewer' custom claim in the CF auth layer before
+    // enabling the read rule below.
+    // =========================================================================
+
+    match /legalHolds/{holdId} {
+      // Read: legalReviewer or executive_admin only.
+      allow read: if hasClaimRole('legalReviewer') || hasClaimRole('executive_admin');
+
+      // Create, update, delete: CF Admin SDK with legalReviewer authorization only.
+      allow create, update, delete: if false;
     }
 
     // =========================================================================
@@ -1540,6 +1625,71 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // ONE — P5 rules additions (CONTRACTS.md §14 / SECURITY.md §3.4/§4/§6)
+    // =========================================================================
+
+    // one_users: profile reads are scoped by privacy mirror level.
+    // sealed + opaque profiles are not readable by strangers.
+    match /one_users/{uid} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == uid ||                          // always self-readable
+        !(resource.data.get('privacyMirror','open') in ['sealed','opaque'])
+      );
+      allow write: if request.auth.uid == uid;             // self-write only
+    }
+
+    match /one_users/{uid}/witnesses/{witnessId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == uid ||
+        request.auth.uid == resource.data.get('witnessUID','')
+      );
+      // SECURITY FIX (HIGH 2026-06-11): Previously allow write: if isSignedIn() — any user
+      // could fabricate or delete witness relationships for any other user, including inserting
+      // themselves as an unasked-for witness on a minor's account.
+      // Now: clients may only propose themselves as their own witness (self-nomination).
+      // All cross-party acceptance/approval and all update/delete operations are CF Admin SDK only.
+      allow create: if isSignedIn() &&
+        request.auth.uid == uid &&
+        request.resource.data.get('witnessUID', '') == request.auth.uid;
+      allow update, delete: if false; // CF Admin SDK only — both-party acceptance enforced server-side
+    }
+
+    // one_vaults: strictly owner-only, no exceptions (SECURITY.md §6/CONTRACTS.md §14)
+    match /one_vaults/{uid}/items/{itemId} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // one_evidence: NO client read or write — CF service account only (SECURITY.md §4/§6)
+    match /one_evidence/{evidenceId} {
+      allow read, write: if false;
+    }
+
+    // one_reach: NO client write — CF only (CONTRACTS.md §17 rule 5)
+    match /one_reach/{momentId} {
+      allow read: if isSignedIn() && isOwner(resource.data.get('originalAuthorUID',''));
+      allow write: if false;
+    }
+
+    // one_legacy: owner-read/write; trustees read after activation
+    match /one_legacy/{uid} {
+      allow read: if request.auth.uid == uid ||
+        request.auth.uid in resource.data.get('trusteesUIDs',[]);
+      allow write: if request.auth.uid == uid;
+    }
+
+    // one_threads: participant-scoped read/write
+    match /one_threads/{threadId} {
+      allow read, write: if isSignedIn() &&
+        request.auth.uid in resource.data.get('participantUIDs',[]);
+    }
+
+    match /one_threads/{threadId}/messages/{messageId} {
+      allow read, write: if isSignedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/one_threads/$(threadId)).data.get('participantUIDs',[]);
+    }
+
+
+    // =========================================================================
     // /bereanProjects/{projectId}
     // Berean OS project documents
     // =========================================================================
@@ -1662,17 +1812,9 @@ service cloud.firestore {
       allow create, update, delete: if false; // CF callable only (classifyPostNeed)
     }
 
-    // =========================================================================
-    // /church_pulse/{churchId}
-    // Computed church health metrics — CF Admin SDK writes only (refreshChurchPulses).
-    // Derived from real Firestore data only — never fabricated.
-    // Added 2026-06-06 — Living Intelligence build
-    // =========================================================================
-
-    match /church_pulse/{churchId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if false; // CF Admin SDK only (refreshChurchPulses)
-    }
+    // NOTE: duplicate /church_pulse/{churchId} block removed here. // GAP A4-P1
+    // The member-gated block above (lines ~1610-1617) is the canonical rule.
+    // The broad isSignedIn() block was removed to close the over-permissive read gap.
 
     // =========================================================================
     // /users/{userId}/intelligence_brief/{briefId}
@@ -2451,7 +2593,47 @@ service cloud.firestore {
     match /users/{uid}/{coll}/{docId} {
       allow read, write: if isOwner(uid)
         && coll in ['notes', 'notebookEntries', 'prayerJournal', 'shareDrafts',
-                    'tasks', 'calendarDrafts', 'plans', 'polls', 'posts'];
+                    'tasks', 'calendarDrafts', 'plans', 'polls', 'posts',
+                    'creatorScenes']; // GAP A4-P1
+    }
+
+    // GAP A4-P1: bereanMemory subcollection — owner read; CF writes only.
+    match /users/{uid}/bereanMemory/{docId} {
+      allow read: if isOwner(uid); // GAP A4-P1
+      allow create, update, delete: if false; // CF Admin SDK only
+    }
+
+    // =========================================================================
+    // GAP A4-P1: Missing collection rules
+    // =========================================================================
+
+    // /whisperUsage/{docId}: WhisperVoiceService.swift:370 writes user audio quota docs.
+    // Doc ID is the uid; owner read/write.
+    match /whisperUsage/{docId} {
+      allow read, write: if isOwner(docId); // GAP A4-P1
+    }
+
+    // /helixNodes/{docId}: HelixNodeDetailSheets.swift writes/deletes directly.
+    // Owner-scoped: ownerId field must match caller.
+    match /helixNodes/{docId} {
+      allow read: if isSignedIn() && resource.data.get('ownerId', '') == request.auth.uid; // GAP A4-P1
+      allow create: if isSignedIn() && request.resource.data.get('ownerId', '') == request.auth.uid; // GAP A4-P1
+      allow update, delete: if isSignedIn() && resource.data.get('ownerId', '') == request.auth.uid; // GAP A4-P1
+    }
+
+    // /notificationBatches/{batchId}: owner read/write; uid stored on the doc.
+    match /notificationBatches/{batchId} {
+      allow read, write: if isOwner(resource.data.get('uid', '')); // GAP A4-P1
+    }
+
+    // /scheduledBatches/{batchId}: owner read/write; uid stored on the doc.
+    match /scheduledBatches/{batchId} {
+      allow read, write: if isOwner(resource.data.get('uid', '')); // GAP A4-P1
+    }
+
+    // /userNotificationPreferences/{uid}: owner read/write; doc ID is the uid.
+    match /userNotificationPreferences/{uid} {
+      allow read, write: if isOwner(uid); // GAP A4-P1
     }
 
     // =========================================================================
@@ -2499,6 +2681,48 @@ service cloud.firestore {
         // Immutable once written.
         allow update, delete: if false;
       }
+    }
+
+    // =========================================================================
+    // STRIPE / SUBSCRIPTION / ENTITLEMENT COLLECTIONS
+    //
+    // SECURITY FIX (HIGH 2026-06-11): These collections must only be writable
+    // by server-side Cloud Functions (Admin SDK).  Clients must NEVER be able to
+    // self-grant or modify subscription/entitlement status.
+    //
+    // Collections covered:
+    //   stripeCustomers/{userId}         — Stripe customer record
+    //   subscriptions/{userId}           — subscription state
+    //   entitlements/{userId}            — feature entitlements (mirrors StoreKit)
+    //   processedStripeEvents/{eventId}  — idempotency log (CF write, no client read)
+    //
+    // Read: each user may read their own record (to show subscription status in UI).
+    // Write: false — CF Admin SDK only (StoreKit validation, Stripe webhook handlers).
+    // =========================================================================
+
+    match /stripeCustomers/{userId} {
+      allow read:             if isSignedIn() && request.auth.uid == userId;
+      allow create, update, delete: if false; // CF Admin SDK only
+    }
+
+    match /subscriptions/{userId} {
+      allow read:             if isSignedIn() && request.auth.uid == userId;
+      allow create, update, delete: if false; // CF Admin SDK only
+    }
+
+    match /entitlements/{userId} {
+      allow read:             if isSignedIn() && request.auth.uid == userId;
+      allow create, update, delete: if false; // CF Admin SDK only
+
+      match /{entitlementDoc} {
+        allow read:             if isSignedIn() && request.auth.uid == userId;
+        allow create, update, delete: if false; // CF Admin SDK only
+      }
+    }
+
+    match /processedStripeEvents/{eventId} {
+      // No client read access — idempotency log is internal to CF only.
+      allow read, write: if false;
     }
 
     // =========================================================================
