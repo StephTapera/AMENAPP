@@ -1356,6 +1356,7 @@ final class AMENFeatureFlags: ObservableObject {
             "discussion_command_center_enabled": true as NSObject,
 
             // System 37: Community OS
+            "community_os_enabled": false as NSObject,
             "community_os_discussion_enabled": false as NSObject,
             "community_os_prayer_os_enabled": false as NSObject,
             "community_os_action_pill_enabled": false as NSObject,
@@ -1433,6 +1434,18 @@ final class AMENFeatureFlags: ObservableObject {
             "selah_personal_corpus_enabled": false as NSObject,
             "selah_discernment_enabled": false as NSObject,
             "selah_discernment_sharing_enabled": false as NSObject,
+
+            // Find Church 2.0 — all default OFF until RC flip after verification
+            "findChurch2_onboarding": false as NSObject,
+            "findChurch2_matchExplain": false as NSObject,
+            "findChurch2_gatherings": false as NSObject,
+            "findChurch2_visitPlanner": false as NSObject,
+            "findChurch2_claimPortal": false as NSObject,
+            "findChurch2_concierge": false as NSObject,
+            "findChurch2_mapHybrid": false as NSObject,
+            "findChurch2_availability": false as NSObject,
+            "findChurch2_trustSignals": false as NSObject,
+            "findChurch2_designRefresh": false as NSObject,
         ]
     }
 

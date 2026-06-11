@@ -37,6 +37,11 @@ final class ChurchNotesMediaProcessingService: ObservableObject {
     /// discussion questions) for review without needing to tap individual generate buttons.
     /// The feature flag must be checked by the caller before invoking.
     func uploadAudioAndCreateJob(fileURL: URL, noteId: String, durationSeconds: Double) async {
+        let flags = AMENFeatureFlags.shared
+        guard flags.churchNotesAudioCaptureEnabled && !flags.churchNotesProcessingKillSwitch else {
+            uploadState.phase = .failed(message: "Audio capture is currently unavailable.")
+            return
+        }
         guard !uploadState.isInFlight else { return }
         guard let uid = currentUID else {
             uploadState.phase = .failed(message: "Not signed in.")
@@ -126,6 +131,11 @@ final class ChurchNotesMediaProcessingService: ObservableObject {
 
     /// Uploads a captured/selected photo to Firebase Storage and creates an OCR processing job.
     func uploadImageAndCreateJob(imageData: Data, noteId: String) async {
+        let flags = AMENFeatureFlags.shared
+        guard flags.churchNotesPhotoOCREnabled && !flags.churchNotesProcessingKillSwitch else {
+            uploadState.phase = .failed(message: "Photo OCR capture is currently unavailable.")
+            return
+        }
         guard !uploadState.isInFlight else { return }
         guard let uid = currentUID else {
             uploadState.phase = .failed(message: "Not signed in.")
@@ -196,6 +206,11 @@ final class ChurchNotesMediaProcessingService: ObservableObject {
     // MARK: - Upload video
 
     func uploadVideoAndCreateJob(fileURL: URL, noteId: String, durationSeconds: Double?) async {
+        let flags = AMENFeatureFlags.shared
+        guard (flags.churchNotesVideoCaptureEnabled || flags.sermonVideoCaptureEnabled) && !flags.churchNotesProcessingKillSwitch else {
+            uploadState.phase = .failed(message: "Video capture is currently unavailable.")
+            return
+        }
         await uploadFileAndCreateJob(
             fileURL: fileURL,
             noteId: noteId,
@@ -211,6 +226,11 @@ final class ChurchNotesMediaProcessingService: ObservableObject {
     // MARK: - Upload document
 
     func uploadDocumentAndCreateJob(fileURL: URL, noteId: String) async {
+        let flags = AMENFeatureFlags.shared
+        guard (flags.churchNotesPhotoOCREnabled || flags.churchPhotoOCRCaptureEnabled) && !flags.churchNotesProcessingKillSwitch else {
+            uploadState.phase = .failed(message: "Document OCR is currently unavailable.")
+            return
+        }
         await uploadFileAndCreateJob(
             fileURL: fileURL,
             noteId: noteId,
