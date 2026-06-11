@@ -224,8 +224,8 @@ final class AmenPrivacyEngine: ObservableObject {
     /// Sets preset to `.private`, DMPolicy to `.mutualFollows`, location to `.none`.
     ///
     /// [MINOR] This MUST be called on:
-    ///   a) initial account creation when ageTier == "teen"
-    ///   b) after age assurance pipeline updates ageTier to "teen"
+    ///   a) initial account creation when ageTier is `blocked`, `tierB`, or `tierC`
+    ///   b) after age assurance pipeline updates ageTier to a minor tier
     ///
     /// The `isMinor` flag is set by the CF age-assurance pipeline (never client-writable).
     /// This method reads it from Firestore to confirm before applying.
@@ -347,11 +347,11 @@ final class AmenPrivacyEngine: ObservableObject {
         )
     }
 
-    /// Checks Firestore `users/{userId}` for ageTier to confirm minor status.
+    /// Checks Firestore `users/{userId}` for ageTier to confirm minor status. Unknown tiers fail closed.
     private func fetchIsMinor(userId: String) async throws -> Bool {
         let doc = try await db.collection("users").document(userId).getDocument()
-        let ageTier = doc.data()?["ageTier"] as? String ?? ""
-        return ageTier == "teen" || ageTier == "under_minimum"
+        let ageTier = doc.data()?["ageTier"] as? String
+        return AgeCategory.resolving(ageTier).isMinor
     }
 
     // MARK: - Firestore Encoding / Decoding

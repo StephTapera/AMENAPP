@@ -48,17 +48,15 @@ final class AmenChildSafetyService: ObservableObject {
     // MARK: - Age Category Queries
     // =========================================================================
 
-    /// Returns true if the user is classified as a minor (teen or under_minimum).
+    /// Returns true if the user is classified as a minor.
     ///
-    /// Reads the `ageTier` field from /users/{userId}.
-    /// Returns false if the field is absent or the document doesn't exist —
-    /// treat unknown as non-minor for content access (conservative in the other direction
-    /// is canDM, which is fail-closed to false).
+    /// Reads the server-owned `ageTier` field from /users/{userId}.
+    /// Missing or unknown tiers fail closed to `.blocked`.
     ///
     /// - Throws: Firestore read errors. Callers on safety-critical paths should handle these.
     func checkIsMinor(userId: String) async throws -> Bool {
         let category = try await getAgeCategory(userId: userId)
-        return category == .teen || category == .underMinimum
+        return category.isMinor
     }
 
     /// Resolves the user's AgeCategory from their Firestore profile.
@@ -66,9 +64,8 @@ final class AmenChildSafetyService: ObservableObject {
     /// - Throws: Firestore read errors.
     func getAgeCategory(userId: String) async throws -> AgeCategory {
         let doc = try await db.collection("users").document(userId).getDocument()
-        guard let data = doc.data() else { return .adult }
-        let raw = data["ageTier"] as? String ?? AgeCategory.adult.rawValue
-        return AgeCategory(rawValue: raw) ?? .adult
+        let raw = doc.data()?["ageTier"] as? String
+        return AgeCategory.resolving(raw)
     }
 
     // =========================================================================
@@ -291,11 +288,22 @@ final class AmenChildSafetyService: ObservableObject {
         if pathComponents.count == 2 {
             let collection = pathComponents[0]
             let documentId = pathComponents[1]
-            try? await db.collection(collection).document(documentId).updateData([
-                "isDeleted": true,
-                "deletedAt": FieldValue.serverTimestamp(),
-                "deletionReason": "csam_escalation"
-            ])
+            do {
+                try await db.collection(collection).document(documentId).updateData([
+                    "isDeleted": true,
+                    "deletedAt": FieldValue.serverTimestamp(),
+                    "deletionReason": "csam_escalation"
+                ])
+            } catch {
+                try await writeCriticalCSAMFailureAlert(
+                    contentRef: contentRef,
+                    authorId: authorId,
+                    detectionSource: detectionSource,
+                    failedStep: "hide_content",
+                    error: error
+                )
+                throw error
+            }
         }
 
         // Step 2: Write to moderationQueue with CSAM escalation flag.
@@ -312,7 +320,18 @@ final class AmenChildSafetyService: ObservableObject {
             // See OPEN-4 in contracts/C5-security-rules.md for SLA and escalation key holder.
         ]
 
-        try? await db.collection("moderationQueue").addDocument(data: queueRecord)
+        do {
+            try await db.collection("moderationQueue").addDocument(data: queueRecord)
+        } catch {
+            try await writeCriticalCSAMFailureAlert(
+                contentRef: contentRef,
+                authorId: authorId,
+                detectionSource: detectionSource,
+                failedStep: "moderation_queue",
+                error: error
+            )
+            throw error
+        }
 
         // Step 3: Write to safety audit log.
         let auditRecord: [String: Any] = [
@@ -325,7 +344,38 @@ final class AmenChildSafetyService: ObservableObject {
             "ncmecSubmissionPending": true
             // HUMAN AUTHORIZATION REQUIRED before CF completes NCMEC submission.
         ]
-        try? await db.collection("safetyAuditLog").addDocument(data: auditRecord)
+        do {
+            try await db.collection("safetyAuditLog").addDocument(data: auditRecord)
+        } catch {
+            try await writeCriticalCSAMFailureAlert(
+                contentRef: contentRef,
+                authorId: authorId,
+                detectionSource: detectionSource,
+                failedStep: "safety_audit_log",
+                error: error
+            )
+            throw error
+        }
+    }
+
+    private func writeCriticalCSAMFailureAlert(
+        contentRef: String,
+        authorId: String,
+        detectionSource: String,
+        failedStep: String,
+        error: Error
+    ) async throws {
+        try await db.collection("criticalSafetyAlerts").addDocument(data: [
+            "type": "csam_escalation_write_failure",
+            "contentRef": contentRef,
+            "authorId": authorId,
+            "detectionSource": detectionSource,
+            "failedStep": failedStep,
+            "errorDescription": error.localizedDescription,
+            "createdAt": FieldValue.serverTimestamp(),
+            "requiresImmediateHumanReview": true,
+            "reporterUid": Auth.auth().currentUser?.uid ?? "unknown"
+        ])
     }
 
     // =========================================================================
@@ -336,6 +386,10 @@ final class AmenChildSafetyService: ObservableObject {
     /// for staff review. Unlike CSAM, grooming auto-removal does NOT require NCMEC
     /// human authorization — content is removed immediately, review happens afterward.
     ///
+    /// FAIL-HARD: all four Firestore writes use `try` with explicit error handling
+    /// matching the CSAM pipeline. A silent failure on the content-hide or queue write
+    /// is a child-safety regression — errors write a criticalSafetyAlert and rethrow.
+    ///
     /// - Parameters:
     ///   - contentRef:      Firestore path of the flagged content (e.g. "posts/abc123")
     ///   - authorId:        UID of the content author
@@ -344,7 +398,7 @@ final class AmenChildSafetyService: ObservableObject {
         contentRef: String,
         authorId: String,
         detectionSource: String
-    ) async {
+    ) async throws {
         dlog("[AmenChildSafetyService] Grooming auto-removal — contentRef=\(contentRef), source=\(detectionSource)")
 
         // Step 1: Immediately soft-delete the content.
@@ -352,11 +406,23 @@ final class AmenChildSafetyService: ObservableObject {
         if pathComponents.count == 2 {
             let collection = pathComponents[0]
             let documentId = pathComponents[1]
-            try? await db.collection(collection).document(documentId).updateData([
-                "isDeleted": true,
-                "deletedAt": FieldValue.serverTimestamp(),
-                "deletionReason": "grooming_auto_removal"
-            ])
+            do {
+                try await db.collection(collection).document(documentId).updateData([
+                    "isDeleted": true,
+                    "deletedAt": FieldValue.serverTimestamp(),
+                    "deletionReason": "grooming_auto_removal"
+                ])
+            } catch {
+                // CRITICAL: content hide failed — content remains visible. Alert and rethrow.
+                try await writeCriticalGroomingFailureAlert(
+                    contentRef: contentRef,
+                    authorId: authorId,
+                    detectionSource: detectionSource,
+                    failedStep: "hide_content",
+                    error: error
+                )
+                throw error
+            }
         }
 
         // Step 2: Queue for staff review (no NCMEC pipeline required for grooming).
@@ -370,14 +436,39 @@ final class AmenChildSafetyService: ObservableObject {
             "autoRemoved": true,
             "createdAt": FieldValue.serverTimestamp()
         ]
-        try? await db.collection("moderationQueue").addDocument(data: queueRecord)
+        do {
+            try await db.collection("moderationQueue").addDocument(data: queueRecord)
+        } catch {
+            // CRITICAL: queue entry lost — staff will not review this content.
+            try await writeCriticalGroomingFailureAlert(
+                contentRef: contentRef,
+                authorId: authorId,
+                detectionSource: detectionSource,
+                failedStep: "moderation_queue",
+                error: error
+            )
+            throw error
+        }
 
         // Step 3: Increment grooming flag count on user_trust record.
         // The EnforcementLadderService CF monitors this and escalates if threshold exceeded.
-        try? await db.collection("user_trust").document(authorId).updateData([
-            "groomingFlagCount": FieldValue.increment(Int64(1)),
-            "lastGroomingFlagAt": FieldValue.serverTimestamp()
-        ])
+        do {
+            try await db.collection("user_trust").document(authorId).updateData([
+                "groomingFlagCount": FieldValue.increment(Int64(1)),
+                "lastGroomingFlagAt": FieldValue.serverTimestamp()
+            ])
+        } catch {
+            // Non-fatal to the removal itself, but still write an alert — escalation ladder
+            // depends on this count being accurate.
+            try await writeCriticalGroomingFailureAlert(
+                contentRef: contentRef,
+                authorId: authorId,
+                detectionSource: detectionSource,
+                failedStep: "user_trust_increment",
+                error: error
+            )
+            throw error
+        }
 
         // Step 4: Write to safety audit log.
         let auditRecord: [String: Any] = [
@@ -388,7 +479,39 @@ final class AmenChildSafetyService: ObservableObject {
             "clientTimestamp": Date().timeIntervalSince1970,
             "source": "AmenChildSafetyService"
         ]
-        try? await db.collection("safetyAuditLog").addDocument(data: auditRecord)
+        do {
+            try await db.collection("safetyAuditLog").addDocument(data: auditRecord)
+        } catch {
+            // CRITICAL: audit record lost — compliance trail broken.
+            try await writeCriticalGroomingFailureAlert(
+                contentRef: contentRef,
+                authorId: authorId,
+                detectionSource: detectionSource,
+                failedStep: "safety_audit_log",
+                error: error
+            )
+            throw error
+        }
+    }
+
+    private func writeCriticalGroomingFailureAlert(
+        contentRef: String,
+        authorId: String,
+        detectionSource: String,
+        failedStep: String,
+        error: Error
+    ) async throws {
+        try await db.collection("criticalSafetyAlerts").addDocument(data: [
+            "type": "grooming_removal_write_failure",
+            "contentRef": contentRef,
+            "authorId": authorId,
+            "detectionSource": detectionSource,
+            "failedStep": failedStep,
+            "errorDescription": error.localizedDescription,
+            "createdAt": FieldValue.serverTimestamp(),
+            "requiresImmediateHumanReview": true,
+            "reporterUid": Auth.auth().currentUser?.uid ?? "unknown"
+        ])
     }
 
     // =========================================================================
@@ -439,11 +562,13 @@ final class AmenChildSafetyService: ObservableObject {
             .document(contactId)
             .getDocument()
 
-        // If guardian tools are not yet active (document absent), allow mutual-follow DMs.
+        // OPEN-2 placeholder: document absent means guardian tools not yet active — allow.
         if !doc.exists { return true }
 
-        // If a guardian approval document exists, check the approved field.
-        let approved = doc.data()?["approved"] as? Bool ?? true
+        // CRITICAL: fail closed — no approval field on an existing document = no DM allowed.
+        // A partial write or race condition that produces a document without the `approved`
+        // field must be treated as NOT approved, not approved. ?? false enforces this.
+        let approved = doc.data()?["approved"] as? Bool ?? false
         return approved
     }
 

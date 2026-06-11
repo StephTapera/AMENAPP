@@ -26,10 +26,30 @@ import Foundation
 ///   US COPPA requires parental consent for under-13.
 ///   EU GDPR-K may require 16 as the minimum in some jurisdictions.
 ///   Current threshold: 13. T&S Lead + Legal must confirm.
-enum AgeCategory: String, Codable, Sendable {
-    case underMinimum = "under_minimum"   // Under-13: blocked from app entirely
-    case teen         = "teen"            // 13-17 (or 16-17 in EU): restricted experience
-    case adult        = "adult"           // 18+: full access
+enum AgeCategory: String, Codable, Sendable, CaseIterable {
+    case blocked = "blocked"   // Under-13 or unknown: blocked from app entirely
+    case tierB   = "tierB"     // 13-15: restricted experience
+    case tierC   = "tierC"     // 16-17: restricted experience
+    case tierD   = "tierD"     // 18+: full access
+
+    static let canonicalRawValues = ["blocked", "tierB", "tierC", "tierD"]
+    static let minorRawValues = ["blocked", "tierB", "tierC"]
+
+    static func resolving(_ rawValue: String?) -> AgeCategory {
+        guard let rawValue, let tier = AgeCategory(rawValue: rawValue) else {
+            return .blocked
+        }
+        return tier
+    }
+
+    var isMinor: Bool {
+        switch self {
+        case .blocked, .tierB, .tierC:
+            return true
+        case .tierD:
+            return false
+        }
+    }
 }
 
 // MARK: - MinorProtectionConfig

@@ -10,7 +10,9 @@
  *   blocked  — age < 13   (COPPA hard block)
  *   tierB    — 13–15
  *   tierC    — 16–17
- *   tierD    — 18+         (also the conservative default when birthYear is absent)
+ *   tierD    — 18+
+ *
+ * Missing, malformed, or out-of-range birth years fail closed to blocked.
  */
 
 /**
@@ -20,7 +22,7 @@
  * @return {string} One of: blocked | tierB | tierC | tierD.
  */
 function computeAgeTier(birthYear, currentYear) {
-  if (!birthYear || typeof birthYear !== "number") return "tierD"; // conservative default for adult
+  if (!birthYear || typeof birthYear !== "number") return "blocked";
   const age = currentYear - birthYear;
   if (age < 13) return "blocked";
   if (age <= 15) return "tierB";

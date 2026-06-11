@@ -6,21 +6,13 @@
 const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const { computeAgeTier } = require("./ageTier");
 
 function hashPhoneNumber(phoneNumber) {
   return crypto.createHash("sha256").update(phoneNumber.trim()).digest("hex");
 }
 
 const TIER_ORDER = ["blocked", "tierB", "tierC", "tierD"];
-
-function computeAgeTier(birthYear, currentYear) {
-  if (!birthYear || typeof birthYear !== "number") return "tierD";
-  const age = currentYear - birthYear;
-  if (age < 13) return "blocked";
-  if (age <= 15) return "tierB";
-  if (age <= 17) return "tierC";
-  return "tierD";
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // banUserPhone — Admin-only callable (H-03)
@@ -93,7 +85,7 @@ exports.updateBirthYear = functions.region("us-central1").https.onCall(async (da
   }
 
   const existingData = userDoc.data();
-  const currentTier = existingData.ageTier || "tierD";
+  const currentTier = existingData.ageTier || "blocked";
   const currentYear = new Date().getFullYear();
   const newTier = computeAgeTier(birthYear, currentYear);
 

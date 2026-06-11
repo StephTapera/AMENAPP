@@ -145,19 +145,28 @@ async function moderateDraft(text, apiKey) {
     const data = await res.json();
     const raw  = data.choices?.[0]?.message?.content ?? "";
 
-    let safe       = true;
+    let safe       = false; // fail closed by default
     let categories = [];
     try {
       const parsed = JSON.parse(raw);
-      safe = String(parsed["User Safety"] ?? "safe").toLowerCase() === "safe";
-      if (parsed["Safety Categories"]) {
-        categories = String(parsed["Safety Categories"])
-          .split(",")
-          .map((c) => c.trim().toLowerCase())
-          .filter(Boolean);
+      if (parsed && typeof parsed === "object" && "User Safety" in parsed) {
+        // EXACT match only — never use negation-based substring checks.
+        // !/unsafe/i.test(raw) is bypassable via "this is not unsafe content".
+        safe = String(parsed["User Safety"]).trim().toLowerCase() === "safe";
+        if (parsed["Safety Categories"]) {
+          categories = String(parsed["Safety Categories"])
+            .split(",")
+            .map((c) => c.trim().toLowerCase())
+            .filter(Boolean);
+        }
       }
+      // else: JSON parsed but "User Safety" key absent — fail closed (safe stays false).
     } catch {
-      safe = !/unsafe/i.test(raw);
+      // Non-JSON response — treat as UNSAFE (fail closed).
+      // SECURITY: Do NOT use !/unsafe/i.test(raw) here — that pattern can be defeated
+      // by responses like "this is not unsafe content" and classifies harm as safe.
+      safe = false;
+      categories = ["parse_error"];
     }
 
     return { safe, categories };

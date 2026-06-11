@@ -94,6 +94,12 @@ class AlgoliaSyncService {
         }
         
         dlog("🔄 Syncing user \(userId) to Algolia...")
+
+        if Self.shouldExcludeFromPeopleIndex(userData) {
+            try await deleteUser(userId: userId)
+            dlog("✅ Minor user \(userId) removed from Algolia people index")
+            return
+        }
         
         // Prepare user data for Algolia
         let algoliaRecord = AlgoliaUserRecord(
@@ -246,6 +252,10 @@ class AlgoliaSyncService {
             var records: [AlgoliaUserRecord] = []
             for document in snapshot.documents {
                 let data = document.data()
+                guard !Self.shouldExcludeFromPeopleIndex(data) else {
+                    continue
+                }
+
                 let record = AlgoliaUserRecord(
                     objectID: document.documentID,
                     displayName: data["displayName"] as? String ?? "",
@@ -260,6 +270,12 @@ class AlgoliaSyncService {
                     _tags: ["user"]
                 )
                 records.append(record)
+            }
+
+            guard !records.isEmpty else {
+                dlog("✅ Skipped batch with no adult users eligible for Algolia")
+                if snapshot.documents.count < batchSize { break }
+                continue
             }
 
             let responses = try await client.saveObjects(
@@ -332,6 +348,13 @@ class AlgoliaSyncService {
         }
     }
     
+    static func shouldExcludeFromPeopleIndex(_ data: [String: Any]) -> Bool {
+        if let minorScoped = data["minorScoped"] as? Bool, minorScoped { return true }
+        if let isMinor = data["isMinor"] as? Bool, isMinor { return true }
+        guard let ageTier = data["ageTier"] as? String else { return true }
+        return AgeCategory.resolving(ageTier).isMinor
+    }
+
     /// Sync all data (users + posts) to Algolia
     /// Use this for initial setup to populate Algolia with existing Firestore data
     func syncAllData() async throws {

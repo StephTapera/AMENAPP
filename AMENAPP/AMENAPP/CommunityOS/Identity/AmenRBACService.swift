@@ -243,12 +243,11 @@ class AmenRBACService: ObservableObject {
         return .deny("No RBAC rule found for \(role.rawValue)/\(resource.rawValue)/\(action.rawValue). Defaulting to deny.")
     }
 
-    /// Checks if a user's Firestore profile marks them as a minor (ageTier == 'teen' or 'under_minimum').
+    /// Checks if a user's Firestore profile marks them as a minor. Unknown tiers fail closed.
     func isMinor(userId: String) async throws -> Bool {
         let doc = try await db.collection("users").document(userId).getDocument()
-        guard let data = doc.data() else { return false }
-        let ageTier = data["ageTier"] as? String ?? ""
-        return ageTier == "teen" || ageTier == "under_minimum"
+        let ageTier = doc.data()?["ageTier"] as? String
+        return AgeCategory.resolving(ageTier).isMinor
     }
 
     /// Resolves the canonical AmenRole for a user within a given context (church/space/org/team).
@@ -286,19 +285,47 @@ class AmenRBACService: ObservableObject {
     // MARK: - DM Guard
 
     /// Returns true if an actor with the given role may send a direct message,
-    /// applying C-MINOR-DM rules.
-    /// Note: full C-MINOR-DM also requires mutual follow verification at the CF layer.
+    /// applying C-MINOR-DM rules at the iOS layer.
+    ///
+    /// Enforcement layers:
+    ///   iOS (this function): role-based pre-screen — visitors always denied;
+    ///     minors denied at the iOS layer (matrix entry `minor/privateMessage/sendDM`
+    ///     is false, and the guard in check() now correctly reflects that).
+    ///   CF (authoritative): mutual-follow check + guardian-consent check via
+    ///     AmenChildSafetyService.canDM() before any message is written to Firestore.
+    ///
+    /// FIX (#26 HIGH): the previous implementation returned `true` for `.minor`,
+    /// making the guard at check() dead code for that case. The matrix already denies
+    /// `minor/privateMessage/sendDM`, so returning `false` here aligns the guard with
+    /// the matrix and makes the dead-code path reachable as intended.
+    ///
+    /// For non-minor→minor DMs: blocked at the iOS layer unless the actor is a
+    /// verified church leader (pastor / owner / executiveAdmin). Full consent
+    /// verification is authoritative at the CF layer regardless.
     func allowDM(actorRole: AmenRole, targetIsMinor: Bool) -> Bool {
-        // Visitors never DM
+        // Visitors never DM (C5-V-05).
         if actorRole == .visitor { return false }
 
-        // Minor DM: only allowed if both parties are mutual follows (enforced server-side).
-        // At the iOS layer we permit the action; the CF checkContentSafety gate enforces mutuality.
-        if actorRole == .minor { return true } // CF will enforce C-MINOR-DM
+        // Minors cannot initiate DMs at the iOS layer.
+        // The matrix entry `minor/privateMessage/sendDM` is false; this guard now
+        // correctly returns false so the check() guard at lines 202-205 fires as intended.
+        // CF enforces the full C-MINOR-DM mutual-follow check for any minor-party DM.
+        if actorRole == .minor { return false }
 
-        // Non-minor cannot DM a minor unless they are a church leader with verified parental consent.
-        // Church-leader + minor DM is flagged to CF for parental-consent verification.
-        // At this layer: allow the send; CF enforces the consent check.
+        // Non-minor DMing a minor: only verified church leaders are permitted at the iOS layer.
+        // All other roles (member, moderator, etc.) are blocked client-side; CF re-verifies.
+        if targetIsMinor {
+            switch actorRole {
+            case .owner, .executiveAdmin, .pastor:
+                // Church-leader + minor DM proceeds to CF for parental-consent verification.
+                return true
+            default:
+                // All other adults blocked at iOS layer for additional defense-in-depth.
+                return false
+            }
+        }
+
+        // Both parties are adults — permitted by default; CF enforces other constraints.
         return true
     }
 

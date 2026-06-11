@@ -7,13 +7,15 @@
 //
 
 import SwiftUI
-import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 struct AgeVerificationOnboardingView: View {
     @Binding var currentStep: Int
     @State private var birthDate = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
     @State private var showUnderAgeMessage = false
+    @State private var isSubmitting = false
+    @State private var submissionError: String?
 
     private var age: Int {
         Calendar.current.dateComponents([.year], from: birthDate, to: Date()).year ?? 0
@@ -73,11 +75,20 @@ struct AgeVerificationOnboardingView: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
+                if let submissionError {
+                    Text(submissionError)
+                        .foregroundColor(.red.opacity(0.8))
+                        .font(.callout)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
                 Spacer()
 
                 // Glassmorphic black pill button
                 Button(action: handleContinue) {
-                    Text("Continue")
+                    Text(isSubmitting ? "Checking..." : "Continue")
                         .font(.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -90,6 +101,8 @@ struct AgeVerificationOnboardingView: View {
                         )
                         .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                 }
+                .disabled(isSubmitting)
+                .opacity(isSubmitting ? 0.7 : 1)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
             }
@@ -98,8 +111,11 @@ struct AgeVerificationOnboardingView: View {
     }
 
     private func handleContinue() {
+        guard !isSubmitting else { return }
+
         withAnimation(.easeInOut(duration: 0.25)) {
             showUnderAgeMessage = false
+            submissionError = nil
         }
 
         if age < 13 {
@@ -109,26 +125,41 @@ struct AgeVerificationOnboardingView: View {
             return
         }
 
-        // Write safe default tier using canonical tier strings (tierB/tierC/tierD).
-        // The Cloud Function onUserDocCreated will overwrite this with the server-authoritative
-        // value. Writing a safe default here closes the race window between doc creation
-        // and the async Function execution.
-        let ageTier: String
-        if age < 16 { ageTier = "tierB" }
-        else if age < 18 { ageTier = "tierC" }
-        else { ageTier = "tierD" }
-
-        if let uid = Auth.auth().currentUser?.uid {
-            Firestore.firestore()
-                .collection("users")
-                .document(uid)
-                .setData(["ageTier": ageTier], merge: true)
-        }
-
-        withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
-            currentStep += 1
+        isSubmitting = true
+        Task {
+            do {
+                try await submitBirthYearToServer()
+                await MainActor.run {
+                    isSubmitting = false
+                    withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.8))) {
+                        currentStep += 1
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        submissionError = "We couldn't verify your age yet. Please try again."
+                    }
+                }
+            }
         }
     }
+
+    private func submitBirthYearToServer() async throws {
+        guard Auth.auth().currentUser?.uid != nil else {
+            throw AgeVerificationError.notAuthenticated
+        }
+
+        let birthYear = Calendar.current.component(.year, from: birthDate)
+        _ = try await Functions.functions(region: "us-central1")
+            .httpsCallable("updateBirthYear")
+            .call(["birthYear": birthYear])
+    }
+}
+
+private enum AgeVerificationError: Error {
+    case notAuthenticated
 }
 
 #Preview {
