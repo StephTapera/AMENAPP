@@ -138,7 +138,7 @@ This harness class cannot run SwiftPM manifest evaluation or complete an Xcode p
 | **claude — Pulse action routing** | `AMENAPP/AMENAPP/AMENAPP/Pulse/**` (own files), `Backend/functions/src/pulse.ts`, `Backend/functions/src/pulseEngine.ts`, `AMENAPP/DeepLinkRouter.swift` (APPEND-ONLY: +2 additive routes `space`/`event`, existing routes untouched) | 2026-06-10 | active — pulse.ts deeplink synthesis + 2 additive DeepLinkRouter routes, append-only. Other Pulse lane = interface (non-overlapping). |
 | **claude — onboarding-auth safety remediation** | `functions/phoneAuthRateLimit.js`, `functions/authenticationHelpers.js`, `AuthenticationViewModel.swift`, `AppLifecycleManager.swift`, `AccountDeletionService.swift`, `AMENEncryptionService.swift`, `ContentView.swift` (age-gate route), `DateOfBirthCollectionView.swift`, `AmenPhoneAuthView.swift`, `PhoneVerificationView.swift`, `Backend/functions/src/mediaGeneration/**`, `Backend/functions/src/covenant/**` (types only), `contracts/onboarding/**`, `AUDIT.md`, `RULES_INDEX_AUDIT*.md`, `VERIFICATION_SUITE.md`, `Backend/verification/*`, new `AMENAPPTests/{ChurchNotesDraftLifecycle,PresenceAndCommentEnforcement}Tests.swift` | 2026-06-09 | active |
 | **Codex — P0-6 age-assurance no synthetic adult** | `AMENAPP/**/AgeAssuranceService.swift` and focused tests only | 2026-06-10 | active — stop missing-age users from becoming in-memory adults |
-| **Codex — Safety P0 Wave 3** | `GAP_BOARD.md`, `firestore.rules`, `storage.rules`, `firebase.json`, age-tier vocab, Algolia minor sync, child-safety CSAM/NCMEC paths, focused tests, deploy package docs | 2026-06-10 | active — production freeze; prepare reviewed deploy package only |
+| **Codex — Safety P0 Wave 3** | `GAP_BOARD.md`, `firestore.rules`, `storage.rules`, `firebase.json`, age-tier vocab, Algolia minor sync, child-safety CSAM/NCMEC paths, focused tests, deploy package docs | 2026-06-10 | released — package prepared; no deploy; full Swift test blocked by unrelated `ContextAwareCommentComposer.swift` errors |
 | **Codex — Smart Composer surfaces** | `AMENAPP/CreatePostView.swift`, `AMENAPP/PostComposerSmartDetectionService.swift`, `AMENAPP/SmartPostContextTray.swift`, compile-fix files only | 2026-06-10 | **BLOCKED-AUTH-RUNTIME-CERT** — implementation committed `7bec341f`; BuildProject green and RunProject launched 2026-06-11; screenshots blocked at auth because the erased shared sim has no real Firebase test user and DEBUG skip correctly refuses synthetic auth; cert updated at `audit/runtime-evidence/smart-composer/SMART_COMPOSER_WIRING_CERT_2026_06_10.md` |
 
 > ~17 agent worktrees under `.claude/worktrees/`. Main tree = shared surface.
@@ -380,3 +380,30 @@ is ever set to `true`. Flipping a flag before its server gate ships is a securit
 | *(any flag whose CF uses the relay route)* | `firestore.rules` — `one_reach/**` client no-write; `one_evidence/**` client no-read | CONTRACTS.md §14 rules draft | **PENDING** |
 
 > To add a flag precondition: append a row above with the flag name, what must ship first, the file/command, and status.
+
+## Music Content Layer Lane (2026-06-11)
+
+| Item | Detail |
+|---|---|
+| Owner | this conversation |
+| Branch | safety-hardening |
+| Paths | AMENAPP/MusicContentLayer/ (all 14 .swift files) |
+| Status | BUILD GREEN — 0 errors; feature-gated OFF (ff_music_content_layer) |
+| Contracts | MusicContentContracts.swift FROZEN v1.1 — binds: ContentAttachment, MusicResource, SermonResource, PostIntentType (with displayName/sfSymbol), RightsPolicy, VisibilityPolicy, FaithGraphNodeType, ListeningRoomState, AmenPulseDigestItemType |
+| Other lanes MUST NOT redefine | ContentAttachment, MusicResource, SermonResource, RightsPolicy, VisibilityPolicy, MusicContentModerationStatus, FaithGraphNodeType, ListeningRoomState, AmenPulseDigestItemType — import from MusicContentLayer/MusicContentContracts.swift instead |
+| Honestly-deferred | FaithGraph persistence (Stage-3), ListeningRoom LiveKit (Stage-3), Pulse integration (Stage-3), church note save/share/comment (Stage-2) |
+| AMENFeatureFlags.swift pending | Add System 40 block + RC sync line (see WIRING_CERT.md) — HUMAN STEP, not auto-applied (hotspot file) |
+
+## LAUNCH READINESS SWARM (2026-06-11)
+
+| Item | Detail |
+|---|---|
+| Owner | this conversation |
+| Branch | safety-hardening |
+| Mission | Close every machine-closable gap to App Store submission |
+| Status | ACTIVE — 5 parallel agents dispatched |
+| Agents | A1: Deploy Guard, A2: Runtime Proof, A3: Decision Counsel, A4: Launch Config, A5: Submission Mechanic |
+| Output files | RULES_RECONCILIATION_VERDICT.md, WALKTHROUGH_SCRIPT.md, DECISION_BRIEFS/, LAUNCH_CONFIG_VNEXT.md, APP_PRIVACY_LABELS.md, AGE_RATING_WORKSHEET.md, REVIEW_READINESS.md, RELEASE_NOTES.md, ARCHIVE_AND_TESTFLIGHT.md |
+| Hotspot files | RUN_ME.sh (A1 edits in-place), STATUS_BOARD.md (all agents append Section 2) |
+| Constraints | PRODUCTION FREEZE: no deploys, no flag flips, no submissions |
+| Simulator | UUID 313273F4-133A-42A8-9D12-8784FC893230 (AMEN-Verify / iPhone 17 Pro / 27.0) |

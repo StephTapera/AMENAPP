@@ -156,16 +156,16 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var churchNoteCareSummaryEnabled: Bool = true
     @Published private(set) var churchNotesServerSummaryEnabled: Bool = true
     // Church Notes Media Intelligence — keep unapproved processing surfaces OFF unless explicitly flipped.
-    @Published private(set) var churchNotesAudioCaptureEnabled: Bool = true
-    @Published private(set) var churchNotesPhotoOCREnabled: Bool = true
-    @Published private(set) var churchNotesVideoCaptureEnabled: Bool = true
+    @Published private(set) var churchNotesAudioCaptureEnabled: Bool = false
+    @Published private(set) var churchNotesPhotoOCREnabled: Bool = false
+    @Published private(set) var churchNotesVideoCaptureEnabled: Bool = false
     @Published private(set) var churchNotesAIDraftReviewEnabled: Bool = true
     @Published private(set) var churchNotesStudyGuideEnabled: Bool = true
     @Published private(set) var churchNotesPrayerPromptsEnabled: Bool = true
     @Published private(set) var churchNotesIntelligenceEnabled: Bool = true
-    @Published private(set) var sermonAudioCaptureEnabled: Bool = true
-    @Published private(set) var sermonVideoCaptureEnabled: Bool = true
-    @Published private(set) var churchPhotoOCRCaptureEnabled: Bool = true
+    @Published private(set) var sermonAudioCaptureEnabled: Bool = false
+    @Published private(set) var sermonVideoCaptureEnabled: Bool = false
+    @Published private(set) var churchPhotoOCRCaptureEnabled: Bool = false
     @Published private(set) var churchNotesTranslationEnabled: Bool = true
     @Published private(set) var churchNotesCollaborationEnabled: Bool = true
     @Published private(set) var sermonSummaryGenerationEnabled: Bool = true
@@ -820,6 +820,8 @@ final class AMENFeatureFlags: ObservableObject {
             // Moderation
             "moderation_v2_enabled": true as NSObject,
             "image_moderation_enabled": true as NSObject,
+            "imageModerationEnabled": true as NSObject,
+            "textModerationEnabled": true as NSObject,
             "dm_enhanced_scanning_enabled": true as NSObject,
             "moderation_appeals_enabled": true as NSObject,
             "trust_scoring_enabled": true as NSObject,
@@ -866,11 +868,21 @@ final class AMENFeatureFlags: ObservableObject {
             "knowledge_graph_enabled": true as NSObject,
             "knowledge_graph_related_content_enabled": true as NSObject,
             "knowledge_graph_semantic_search_enabled": true as NSObject,
+            "ragSearchEnabled": true as NSObject,
 
             // Action Threads
             "action_threads_enabled": true as NSObject,
             "action_suggestions_enabled": true as NSObject,
             "care_followups_enabled": true as NSObject,
+            "smartMessageContextEnabled": true as NSObject,
+            "conversationMemoryEnabled": true as NSObject,
+            "privateContactNotesEnabled": true as NSObject,
+            "smartReminderDetectionEnabled": true as NSObject,
+            "smartMusicDetectionEnabled": true as NSObject,
+            "smartLinkDetectionEnabled": true as NSObject,
+            "smartAttachmentMenuEnabled": true as NSObject,
+            "liquidGlassMessagingEnabled": true as NSObject,
+            "smartPostContextEnabled": true as NSObject,
 
             // Compound Identity Graph
             "compound_identity_graph_enabled": true as NSObject,
@@ -951,16 +963,16 @@ final class AMENFeatureFlags: ObservableObject {
             "support_draft_detection_enabled": true as NSObject,
             "church_note_care_summary_enabled": true as NSObject,
             "church_notes_server_summary_enabled": true as NSObject,
-            "church_notes_audio_capture_enabled": true as NSObject,
-            "church_notes_photo_ocr_enabled": true as NSObject,
-            "church_notes_video_capture_enabled": true as NSObject,
+            "church_notes_audio_capture_enabled": false as NSObject,
+            "church_notes_photo_ocr_enabled": false as NSObject,
+            "church_notes_video_capture_enabled": false as NSObject,
             "church_notes_ai_draft_review_enabled": true as NSObject,
             "church_notes_study_guide_enabled": true as NSObject,
             "church_notes_prayer_prompts_enabled": true as NSObject,
             "church_notes_intelligence_enabled": true as NSObject,
-            "sermon_audio_capture_enabled": true as NSObject,
-            "sermon_video_capture_enabled": true as NSObject,
-            "church_photo_ocr_capture_enabled": true as NSObject,
+            "sermon_audio_capture_enabled": false as NSObject,
+            "sermon_video_capture_enabled": false as NSObject,
+            "church_photo_ocr_capture_enabled": false as NSObject,
             "church_notes_translation_enabled": true as NSObject,
             "church_notes_collaboration_enabled": true as NSObject,
             "sermon_summary_generation_enabled": true as NSObject,
@@ -1542,16 +1554,19 @@ final class AMENFeatureFlags: ObservableObject {
         supportDraftDetectionEnabled = config["support_draft_detection_enabled"].boolValue
         churchNoteCareSummaryEnabled = config["church_note_care_summary_enabled"].boolValue
         churchNotesServerSummaryEnabled = config["church_notes_server_summary_enabled"].boolValue
-        churchNotesAudioCaptureEnabled = config["church_notes_audio_capture_enabled"].boolValue
-        churchNotesPhotoOCREnabled = config["church_notes_photo_ocr_enabled"].boolValue
-        churchNotesVideoCaptureEnabled = config["church_notes_video_capture_enabled"].boolValue
+        let churchNotesAudioCaptureRemote = config["church_notes_audio_capture_enabled"].boolValue
+        let churchNotesPhotoOCRRemote = config["church_notes_photo_ocr_enabled"].boolValue
+        let churchNotesVideoCaptureRemote = config["church_notes_video_capture_enabled"].boolValue
+        churchNotesAudioCaptureEnabled = churchNotesAudioCaptureRemote
+        churchNotesPhotoOCREnabled = churchNotesPhotoOCRRemote
+        churchNotesVideoCaptureEnabled = churchNotesVideoCaptureRemote
         churchNotesAIDraftReviewEnabled = config["church_notes_ai_draft_review_enabled"].boolValue
         churchNotesStudyGuideEnabled = config["church_notes_study_guide_enabled"].boolValue
         churchNotesPrayerPromptsEnabled = config["church_notes_prayer_prompts_enabled"].boolValue
         churchNotesIntelligenceEnabled = config["church_notes_intelligence_enabled"].boolValue
-        sermonAudioCaptureEnabled = config["sermon_audio_capture_enabled"].boolValue
-        sermonVideoCaptureEnabled = config["sermon_video_capture_enabled"].boolValue
-        churchPhotoOCRCaptureEnabled = config["church_photo_ocr_capture_enabled"].boolValue
+        sermonAudioCaptureEnabled = churchNotesAudioCaptureRemote && config["sermon_audio_capture_enabled"].boolValue
+        sermonVideoCaptureEnabled = churchNotesVideoCaptureRemote && config["sermon_video_capture_enabled"].boolValue
+        churchPhotoOCRCaptureEnabled = churchNotesPhotoOCRRemote && config["church_photo_ocr_capture_enabled"].boolValue
         churchNotesTranslationEnabled = config["church_notes_translation_enabled"].boolValue
         churchNotesCollaborationEnabled = config["church_notes_collaboration_enabled"].boolValue
         sermonSummaryGenerationEnabled = config["sermon_summary_generation_enabled"].boolValue
@@ -1566,9 +1581,6 @@ final class AMENFeatureFlags: ObservableObject {
         churchNotesSmartObjectsEnabled = config["church_notes_smart_objects_enabled"].boolValue
         churchNotesProcessingKillSwitch = config["church_notes_processing_kill_switch"].boolValue
 
-        churchNotesAudioCaptureEnabled = churchNotesAudioCaptureEnabled || sermonAudioCaptureEnabled
-        churchNotesVideoCaptureEnabled = churchNotesVideoCaptureEnabled || sermonVideoCaptureEnabled
-        churchNotesPhotoOCREnabled = churchNotesPhotoOCREnabled || churchPhotoOCRCaptureEnabled
         churchNotesStudyGuideEnabled = churchNotesStudyGuideEnabled || churchNotesStudyGuideGenerationEnabled
         trustedContactsEnabled = config["trusted_contacts_enabled"].boolValue
         helpingSomeoneElseEnabled = config["helping_someone_else_enabled"].boolValue
