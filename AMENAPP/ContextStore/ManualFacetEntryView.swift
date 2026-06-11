@@ -208,13 +208,22 @@ struct ManualFacetEntryView: View {
         let facets = buildFacets()
         guard !facets.isEmpty else { return }
 
-        // TODO(store): when ContextStoreService lands, persist these facets through
-        // it (approval-before-write, tier enforcement, Firestore). Until then the
-        // values are held in @State only. Example shape:
-        //   try await ContextStoreService.shared.upsert(facets)
-        _ = facets
-
-        withAnimation(Motion.adaptive(Motion.popToggle)) { didSave = true }
+        // Persist through ContextStoreService: approval-before-write, tier
+        // enforcement, and Aegis C59 receipt verification all happen in saveFacet.
+        Task {
+            for facet in facets {
+                do {
+                    try await ContextStoreService.shared.saveFacet(facet)
+                } catch {
+                    // A single facet failing a guard must not silently drop the rest;
+                    // surface it but keep going (per-facet independence).
+                    print("[ManualFacetEntry] saveFacet failed for \(facet.key): \(error)")
+                }
+            }
+            await MainActor.run {
+                withAnimation(Motion.adaptive(Motion.popToggle)) { didSave = true }
+            }
+        }
     }
 
     /// Builds canonical ContextFacet values. Tier is always derived from the table.
@@ -353,7 +362,7 @@ struct FacetChipFlow: View {
     @Binding var selection: Set<String>
 
     var body: some View {
-        FlowLayout(spacing: 8, lineSpacing: 8) {
+        FacetFlowLayout(spacing: 8, lineSpacing: 8) {
             ForEach(options, id: \.self) { option in
                 let isOn = selection.contains(option)
                 Button {
@@ -391,7 +400,7 @@ struct FacetSingleSelect: View {
     @Binding var selection: String?
 
     var body: some View {
-        FlowLayout(spacing: 8, lineSpacing: 8) {
+        FacetFlowLayout(spacing: 8, lineSpacing: 8) {
             ForEach(options, id: \.self) { option in
                 let isOn = selection == option
                 Button {
@@ -424,7 +433,7 @@ struct FacetSingleSelect: View {
 
 // MARK: - Lightweight flow layout (wraps chips, no external deps)
 
-struct FlowLayout: Layout {
+struct FacetFlowLayout: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 8
 

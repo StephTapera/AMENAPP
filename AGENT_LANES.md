@@ -1,5 +1,19 @@
 # AMEN Agent Lanes
 
+> ## 🛰️ ACTIVE SWARMS (2026-06-10, load-bearing — check FIRST, before any other action)
+> Every orchestrator's FIRST act is to read this list. **If your mission already appears here,
+> REFUSE to start and surface the conflict to the human.** Tonight produced two destructive
+> duplicate-mission collisions (a frozen-contract file truncated to 2 lines, a CI collision);
+> this registry exists to make that impossible. Register your mission here before dispatching agents.
+>
+> | Mission | Owner | Lane branch | Status |
+> |---|---|---|---|
+> | Universal Migration & Context System | this conversation (sole canonical builder) | `lane/context-system` | ACTIVE — Waves 0–2 done, 3–5 in worktree |
+> | ~~Context System (duplicate)~~ | terminated by human 2026-06-10 | — | TERMINATED (footprint quarantined; see ContextStore/RUNLOG.md) |
+> | Amen Pulse | (prior session) | — | see memory `project_amen_pulse_2026_06_10` |
+> | Gap Audit | (prior session) | — | — |
+> | Resolve Missing Package Products | Codex current session | — | ACTIVE (see below) |
+>
 > 🚫 **GLOBAL RULE (2026-06-09, effective now): NO AGENT DELETES FILES OUTSIDE ITS OWN LANE.** Any deletion — even own-lane — is declared in this manifest with a one-line reason BEFORE staging. Undeclared deletions get restored on sight by the owning lane.
 >
 > ## 🔒 GIT DISCIPLINE (2026-06-09, binding on ALL lanes — Claude + Codex)
@@ -95,6 +109,7 @@ App Check note: a **stable DEBUG App Check token** is now generated + printed ev
 ## Active Lanes
 | Agent / task | Owned paths | Started | Status |
 |---|---|---|---|
+| **Codex — Full-App Gap Audit Swarm** | `GAP_BOARD.md`, `audit/full-app-gap-audit/**` (read-only evidence elsewhere) | 2026-06-10 | active — 8-auditor read-only swarm, report-only writes |
 | **Codex — Resolve Missing Package Products** | `AMENAPP.xcodeproj/project.pbxproj`, `SourcePackages`, `DerivedData`, `PackageCache` | 2026-06-09 | active |
 | Onboarding / MERGE | `AMENAuthLandingView.swift`, `MinimalAuthenticationView.swift`, `Onboarding*.swift`, GlassButton primitives | 2026-06-09 | active |
 | Church notes.1 / Church Note.0 | `**/ChurchNotes/**`, `Backend/functions/src/churchNotes/**`, `ChurchNotesLocalDraftService.swift` | 2026-06-09 | active |
@@ -221,3 +236,54 @@ SESSION.** After the window, the catch-up lane inventories + commits ownerless r
 - **CommunityOS / Content-engine:** `AMENAPP/AMENAPP/CommunityOS/**`, `SpiritualOS/**`, ObjectHub.
 - **Build-info:** `AMENAPP/AMENBuildInfo.swift` (staged).
 - **Onboarding/auth:** auth landing / onboarding / phone-auth hunks (see Handoffs).
+
+## Pulse action routing — item-level push HANDOFFS (2026-06-10, claude/Pulse · committed 5227689d + 8dcc9264)
+
+Amen Pulse card verbs now carry `amen://` deeplinks and route through `DeepLinkRouter` (commits above).
+`DeepLinkRouter` gained **2 additive routes** (`.space(spaceId:)`, `.event(eventId:)`) that set the right
+tab + `activeRoute`. **Tab-level nav works today.** Item-level push (open *this* space / *this* event) needs
+each surface to CONSUME `activeRoute` — handed off below. Pattern is identical to existing routes (e.g. how
+HomeView consumes `.post`). Interim destinations are marked in `DeepLinkRouter.navigate()` comments.
+
+- **→ Spaces lane (owns `AmenConnectSpacesHubView.swift`, tab 6):** add an `activeRoute` consumer so
+  `amen://space/{id}` opens the specific space. Minimal diff:
+  ```swift
+  @ObservedObject private var deepLinkRouter = DeepLinkRouter.shared
+  // …in body:
+  .onChange(of: deepLinkRouter.activeRoute) { route in
+      if case .space(let spaceId)? = route {
+          openSpace(spaceId)          // push/select the space in the hub
+          deepLinkRouter.clearRoute()
+      }
+  }
+  ```
+  Without this, `amen://space/{id}` lands on the Spaces tab but not the specific space.
+
+- **→ Church-surface lane (owns the Resources/church event surface, tab 3):** add an `activeRoute` consumer
+  for `amen://event/{id}`. `DeepLinkRouter.navigate(.event)` is marked **INTERIM** (lands on tab 3) until a
+  dedicated church-event detail surface exists — that decision is yours. Minimal diff:
+  ```swift
+  .onChange(of: deepLinkRouter.activeRoute) { route in
+      if case .event(let eventId)? = route {
+          presentChurchEvent(eventId)   // or scope the church surface to the event
+          deepLinkRouter.clearRoute()
+      }
+  }
+  ```
+
+## FULL-APP GAP AUDIT SWARM (2026-06-10, claude — READ-ONLY)
+
+- Owner: claude (audit orchestrator), 2026-06-10.
+- Scope: 8 read-only auditors (Stubs/Wiring/Backend/Rules/Flags/Tests/Privacy/UX). NO file edits, NO
+  fixes, NO commits beyond the single permitted write: `GAP_BOARD.md` (+ per-auditor appendices under
+  `audit/gap-board/`). Fix waves get dispatched FROM the board by owners after human review.
+- Does not touch source, pbxproj, rules, or any lane's working files. Safe to run alongside all lanes.
+
+## BUILD-BLOCKER FLAG (2026-06-10, claude/Pulse — NOT my lane, surfaced by a full build)
+
+`AMENAPP/ContextStore/ContextStoreAdversarialTests.swift:31` → `Compilation search paths unable to
+resolve module dependency: 'XCTest'`. Root cause: an **XCTest test file living inside the app's
+`PBXFileSystemSynchronizedRootGroup`** (`AMENAPP/ContextStore/`), so it gets **app-target** membership where
+XCTest isn't linked. After the FirebaseAI unlink landed (FirebaseAI error gone ✅), this is now the FIRST
+build error. Owner (ContextStore/Migration lane): either move the file under `AMENAPPTests/`, exclude it from
+the app target, or guard with `#if canImport(XCTest)`. Flagged, not edited (out of lane).

@@ -106,23 +106,30 @@ content. If a turn yielded nothing durable, emit no candidates for it.
 
 // MARK: - 2. Output Contract
 
-/// A single structured candidate produced by the Migration Interview (and, per
-/// CONTRACTS.md §extractContextFacets, by the universal extractor).
+/// CANONICAL structured-output candidate produced by the Migration Interview (and,
+/// per CONTRACTS.md §extractContextFacets, by the universal extractor). This is the
+/// single source of truth the contract's "the model emits FacetCandidate[]"
+/// requirement refers to; it is exactly what the structured-output call returns,
+/// and exactly what `facetCandidateJSONSchema` enforces — no more, no less.
 ///
-/// This is deliberately `ContextFacet` *minus* the fields the client owns —
-/// `id`, `userId`, `tier`, `createdAt`, `updatedAt`, `schemaVersion`, and the
-/// full `provenance` block — *plus* a model-emitted `confidence`. The client
-/// (BereanMigrationService → FacetApprovalView) is the only thing that mints a
-/// real `ContextFacet`: it stamps the tier from `ContextTierTable`, attaches a
-/// `Provenance` with the Aegis C59 `sanitizationPassId`, and requires explicit
-/// user approval before any Firestore write. The model never sets tiers and
-/// never decides what is server-readable.
+/// Shape = `ContextFacet` *minus* the fields the CLIENT owns (`id`, `userId`,
+/// `tier`, `createdAt`, `updatedAt`, `schemaVersion`, and the full `provenance`
+/// block) *plus* a model-emitted `confidence` and a UI `suggestedVisibility`.
+///
+/// This type is the pure model output. Client-side bookkeeping the model never
+/// produces — the stable UI id and the Aegis C59 `sanitizationPassId` — lives on
+/// `PendingFacetCandidate` in BereanMigrationService, which WRAPS this type. The
+/// client (BereanMigrationService → FacetApprovalView) is the only thing that
+/// mints a real `ContextFacet`: it derives the tier from `ContextTierTable`,
+/// attaches a `Provenance` carrying the C59 receipt, and requires explicit user
+/// approval before any Firestore write. The model never sets tiers, never
+/// attaches provenance, and never decides what is server-readable.
 ///
 /// All free-text fields are length-capped by `facetCandidateJSONSchema` so a
 /// hostile transcript cannot smuggle a wall of content through a "label".
 struct FacetCandidate: Codable, Equatable {
     /// One of the canonical `FacetCategory` cases. Drives the tier the client
-    /// will later assign; the model does not assign tiers.
+    /// will later derive; the model does not assign tiers.
     let category: FacetCategory
     /// Machine key, e.g. "interest.ai", "goal.launch_app". Snake/dot-cased, capped.
     let key: String

@@ -1,5 +1,6 @@
 // ContextStoreModels.swift
 // AMEN Universal Migration & Context System — CANONICAL CONTRACT (Wave 0, FROZEN)
+// FINALIZED TIER TABLE & SCHEMAS (Wave 0). See CONTRACTS.md for architecture.
 //
 // There is exactly ONE profile primitive: the ContextStore (facets + snapshots).
 // IdentityBlueprint, PersonalOperatingManual, LifeCapsule, ContextQR, and the .amen
