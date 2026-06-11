@@ -27,6 +27,7 @@
 import Foundation
 import FirebaseAuth
 import FirebaseFunctions
+// Depends on ContextSanitizer (Wave 3, aegis-engineer) — same ContextStore/ synchronized group.
 
 // MARK: - Import source description
 

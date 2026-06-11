@@ -4,4 +4,18 @@
    <FileRef
       location = "self:">
    </FileRef>
+   <Group
+      location = "group:Contracts"
+      name = "Contracts">
+      <Group
+         location = "group:SpiritualOS"
+         name = "SpiritualOS">
+         <FileRef
+            location = "group:DesignTokens.contract.md">
+         </FileRef>
+      </Group>
+   </Group>
+   <FileRef
+      location = "group:PLATFORM_OS_AUDIT.md">
+   </FileRef>
 </Workspace>

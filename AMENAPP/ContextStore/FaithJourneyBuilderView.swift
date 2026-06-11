@@ -243,16 +243,12 @@ struct FaithJourneyBuilderView: View {
                     HStack {
                         Text(goal).font(.subheadline)
                         Spacer()
-                        Button {
-                            // TODO(commitment): bridge a spiritual goal into a Commitment Object (Wave 4).
-                            // Intentionally a stub — do not build the Commitment Object here.
-                            commitGoalStub(goal)
-                        } label: {
-                            Label("Want to make this a commitment?", systemImage: "plus.circle")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.tint)
-                        }
-                        .buttonStyle(.plain)
+                        // Wave 4: bridge a spiritual goal into a real Commitment Object.
+                        // Reuses the Action Intelligence creation path via CommitmentBridge.
+                        ContextMakeCommitmentButton(
+                            facet: faithGoalFacet(for: goal),
+                            goalText: goal
+                        )
                         Button {
                             spiritualGoals.removeAll { $0 == goal }
                         } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
@@ -278,9 +274,25 @@ struct FaithJourneyBuilderView: View {
         }
     }
 
-    /// TODO(commitment): Wave 4 will bridge this into a real Commitment Object. No-op stub for now.
-    private func commitGoalStub(_ goal: String) {
-        // Intentionally left as a marked stub.
+    /// Builds the Tier-C faith goal facet that backs a single spiritual goal so the
+    /// CommitmentBridge can convert it into a real Commitment Object with a backlink.
+    /// Tier is derived from ContextTierTable for the general faith key (NOT the Tier-P
+    /// support key), so this is always server-readable — a goal, never sensitive support.
+    private func faithGoalFacet(for goal: String) -> ContextFacet {
+        let uid = Auth.auth().currentUser?.uid ?? "local-device"
+        let key = "faith.journey.spiritual_goal"
+        let value = FaithJourneyValue(
+            currentChurchId: nil, currentChurchName: nil, currentStudy: nil,
+            favoriteBooks: [], spiritualGoals: [goal], prayerHabits: [],
+            areasOfGrowth: [], areasNeedingSupport: []
+        )
+        return makeFacet(
+            uid: uid,
+            key: key,
+            label: "Spiritual goal",
+            value: .faithJourney(value),
+            tier: ContextTierTable.tier(for: .faith_journey, key: key)
+        )
     }
 
     // MARK: Prayer habits

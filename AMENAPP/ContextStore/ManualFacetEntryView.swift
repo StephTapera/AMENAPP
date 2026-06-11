@@ -93,6 +93,11 @@ struct ManualFacetEntryView: View {
                     text: $goalsText,
                     category: .goals
                 )
+                // Wave 4: turn the entered goal into a real Commitment Object (flag-gated,
+                // Tier-C only). Reuses the Action Intelligence creation path via CommitmentBridge.
+                if let goalFacet = pendingGoalsFacet {
+                    ContextMakeCommitmentButton(facet: goalFacet)
+                }
                 freeTextSection(
                     title: "Current focus",
                     placeholder: "What's on your mind these days?",
@@ -196,6 +201,30 @@ struct ManualFacetEntryView: View {
     }
 
     // MARK: Save
+
+    /// The Tier-C `.goals` facet implied by the current goals text, or nil if empty.
+    /// Used to offer the "make a commitment" affordance before the full Passport save.
+    private var pendingGoalsFacet: ContextFacet? {
+        let goals = goalsText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !goals.isEmpty else { return nil }
+        let uid = Auth.auth().currentUser?.uid ?? ""
+        let now = Date()
+        let key = "goals.manual"
+        return ContextFacet(
+            id: UUID(),
+            userId: uid,
+            category: .goals,
+            key: key,
+            label: "Goals",
+            value: .text(goals),
+            visibility: visibility[.goals] ?? .privateVisibility,
+            tier: ContextTierTable.tier(for: .goals, key: key),
+            provenance: manualProvenance(at: now),
+            createdAt: now,
+            updatedAt: now,
+            schemaVersion: 1
+        )
+    }
 
     private var hasAnything: Bool {
         !interests.isEmpty || !values.isEmpty || !communities.isEmpty

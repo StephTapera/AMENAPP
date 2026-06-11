@@ -80,16 +80,23 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.get('role', '') in roles;
     }
 
-    // [MINOR] Is the requesting user a minor?
+    // [MINOR] Is the requesting user a minor (under 18)?
     // OPEN-1: threshold currently 13 (US COPPA) — GDPR-K may require 16 in EU.
+    // GAP P0-3: the authoritative ageTier vocabulary (functions/authenticationHelpers.js
+    // computeAgeTier + syncAgeTierClaim) is blocked(<13) / tierB(13-15) / tierC(16-17) /
+    // tierD(18+). The legacy strings 'teen'/'under_minimum' are NEVER produced, so the
+    // previous list silently treated every real minor as an adult. Minor = blocked|tierB|tierC.
+    // Legacy strings retained so any stale token still resolves safely.
     function isMinor() {
       return isSignedIn() &&
-        request.auth.token.get('ageTier', '') in ['teen', 'under_minimum'];
+        request.auth.token.get('ageTier', '') in ['blocked', 'tierB', 'tierC', 'teen', 'under_minimum'];
     }
 
-    // [MINOR] Is the user completely blocked (under minimum age)?
+    // [MINOR] Is the user completely blocked (under minimum age, COPPA <13)?
+    // GAP P0-3: real under-minimum tier is 'blocked'; 'under_minimum' kept for legacy tokens.
     function isUnderMinimum() {
-      return isSignedIn() && request.auth.token.get('ageTier', '') == 'under_minimum';
+      return isSignedIn() &&
+        request.auth.token.get('ageTier', '') in ['blocked', 'under_minimum'];
     }
 
     // Is the given privacy level 'public'?
@@ -192,9 +199,22 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/follows_index/$(recipientUid + '_' + request.auth.uid));
     }
 
+    // GAP P0-3: 'blocked' (COPPA <13) was missing from the minor-account set, so an
+    // under-13 recipient did not trigger DM minor-safety gating. Added. 'tierA'/'teen'/
+    // 'under_minimum' retained as harmless legacy/defensive values. tierD = adult (excluded).
     function isMinorAccount(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.get('ageTier', '') in ['teen', 'under_minimum', 'tierA', 'tierB', 'tierC'] ||
+      return get(/databases/$(database)/documents/users/$(uid)).data.get('ageTier', '') in ['blocked', 'teen', 'under_minimum', 'tierA', 'tierB', 'tierC'] ||
         get(/databases/$(database)/documents/users/$(uid)).data.get('minorScoped', false) == true;
+    }
+
+    // GAP P0-1: the iOS client writes conversation participants as 'participantIds'
+    // (MessagingImplementation.swift / FirebaseMessagingService.swift), but the rules
+    // below historically gated on 'participantUids' — a field that is never populated —
+    // so every conversation read/create/list and every message read/create was DENIED.
+    // Read from the field the client actually writes, falling back to the legacy name so
+    // any older CF-written doc still resolves. Single source of truth for the DM gate.
+    function conversationParticipants(data) {
+      return data.get('participantIds', data.get('participantUids', []));
     }
 
     function dmRequiresMinorSafety(participantUids) {
@@ -1036,49 +1056,47 @@ service cloud.firestore {
     // =========================================================================
 
     match /conversations/{conversationId} {
-      // Read: only participants.
+      // Read: only participants. (GAP P0-1: gate on participantIds via helper.)
       allow read: if
         isSignedIn() &&
-        request.auth.uid in resource.data.get('participantUids', []);
+        request.auth.uid in conversationParticipants(resource.data);
 
       // Create: signed in + not under minimum age + participant in conversation.
       // [MINOR] C-MINOR-DM: minors require mutual-follow with all participants.
       // Visitors cannot initiate DMs (per §2r — Visitor row: create = deny).
       allow create: if
         isSignedIn() && !isUnderMinimum() &&
-        request.auth.uid in request.resource.data.get('participantUids', []) &&
+        request.auth.uid in conversationParticipants(request.resource.data) &&
         // Must be at least a member (not visitor)
         hasAnyClaimRole(['member', 'leader', 'moderator', 'volunteer_lead',
                          'content_manager', 'event_manager', 'pastor',
                          'owner', 'executive_admin', 'minor']) &&
         // [MINOR] Minor DM gate: must be mutual follows with every other participant
-        (!dmRequiresMinorSafety(request.resource.data.get('participantUids', [])) ||
-          twoPersonMinorSafeDM(request.resource.data.get('participantUids', [])));
+        (!dmRequiresMinorSafety(conversationParticipants(request.resource.data)) ||
+          twoPersonMinorSafeDM(conversationParticipants(request.resource.data)));
 
       // Update: participants may update conversation metadata (e.g., lastMessage).
       allow update: if
         isSignedIn() &&
-        request.auth.uid in resource.data.get('participantUids', []);
+        request.auth.uid in conversationParticipants(resource.data);
 
       // Delete: I-1 — hard deletes denied.
       allow delete: if false;
 
       // ── Messages subcollection ──────────────────────────────────────────────
       match /messages/{messageId} {
-        // Read: must be a participant in the parent conversation.
+        // Read: must be a participant in the parent conversation. (GAP P0-1.)
         allow read: if
           isSignedIn() &&
-          request.auth.uid in
-            get(/databases/$(database)/documents/conversations/$(conversationId))
-              .data.get('participantUids', []);
+          request.auth.uid in conversationParticipants(
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data);
 
-        // Create: sender must be participant; under_minimum blocked.
+        // Create: sender must be participant; under_minimum blocked. (GAP P0-1.)
         allow create: if
           isSignedIn() && !isUnderMinimum() &&
           request.resource.data.get('senderId', '') == request.auth.uid &&
-          request.auth.uid in
-            get(/databases/$(database)/documents/conversations/$(conversationId))
-              .data.get('participantUids', []);
+          request.auth.uid in conversationParticipants(
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data);
 
         // Update: only sender can edit own message (soft-delete).
         allow update: if
@@ -2128,6 +2146,44 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // AMEN PULSE — BOUNDED daily surface (NOT a feed)
+    // Added: 2026-06-10
+    //
+    // The server writes exactly ONE document per user per day to
+    // /users/{uid}/pulse/{date}. The client reads it and NEVER writes Pulse
+    // cards (selection + scoring + safety are server-authoritative).
+    //
+    // Invariants:
+    //   P-1: pulse/{date} is owner-read, server-write only (no client writes).
+    //   P-2: pulsePrefs + bookmarks are owner read+write only.
+    //   P-3: whatsNewStories is world-readable, admin/server-write only.
+    //   P-4: config/pulse is signed-in-readable, admin/server-write only.
+    // =========================================================================
+
+    match /users/{uid}/pulse/{date} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if isAdminSDK();
+    }
+
+    match /users/{uid}/pulsePrefs/{doc} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /users/{uid}/bookmarks/{doc} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /whatsNewStories/{storyId} {
+      allow read: if true;
+      allow write: if isAdminSDK();
+    }
+
+    match /config/pulse {
+      allow read: if isSignedIn();
+      allow write: if isAdminSDK();
+    }
+
+    // =========================================================================
     // BEREAN v1 — AI Formation Assistant
     // Added: 2026-06-07 (Phase 1 Contract Freeze)
     //
@@ -2396,6 +2452,53 @@ service cloud.firestore {
       allow read, write: if isOwner(uid)
         && coll in ['notes', 'notebookEntries', 'prayerJournal', 'shareDrafts',
                     'tasks', 'calendarDrafts', 'plans', 'polls', 'posts'];
+    }
+
+    // =========================================================================
+    // UNIVERSAL MIGRATION & CONTEXT SYSTEM (Wave 1)
+    // Source contract: AMENAPP/ContextStore/ContextStoreRules.txt (FROZEN).
+    //  - Client access is OWNER-ONLY on a user's own facets/snapshots.
+    //  - Every facet write requires provenance.userApproved == true and
+    //    schemaVersion == 1 (approval before persistence, §1.7).
+    //  - Snapshots are APPEND-ONLY: owner create only; update/delete denied.
+    //  - Tier 'P' confidentiality from Cloud Functions is enforced in CF CODE,
+    //    not by rules (Admin SDK bypasses rules). See CONTRACTS.md.
+    // =========================================================================
+
+    // ── Context facets: contextFacets/{userId}/facets/{facetId} ──
+    match /contextFacets/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // The parent doc itself is metadata-only; writes go to the /facets subcollection.
+      allow write: if isSignedIn() && request.auth.uid == userId;
+
+      match /facets/{facetId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+
+        allow create, update: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.userId == userId
+          && request.resource.data.provenance.userApproved == true
+          && request.resource.data.tier in ['S', 'C', 'P']
+          && request.resource.data.schemaVersion == 1;
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // ── Context snapshots: contextSnapshots/{userId}/snapshots/{snapshotId} (append-only) ──
+    match /contextSnapshots/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+
+      match /snapshots/{snapshotId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.userId == userId
+          && request.resource.data.schemaVersion == 1;
+        // Immutable once written.
+        allow update, delete: if false;
+      }
     }
 
     // =========================================================================

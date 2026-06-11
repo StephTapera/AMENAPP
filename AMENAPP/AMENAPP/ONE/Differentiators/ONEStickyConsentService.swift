@@ -20,6 +20,24 @@ enum ONEConsentAction: Sendable {
     case aiTrain
 }
 
+// MARK: - ONEConsentError
+
+/// Client-side consent failures. Surfaced fail-closed at action sites (e.g. relay)
+/// so a permission-denied action never reaches the network.
+enum ONEConsentError: LocalizedError, Equatable {
+    case forwardNotPermitted
+    case momentNotFound
+
+    var errorDescription: String? {
+        switch self {
+        case .forwardNotPermitted:
+            return "The author disabled forwarding for this moment."
+        case .momentNotFound:
+            return "This moment is no longer available."
+        }
+    }
+}
+
 // MARK: - ONEStickyConsentService
 
 actor ONEStickyConsentService {
@@ -31,15 +49,21 @@ actor ONEStickyConsentService {
 
     /// Whether the action is permitted by the moment's ConsentDNA.
     func isPermitted(_ action: ONEConsentAction, for moment: ONEMoment) -> Bool {
-        let p = moment.consentDNA.permissions
+        isPermitted(action, in: moment.consentDNA.permissions)
+    }
+
+    /// Pure, synchronous permission check on a permission set. `nonisolated` so UI
+    /// layers (which only carry `ONEMomentPermissions`, not a full `ONEMoment`) can
+    /// gate controls without awaiting the actor. Single source of truth for consent.
+    nonisolated func isPermitted(_ action: ONEConsentAction, in permissions: ONEMomentPermissions) -> Bool {
         switch action {
-        case .forward:   return p.forwardAllowed
-        case .save:      return p.saveAllowed
-        case .quote:     return p.quoteAllowed
-        case .react:     return p.reactAllowed
-        case .translate: return p.translateAllowed
-        case .summarize: return p.summarizeAllowed
-        case .aiTrain:   return p.aiTrainingAllowed
+        case .forward:   return permissions.forwardAllowed
+        case .save:      return permissions.saveAllowed
+        case .quote:     return permissions.quoteAllowed
+        case .react:     return permissions.reactAllowed
+        case .translate: return permissions.translateAllowed
+        case .summarize: return permissions.summarizeAllowed
+        case .aiTrain:   return permissions.aiTrainingAllowed
         }
     }
 

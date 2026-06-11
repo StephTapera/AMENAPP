@@ -22,12 +22,12 @@ struct BereanLiquidComposerView: View {
     @State private var keyboardHeight: CGFloat = 0
     
     private let quickActions: [BereanLiquidAction] = [
-        BereanLiquidAction(icon: "doc.fill", title: "Attach", color: .blue, action: .attachFile),
-        BereanLiquidAction(icon: "camera.fill", title: "Camera", color: .purple, action: .camera),
+        BereanLiquidAction(icon: "book.fill", title: "Verse", color: .green, action: .bibleVerse),
+        BereanLiquidAction(icon: "hands.sparkles.fill", title: "Prayer", color: .blue, action: .prayerRequest),
+        BereanLiquidAction(icon: "note.text", title: "Notes", color: .indigo, action: .churchNotes),
+        BereanLiquidAction(icon: "camera.fill", title: "Photo", color: .purple, action: .safePhoto),
         BereanLiquidAction(icon: "waveform", title: "Voice", color: .orange, action: .voiceNote),
-        BereanLiquidAction(icon: "book.fill", title: "Verse", color: .green, action: .verseLookup),
-        BereanLiquidAction(icon: "doc.text.magnifyingglass", title: "Summary", color: .indigo, action: .summarize),
-        BereanLiquidAction(icon: "magnifyingglass", title: "Search", color: .cyan, action: .searchScripture)
+        BereanLiquidAction(icon: "mic.fill", title: "Sermon", color: .cyan, action: .sermonClip)
     ]
     
     var body: some View {

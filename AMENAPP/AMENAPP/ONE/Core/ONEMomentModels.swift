@@ -28,6 +28,7 @@ enum ONEMomentType: String, Codable, Sendable, CaseIterable {
     case directMessage
     case snap
     case post
+    case story                // 24h story ring (frozen CONTRACTS.md §1)
     case voice
     case reflection
     case locationShare
@@ -147,4 +148,13 @@ struct ONEEncryptedPayload: Codable, Sendable {
     let epoch: UInt64             // key ratchet epoch
     let senderDeviceID: String
     let encryptionVersion: String // "cr_1.0"
+
+    // Wire name is the frozen §1.1 / §14 schema key `mlsEpoch`; the Swift property
+    // is `epoch` (protocol-agnostic). CodingKeys keep code and schema in agreement.
+    private enum CodingKeys: String, CodingKey {
+        case ciphertext
+        case epoch = "mlsEpoch"
+        case senderDeviceID
+        case encryptionVersion
+    }
 }

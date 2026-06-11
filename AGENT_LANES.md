@@ -11,8 +11,8 @@
 > | Universal Migration & Context System | this conversation (sole canonical builder) | `lane/context-system` | ACTIVE — Waves 0–2 done, 3–5 in worktree |
 > | ~~Context System (duplicate)~~ | terminated by human 2026-06-10 | — | TERMINATED (footprint quarantined; see ContextStore/RUNLOG.md) |
 > | Amen Pulse | (prior session) | — | see memory `project_amen_pulse_2026_06_10` |
-> | Gap Audit | claude (this session, read-only) | — | DONE 2026-06-10 — see `GAP_BOARD.md` (86 findings: 11 P0 / 50 P1 / 25 P2). No code touched. |
-> | Resolve Missing Package Products | Codex current session | — | ACTIVE (see below) |
+> | Gap Audit + P0 Fix Wave 1 | claude (this session) | `feature/connected-intelligence-20260609-r2` | AUDIT DONE — `GAP_BOARD.md` (86: 11 P0 / 50 P1 / 25 P2). FIX WAVE 1: P0-1/2/3/4/11 CLOSED + proven (emulator 18/18, jest 84/84); rules+PII bundled in `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` AWAITING HUMAN DEPLOY; P0-5/6/7/8/9/10 next. ⚠️ Codex row ~L118 is a duplicate of this audit mission. |
+> | Resolve Missing Package Products | Codex current session | — | RELEASED — FirebaseAI/FirebaseAILogic grep clean; package-graph/build verification routed to capable lane or human shell (see harness limit) |
 >
 > 🚫 **GLOBAL RULE (2026-06-09, effective now): NO AGENT DELETES FILES OUTSIDE ITS OWN LANE.** Any deletion — even own-lane — is declared in this manifest with a one-line reason BEFORE staging. Undeclared deletions get restored on sight by the owning lane.
 >
@@ -40,6 +40,7 @@
 - Scope: Drive `AMENAPP` generic iOS Simulator build to green by repairing Swift Package product resolution.
 - Hotspot: `AMENAPP.xcodeproj/project.pbxproj`; use smallest possible package-reference diff only.
 - Latest diagnostic: NoteShare runtime proof attempted 2026-06-09. Simulator is available, but install/build is blocked by unrelated dirty-worktree project membership errors, including duplicate `ChurchNotesReminderService.stringsdata`; a prior install attempt also surfaced unresolved `ActionIntelligenceSourcePayload` / `ActionIntelligenceService` symbols in `UnifiedChatView.swift`.
+- **Codex closeout 2026-06-10:** `grep -n "FirebaseAI\|FirebaseAILogic" AMENAPP.xcodeproj/project.pbxproj` returns zero hits, and `src/features/connectedIntelligence.RUNLOG.md` records the permanent unlink ruling. This harness cannot run SwiftPM manifest evaluation (`sandbox-exec` denied), so build verification is handed to the first capable lane per the `.nosync` manifest task below.
 
 ## NOTE_SHARE_VIEWER Closers
 
@@ -53,6 +54,7 @@
 ## FirebaseAI Cleanup Lane Task
 
 - **pbxproj dedup request:** Fold the duplicate `ChurchNotesReminderService.stringsdata` target-membership fix into the FirebaseAI cleanup checkpointed commit; `project.pbxproj` is hot and must not be edited by the NoteShare lane. Literal grep for `ChurchNotesReminderService` returns no `project.pbxproj` entry, so this appears to come from synchronized group membership. Relevant lines: `AMENAPP.xcodeproj/project.pbxproj:499-504` (`Exceptions for "AMENAPP" folder in "AMENAPP" target`), `536-542` (`PBXFileSystemSynchronizedRootGroup` path `AMENAPP`), and `1219-1221` (`AMENAPP` target `fileSystemSynchronizedGroups`). Build error to clear: `Multiple commands produce .../ChurchNotesReminderService.stringsdata`.
+- **Superseded 2026-06-10 (Codex static recheck):** FirebaseAI/FirebaseAILogic product references are gone from `project.pbxproj` (`grep -n "FirebaseAI\|FirebaseAILogic" ...` returns zero hits). Do not re-open the FirebaseAI unlink task; remaining build verification belongs to the capable-lane `.nosync` build handoff.
 
 ## Rules Warning Triage
 
@@ -93,6 +95,12 @@ Confirmed and accepted by product owner 2026-06-10. Do not burn a session redisc
 
 App Check note: a **stable DEBUG App Check token** is now generated + printed every launch (`AppDelegate.swift`). Register it ONCE in Firebase Console → App Check → Apps → Manage debug tokens to silence the `403 App attestation failed` on this sim. (Human console step.)
 
+### Harness Package-Graph Limit (2026-06-10, Codex — DO NOT RETRY HERE)
+
+This harness class cannot run SwiftPM manifest evaluation or complete an Xcode package graph: `sandbox-exec` is denied during manifest evaluation, and direct SwiftPM/Xcode cache writes outside the workspace are blocked. Build verification from this session is permanently routed to capable lanes (Ambient / Spiritual OS / Pulse-style harnesses) or the human shell. Do not retry `xcodebuild`, package resolution, or SwiftPM manifest-evaluation paths from this harness.
+
+**Manifest task:** first capable lane to build: resolve-then-build with the `.nosync` flags (graph needs one re-resolve after the rename), post verbatim result as the fleet all-clear or the next cascade link.
+
 ## Convention (all agents)
 1. **Claim your lane** at session start: add a row below (`agent/task · owned paths · started · status`).
 2. **Release** at session end (`status: released`).
@@ -109,14 +117,14 @@ App Check note: a **stable DEBUG App Check token** is now generated + printed ev
 |------|------|
 | `firestore.rules` / `firestore.indexes.json` | append-only, single claimant |
 | `functions/index.js` / `Backend/functions/src/index.ts` exports | append-only export lines |
-| `AMENAPP.xcodeproj/project.pbxproj` | **TAKEOVER MATURED 2026-06-10 (claude — Action Intelligence): FirebaseAI unlink — HANDED TO HUMAN.** Codex's last pbxproj touch was `cc9cd5d3` (2026-06-09 21:33, "Checkpoint before FirebaseAI linkage cleanup") — cleanup never landed; no heartbeat since; 90-min leash (LANES:127) long expired. Takeover decision stands. BUT: agent pbxproj edits are blocked (Xcode-open crash-safety hook), so the documented 6-site FirebaseAI/FirebaseAILogic unlink must be performed by the human (exact edits posted to chat 2026-06-10). Verified safe: NO app-target source imports FirebaseAI/FirebaseAILogic (only the vendored SDK's own tests do). NOTE: file already carries another lane's uncommitted Info.plist/usage-description + `AMENBuildInfo.swift` membership work — that must NOT be swept into the FirebaseAI commit; stage only the FirebaseAI hunks. |
+| `AMENAPP.xcodeproj/project.pbxproj` | **HUMAN-ONLY HOTSPOT.** FirebaseAI/FirebaseAILogic unlink is now verified clean (2026-06-10 Codex grep: zero pbxproj hits); do not re-add. Future pbxproj edits remain human/tool-only and must avoid sweeping unrelated Info.plist/usage-description + `AMENBuildInfo.swift` membership work. |
 | `AMENAPP/AMENFeatureFlags.swift` | append-only (property + default + RC-load) |
 
 ## Active Lanes
 | Agent / task | Owned paths | Started | Status |
 |---|---|---|---|
 | **Codex — Full-App Gap Audit Swarm** | `GAP_BOARD.md`, `audit/full-app-gap-audit/**` (read-only evidence elsewhere) | 2026-06-10 | active — 8-auditor read-only swarm, report-only writes |
-| **Codex — Resolve Missing Package Products** | `AMENAPP.xcodeproj/project.pbxproj`, `SourcePackages`, `DerivedData`, `PackageCache` | 2026-06-09 | active |
+| **Codex — Resolve Missing Package Products** | `AMENAPP.xcodeproj/project.pbxproj`, `SourcePackages`, `DerivedData`, `PackageCache` | 2026-06-09 | released — package graph/build blocked by this harness; capable-lane handoff logged |
 | Onboarding / MERGE | `AMENAuthLandingView.swift`, `MinimalAuthenticationView.swift`, `Onboarding*.swift`, GlassButton primitives | 2026-06-09 | active |
 | Church notes.1 / Church Note.0 | `**/ChurchNotes/**`, `Backend/functions/src/churchNotes/**`, `ChurchNotesLocalDraftService.swift` | 2026-06-09 | active |
 | Berean LLM | `Backend/functions/src/berean/**`, `bereanChatProxy*.ts`, `bereanPulse*.ts`, `AIIntelligence/Berean*` | 2026-06-09 | active |
@@ -156,7 +164,8 @@ App Check note: a **stable DEBUG App Check token** is now generated + printed ev
 Security lane (`functions/*.js`: F-01 fail-closed, `signInWithUsername`, F-05 admin gate, F-04 cascade), C-02 key wipe, D-01 universal age gate, D-02 dual-onboarding crash, C-01 Keychain identity hint, F-03 hint clear, H-01 account-switch safety, H-04/H-05 net resilience, B-01/B-02/E-03/E-07 autofill+VoiceOver, isolated TS fix (`mediaGeneration`). Contracts in `contracts/onboarding/`. See `AUDIT.md`.
 
 ## Action Intelligence lane — status (claude, 2026-06-09)
-- **Held:** full Xcode build (3 flags) + 5-test detector suite (crisis-suppression reported first) are gated on the FirebaseAI app-target unlink commit (successor to `cc9cd5d3`) landing. Leashed git poll active (10-min interval, 90-min leash); if no heartbeat from that lane in the window, this lane claims the documented pbxproj edit (lines 536-542, 1219-1221 + `ChurchNotesReminderService` synchronized-group dedup) with a note here.
+- **Previous hold cleared:** full Xcode build (3 flags) + 5-test detector suite (crisis-suppression reported first) previously waited for the FirebaseAI app-target unlink. That gate is now closed; do not restart the old leashed pbxproj takeover.
+- **Superseded 2026-06-10 (Codex static recheck):** FirebaseAI app-target unlink is verified clean in `project.pbxproj`; Action Intelligence is no longer held on that blocker. Its build/test verification now rides the next capable-lane `.nosync` build cascade.
 - **TS deploy gate (Stage 1) — GREEN.** `Backend/functions` `tsc --noEmit` = **0 errors** as of this check; the previously-reported 11 `src/index.ts` errors (Berean re-exports) are **RESOLVED** by the Berean lane. `actionIntelligence.ts` wired at `index.ts:92`, typechecks clean.
 - **Rules-test harness DRIFT (for the rules claimant — not edited by this lane):** `firebase.json` deploys repo-root **`firestore.rules`** (tracked; AI collections present at line 2254). But `Backend/rules-tests/` strips its canonical source from **`AMENAPP/firestore 18.rules`** — which is **untracked AND lacks all 7 AI collections**. So the harness tests a stale file that differs from the deployed ruleset (the exact gap its globalSetup claims to close). AI-lane rules test therefore loads the deployed `firestore.rules` directly and documents why.
 - **Item-4 lost-lines — investigated, nothing of value lost.** The version of `ActionIntelligenceService.swift` read pre-deletion (189 lines) was a **stale, buggy draft**: it sent `dueAtMillis` (backend expects `dueAt` ISO8601 string, `actionIntelligence.ts:25,96`) and read `initiativeId`/etc. at the top level (backend nests them under `result`, returns `{workflow, objectId, result, message}`). The committed 181-line version matches the deployed callable contract exactly. Re-deriving the old lines would reintroduce a client/server mismatch — **not done by design.**
@@ -215,13 +224,10 @@ The shared tree currently carries **~250 uncommitted in-flight files.** This is 
   only) for the resolution fix. `project.pbxproj` stays **HUMAN-ONLY**.
 - **Clean re-resolve in progress:** `rm -rf ./SourcePackages ./DerivedData ./PackageCache` (cache
   class only, per Ruling 1) → `xcodebuild -resolvePackageDependencies` + build (three-flag form).
-- **⛔ P2 UNMET — FirebaseAI unlink did NOT land.** `project.pbxproj` still references
-  `FirebaseAI`/`FirebaseAILogic` (10 lines / 6 sites below). One unresolvable product makes SwiftPM
-  report the whole graph missing → likely root cause of all 80 `Missing package product` errors.
-  **Build-green / Step-4 merges / launch are HELD** until the human completes the GUI unlink.
-  Sites (remove both package products from AMENAPP target → cascades all 6):
-  `:33` `:34` (PBXBuildFile) · `:586` `:589` (FrameworksBuildPhase) · `:1225-1226`
-  (packageProductDependencies) · `:2015-2023` (XCSwiftPackageProductDependency defs).
+- **✅ P2 RESOLVED — FirebaseAI unlink landed.** `project.pbxproj` has zero
+  `FirebaseAI`/`FirebaseAILogic` hits as of Codex static recheck 2026-06-10. Build-green / Step-4
+  merges / launch are no longer held on FirebaseAI; the next capable lane must re-resolve and build
+  with the `.nosync` flags, then post either `BUILD SUCCEEDED` verbatim or the next cascade blocker.
 - **SIBLING CONSOLIDATION:** the second claude that produced `audit/BUILD_CURRENCY_AUDIT_2026-06-10.md`
   is folded in. **ONE catch-up lane now — this one.** That audit is input; `audit/CATCHUP_REPORT_2026-06-10.md`
   is this lane's running report.
@@ -293,3 +299,11 @@ resolve module dependency: 'XCTest'`. Root cause: an **XCTest test file living i
 XCTest isn't linked. After the FirebaseAI unlink landed (FirebaseAI error gone ✅), this is now the FIRST
 build error. Owner (ContextStore/Migration lane): either move the file under `AMENAPPTests/`, exclude it from
 the app target, or guard with `#if canImport(XCTest)`. Flagged, not edited (out of lane).
+
+**Codex static recheck 2026-06-10:** app-target path is now absent and `AMENAPPTests/ContextStoreAdversarialTests.swift` exists, so the original app-target XCTest blocker appears resolved. Follow-up for the ContextStore owner: the file is gated on custom `AMENAPP_TESTS`, and a repo search finds no matching build define; confirm the test target defines it or switch the guard to `#if canImport(XCTest)` so the adversarial tests actually compile/run in `AMENAPPTests`.
+
+## Total Control Wiring — FLEET CERT TEMPLATE (ratified 2026-06-10, claude/Pulse)
+Every lane certifies its surfaces in this shape: **surface → control → destination → disposition**
+(WIRED / fail-closed / INERT-BY-DESIGN / FIXED / REMOVED) + screenshot column pending green. Full template
++ Pulse reference matrix: `TOTAL_CONTROL_WIRING_TEMPLATE.md` (committed d8c7d3dc). An enabled, tappable, inert
+control is a P1 by definition. Filed with each lane's DONE; gates the finish line.

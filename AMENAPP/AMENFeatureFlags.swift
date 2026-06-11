@@ -232,6 +232,8 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var contextExportEnabled: Bool = false
     /// Wave 5: Context QR (public-visibility projection). Server-enforced OFF for minors (Aegis C60).
     @Published private(set) var contextQREnabled: Bool = false
+    /// Wave 4: Commitment Bridge — turn a Tier-C goal facet into a real Commitment Object.
+    @Published private(set) var contextCommitmentBridgeEnabled: Bool = false
 
     // MARK: - Amen Daily Digest
     @Published private(set) var amenDailyDigestEnabled: Bool = true
@@ -516,6 +518,11 @@ final class AMENFeatureFlags: ObservableObject {
     /// Gates TransformEngine, EdgeService, RBACService, and AuditLogService.
     /// Default OFF until Phase 1 is validated and deployed.
     @Published private(set) var communityOSEnabled: Bool = false
+
+    // MARK: - Ambient OS
+    /// Master switch for Ambient OS surfaces and callable-backed context snapshots.
+    /// Default OFF until privacy review, Aegis review, and fleet verification are complete.
+    @Published private(set) var ambientOSEnabled: Bool = false
     /// Master switch for Community OS Discussion rooms (A6).
     /// Gates DiscussionRoomView, DiscussionProvenanceBanner, DiscussionFollowUpPrompt,
     /// and the provenance banner injection in DiscussionThreadView.
@@ -970,6 +977,7 @@ final class AMENFeatureFlags: ObservableObject {
             "context_matching_enabled": false as NSObject,
             "context_export_enabled": false as NSObject,
             "context_qr_enabled": false as NSObject,
+            "context_commitment_bridge_enabled": false as NSObject,
 
             // Community Hubs & Object Intelligence
             "community_hubs_enabled": false as NSObject,
@@ -1328,6 +1336,9 @@ final class AMENFeatureFlags: ObservableObject {
             "live_activity_prayer_request_enabled": false as NSObject,
             "live_activity_push_to_start_enabled": false as NSObject,
 
+            // Ambient OS
+            "ambient_os_enabled": false as NSObject,
+
             // Accessibility + Simple Mode
             "simple_mode_feature_enabled": true as NSObject,
             "replay_enabled": true as NSObject,
@@ -1536,6 +1547,7 @@ final class AMENFeatureFlags: ObservableObject {
         contextMatchingEnabled = config["context_matching_enabled"].boolValue
         contextExportEnabled = config["context_export_enabled"].boolValue
         contextQREnabled = config["context_qr_enabled"].boolValue
+        contextCommitmentBridgeEnabled = config["context_commitment_bridge_enabled"].boolValue
 
         communityHubsEnabled = config["community_hubs_enabled"].boolValue
         communityObjectMatchingEnabled = config["community_object_matching_enabled"].boolValue
@@ -1870,6 +1882,9 @@ final class AMENFeatureFlags: ObservableObject {
 
         // System 37: Community OS Foundation
         communityOSEnabled = config["community_os_enabled"].boolValue
+
+        // Ambient OS
+        ambientOSEnabled = config["ambient_os_enabled"].boolValue
 
         // System 38: Connect Hub
         connectHubEnabled    = config["connect_hub_enabled"].boolValue

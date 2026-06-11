@@ -312,7 +312,26 @@ All other CF deploys are deferred to their phase gate.
 
 | # | Date | Section | Old Value | New Value | Reason | Approved By |
 |---|------|---------|----------|----------|--------|------------|
-| — | — | — | — | — | — | — |
+| A-1 | 2026-06-10 | §3 ONEEntitlement / §13 / §15 | `stripeSubscriptionID: String?`; `one_stripeCheckout` callable; "Stripe-verified" | `storeKitTransactionID: UInt64?`; callable removed (9 callables); "StoreKit auto-renewable" | BQ-7: App Store 3.1.1 requires Apple IAP for digital subs; Stripe is web/admin-only | Lead Orchestrator |
+| A-2 | 2026-06-10 | §4 ONEThread / SECURITY §1 | `encryptionVersion: "mls_1.0" \| "cr_1.0"`; `mlsGroupID: String?` present | `encryptionVersion: "cr_1.0"`; `mlsGroupID` removed | BQ-1: MLS→CryptoKit Double Ratchet; no MLS group identifier in fallback | Lead Orchestrator |
+| A-3 | 2026-06-10 | §4 ONELivingThreadSummary / ONELivingDate / ONELivingTask | `Codable, Sendable` | `Sendable` (Codable removed) | On-device-only invariant: dropping Codable makes off-device serialization a compile error (privacy strengthening) | Lead Orchestrator |
+| A-4 | 2026-06-10 | §2 ONEAudienceScope / ONELifetimePolicy; §9 ONEWitnessSeason | `enum` with associated values | `struct { kind: Kind; … }` flat-keyed Codable | SwiftUI ergonomics (CaseIterable pickers, ForEach over `.kind`); schema amended to the shipped flat shape so code and §14 agree | Lead Orchestrator |
+| A-5 | 2026-06-10 | §1.1 ONEEncryptedPayload | `{ ciphertext, mlsEpoch, senderDeviceID }` | `+ encryptionVersion: String`; Swift property `epoch` ↔ wire key `mlsEpoch` via CodingKeys | Carry ratchet suite version on the payload; wire name preserved to match §14 message schema | Lead Orchestrator |
+| A-6 | 2026-06-10 | §1 ONEMomentType | code shipped 9 of 10 cases (`story` dropped) | `story` restored (code conformed to frozen §1) | Decode-safety: `"story"` documents must round-trip; no contract change, code now matches | Lead Orchestrator |
+
+> Amendments A-1…A-6 filed retroactively on 2026-06-10 to close the contract-drift class surfaced by the adversarial audit (`ONE/AUDIT-2026-06-10.md`): 10 of 11 confirmed findings were frozen-contract deviations with no amendment entry. Code↔schema now agree in both directions.
+
+---
+
+## Audit Remediation — 2026-06-10
+
+Source: `ONE/AUDIT-2026-06-10.md` (read-only adversarial audit; 11 confirmed). Rulings executed in order.
+
+1. **H-1 (consent bypass) — FIXED in code.** `ONEFeedModeService.relay(itemID:)` now calls `ONEStickyConsentService.isPermitted(.forward, in:)` and throws `ONEConsentError.forwardNotPermitted` **before any network call** (fail-closed). `ONEWorldFeedView` Relay control is shown DISABLED in its no-forwarding state when forwarding is denied — never an active button that contradicts the cell's displayed consent. New nonisolated `isPermitted(_:in:)` is the single source of truth. Named test: `AMENAPPTests/ONERelayConsentTests.swift` → forward-prohibited Moment → relay denied client-side + budget untouched.
+   **⚠ SERVER-SIDE STILL REQUIRED (P5-deferred):** client-side consent enforcement is **advisory only**. The `one_relayMoment` callable MUST reject `forwardAllowed=false` relays server-side (per SECURITY.md §8.3 `mergedConsentDNA` logic) **before the ONE feature flag is ever flipped on**. Both layers are the requirement; shipping client-only is not done.
+2. **Wire-shape — FIXED.** `mlsEpoch` wire name restored via CodingKeys (A-5); `ONEMomentType.story` restored (A-6); enum→struct reshapes reconciled by formal schema amendment (A-4). On-device-only non-Codable types are exempt (they never touch the wire) and were not changed.
+3. **Provenance — FIXED at source.** `ONEProvenanceLabel` now forces `classification = .unknown` when `confidence < 0.70` in its initializer (persisted field, not just `displayClassification`), so any future Cloud Function reading `.classification` inherits the honesty. **Migration note:** already-persisted raw values are re-normalized on decode via a custom `init(from:)` — a stored confident class with sub-threshold confidence reads back as `.unknown` automatically; no backfill job required.
+4. **Amendment Log — FILED.** A-1…A-6 above; CONTRACTS.md bodies updated to match shipped code.
 
 ---
 

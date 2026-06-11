@@ -137,6 +137,16 @@ struct ONEMomentFormatPickerView: View {
             )
         case .post:
             return .privateDefault
+        case .story:
+            return ONEPrivacyContract(
+                audience: .witnesses, lifetime: .hours(24),
+                permissions: ONEMomentPermissions(
+                    forwardAllowed: false, saveAllowed: false, quoteAllowed: false,
+                    reactAllowed: true,   translateAllowed: true,
+                    summarizeAllowed: false, aiTrainingAllowed: false
+                ),
+                safety: .init(), metricsPrivate: true, reshareAllowed: false
+            )
         case .voice:
             return ONEPrivacyContract(
                 audience: .closeFriends, lifetime: .afterView,
@@ -196,6 +206,7 @@ extension ONEMomentType {
         switch self {
         case .snap:        return "Snap"
         case .post:        return "Post"
+        case .story:       return "Story"
         case .voice:       return "Voice Note"
         case .reflection:  return "Reflection"
         case .locationShare:    return "Location"
@@ -210,6 +221,7 @@ extension ONEMomentType {
         switch self {
         case .snap:        return "Disappears after viewing"
         case .post:        return "Standard feed post"
+        case .story:       return "24-hour story ring"
         case .voice:       return "Voice note with transcription"
         case .reflection:  return "Private prompted reflection"
         case .locationShare:    return "Place check-in"
@@ -224,6 +236,7 @@ extension ONEMomentType {
         switch self {
         case .snap:        return "bolt.fill"
         case .post:        return "photo.fill"
+        case .story:       return "circle.dashed"
         case .voice:       return "mic.fill"
         case .reflection:  return "book.fill"
         case .locationShare:    return "location.fill"
@@ -238,6 +251,7 @@ extension ONEMomentType {
         switch self {
         case .snap:        return ONE.Colors.ephemeralRed
         case .post:        return ONE.Colors.privateIndigo
+        case .story:       return ONE.Colors.ephemeralRed
         case .voice:       return ONE.Colors.repairGreen
         case .reflection:  return ONE.Colors.witnessGold
         case .locationShare:    return ONE.Colors.repairGreen

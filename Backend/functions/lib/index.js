@@ -51,6 +51,8 @@ __exportStar(require("./generateDailyVerse"), exports);
 __exportStar(require("./amenDaily/getAmenDailyDigest"), exports);
 __exportStar(require("./cameraOS/contextLens"), exports);
 __exportStar(require("./communityOS/core"), exports);
+__exportStar(require("./ambient/getAmbientContext"), exports);
+__exportStar(require("./ambient/summarizeAmbientContext"), exports);
 // Phase P1-4: server-authoritative Think-First / Tone Checker.
 // iOS ThinkFirstGuardrailsService is advisory only; the publish path
 // (CreatePost / comments / replies) MUST call validateThinkFirstCheck
@@ -120,6 +122,11 @@ __exportStar(require("./postCountTriggers"), exports);
 // Smart Context Label scoring, ranking, feedback, and preference sync
 __exportStar(require("./feedContext"), exports);
 __exportStar(require("./bereanPulse"), exports);
+// Amen Pulse — BOUNDED daily surface (NOT a feed). Server selects a finite,
+// ordered set of cards once per day and writes ONE doc per user/day.
+//   refreshAmenPulseForCurrentUser (onCall) · generateAmenPulseDaily (onSchedule)
+//   seedWhatsNewStories (onCall, admin-only)
+__exportStar(require("./pulse"), exports);
 // Dynamic Reply Preview system — server-ranked inline PostCard preview candidates
 __exportStar(require("./generateDynamicReplyPreviews"), exports);
 __exportStar(require("./churchDiscoveryPhase2"), exports);

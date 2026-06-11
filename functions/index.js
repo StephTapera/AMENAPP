@@ -777,6 +777,31 @@ const { ailTransform } = require("./ail/ailTransform");
 exports.ailTransform = ailTransform;
 
 // ============================================================================
+// CONTEXT SYSTEM — Universal Migration extractor (Wave 3)
+//   extractContextFacets — onCall, enforceAppCheck: true, region us-central1.
+//     Input  { text, sourceLabel, sanitizationPassId } → Output { candidates: FacetCandidate[] }.
+//     Takes already-C59-sanitized, inert-wrapped import text (DATA, never instructions) and
+//     returns structured FacetCandidate[] via the `context_extract` router task (fail_closed —
+//     never fabricates, never echoes injection, never emits excluded content). Rejects an empty
+//     sanitizationPassId. Writes NOTHING to Firestore — output is ephemeral candidates the user
+//     approves client-side. Gen-2 onCall (imports firebase-functions/v2/https), same posture as
+//     spiritualOSFunctions. Source: functions/context/extractContextFacets.ts (compiled to .js).
+//   Secrets: ANTHROPIC_API_KEY, OPENAI_API_KEY, NVIDIA_API_KEY
+//   Deploy: Ship Order Stage 3 functions batch (with the Context System CFs).
+// ============================================================================
+const { extractContextFacets } = require("./context/extractContextFacets");
+exports.extractContextFacets = extractContextFacets;
+
+// Context System — Wave 4 consumers (onCall, App Check, us-central1; Stage-3 deploy batch).
+// All read ONLY tier-C facets server-side (CONTRACTS §3 server-read invariant); never tier-P.
+const { initializeFeedFromContext } = require("./context/initializeFeedFromContext");
+exports.initializeFeedFromContext = initializeFeedFromContext;
+const { matchCommunitiesFromContext } = require("./context/matchCommunitiesFromContext");
+exports.matchCommunitiesFromContext = matchCommunitiesFromContext;
+const { generateIntroduction } = require("./context/generateIntroduction");
+exports.generateIntroduction = generateIntroduction;
+
+// ============================================================================
 // TTS — Text-to-Speech (Google Cloud TTS, no NVIDIA key needed)
 // ============================================================================
 const { generateSpeech, generatePrayerAudio } = require("./ttsService");

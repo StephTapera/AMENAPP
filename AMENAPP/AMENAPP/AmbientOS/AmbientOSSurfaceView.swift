@@ -193,7 +193,7 @@ struct AmbientOSSurfaceView: View {
                     AmbientFeatureDisabledView()
                 }
             }
-            .background(AmenTheme.Colors.surface.ignoresSafeArea())
+            .background(AmenTheme.Colors.backgroundPrimary.ignoresSafeArea())
             .navigationTitle("Ambient")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -250,8 +250,8 @@ struct AmbientHomeHeaderView: View {
             }
         }
         .padding(18)
-        .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.border, lineWidth: 0.75))
+        .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.75))
     }
 
     private var modeLabel: String { context.mode.menuTitle }
@@ -274,7 +274,7 @@ struct AmbientPriorityActionsView: View {
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             } else {
                 VStack(spacing: 12) {
                     ForEach(scheduledActions) { action in
@@ -313,7 +313,7 @@ struct PriorityActionRow: View {
                         .frame(width: 10, height: 10)
                     if showsRail {
                         Rectangle()
-                            .fill(AmenTheme.Colors.border)
+                            .fill(AmenTheme.Colors.borderSoft)
                             .frame(width: 1, height: 42)
                     }
                 }
@@ -347,8 +347,8 @@ struct PriorityActionRow: View {
                     .padding(.top, 6)
             }
             .padding(14)
-            .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.border, lineWidth: 0.75))
+            .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.75))
         }
         .buttonStyle(.plain)
     }
@@ -363,9 +363,9 @@ struct GlassToolRailView: View {
                 Button(action: item.action) {
                     Image(systemName: item.sfSymbol)
                         .font(.systemScaled(15, weight: .semibold))
-                        .foregroundStyle(item.isDestructive ? AmenTheme.Colors.error : AmenTheme.Colors.textPrimary)
+                        .foregroundStyle(item.isDestructive ? AmenTheme.Colors.statusError : AmenTheme.Colors.textPrimary)
                         .frame(width: 42, height: 42)
-                        .ambientGlassChrome(tint: item.isDestructive ? AmenTheme.Colors.error : AmenTheme.Colors.amenGold, radius: 21)
+                        .ambientGlassChrome(tint: item.isDestructive ? AmenTheme.Colors.statusError : AmenTheme.Colors.amenGold, radius: 21)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.label)
@@ -392,7 +392,7 @@ struct AmbientSmartComposerView: View {
                     .font(.systemScaled(16, weight: .regular))
                     .lineLimit(3...6)
                     .padding(12)
-                    .background(AmenTheme.Colors.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(AmenTheme.Colors.surfaceInput, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .onChange(of: text) { _, newValue in
                         classifyTask?.cancel()
                         classifyTask = Task {
@@ -438,8 +438,8 @@ struct AmbientSmartComposerView: View {
                 }
             }
             .padding(14)
-            .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.border, lineWidth: 0.75))
+            .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.75))
         }
     }
 }
@@ -491,8 +491,8 @@ struct WorkspaceRow: View {
                 .foregroundStyle(AmenTheme.Colors.textSecondary)
         }
         .padding(14)
-        .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.border, lineWidth: 0.75))
+        .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.75))
     }
 }
 
@@ -509,7 +509,7 @@ struct AmbientNLPlannerView: View {
                     .font(.systemScaled(15, weight: .regular))
                     .lineLimit(2...5)
                     .padding(12)
-                    .background(AmenTheme.Colors.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(AmenTheme.Colors.surfaceInput, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 if !draftItems.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -534,8 +534,8 @@ struct AmbientNLPlannerView: View {
                 .disabled(planText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(14)
-            .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.border, lineWidth: 0.75))
+            .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.75))
         }
     }
 
@@ -632,8 +632,8 @@ struct AmbientOperatingModeGateView: View {
                 }
             }
             .padding(14)
-            .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.border, lineWidth: 0.75))
+            .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(AmenTheme.Colors.borderSoft, lineWidth: 0.75))
         }
     }
 }
@@ -659,7 +659,7 @@ struct AmbientSignalPill: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(AmenTheme.Colors.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(AmenTheme.Colors.surfaceChip, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -708,7 +708,7 @@ struct AmbientFeatureDisabledView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, minHeight: 260)
-        .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .padding(18)
     }
 }
@@ -737,7 +737,7 @@ struct AmbientEmptyStateView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, minHeight: 260)
-        .background(AmenTheme.Colors.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(AmenTheme.Colors.surfaceCard, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -819,7 +819,7 @@ private extension ComposerChip {
 private extension ActionTier {
     var tint: Color {
         switch self {
-        case .high: return AmenTheme.Colors.error
+        case .high: return AmenTheme.Colors.statusError
         case .medium: return AmenTheme.Colors.amenGold
         case .low: return AmenTheme.Colors.textSecondary
         }

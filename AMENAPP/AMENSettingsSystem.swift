@@ -198,6 +198,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
     case contentPosting
     case feedDiscovery
     case bereanAI
+    case ambientOS
     case churchNotes
     case accessibility
     case storageData
@@ -218,6 +219,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         case .contentPosting:      return "Content & Posting"
         case .feedDiscovery:       return "Feed & Discovery"
         case .bereanAI:            return "Berean AI"
+        case .ambientOS:           return "Ambient OS"
         case .churchNotes:         return "Church Notes"
         case .accessibility:       return "Accessibility"
         case .storageData:         return "Storage & Data"
@@ -238,6 +240,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         case .contentPosting:      return "square.and.pencil"
         case .feedDiscovery:       return "rectangle.stack"
         case .bereanAI:            return "sparkles"
+        case .ambientOS:           return "sparkles.rectangle.stack"
         case .churchNotes:         return "note.text"
         case .accessibility:       return "accessibility"
         case .storageData:         return "internaldrive"
@@ -258,6 +261,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         case .contentPosting:      return "Default audience, drafts, scheduling"
         case .feedDiscovery:       return "Feed mode, sensitive content, autoplay"
         case .bereanAI:            return "AI settings, context memory, response style"
+        case .ambientOS:           return "Context-aware day briefing and actions"
         case .churchNotes:         return "Folders, scripture detection, export"
         case .accessibility:       return "Text size, motion, contrast"
         case .storageData:         return "Cache, download quality, data export"
@@ -278,6 +282,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         case .contentPosting:      return Color(red: 0.55, green: 0.28, blue: 0.95)
         case .feedDiscovery:       return Color(red: 0.08, green: 0.62, blue: 0.92)
         case .bereanAI:            return Color(red: 0.46, green: 0.28, blue: 0.95)
+        case .ambientOS:           return Color(red: 0.95, green: 0.65, blue: 0.18)
         case .churchNotes:         return Color(red: 0.95, green: 0.65, blue: 0.18)
         case .accessibility:       return Color(red: 0.20, green: 0.72, blue: 0.54)
         case .storageData:         return Color(white: 0.45)
@@ -800,6 +805,7 @@ struct AccountTypePill: View {
 struct AMENSettingsView: View {
     @StateObject private var searchService = SettingsSearchService()
     @StateObject private var persistenceService = AmenSettingsPersistenceService.shared
+    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
     @State private var searchText: String = ""
     @AppStorage("amenSettingsSuggestedDismissed") private var isSuggestedDismissed: Bool = false
     @State private var selectedSection: AMENSettingsSection? = nil
@@ -937,9 +943,12 @@ struct AMENSettingsView: View {
             .animation(ST.spring.delay(0.1), value: appeared)
 
             // Sections list
+            let intelligenceGroup: [AMENSettingsSection] = featureFlags.ambientOSEnabled
+                ? [.contentPosting, .feedDiscovery, .bereanAI, .ambientOS, .churchNotes]
+                : [.contentPosting, .feedDiscovery, .bereanAI, .churchNotes]
             let groups: [[AMENSettingsSection]] = [
                 [.account, .privacy, .safety, .messages, .notifications],
-                [.contentPosting, .feedDiscovery, .bereanAI, .churchNotes],
+                intelligenceGroup,
                 [.accessibility, .storageData, .security, .familySafety],
                 [.supportTransparency, .about],
             ]
@@ -999,6 +1008,7 @@ struct AMENSettingsView: View {
         case .contentPosting:      ContentPostingSettingsView()
         case .feedDiscovery:       FeedDiscoverySettingsViewNew()
         case .bereanAI:            BereanAISettingsViewNew()
+        case .ambientOS:           AmbientOSSurfaceView()
         case .churchNotes:         ChurchNotesSettingsViewNew()
         case .accessibility:       AccessibilitySettingsViewNew()
         case .storageData:         StorageDataSettingsView()

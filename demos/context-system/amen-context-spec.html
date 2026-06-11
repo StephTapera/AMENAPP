@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>.amen — Portable Context Format (v0.1)</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1c232d;
+    --ink: #e8edf2;
+    --muted: #9aa7b4;
+    --gold: #e9c46a;
+    --accent: #7aa2f7;
+    --good: #79d28a;
+    --bad: #f08a8a;
+    --line: #2a323d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #18202b 0%, var(--bg) 60%);
+    color: var(--ink);
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 24px 96px; }
+  header { text-align: center; margin-bottom: 40px; }
+  .badge {
+    display: inline-block; padding: 4px 12px; border-radius: 999px;
+    background: rgba(233,196,106,.12); color: var(--gold);
+    border: 1px solid rgba(233,196,106,.35);
+    font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
+  }
+  h1 { font-size: 44px; margin: 18px 0 8px; letter-spacing: -.02em; }
+  h1 .dot { color: var(--gold); }
+  .tag { color: var(--muted); font-size: 19px; margin: 0; }
+  h2 { font-size: 24px; margin: 44px 0 12px; letter-spacing: -.01em; }
+  h3 { font-size: 17px; margin: 24px 0 8px; color: var(--ink); }
+  p { color: var(--ink); }
+  .muted { color: var(--muted); }
+  section.card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 22px 24px; margin: 18px 0;
+  }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: var(--panel-2); padding: 1px 6px; border-radius: 6px; font-size: 14px; color: var(--gold); }
+  pre {
+    background: #0b0e13; border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; overflow-x: auto; font-size: 13.5px; line-height: 1.55;
+    color: #cdd6e0;
+  }
+  pre .k { color: var(--accent); }
+  pre .s { color: var(--good); }
+  pre .c { color: var(--muted); font-style: italic; }
+  ul.facets { list-style: none; padding: 0; margin: 8px 0; }
+  ul.facets li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  ul.facets li:last-child { border-bottom: 0; }
+  ul.facets b { color: var(--gold); }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .excl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .excl { grid-template-columns: 1fr; } }
+  .col h3 { margin-top: 0; }
+  .yes li::before { content: "\2713  "; color: var(--good); }
+  .no  li::before { content: "\2717  "; color: var(--bad); }
+  .col ul { list-style: none; padding: 0; margin: 0; }
+  .col li { padding: 5px 0; }
+  .pill { display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); margin-left:6px; }
+  footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="badge">Open format &middot; Draft v0.1</span>
+    <h1><span class="dot">.</span>amen</h1>
+    <p class="tag">A portable, signed context profile. <strong>Import the person, not the content.</strong></p>
+  </header>
+
+  <section class="card">
+    <h2>Why this exists</h2>
+    <p>
+      Today, moving to a new platform means abandoning everything that made your old
+      profile <em>yours</em> &mdash; or worse, dragging along years of posts, messages, and
+      media you never wanted to relive. The <code>.amen</code> format does the opposite.
+      It is a small, human-readable file that carries <strong>who you are</strong>:
+      your interests, values, goals, skills, the communities you belong to, how you
+      like to communicate, and where you are on your journey.
+    </p>
+    <p>
+      It deliberately carries <strong>none of your content</strong>. No messages, no
+      posts, no media, no contact lists. That exclusion is the whole point &mdash; it is
+      what lets <code>.amen</code> be a platform primitive that any app can read to
+      welcome a person warmly without inheriting their old feed.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>The facet shape</h2>
+    <p>
+      A <code>.amen</code> file is a list of <strong>facets</strong>. Each facet is one
+      durable, self-described fact about the person. A facet never holds a sentence
+      someone said or a thing they posted &mdash; only a stable trait, a list, or a
+      preference.
+    </p>
+<pre><span class="c">// one facet</span>
+{
+  <span class="k">"category"</span>: <span class="s">"interests"</span>,        <span class="c">// one of 13 canonical categories</span>
+  <span class="k">"key"</span>:      <span class="s">"interest.ai"</span>,      <span class="c">// stable machine key (lowercase dotted)</span>
+  <span class="k">"label"</span>:    <span class="s">"Artificial intelligence"</span>,
+  <span class="k">"value"</span>:    <span class="s">"Building thoughtful, human-first AI tools."</span>,
+  <span class="k">"visibility"</span>: <span class="s">"public"</span>     <span class="c">// private | friends | groups | church | public</span>
+}</pre>
+    <p class="muted">
+      <code>value</code> is either a short free-text string (length-capped) or a list of
+      short strings. Structured faith / communication / relationship facets are flattened
+      to text or list when exported.
+    </p>
+
+    <h3>The 13 categories</h3>
+    <p class="muted">
+      <code>interests</code>, <code>values</code>, <code>goals</code>, <code>skills</code>,
+      <code>communities</code>, <code>relationships</code>, <code>communication</code>,
+      <code>learning</code>, <code>faith_journey</code>, <code>current_focus</code>,
+      <code>family</code>, <code>work</code>, <code>health</code>.
+    </p>
+
+    <h3>Only your public self is exported</h3>
+    <p>
+      Every facet has a <code>visibility</code>. An export includes only facets you have
+      marked <strong>public</strong> (or ones you explicitly check at export time).
+      Sensitive facets &mdash; relationships, family, health, and the most private parts of
+      your faith journey &mdash; live in the highest privacy tier and are
+      <strong>never server-readable and never exportable</strong>.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>The exclusion guarantee</h2>
+    <p>
+      This is enforced at two layers: the <strong>schema</strong> forbids any field that
+      could hold content, and a <strong>unit-tested exclusion validator</strong> rejects
+      any file whose values smuggle content shapes (emails, phone numbers, media URLs,
+      contact arrays) into free text.
+    </p>
+    <div class="excl">
+      <div class="col">
+        <h3 style="color:var(--good)">A .amen file MAY contain</h3>
+        <ul class="yes">
+          <li>Interests, values, goals, skills</li>
+          <li>Communities you belong to (by name)</li>
+          <li>Communication preferences</li>
+          <li>What you're learning / focused on</li>
+          <li>Public faith facets (favorite books, study)</li>
+          <li>A display name and public @handle</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3 style="color:var(--bad)">A .amen file MUST NOT contain</h3>
+        <ul class="no">
+          <li>Messages or conversations</li>
+          <li>Posts or post text</li>
+          <li>Media files or media URLs</li>
+          <li>Email addresses or phone numbers</li>
+          <li>Contact lists or named contacts</li>
+          <li>Faith "areas needing support" <span class="pill">Tier P</span></li>
+        </ul>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:16px">
+      Schema-level structural enforcement: <code>additionalProperties: false</code> at every
+      object (so no <code>messages</code>, <code>media</code>, or <code>contacts</code> array
+      can ever be added), a 5-value <code>visibility</code> enum, a 13-value
+      <code>category</code> enum, a handle pattern that forbids <code>name@domain</code>
+      email shapes and <code>+</code> phone shapes, and length-capped values.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Signing</h2>
+    <p>
+      Every <code>.amen</code> file is signed by its issuer with <strong>Ed25519</strong>.
+      The <code>signature</code> object names the algorithm, the key id (which resolves to
+      a published public key), and the signature value. An importer verifies the signature
+      before trusting the file, then routes every facet through the receiving app's
+      <strong>Approval UI</strong> &mdash; nothing is silently written.
+    </p>
+<pre>{
+  <span class="k">"alg"</span>:   <span class="s">"Ed25519"</span>,
+  <span class="k">"keyId"</span>: <span class="s">"amen-export-2026-06"</span>,
+  <span class="k">"value"</span>: <span class="s">"k3sJ8pQ2mRtVnW0xYz...=="</span>   <span class="c">// base64 over the canonicalized file</span>
+}</pre>
+  </section>
+
+  <section class="card">
+    <h2>Top-level shape</h2>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+      <tr><td><code>$schema</code></td><td>string</td><td>Identifies format + version</td></tr>
+      <tr><td><code>version</code></td><td>string</td><td><code>"0.1"</code></td></tr>
+      <tr><td><code>exportedAt</code></td><td>date-time</td><td>RFC-3339 timestamp</td></tr>
+      <tr><td><code>issuer</code></td><td>string</td><td><code>"amen.app"</code></td></tr>
+      <tr><td><code>subject</code></td><td>object</td><td><code>displayName</code> + public <code>handle</code> only</td></tr>
+      <tr><td><code>facets</code></td><td>array</td><td>Public (or explicitly-checked) facets</td></tr>
+      <tr><td><code>signature</code></td><td>object</td><td>Ed25519 <code>alg</code> / <code>keyId</code> / <code>value</code></td></tr>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Example file</h2>
+    <p class="muted">A complete, signed <code>.amen</code> file with public facets only. This exact file validates against the v0.1 schema.</p>
+<pre>{
+  <span class="k">"$schema"</span>: <span class="s">"https://amen.app/schemas/amen-context-v0.1.schema.json"</span>,
+  <span class="k">"version"</span>: <span class="s">"0.1"</span>,
+  <span class="k">"exportedAt"</span>: <span class="s">"2026-06-10T18:42:00Z"</span>,
+  <span class="k">"issuer"</span>: <span class="s">"amen.app"</span>,
+  <span class="k">"subject"</span>: { <span class="k">"displayName"</span>: <span class="s">"Jordan Rivera"</span>, <span class="k">"handle"</span>: <span class="s">"@jordanr"</span> },
+  <span class="k">"facets"</span>: [
+    { <span class="k">"category"</span>: <span class="s">"interests"</span>, <span class="k">"key"</span>: <span class="s">"interest.ai"</span>,
+      <span class="k">"label"</span>: <span class="s">"Artificial intelligence"</span>,
+      <span class="k">"value"</span>: <span class="s">"Building thoughtful, human-first AI tools."</span>,
+      <span class="k">"visibility"</span>: <span class="s">"public"</span> },
+    { <span class="k">"category"</span>: <span class="s">"skills"</span>, <span class="k">"key"</span>: <span class="s">"skill.languages"</span>,
+      <span class="k">"label"</span>: <span class="s">"Skills"</span>,
+      <span class="k">"value"</span>: [<span class="s">"Swift"</span>, <span class="s">"TypeScript"</span>, <span class="s">"Product design"</span>],
+      <span class="k">"visibility"</span>: <span class="s">"public"</span> },
+    { <span class="k">"category"</span>: <span class="s">"faith_journey"</span>, <span class="k">"key"</span>: <span class="s">"faith.favorite_books"</span>,
+      <span class="k">"label"</span>: <span class="s">"Books of the Bible I return to"</span>,
+      <span class="k">"value"</span>: [<span class="s">"Psalms"</span>, <span class="s">"Philippians"</span>, <span class="s">"James"</span>],
+      <span class="k">"visibility"</span>: <span class="s">"public"</span> }
+  ],
+  <span class="k">"signature"</span>: {
+    <span class="k">"alg"</span>: <span class="s">"Ed25519"</span>,
+    <span class="k">"keyId"</span>: <span class="s">"amen-export-2026-06"</span>,
+    <span class="k">"value"</span>: <span class="s">"k3sJ8pQ2mRtVnW0xYz...=="</span>
+  }
+}</pre>
+    <p class="muted">Full example: <code>amen-context-example.amen</code> &middot; Schema: <code>amen-context-v0.1.schema.json</code></p>
+  </section>
+
+  <footer>
+    <p>
+      <code>.amen</code> v0.1 &mdash; open JSON spec, JSON Schema draft 2020-12.
+      Normative source of truth: <code>CONTRACTS.md &sect;8</code> and
+      <code>CONTEXT_SYSTEM.md</code>. The exclusion guarantee is law: a payload containing
+      messages, posts, media URLs, emails, phones, or contact arrays is rejected.
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>

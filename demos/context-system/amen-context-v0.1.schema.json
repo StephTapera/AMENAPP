@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amen.app/schemas/amen-context-v0.1.schema.json",
+  "title": "AMEN .amen Context Export (v0.1)",
+  "description": "Portable, signed, human-first context profile. Imports the PERSON (durable facets about who someone is), never their CONTENT (messages, posts, media, contacts). See CONTRACTS.md §8. The exclusion guarantee is structural: this schema forbids any property that could carry message bodies, post text, media URLs, emails, phone numbers, or contact arrays. A facet whose value is an email/phone/URL/contact is additionally rejected by the unit-tested exclusion validator (some content shapes can hide inside a free-text `value`, which a JSON Schema alone cannot catch — see `additionalNotes`).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "version",
+    "exportedAt",
+    "issuer",
+    "subject",
+    "facets",
+    "signature"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URI of this schema. Identifies the .amen format + version to importers.",
+      "const": "https://amen.app/schemas/amen-context-v0.1.schema.json"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the .amen format this file conforms to.",
+      "const": "0.1"
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 / RFC-3339 timestamp the export was produced."
+    },
+    "issuer": {
+      "type": "string",
+      "description": "The platform that produced and signed this file.",
+      "const": "amen.app"
+    },
+    "subject": {
+      "type": "object",
+      "description": "The person this context describes. Display identity only — no contact handles for messaging, no email, no phone.",
+      "additionalProperties": false,
+      "required": ["displayName", "handle"],
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Human display name."
+        },
+        "handle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^@?[A-Za-z0-9._-]+$",
+          "description": "Public @handle. Not an email or phone number; the pattern forbids '@domain' email shapes and '+' phone shapes."
+        }
+      }
+    },
+    "facets": {
+      "type": "array",
+      "description": "Durable facets about the person. EXPORT RULE: only facets with visibility 'public' (or explicitly checked at export time) are included. Tier-P facets (relationships, family, health, faith areas-needing-support) are never exportable.",
+      "minItems": 0,
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/facet" }
+    },
+    "signature": {
+      "type": "object",
+      "description": "Detached Ed25519 signature over the canonicalized file (minus this object).",
+      "additionalProperties": false,
+      "required": ["alg", "keyId", "value"],
+      "properties": {
+        "alg": {
+          "type": "string",
+          "const": "Ed25519",
+          "description": "Signature algorithm. Only Ed25519 is valid in v0.1."
+        },
+        "keyId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Identifier of the issuer key used to sign; resolves to a published public key."
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9+/=_-]+$",
+          "description": "Base64 (standard or URL-safe) encoded Ed25519 signature."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "facet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "key", "label", "value", "visibility"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "Facet category. Tier-P categories (relationships, family, health) appear here ONLY if their value is non-content and the exporter included them as public — by contract they are not server-readable and normally excluded.",
+          "enum": [
+            "interests",
+            "values",
+            "goals",
+            "skills",
+            "communities",
+            "relationships",
+            "communication",
+            "learning",
+            "faith_journey",
+            "current_focus",
+            "family",
+            "work",
+            "health"
+          ]
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9]+([._][a-z0-9]+)*$",
+          "description": "Machine key, e.g. 'interest.ai', 'goal.launch_app'. Lowercase dotted/underscored tokens only — cannot encode an email or URL."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Human-readable label for the facet."
+        },
+        "value": {
+          "description": "The facet value. One of: a plain text string, or a list of short strings. Structured faith/communication/relationship values are flattened to text/list on export. Free text is length-capped; the exclusion validator additionally rejects values that match email/phone/URL/@mention-array shapes.",
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "Free-text value (length-capped)."
+            },
+            {
+              "type": "array",
+              "maxItems": 50,
+              "items": { "type": "string", "maxLength": 200 },
+              "description": "List value, e.g. favorite books, skills."
+            }
+          ]
+        },
+        "visibility": {
+          "type": "string",
+          "description": "Sharing scope. Constrained to the 5 canonical values. Exports are produced from 'public' (and explicitly-checked) facets.",
+          "enum": ["private", "friends", "groups", "church", "public"]
+        }
+      }
+    }
+  }
+}

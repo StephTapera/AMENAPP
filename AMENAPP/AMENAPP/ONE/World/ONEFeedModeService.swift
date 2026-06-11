@@ -79,12 +79,20 @@ final class ONEFeedModeService: ObservableObject {
     // MARK: - Relay
 
     func relay(itemID: String) async throws -> Int {
+        guard let idx = items.firstIndex(where: { $0.id == itemID }) else {
+            throw ONEConsentError.momentNotFound
+        }
+        // Fail closed: sticky consent is enforced before any network call. A
+        // forwardAllowed=false moment cannot be relayed from the client.
+        // (Server-side rejection in one_relayMoment is P5-deferred and remains
+        // mandatory before the ONE flag flips — client enforcement alone is advisory.)
+        guard ONEStickyConsentService.shared.isPermitted(.forward, in: items[idx].permissions) else {
+            throw ONEConsentError.forwardNotPermitted
+        }
         let remaining = try await ONECallableService.shared.relayMoment(momentID: itemID, toUIDs: [])
         userRelayBudget = max(0, userRelayBudget - 1)
-        if let idx = items.firstIndex(where: { $0.id == itemID }) {
-            items[idx].reachBudget.sharesRemaining = remaining
-            items[idx].reachBudget.totalRelays += 1
-        }
+        items[idx].reachBudget.sharesRemaining = remaining
+        items[idx].reachBudget.totalRelays += 1
         return remaining
     }
 

@@ -330,7 +330,12 @@ struct ONEWorldFeedView: View {
             )
 
             if item.reachBudget.hasReachRemaining && service.userRelayBudget > 0 {
+                // Honest-gated: when the author disallows forwarding, the Relay control
+                // is shown DISABLED in its no-forwarding state — never an active button
+                // that would violate the consent the cell already displays.
+                let forwardPermitted = ONEStickyConsentService.shared.isPermitted(.forward, in: item.permissions)
                 Button {
+                    guard forwardPermitted else { return }
                     Task {
                         do {
                             _ = try await service.relay(itemID: item.id)
@@ -340,13 +345,19 @@ struct ONEWorldFeedView: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "arrow.triangle.2.circlepath").font(.systemScaled(14))
+                        Image(systemName: forwardPermitted
+                              ? "arrow.triangle.2.circlepath"
+                              : "arrow.turn.up.right.slash")
+                            .font(.systemScaled(14))
                         Text("Relay").font(.systemScaled(12))
                     }
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(forwardPermitted ? Color.secondary : Color.secondary.opacity(0.4))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Relay this moment. \(item.reachBudget.sharesRemaining) relays remaining.")
+                .disabled(!forwardPermitted)
+                .accessibilityLabel(forwardPermitted
+                    ? "Relay this moment. \(item.reachBudget.sharesRemaining) relays remaining."
+                    : "Relay unavailable. The author disabled forwarding for this moment.")
             }
 
             Spacer()

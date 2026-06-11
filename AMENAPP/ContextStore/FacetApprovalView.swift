@@ -356,7 +356,7 @@ struct FacetApprovalView: View {
 
     private func rejectAll(in category: FacetCategory) {
         let toReject = candidates.filter { $0.category == category }
-        for facet in toReject { metrics.recordRejected() }
+        for _ in toReject { metrics.recordRejected() }
         withAnimation(Motion.adaptive(Motion.unpopToggle)) {
             candidates.removeAll { $0.category == category }
         }

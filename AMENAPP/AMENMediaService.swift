@@ -218,11 +218,11 @@ final class AMENMediaService: @unchecked Sendable {
             let token = payload["accessToken"] as? String ?? payload["token"] as? String
             guard let token, !token.isEmpty else { return nil }
 
-            let expiresIn = payload["expiresIn"] as? TimeInterval
+            let expiresInDirect: TimeInterval? = (payload["expiresIn"] as? TimeInterval)
                 ?? (payload["expires_in"] as? TimeInterval)
-                ?? (payload["expiresIn"] as? Int).map(TimeInterval.init)
+            let expiresInFromInt: TimeInterval? = (payload["expiresIn"] as? Int).map(TimeInterval.init)
                 ?? (payload["expires_in"] as? Int).map(TimeInterval.init)
-                ?? 3_000
+            let expiresIn: TimeInterval = expiresInDirect ?? expiresInFromInt ?? 3_000
 
             spotifyToken = token
             spotifyTokenExpiry = Date().addingTimeInterval(max(300, expiresIn))

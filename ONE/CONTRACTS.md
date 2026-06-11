@@ -7,7 +7,14 @@
 ## Amendment Log
 | # | Date | Field Changed | Reason | Approved By |
 |---|------|--------------|--------|------------|
-| — | — | — | Initial freeze | Lead Orchestrator |
+| — | 2026-06-01 | — | Initial freeze | Lead Orchestrator |
+| A-1 | 2026-06-10 | §3 `stripeSubscriptionID`→`storeKitTransactionID`; §15 drop `one_stripeCheckout` | StoreKit IAP (App Store 3.1.1); see RUNLOG A-1 / BQ-7 | Lead Orchestrator |
+| A-2 | 2026-06-10 | §4 `ONEThread` drop `mlsGroupID` + `livingThreadSummary`; `encryptionVersion="cr_1.0"` | MLS→CryptoKit Double Ratchet; living summary on-device only | Lead Orchestrator |
+| A-3 | 2026-06-10 | §4 `ONELivingThreadSummary`/`Date`/`Task` drop `Codable` | On-device-only; non-serializable by design | Lead Orchestrator |
+| A-4 | 2026-06-10 | §2 `ONEAudienceScope`/`ONELifetimePolicy`, §9 `ONEWitnessSeason` enum→struct | SwiftUI ergonomics; flat-keyed Codable is the authoritative wire shape | Lead Orchestrator |
+| A-5 | 2026-06-10 | §1.1 `ONEEncryptedPayload` add `encryptionVersion`; `epoch`↔`mlsEpoch` CodingKeys | Carry ratchet suite version; wire name preserved | Lead Orchestrator |
+
+> A-1…A-5 filed 2026-06-10 to close the contract-drift class found by `ONE/AUDIT-2026-06-10.md`. The §-bodies below are updated to the shipped shape; code and schema now agree in both directions.
 
 ---
 
@@ -112,10 +119,12 @@ struct ONEAlbumPayload: Codable, Sendable {
 }
 
 struct ONEEncryptedPayload: Codable, Sendable {
-    let ciphertext: Data                   // MLS/HPKE encrypted; server cannot decrypt
-    let mlsEpoch: UInt64
+    let ciphertext: Data                   // ratchet/HPKE encrypted; server cannot decrypt
+    let epoch: UInt64                       // [A-5] Swift property; wire key = "mlsEpoch" via CodingKeys
     let senderDeviceID: String
+    let encryptionVersion: String          // [A-5] ratchet suite, e.g. "cr_1.0"
 }
+// Wire schema (§14) key remains `mlsEpoch`; CodingKeys map epoch ↔ "mlsEpoch".
 ```
 
 ---
@@ -134,21 +143,26 @@ struct ONEPrivacyContract: Codable, Sendable {
     let reshareAllowed: Bool               // default false for DMs/snaps
 }
 
-enum ONEAudienceScope: Codable, Sendable {
-    case selfOnly
-    case closeFriends                      // user-curated list
-    case witnesses                         // season-scoped followers
-    case world                             // fully public
-    case custom(Set<String>)               // explicit UID set
-    case group(String)                     // ephemeral group ID
+// [A-4] Shipped as a flat-keyed struct (not an enum) for SwiftUI ergonomics.
+struct ONEAudienceScope: Codable, Sendable, Equatable {
+    enum Kind: String, Codable, Sendable {
+        case selfOnly, closeFriends, witnesses, world, custom, group
+    }
+    let kind: Kind
+    var customUIDs: [String]?              // populated when kind == .custom
+    var groupID: String?                  // populated when kind == .group
+    // static .selfOnly/.closeFriends/.witnesses/.world + .custom(uids:)/.group(_:) factories
 }
 
-enum ONELifetimePolicy: Codable, Sendable {
-    case afterView                         // snap: decays after first view
-    case hours(Int)                        // e.g. 24 for story
-    case days(Int)
-    case permanent                         // only if user explicitly chooses
-    case decayUnlessRemembered(days: Int)  // default for posts; remembered = permanent
+// [A-4] Shipped as a flat-keyed struct (not an enum).
+struct ONELifetimePolicy: Codable, Sendable, Equatable {
+    enum Kind: String, Codable, Sendable {
+        case afterView, hours, days, permanent, decayUnlessRemembered
+    }
+    let kind: Kind
+    var hours: Int?                        // when kind == .hours (e.g. 24 for story)
+    var days: Int?                        // when kind == .days / .decayUnlessRemembered
+    // static .afterView/.permanent + .hours(_:)/.days(_:)/.decayUnlessRemembered(days:) factories
 }
 
 struct ONEMomentPermissions: Codable, Sendable {
@@ -215,14 +229,14 @@ enum ONEPresenceState: String, Codable, Sendable {
 
 struct ONEEntitlement: Codable, Sendable {
     let tier: ONEEntitlementTier
-    var stripeSubscriptionID: String?
+    var storeKitTransactionID: UInt64?     // [A-1] App Store transaction ID (not Stripe)
     var validUntil: Date?
     var trialUsed: Bool
 }
 
 enum ONEEntitlementTier: String, Codable, Sendable {
     case free
-    case subscriber      // full feature set; Stripe-verified
+    case subscriber      // full feature set; StoreKit auto-renewable (App Store IAP)
 }
 ```
 
@@ -234,18 +248,19 @@ enum ONEEntitlementTier: String, Codable, Sendable {
 struct ONEThread: Codable, Identifiable, Sendable {
     let id: String                         // Firestore doc ID
     let participantUIDs: [String]          // max 150 for groups
-    let mlsGroupID: String?               // MLS group identifier; nil = key-ratchet fallback
-    let encryptionVersion: String          // "mls_1.0" | "cr_1.0" (key-ratchet fallback)
+    // [A-2] mlsGroupID removed — CryptoKit Double Ratchet has no MLS group identifier.
+    let encryptionVersion: String          // [A-2] "cr_1.0" (CryptoKit Double Ratchet)
     let isEphemeral: Bool
     var expiresAt: Date?
-    var livingThreadSummary: ONELivingThreadSummary?   // on-device AI; never uploaded
+    // [A-2] livingThreadSummary is NOT a field here — the on-device summary is held
+    //       transiently and never serialized (see ONELivingThreadSummary below).
     var consentOverrides: [String: ONEMomentPermissions] // per-participant overrides
     let createdAt: Date
     var lastActivityAt: Date
     var isArchived: Bool
 }
 
-struct ONELivingThreadSummary: Codable, Sendable {
+struct ONELivingThreadSummary: Sendable {   // [A-3] NOT Codable — on-device only; non-serializable by design
     // Computed ON DEVICE only. Never sent to server. User curates before sharing.
     var decisions: [String]
     var promises: [String]
@@ -256,12 +271,12 @@ struct ONELivingThreadSummary: Codable, Sendable {
     var lastDistilledAt: Date
 }
 
-struct ONELivingDate: Codable, Sendable {
+struct ONELivingDate: Sendable {            // [A-3] NOT Codable — on-device only
     let label: String
     let date: Date
 }
 
-struct ONELivingTask: Codable, Sendable, Identifiable {
+struct ONELivingTask: Sendable, Identifiable {   // [A-3] NOT Codable — on-device only
     let id: String
     let description: String
     var assignedUID: String?
@@ -369,12 +384,15 @@ struct ONEWitness: Codable, Identifiable, Sendable {
     var renewedAt: Date?
 }
 
-enum ONEWitnessSeason: String, Codable, Sendable {
-    case indefinite
-    case liturgical(String)              // e.g. "Advent 2026"
-    case academic(String)                // e.g. "Spring 2027"
-    case event(String)                   // e.g. "Retreat 2026"
-    case custom(days: Int)
+// [A-4] Shipped as a flat-keyed struct (not an enum).
+struct ONEWitnessSeason: Codable, Sendable, Equatable {
+    enum Kind: String, Codable, Sendable {
+        case indefinite, liturgical, academic, event, custom
+    }
+    let kind: Kind
+    var label: String?                   // e.g. "Advent 2026", "Spring 2027", "Retreat 2026"
+    var days: Int?                       // when kind == .custom
+    // static .indefinite + .liturgical(_:)/.academic(_:)/.event(_:)/.custom(days:) factories
 }
 ```
 
@@ -562,7 +580,8 @@ one_requestWitness(data: { targetUID: string, season?: ONEWitnessSeason }): { re
 one_relayMoment(data: { momentID: string, toUIDs: string[] }): { sharesRemaining: number }
 one_activateRepairFlow(data: { otherUID: string }): { flowID: string }
 one_acceptRepairFlow(data: { flowID: string }): { phase: ONERepairPhase }
-one_stripeCheckout(data: { plan: 'subscriber' }): { checkoutURL: string }
+// [A-1] one_stripeCheckout removed — iOS uses StoreKit IAP, not Stripe (App Store 3.1.1).
+//       Entitlement is verified entirely through one_verifyEntitlement. 9 callables total.
 one_verifyEntitlement(data: {}): { entitlement: ONEEntitlement }
 one_activateLegacy(data: { directiveID: string }): { activated: boolean }  // trustee-only
 ```

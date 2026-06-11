@@ -170,6 +170,30 @@ const ROUTING = {
     fail: "failover", outputGuard: true,
   },
 
+  // ── CONTEXT SYSTEM — Universal Migration extractor (Wave 3) ─────────────────
+  // extractContextFacets CF routes here. Input is C59-sanitized, inert-wrapped
+  // import text (DATA, never instructions); output is structured FacetCandidate[]
+  // (free-text length-capped). fail_closed: never fabricate a facet, never salvage
+  // from prose. inputGuard runs NeMo on the imported body before extraction.
+  context_extract: {
+    primary: "claude", chain: ["claude", "openai"],
+    fail: "fail_closed", inputGuard: true,
+    note: "structured facet extraction; fail_closed — no fabricated facets",
+  },
+  // Wave 4: "Why this community fits you" explanation. fail_closed → deterministic
+  // template fallback in the CF (never fabricates a fit reason).
+  context_match_explain: {
+    primary: "claude", chain: ["claude", "openai"],
+    fail: "fail_closed", outputGuard: true,
+    note: "community match explanation; fail_closed — CF falls back to template",
+  },
+  // Wave 4: contextual introduction draft from public/groups facets only. Never auto-posts.
+  context_intro: {
+    primary: "claude", chain: ["claude", "openai"],
+    fail: "fail_closed", outputGuard: true,
+    note: "introduction draft; fail_closed — empty draft, never fabricated",
+  },
+
   // ── RETRIEVAL & SEARCH ─────────────────────────────────────────────────────
   vector_retrieve: {
     primary: "pinecone", chain: ["pinecone"],

@@ -13,9 +13,43 @@ struct ONEProvenanceLabel: Codable, Sendable {
     let attestedAt: Date?
     let processorNote: String?     // human-readable e.g. "Adobe Firefly"
 
-    /// Returns a display-safe label that never overstates certainty.
+    /// Honesty threshold. A label can never assert a confident class below this.
+    static let confidenceThreshold: Float = 0.70
+
+    /// Degrade at the source. Confidence below the honesty threshold can never
+    /// assert a confident classification — the PERSISTED `classification` is forced
+    /// to `.unknown`, so every reader (Firestore, Cloud Functions, future code)
+    /// inherits the honesty, not just the rendered badge.
+    init(classification: ONEProvenanceClass, confidence: Float,
+         c2paPayload: Data?, attestedAt: Date?, processorNote: String?) {
+        self.classification = confidence >= Self.confidenceThreshold ? classification : .unknown
+        self.confidence = confidence
+        self.c2paPayload = c2paPayload
+        self.attestedAt = attestedAt
+        self.processorNote = processorNote
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case classification, confidence, c2paPayload, attestedAt, processorNote
+    }
+
+    /// Migration path: already-persisted raw values are re-normalized on decode, so a
+    /// stored confident class with sub-threshold confidence reads back as `.unknown`.
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            classification: try c.decode(ONEProvenanceClass.self, forKey: .classification),
+            confidence: try c.decode(Float.self, forKey: .confidence),
+            c2paPayload: try c.decodeIfPresent(Data.self, forKey: .c2paPayload),
+            attestedAt: try c.decodeIfPresent(Date.self, forKey: .attestedAt),
+            processorNote: try c.decodeIfPresent(String.self, forKey: .processorNote)
+        )
+    }
+
+    /// Display-safe label. Now equal to the (already-normalized) `classification`;
+    /// retained for call-site compatibility and defense in depth.
     var displayClassification: ONEProvenanceClass {
-        confidence >= 0.70 ? classification : .unknown
+        confidence >= Self.confidenceThreshold ? classification : .unknown
     }
 
     static var unknown: ONEProvenanceLabel {
