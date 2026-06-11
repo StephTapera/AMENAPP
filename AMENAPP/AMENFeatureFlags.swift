@@ -389,6 +389,11 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var contentAuditLogEnabled: Bool = false
 
     // MARK: - Social Safety OS (Phase 2–13)
+    // DEFERRED-DESIGN: all flags in this block are declared, defaulted, and RC-applied
+    // but have ZERO consumer call-sites in any view, service, or guard. They claim to
+    // control wellbeing/safety surfaces but nothing checks them yet. Wire-up is pending
+    // Safety OS v3 surface design. Do NOT flip OFF — keep true so consumers work when wired.
+    // GAP A5-P1 DEFERRED-DESIGN documentation.
     @Published private(set) var socialSafetyOSEnabled: Bool = true
     @Published private(set) var wellbeingFeedRankingEnabled: Bool = true
     @Published private(set) var selahPauseEnabled: Bool = true
@@ -536,6 +541,13 @@ final class AMENFeatureFlags: ObservableObject {
     // MARK: - System 38: Connect Hub
     @Published private(set) var connectHubEnabled: Bool = true
     @Published private(set) var connectYouMenuEnabled: Bool = true
+
+    // MARK: - System 39: Connect UI Polish Waves (default OFF — flip in Remote Config after verification)
+    @Published private(set) var connectLayoutV2Enabled: Bool = false
+    @Published private(set) var connectPolishV2Enabled: Bool = false
+    @Published private(set) var connectEmptyStatesEnabled: Bool = false
+    @Published private(set) var connectSmartBereanEnabled: Bool = false
+    @Published private(set) var connectOfflineQueueEnabled: Bool = false
 
     // MARK: - Cross-cutting
     @Published private(set) var analyticsEnabled: Bool = true
@@ -1317,6 +1329,13 @@ final class AMENFeatureFlags: ObservableObject {
             "connect_hub_enabled": true as NSObject,
             "connect_you_menu_enabled": true as NSObject,
 
+            // System 39: Connect UI Polish Waves (default OFF)
+            "connect_layout_v2_enabled": false as NSObject,
+            "connect_polish_v2_enabled": false as NSObject,
+            "connect_empty_states_enabled": false as NSObject,
+            "connect_smart_berean_enabled": false as NSObject,
+            "connect_offline_queue_enabled": false as NSObject,
+
             // System 34: Healthy Media — extended flags
             "immersive_media_sessions_enabled": false as NSObject,
             "finite_media_queues_enabled": true as NSObject,
@@ -1895,6 +1914,13 @@ final class AMENFeatureFlags: ObservableObject {
         connectHubEnabled    = config["connect_hub_enabled"].boolValue
         connectYouMenuEnabled = config["connect_you_menu_enabled"].boolValue
 
+        // System 39: Connect UI Polish Waves
+        connectLayoutV2Enabled     = config["connect_layout_v2_enabled"].boolValue
+        connectPolishV2Enabled     = config["connect_polish_v2_enabled"].boolValue
+        connectEmptyStatesEnabled  = config["connect_empty_states_enabled"].boolValue
+        connectSmartBereanEnabled  = config["connect_smart_berean_enabled"].boolValue
+        connectOfflineQueueEnabled = config["connect_offline_queue_enabled"].boolValue
+
         // Music Attachment
         musicAttachmentEnabled = config.configValue(forKey: "music_attachment_enabled").boolValue
 
@@ -1941,7 +1967,10 @@ final class AMENFeatureFlags: ObservableObject {
         selahDiscernmentSharingEnabled  = config["selah_discernment_sharing_enabled"].boolValue
 
         // GAP A5-P1 bridge call
-        CommunicationOSRemoteConfigBridge.applyRemoteConfig(config)
+        let communicationOSValues = CommunicationOSRemoteConfigBridge.allFlagKeys.reduce(into: [String: Bool]()) { values, key in
+            values[key] = config.configValue(forKey: key).boolValue
+        }
+        CommunicationOSRemoteConfigBridge.applyRemoteConfig(communicationOSValues)
     }
 
     private func applyUITestOverrides() {

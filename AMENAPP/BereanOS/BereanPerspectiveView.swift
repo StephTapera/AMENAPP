@@ -1,3 +1,5 @@
+// DEFERRED-FEATURE: BereanPerspectiveView mainContent is a static placeholder.
+// Multi-perspective analysis feature not yet implemented. (GAP A1-P1)
 // BereanPerspectiveView.swift
 // AMENAPP — Berean OS
 

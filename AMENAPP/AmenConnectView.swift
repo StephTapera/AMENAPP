@@ -1,3 +1,7 @@
+// DEFERRED-WIRING: This view is superseded by AmenConnectSpacesHubView (ConnectSpaces/AmenConnectSpacesHubView.swift).
+// It has zero call sites and is dead code in the active source tree. It should be deleted in a
+// future cleanup sprint, or formally replaced/merged into the newer view. — GAP A2-P1
+
 //
 //  AMENConnectView.swift
 //  AMENAPP

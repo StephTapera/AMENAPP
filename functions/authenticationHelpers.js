@@ -928,7 +928,7 @@ exports.onUserDocCreated = onDocCreated(
       const currentYear = new Date().getFullYear();
       const ageTier = computeAgeTier(birthYear, currentYear);
 
-      console.log(`[ageTier] userId=${userId} birthYear=${birthYear} → ageTier=${ageTier}`);
+      console.log(`[ageTier] userId=${userId} ageTier=${ageTier}`) // GAP A7-P1 birthYear redacted from logs;
 
       const updateFields = {
         ageTier,
@@ -1154,7 +1154,7 @@ exports.updateBirthYear = onCall(
         ageTierSetAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`[updateBirthYear] uid=${uid} birthYear=${birthYear} ageTier=${newTier}`);
+      console.log(`[updateBirthYear] uid=${uid} ageTier=${newTier}`) // GAP A7-P1 birthYear redacted from logs;
       return {success: true, ageTier: newTier};
     }
 );

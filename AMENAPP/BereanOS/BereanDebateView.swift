@@ -1,3 +1,5 @@
+// DEFERRED-FEATURE: BereanDebateView mainContent is a static placeholder.
+// Debate engine AI feature not yet implemented. (GAP A1-P1)
 // BereanDebateView.swift
 // AMENAPP — Berean OS
 

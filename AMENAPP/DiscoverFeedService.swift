@@ -1,3 +1,8 @@
+// DEFERRED-DEPLOY: loadInitialContent() is an empty stub. Production content
+// requires a real apiKey to be set via Firebase Remote Config or backend config.
+// The full Firestore-backed implementation exists as an untracked file pending
+// Xcode project integration. (GAP A1-P1)
+
 //
 //  DiscoverFeedService.swift
 //  AMENAPP

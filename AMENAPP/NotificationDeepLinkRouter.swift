@@ -49,6 +49,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
         case churchNote(noteId: String)
         case job(jobId: String)
         case event(eventId: String)
+        case space(spaceId: String)  // A2-P1 fix: amen://space deep links were dropped
         case studioProfile(creatorId: String)
         case intelligence(cardId: String? = nil)
         /// Opens the Discovery / Search tab (tab 1).
@@ -640,6 +641,11 @@ struct NotificationNavigationHandler: ViewModifier {
                 case .event:
                     // Events are accessible via Resources tab
                     selectedTab = 3
+                    pendingAction = nil
+                    
+                case .space:
+                    // A2-P1: Spaces tab (index 6) — previously silently dropped
+                    selectedTab = 6
                     pendingAction = nil
                     
                 case .studioProfile:

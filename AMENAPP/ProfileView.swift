@@ -1,3 +1,7 @@
+// DEFERRED-FEATURE: UserProfileViewWrapper and HashtagSearchViewWrapper show
+// "coming soon" placeholder text. Full profile and hashtag search views not yet
+// built. (GAP A1-P1)
+
 //
 //  ProfileView.swift
 //  AMENAPP
