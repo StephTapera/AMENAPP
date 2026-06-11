@@ -26,6 +26,12 @@ import { MentionComposer } from '../features/berean/composer';
 import { DailyBriefCard } from '../features/brief';
 import { NotebooksScreen } from '../features/notebooks';
 import { ScheduledActionsScreen } from '../features/scheduled';
+import {
+  ConnectorsHubScreen,
+  beginOAuth,
+  isNativeOAuthBridgeAvailable,
+} from '../features/connectors';
+import { connectedIntelligence } from '../features/connectedIntelligence.config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NAV TABS
@@ -271,7 +277,21 @@ function BereanShell({ userId }: { userId: string }) {
                 </div>
               )}
               {tab === 'usage'      && <UsageMeters userId={userId} />}
-              {tab === 'connectors' && <ConnectorsScreen userId={userId} minorScoped={false} />}
+              {tab === 'connectors' && (
+                // New Connectors Hub (real OAuth via the native bridge) shows ONLY
+                // when its flag is on AND a native host can present the web-auth
+                // session. Otherwise the Berean-v1 ConnectorsScreen stays the
+                // default — never a half-working OAuth flow on plain web.
+                connectedIntelligence.connectorsHubUIEnabled && isNativeOAuthBridgeAvailable() ? (
+                  <ConnectorsHubScreen
+                    minorScoped={false}
+                    plan="free"
+                    beginOAuth={beginOAuth}
+                  />
+                ) : (
+                  <ConnectorsScreen userId={userId} minorScoped={false} />
+                )
+              )}
               {tab === 'settings'   && <CapabilitiesScreen userId={userId} />}
             </div>
           )}

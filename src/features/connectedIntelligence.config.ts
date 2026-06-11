@@ -17,6 +17,14 @@ import { ConnectorId, ResponseAction } from './connectedIntelligence.contracts';
 
 export interface ConnectedIntelligenceConfig {
   connectors: Record<ConnectorId.calendar | ConnectorId.music, { enabled: boolean }>;
+  /**
+   * Gate for the NEW Connectors Hub UI (ConnectorsHubScreen) that drives the
+   * native ASWebAuthenticationSession OAuth bridge. While this is false, the
+   * Berean-v1 ConnectorsScreen remains the default. Even when true, the new hub
+   * only renders if the native OAuth bridge is present (web builds fail closed to
+   * the old screen). Flip to true after E2E verifies with provisioned secrets.
+   */
+  connectorsHubUIEnabled: boolean;
   brief: {
     maxItems: number;
     generateAfterLocalHour: number;
@@ -57,6 +65,9 @@ export const connectedIntelligence: ConnectedIntelligenceConfig = {
     [ConnectorId.calendar]: { enabled: true },
     [ConnectorId.music]: { enabled: true },
   },
+  // Default OFF: ship the new hub dark until E2E passes with real OAuth secrets.
+  // The Berean-v1 ConnectorsScreen stays the default while this is false.
+  connectorsHubUIEnabled: false,
   brief: {
     maxItems: 9,
     generateAfterLocalHour: 5,

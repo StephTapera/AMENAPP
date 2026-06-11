@@ -47,3 +47,107 @@ Branch: `feature/connected-intelligence-20260609` · Firebase: `amen-5e359` · R
 **Re-add path (if on-device FoundationModels via FirebaseAI is ever wanted):** deliberate re-add at a compatible deployment target (iOS 26+), not a passive SDK pin — RUNLOG at that time.
 
 **Next:** on unlink commit landing, run build and continue merge pass from next real compiler errors.
+## C2 — Native ASWebAuthenticationSession OAuth bridge (branch `feature/ci-native-bridge-20260609`)
+Supplies the missing platform `beginOAuth` so the Connectors Hub can do real OAuth
+without stubbing. Additive; reuses the app's Keychain convention; no client secrets.
+
+Files written/edited:
+- **Swift (NEW)** `AMENAPP/ConnectedIntelligence/ConnectorOAuthBridge.swift` (~390 lines).
+  `WKScriptMessageHandlerWithReply` named `connectorOAuth`. `register(on:presentationAnchorProvider:)`
+  attaches it to the prototype WKWebView's `WKUserContentController`. On a JS request it
+  generates a PKCE verifier+challenge (S256), stores the verifier in the **Keychain**
+  (`com.amenapp.connector.pkce.<state>`, `AfterFirstUnlockThisDeviceOnly`, non-sync),
+  builds the provider auth URL (+ `state` CSRF nonce), presents
+  `ASWebAuthenticationSession` (ephemeral), validates `state`, extracts `code`, purges
+  the verifier, and replies `{ ok, code, redirectUri, codeVerifier }`. Never sees a token.
+- **TS (NEW)** `src/features/connectors/oauthConfig.ts` — PUBLIC OAuth params per NEW
+  connector (auth endpoint + scopes + redirect `amenapp://oauth/connector`); public
+  client_id read from `globalThis.CONNECTOR_OAUTH_CLIENT_IDS` (no hard-coded ids/secrets).
+- **TS (NEW)** `src/features/connectors/oauthBridge.ts` — `beginOAuth({id,title})` detects
+  `window.webkit.messageHandlers.connectorOAuth`, calls it, returns the short-lived
+  `{ code, redirectUri, codeVerifier? }`. **Fails closed** (`NativeBridgeUnavailableError`)
+  when no native host → UI shows "open in app to connect", never a fake success.
+  `isNativeOAuthBridgeAvailable()` exported for the mount gate.
+- **TS (edit)** `src/features/connectors/index.ts` — export bridge API.
+- **TS (edit)** `src/features/connectedIntelligence.config.ts` — add
+  `connectorsHubUIEnabled` flag (default **false**).
+- **TS (edit)** `src/berean/BereanApp.tsx` — the `connectors` tab renders the new
+  `ConnectorsHubScreen` (with `beginOAuth`) ONLY when `connectorsHubUIEnabled` **and**
+  `isNativeOAuthBridgeAvailable()`; otherwise the **Berean-v1 `ConnectorsScreen` stays the
+  default** (not deleted).
+- **JS (edit)** `functions/v2triggers/v2entry.js` — add `exports.connectorFetch` to mirror
+  `functions/v2entry.js` so the v2triggers deploy bundle is consistent.
+
+Handshake: ConnectorCard → hub `beginOAuth` → `oauthBridge.beginOAuth` →
+`connectorOAuth` message handler → `ASWebAuthenticationSession` → redirect `code` →
+JS `{code,redirectUri,codeVerifier}` → `provider.grant(...)` → `callOAuthExchange` →
+`connectorOAuthExchange` CF (server-side token exchange + `connectorTokens` storage).
+
+Verified: JS import/contract consistency against the existing `ConnectorsHubScreenProps`
+/ `GrantParams` / `connectorOAuthExchange` shapes (manual — no tsc binary or node_modules
+in this worktree); `functions/v2triggers/v2entry.js` passes `node --check`; Swift reviewed
+for correct `WKScriptMessageHandlerWithReply` + `ASWebAuthenticationSession` +
+`ASWebAuthenticationPresentationContextProviding` + Keychain usage and default-MainActor
+concurrency (stateless helpers marked `nonisolated`). Deploy target iOS 17 supports all APIs.
+
+**E2E — PENDING-SECRETS:** the full round-trip against real Google Calendar / Spotify
+requires `GOOGLE_CALENDAR_CLIENT_ID/SECRET` + `SPOTIFY_CLIENT_ID/SECRET` (server) and the
+matching PUBLIC client ids injected as `CONNECTOR_OAUTH_CLIENT_IDS` (client). These are not
+provisioned, so the live OAuth E2E is **NOT run** and is **not faked**. Flip
+`connectorsHubUIEnabled` → true only after E2E passes with provisioned secrets.
+
+**Human steps:** (1) Add `AMENAPP/ConnectedIntelligence/ConnectorOAuthBridge.swift` to the
+AMENAPP app target (Xcode target membership) and run an Xcode build — cannot build from this
+worktree. (2) When the prototype WKWebView host is built, call
+`ConnectorOAuthBridge.register(on: webView.configuration.userContentController) { anchorWindow }`.
+(3) Provision the 4 OAuth secrets + inject the public client ids; then E2E + flip the flag.
+
+---
+
+## QUARANTINE — duplicate Connected Intelligence implementation (RULING 2026-06-09)
+
+**Ruling:** the contract-corrected stack WINS. The parallel implementation was built on
+the REJECTED contract (autonomous-write `ScheduleWriteRisk.External` tier + collapsed
+enums = doctrine violation at the foundation). One Connected Intelligence implementation
+exists from now on.
+
+**Inventory (which world):**
+- **Duplicate** committed on `rescue/verification-and-safety-0609` at **`12f8839f`**
+  ("rescue: durable snapshot…") — full `src/features/**` + 5 CF modules on the BROKEN
+  contract (rescue HEAD still carries `grantedVia`/`Settings`, 2 broken-markers).
+- **Stranded lane** `feature/connected-intelligence-20260609` (cc9cd5d3): NO CI files.
+- **Integration path** `integration/recover-features-20260609`: NO CI files (0 broken-markers,
+  contract absent). **The duplicate has NOT propagated to the integration target.**
+- **CANONICAL corrected stack** = branch **`ci/contract-faithful`** (== `feature/ci-native-bridge-20260609`):
+  `7695189b` (Phases 0–3 corrected contract + wiring) → `37129fb3` (connectorFetch) →
+  `f3e0866d` (native OAuth bridge). Verified: contract 0 broken-markers; ZERO broken-symbol
+  usage across `src/features`.
+
+**Supersession (ruling 1b):** because the integration path carries no CI, there is nothing
+of the duplicate to revert there — the reconciler takes `ci/contract-faithful` WHOLESALE as
+the sole CI source and DISCARDS `12f8839f`'s CI files. `rescue` itself is left untouched
+(shared, in active use by Xcode + other lanes); its `12f8839f` CI files are quarantined =
+do-not-integrate.
+
+**Discard default (ruling 1c):** nothing from `12f8839f` ports over unless re-verified
+line-by-line against the corrected contract. Default = discard. The parallel
+"Design swarm orchestration for Amen Connected Intelligence" conversation is FORMALLY
+CLOSED OUT — superseded by `ci/contract-faithful`.
+
+**Cleanup:** removed `src/features/.subagent_probe` (junk write-probe snapshotted into
+`12f8839f`, inherited onto the branch).
+
+## RULING 3 — WKWebView host registration: BLOCKED (host does not exist)
+Grep of `AMENAPP/**` for `dist/berean` / `loadFileURL` / `messageHandlers` / `connectorOAuth`
+/ `BereanApp` → **no matches**. The React prototype is NOT embedded in a native WKWebView
+anywhere in the app; the 4 WKWebViews present host other content (in-app browser, media,
+resources, sermons), none load the prototype. So there is no host file (and no inactive lane)
+to claim — registration is blocked on the deferred React→native embedding (§1.10 SwiftUI
+parity), NOT on lane contention. `ConnectorOAuthBridge.register(on:)` is ready; the human
+calls it once a prototype-hosting WKWebView exists. Nothing fabricated.
+
+## RULING 4 — Stage 3 functions deploy batch (confirmed)
+- Rules diff = **isMinorSafeDM wiring + CI block ONLY** (firestore.rules:2156/discernmentChecks
+  already live — exclude).
+- Stage 3 functions batch = `connectorFetch` + `connectorOAuthExchange` + `ailTransform`
+  + the 6 CI CF modules, deployed via the v2triggers codebase, `--project amen-5e359`.

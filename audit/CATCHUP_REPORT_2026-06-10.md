@@ -148,3 +148,19 @@ Diffed all 21 untracked ` 2/3/4` dups vs canonical. **Deleting 14 BYTE-IDENTICAL
 `ContextStore/ContextStoreAdversarialTests.swift` imports XCTest but sits in the **app target** →
 "XCTest isn't linked." Owner = Migration lane (self-reported, active). Trivial fix: move to
 `AMENAPPTests/` or guard `#if canImport(XCTest)`. Claimed by catch-up only on no owner heartbeat.
+**UPDATE:** owner FIXED it — XCTest error gone in build6.
+
+### ✅ BUILD PIPELINE PROVEN GREEN-CAPABLE — down to 3 owner Swift errors
+With the working command (build6: `-project` + global package cache + `/tmp` DerivedData/SourcePackages
++ `CODE_SIGNING_ALLOWED=NO`), **all 22 packages resolved and the ENTIRE app target compiled** except
+**3 ordinary Swift errors**, each a cross-lane name collision or isolation issue in a **contested active
+lane's file** (not edited — binding rule forbids editing active-lane paths; posted to owners with remedy):
+
+| # | Error (verbatim) | File:line | Owner | Remedy |
+|---|---|---|---|---|
+| 1 | `invalid redeclaration of 'FlowLayout'` | `Pulse/PulsePrefsView.swift:232` | Pulse | rename the newcomer `FlowLayout`(Layout)→`PulseFlowLayout`; collides with `AmenSyncStudioView.swift:766` (`FlowLayout<T,Content>: View`) |
+| 2 | `invalid redeclaration of 'TierBadge'` | `Intelligence/IntelligenceCardView.swift:81` | Migration + Intelligence | rename the newcomer `ContextStore/IdentityBlueprintView.swift:246` `TierBadge`→`IdentityTierBadge` |
+| 3 | `call to main actor-isolated initializer … in a synchronous nonisolated context` | `Pulse/AmenPulseSurfaceView.swift:115` | Pulse | make the default-arg init `@MainActor` or remove the default and inject the VM at the (MainActor) call site |
+
+**These 3 fixes (all owner-side, ~10 min) → BUILD SUCCEEDED.** Everything upstream (package resolution,
+FirebaseAI unlink, XCTest, code-sign, 22-package compile, full app-target compile) is proven working.

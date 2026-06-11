@@ -103,6 +103,15 @@ exports.connectorUpdateGrant   = ciConnectors.connectorUpdateGrant;
 exports.connectorRevoke        = ciConnectors.connectorRevoke;
 exports.connectorStatus        = ciConnectors.connectorStatus;
 
+// connectorFetch — READ-side endpoint for @calendar/@music context into a Berean
+// turn (the one read gap). Consent-gated per connector+surface, minor-blocked,
+// computed-and-discarded, fail-closed. Same auth/App Check/rate-limit posture as the
+// connector lifecycle CFs above. The client call site is
+// src/features/berean/composer/contextGatherer.ts (httpsCallable 'connectorFetch').
+// Mirrors functions/v2entry.js so the v2triggers bundle stays deploy-consistent.
+exports.connectorFetch =
+  require("./connectedIntelligence/connectorFetch").connectorFetch;
+
 // Daily Brief — pull-based home card (one cache doc per day, never a push):
 exports.generateDailyBrief =
   require("./connectedIntelligence/briefFunctions").generateDailyBrief;
