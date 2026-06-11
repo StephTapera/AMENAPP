@@ -158,7 +158,10 @@ struct NoteShareViewerView: View {
                 if viewModel.isLoading && viewModel.payload == nil {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let payload = viewModel.payload {
+                } else if let payload = viewModel.payload, payload.status == "active" {
+                    // Safety gate: only render when the server confirms status == "active".
+                    // Statuses removed_by_moderation / revoked / expired all fall through
+                    // to unavailableState so moderated content is never shown to viewers.
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
                             header(payload)
