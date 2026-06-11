@@ -123,6 +123,7 @@ final class SpiritualOSContextManager: ObservableObject {
 
         contextState.timeOfDay = SOTimeOfDay.current()
         contextState.lastUpdated = Date()
+        postLegacyModeNotification()
     }
 
     private func applyAmbientMode(_ mode: String) {
@@ -143,6 +144,21 @@ final class SpiritualOSContextManager: ObservableObject {
             contextState.isNearChurch = false
             contextState.isTraveling = false
         }
+    }
+
+    private func postLegacyModeNotification() {
+        let legacyMode: AmenContextMode
+        switch contextState.mode {
+        case .driveMode:
+            legacyMode = .driving
+        case .worshipMode:
+            legacyMode = .church
+        case .travelMode:
+            legacyMode = .travel
+        default:
+            legacyMode = .standard
+        }
+        NotificationCenter.default.post(name: .amenContextModeChanged, object: legacyMode)
     }
 
     // MARK: - Server Sync

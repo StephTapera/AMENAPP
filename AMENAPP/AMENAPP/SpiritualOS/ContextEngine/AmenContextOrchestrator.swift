@@ -7,19 +7,11 @@ import UIKit
 
 // MARK: - AmenContextOrchestrator
 //
-// @Observable singleton that drives the 5-mode context system:
-//   standard | driving | church | travel | event
-//
-// All sensor work starts only after start() is called (called from scenePhase .active
-// in AMENAPPApp so nothing runs before the user is settled in).
-//
-// Privacy contract:
-//   - Location is only started when CLAuthorizationStatus is .authorizedWhenInUse
-//     or .authorizedAlways.
-//   - Motion activity is started optimistically; if CMMotionActivityManager is
-//     unavailable (hardware, permissions) the update closure simply never fires.
-//   - No location or motion data is stored persistently; it is used only to
-//     compute the current mode and is discarded.
+// Compatibility shim for older Home banners that listen to .amenContextModeChanged.
+// SpiritualOSContextManager is the only active context source; it consumes the
+// server-assembled Ambient/ContextStore projection and posts legacy notifications.
+// This type remains to preserve call sites, but it must not start a parallel
+// CoreLocation/CoreMotion sensing pipeline.
 
 @Observable
 final class AmenContextOrchestrator: NSObject {
@@ -66,26 +58,20 @@ final class AmenContextOrchestrator: NSObject {
 
     // MARK: - Lifecycle
 
-    /// Start all detectors. Safe to call multiple times (idempotent after first call).
+    /// Preserved for legacy callers. No-op by design: context is sourced from
+    /// SpiritualOSContextManager, not a second device-sensing pipeline.
     func start() {
         guard !isStarted else { return }
         isStarted = true
-        loadHomeRegion()
-        startLocationIfPermitted()
-        startMotionDetection()
-        startChurchCheckTimer()
-        startEventCheckTimer()
+        Task { @MainActor in applyMode(.standard) }
     }
 
-    /// Called after the user authenticates while the app is already in the foreground.
-    /// `start()` ran before auth was established (isStarted == true) so location was
-    /// skipped by the auth guard; this re-runs just the location step now that auth is confirmed.
+    /// Preserved for legacy callers. Does not request permissions or start sensors.
     func resumeAfterAuth() {
         guard isStarted else {
             start()
             return
         }
-        startLocationIfPermitted()
     }
 
     /// Stop all detectors and invalidate timers.
