@@ -534,13 +534,13 @@ struct LiveDiscussionRoomView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(option), \(poll.votes[option, default: 0]) votes")
+                .accessibilityLabel({ let v = poll.votes[option, default: 0]; return "\(option), \(v) votes" }())
             }
         }
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(reduceTransparency ? Color(.secondarySystemBackground) : AnyShapeStyle(.ultraThinMaterial))
+                .fill(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemBackground)) : AnyShapeStyle(Material.ultraThin))
                 .overlay {
                     if !reduceTransparency {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
