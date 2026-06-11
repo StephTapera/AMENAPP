@@ -1,44 +1,48 @@
 # FULL-STACK BUILD CERTIFICATION
 
-Generated: 2026-06-11 10:55:42 MST
-Report write HEAD: `b2974e08`
-Certification started while HEAD was `9956e02a`; HEAD advanced through `d3b6434e` to `b2974e08` while the run was in progress. Result is therefore not a stable current-HEAD green certificate.
+Generated: 2026-06-11 16:04:58 MST
+Verification HEAD: `4f044d91`
+Report commit HEAD: `4a2dd121`
+Certification retry ran at source HEAD `4f044d91`. Result is not full-stack green: Layer 2 is blocked before Swift test compilation by Xcode's dependency-graph service, Backend/functions Jest is red, and Storage rules emulator startup is blocked by the Firebase CLI storage runtime download.
 
 ## Result
 
 | Layer | Status | Evidence |
 |---|---|---|
-| Layer 1 - iOS app clean canonical CLI | 🔴 RED / HARNESS-LIMITED | `xcodebuild -resolvePackageDependencies` completed with `resolved source packages:`. Canonical CLI build then failed before Swift compile with missing package products after CoreSimulator service failures: `Missing package product 'LiveKit'`, `Missing package product 'FirebaseFirestore'`, `Missing package product 'AlgoliaSearch'`, and related package products. |
-| Layer 1 - iOS app Xcode MCP route | ✅ GREEN | `BuildProject` succeeded, elapsed `46.903s`, log `BuildProject-Log-20260611-104121.txt`. |
-| Layer 2 - Test targets compile | ✅ GREEN | `BuildProject(buildForTesting: true)` first returned dependency-graph failure, retry timed out at MCP layer but continued in Xcode; `GetBuildLog` final result: `The build succeeded`, log `26C7F080-BF20-4939-BB82-FF49B0536392.txt`. |
-| Layer 3 - Backend TS compile/build | ✅ GREEN | `Backend/functions`: `npx tsc --noEmit` exited `0` with no output; `npm run build` exited `0` with `> build` / `> tsc`. Legacy `functions`: corrected deployed-code syntax sweep excluding all `node_modules` and `.history` paths exited `0` with no output. |
+| Layer 1 - iOS app clean canonical CLI | 🔴 RED / HARNESS-LIMITED | Repo-local `xcodebuild -resolvePackageDependencies` exited `0`, but canonical CLI build failed before Swift compile with missing package products (`LiveKit`, `FirebaseFirestore`, `AlgoliaSearch`, Firebase/Algolia products) because sandboxed Xcode cannot use the existing package graph/CoreSimulator services. |
+| Layer 1 - iOS app Xcode MCP route | ✅ GREEN | `BuildProject` returned `The project built successfully`, elapsed `1.801s`, log `BuildProject-Log-20260611-160206.txt`. |
+| Layer 2 - Test targets compile | 🔴 BLOCKED | `BuildProject(buildForTesting: true)` now fails before compilation: `Could not compute dependency graph: Failed to receive dependency graph response`, log `BuildProject-Log-20260611-160216.txt`. Earlier source compile clusters fixed in this retry include AdaptiveComposer `Motion` redeclaration, AppReadyStateManager init, auth/audit compatibility, Selah resolver, feed context label contracts, and media approval metadata. |
+| Layer 3 - Backend TS compile/build | ✅ GREEN | `Backend/functions`: `npx tsc --noEmit` exited `0` with no output; `npm run build` exited `0` with `> build` / `> tsc`. Legacy `functions`: `node --check` over JS files exited `0` with no output. |
 | Layer 4 - Test suites execute | 🔴 RED | `Backend/functions npm test`: `Test Suites: 30 failed, 30 passed, 60 total`; `Tests: 257 failed, 654 passed, 911 total`. Legacy `functions npm test`: `5 passed, 5 total`; `137 passed, 137 total`. |
-| Layer 5 - Rules compile | ✅ GREEN | `XDG_CONFIG_HOME=/tmp/firebase-config firebase deploy --only firestore:rules,storage --project amen-5e359 --dry-run` returned `storage.rules compiled successfully`, `firestore.rules compiled successfully`, `Dry run complete!`. |
-| Layer 5 - Rules emulator suites | 🔴 BLOCKED | Direct `Backend/rules-tests npm test` failed because emulators were not running. `firebase emulators:exec --only firestore,database,storage "cd Backend/rules-tests && npm test"` started Firestore and Database, then stalled while starting/downloading Storage runtime; process was terminated after no progress. |
-| Final Layer 1 repeat | 🔴 CANCELLED | Final `BuildProject` repeat was cancelled externally after `88.108s`; MCP message: `The build was cancelled. This most likely happened because of a user interaction.` |
+| Layer 5 - Rules compile | 🟡 PARTIAL | Firestore emulator compile smoke passed: `firestore-rules-compile-smoke`. Storage emulator startup failed during `cloud-storage-rules-runtime-v1.1.3.jar` download with `Error: An unexpected error has occurred.` |
+| Layer 5 - Rules emulator suites | 🔴 BLOCKED | Storage emulator runtime download blocks combined Firestore/Storage execution. Firestore-only emulator starts and exits successfully. |
+| Final Layer 1 repeat | ⏸ NOT RUN | Double-green repeat not attempted because Layer 2 dependency-graph failure and Layer 4 Backend/functions Jest red prevent full-stack green. |
 
 ## Verbatim Tails
 
 ### Layer 1 Canonical CLI Failure Tail
 
 ```text
-/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP.xcodeproj: error: Missing package product 'LiveKit' (in target 'AMENAPP' from project 'AMENAPP')
 /Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP.xcodeproj: error: Missing package product 'FirebaseFirestore' (in target 'AMENAPP' from project 'AMENAPP')
 /Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP.xcodeproj: error: Missing package product 'AlgoliaSearch' (in target 'AMENAPP' from project 'AMENAPP')
-warning: duplicate output file '/Users/stephtapera/Desktop/AMEN/AMENAPP copy/DerivedData.nosync/Build/Products/Debug-iphonesimulator/AMENAPP.app/CONTRACTS.md' on task: CpResource /Users/stephtapera/Desktop/AMEN/AMENAPP copy/DerivedData.nosync/Build/Products/Debug-iphonesimulator/AMENAPP.app/CONTRACTS.md /Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP/Shared/Contracts/CONTRACTS.md (in target 'AMENAPP' from project 'AMENAPP')
-** BUILD FAILED **
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP.xcodeproj: error: Missing package product 'LiveKit' (in target 'AMENAPP' from project 'AMENAPP')
+** TEST BUILD FAILED **
+```
+
+### Layer 1 Xcode MCP Tail
+
+```text
+buildResult: The project built successfully.
+elapsedTime: 1.801
+fullLogPath: BuildProject-Log-20260611-160206.txt
 ```
 
 ### Layer 2 Xcode MCP Tail
 
 ```text
-buildResult: The build succeeded
-Link AMENAPP.debug.dylib (arm64)
-Link AMENAPP (arm64)
-Link AMENWidgetExtensionExtension.debug.dylib (arm64)
-Link AMENWidgetExtensionExtension (arm64)
-Link AMENNotificationServiceExtension.debug.dylib (arm64)
-Link AMENNotificationServiceExtension (arm64)
+buildResult: The build failed
+Could not compute dependency graph: Failed to receive dependency graph response
+fullLogPath: BuildProject-Log-20260611-160216.txt
 ```
 
 ### Layer 3 Backend Tail
@@ -47,6 +51,10 @@ Link AMENNotificationServiceExtension (arm64)
 Backend/functions:
 > build
 > tsc
+
+Backend/functions:
+npx tsc --noEmit
+exit 0, no output
 
 legacy functions deployed-code node --check:
 exit 0, no output
@@ -73,23 +81,19 @@ Ran all test suites.
 ### Layer 5 Rules Tail
 
 ```text
-✔  firebase.storage: rules file storage.rules compiled successfully
-✔  cloud.firestore: rules file firestore.rules compiled successfully
-
-✔  Dry run complete!
+✔  firestore: Firestore Emulator was started in standard edition.
+i  Running script: echo firestore-rules-compile-smoke
+firestore-rules-compile-smoke
+✔  Script exited successfully (code 0)
 ```
 
 ### Layer 5 Emulator Blocker Tail
 
 ```text
-Firebase emulator is not running.
-Could not reach 127.0.0.1 on port(s): 8080, 9000, 9199.
-
-firebase emulators:exec:
-i  emulators: Starting emulators: firestore, database, storage
+i  emulators: Starting emulators: firestore, storage
 ✔  firestore: Firestore Emulator was started in standard edition.
-i  database: Database Emulator logging to database-debug.log
 i  storage: downloading cloud-storage-rules-runtime-v1.1.3.jar...
+Error: An unexpected error has occurred.
 ```
 
 ## Highest-Fanout Layer 4 Failures

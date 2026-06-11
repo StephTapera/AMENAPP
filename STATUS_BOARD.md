@@ -1,7 +1,7 @@
 # STATUS BOARD
 
 Generated: 2026-06-11 09:28:43 MST (last full refresh)
-**Updated:** 2026-06-11 — HEAD: `b2974e08`
+**Updated:** 2026-06-11 16:04:58 MST — board commit HEAD: `4a2dd121`; verification HEAD: `4f044d91`
 Evidence bundle HEADs cited: `4526d792` where proof bundles were generated before this refresh
 
 Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11.md`, `STAGE3_DEPLOY_PACKAGE_2026-06-11.md`, `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md`, `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md`, `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md`, `DECISION_DOC_SAFETY.md`, `AMENAPP/ContextStore/RUNLOG.md`, `AMENAPP/MusicContentLayer/WIRING_CERT.md`, `Docs/find-church/WIRING_CERT.md`, `src/features/connectedIntelligence.RUNLOG.md`.
@@ -10,12 +10,12 @@ Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11
 
 | Metric | Current |
 |---|---|
-| Tests passing/total | FULL-STACK RED attempt: iOS app MCP build green, iOS build-for-testing green, Backend/functions Jest red (`257 failed / 654 passed`), legacy functions Jest green (`137/137`), rules compile green, rules emulator blocked; see `FULL_STACK_BUILD_CERTIFICATION.md` |
+| Tests passing/total | FULL-STACK RED retry @ `4f044d91`: iOS app MCP build green; iOS build-for-testing blocked by Xcode dependency-graph service; Backend/functions TS green; Backend/functions Jest red (`257 failed / 654 passed`); legacy functions Jest green (`137/137`); Firestore rules compile smoke green; Storage emulator runtime download blocked. See `FULL_STACK_BUILD_CERTIFICATION.md`. |
 | P0/P1/P2 open counts | `0/0/0` from `GAP_BOARD_CLOSED.md`; safety follow-ons are explicit rows below: `5` machine-work rows and `3` human-decision rows |
 | Lanes DONE vs total | `7/24` board rows are `✅ DONE-PROVEN`; remaining rows are human-pending, in-flight, parked, blocked, or deferred |
 | Deploys completed vs pending | `0/16` human checklist items have deploy/console proof in this workspace |
-| Last green build sha+time | Last iOS app MCP green during certification: `9956e02a` workspace state at `2026-06-11T10:41:21-07:00`; current report HEAD `d3b6434e` is not full-stack green |
-| Full-stack merge gate | RED / unstable across moving HEADs (`9956e02a` → `d3b6434e` → `b2974e08`): Layer 4 Backend/functions Jest failed; Layer 5 rules emulator execution blocked at Storage runtime startup; final iOS repeat build cancelled externally |
+| Last green build sha+time | Last iOS app MCP green: `4f044d91` at `2026-06-11T16:02:06-07:00`; not a full-stack green because Layer 2/4/5 remain red or blocked |
+| Full-stack merge gate | RED @ `4f044d91`: Layer 2 dependency graph failed before test compile; Layer 4 Backend/functions Jest failed; Layer 5 Storage emulator runtime download blocked; no double-green repeat |
 
 ## SECTION 1 - FEATURES & SYSTEMS
 
