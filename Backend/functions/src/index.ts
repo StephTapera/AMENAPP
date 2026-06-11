@@ -637,3 +637,10 @@ export * from "./covenant/verifyCovenantMembership";
 
 // Prayer Recap — weekly prayer summary generation for the calling user
 export * from "./prayer/generatePrayerRecap";
+
+// ONE Private Social OS — P5 gate CFs (deploy before any one_* flag flips on)
+export * from "./one/oneRelayMoment";
+export * from "./one/oneSendMoment";
+export * from "./one/oneExpireMoment";
+export * from "./one/oneVerifyEntitlement";
+export * from "./one/oneActivateLegacy";

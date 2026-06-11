@@ -1540,6 +1540,63 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // ONE — P5 rules additions (CONTRACTS.md §14 / SECURITY.md §3.4/§4/§6)
+    // =========================================================================
+
+    // one_users: profile reads are scoped by privacy mirror level.
+    // sealed + opaque profiles are not readable by strangers.
+    match /one_users/{uid} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == uid ||                          // always self-readable
+        !(resource.data.get('privacyMirror','open') in ['sealed','opaque'])
+      );
+      allow write: if request.auth.uid == uid;             // self-write only
+    }
+
+    match /one_users/{uid}/witnesses/{witnessId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == uid ||
+        request.auth.uid == resource.data.get('witnessUID','')
+      );
+      allow write: if isSignedIn();                        // CF validates both-party acceptance
+    }
+
+    // one_vaults: strictly owner-only, no exceptions (SECURITY.md §6/CONTRACTS.md §14)
+    match /one_vaults/{uid}/items/{itemId} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // one_evidence: NO client read or write — CF service account only (SECURITY.md §4/§6)
+    match /one_evidence/{evidenceId} {
+      allow read, write: if false;
+    }
+
+    // one_reach: NO client write — CF only (CONTRACTS.md §17 rule 5)
+    match /one_reach/{momentId} {
+      allow read: if isSignedIn() && isOwner(resource.data.get('originalAuthorUID',''));
+      allow write: if false;
+    }
+
+    // one_legacy: owner-read/write; trustees read after activation
+    match /one_legacy/{uid} {
+      allow read: if request.auth.uid == uid ||
+        request.auth.uid in resource.data.get('trusteesUIDs',[]);
+      allow write: if request.auth.uid == uid;
+    }
+
+    // one_threads: participant-scoped read/write
+    match /one_threads/{threadId} {
+      allow read, write: if isSignedIn() &&
+        request.auth.uid in resource.data.get('participantUIDs',[]);
+    }
+
+    match /one_threads/{threadId}/messages/{messageId} {
+      allow read, write: if isSignedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/one_threads/$(threadId)).data.get('participantUIDs',[]);
+    }
+
+
+    // =========================================================================
     // /bereanProjects/{projectId}
     // Berean OS project documents
     // =========================================================================
