@@ -24,40 +24,80 @@ const ugcFunctions = functions.region("us-central1").runWith({ secrets: ["NVIDIA
 
 async function checkSafety(text) {
   const apiKey = process.env.NVIDIA_API_KEY;
-  const res = await withRetry(() => fetch(NIM_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: SAFETY_MODEL,
-      messages: [{ role: "user", content: text }],
-      max_tokens: 100,
-      temperature: 0,
-    }),
-  }), 3, 500);
+  // FIX: withRetry only catches thrown exceptions — it does NOT retry on HTTP error
+  // status codes (429/5xx) because fetch() resolves (not throws) on those. Use an
+  // inline retry loop that inspects res.status before resolving, mirroring
+  // moderatePost.js fetchWithRetry. This ensures rate-limit and server errors
+  // are retried rather than silently skipped.
+  const delays = [500, 1000, 2000];
+  let res = null;
+  let lastErr = null;
+  for (let attempt = 0; attempt <= 3; attempt++) {
+    try {
+      res = await fetch(NIM_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: SAFETY_MODEL,
+          messages: [{ role: "user", content: text }],
+          max_tokens: 100,
+          temperature: 0,
+        }),
+      });
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, delays[Math.min(attempt, delays.length - 1)]));
+        continue;
+      }
+      throw new Error(`NIM fetch failed after 3 retries: ${err.message}`);
+    }
+    // Retry on 429 or 5xx.
+    if (res.status === 429 || res.status >= 500) {
+      lastErr = new Error(`NIM ${res.status}`);
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, delays[Math.min(attempt, delays.length - 1)]));
+        continue;
+      }
+      throw new Error(`NIM ${res.status} after 3 retries`);
+    }
+    break; // success or non-retryable error
+  }
 
-  if (!res.ok) {
-    throw new Error(`NIM ${res.status}: ${await res.text()}`);
+  if (!res || !res.ok) {
+    const body = res ? await res.text().catch(() => "(no body)") : "(no response)";
+    throw new Error(`NIM ${res ? res.status : "unknown"}: ${body}`);
   }
 
   const data = await res.json();
   const raw = data.choices?.[0]?.message?.content ?? "";
 
-  let safe = true;
+  // Jailbreak-resistant parsing — mirrors moderatePost.js parseSafetyResponse.
+  // Fail closed: any non-JSON or ambiguous response → safe = false.
+  let safe = false;
   let categories = [];
   try {
     const parsed = JSON.parse(raw);
-    safe = String(parsed["User Safety"] ?? "safe").toLowerCase() === "safe";
-    if (parsed["Safety Categories"]) {
-      categories = String(parsed["Safety Categories"])
-        .split(",")
-        .map((c) => c.trim().toLowerCase())
-        .filter(Boolean);
+    if (parsed && typeof parsed === "object" && "User Safety" in parsed) {
+      // EXACT match only — never use negation-based substring checks.
+      safe = String(parsed["User Safety"]).trim().toLowerCase() === "safe";
+      if (parsed["Safety Categories"]) {
+        categories = String(parsed["Safety Categories"])
+          .split(",")
+          .map((c) => c.trim().toLowerCase())
+          .filter(Boolean);
+      }
     }
+    // else: JSON parsed but "User Safety" key absent — fail closed (safe stays false).
   } catch {
-    safe = !/unsafe/i.test(raw);
+    // Non-JSON response — treat as UNSAFE (fail closed).
+    // SECURITY: Do NOT use !/unsafe/i.test(raw) here — that pattern can be defeated
+    // by responses like "this is not unsafe content" and classifies harm as safe.
+    safe = false;
+    categories = ["parse_error"];
   }
 
   return { safe, categories };

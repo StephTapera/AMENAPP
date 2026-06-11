@@ -11,10 +11,16 @@
  *   2. Queues the report for human operator action in ncmecSubmissionQueue/{entryId}
  *   3. Fires onCSAMDetected (Firestore trigger) to alert admins via FCM + moderatorAlerts
  *
- * TODO — CyberTipline API integration (requires NCMEC Electronic Service Provider agreement):
- *   Endpoint: https://www.ncmec.org/cybertiplinedata/
- *   Auth: HTTPS Basic + ESP ID + API key issued by NCMEC after registration agreement
- *   Payload shape (ESP Report submission):
+ * TODO(legal): Integrate NCMEC CyberTipline API — requires compliance approval before enabling.
+ *   Step 1: Obtain NCMEC Electronic Service Provider (ESP) agreement + API credentials.
+ *   Step 2: Replace the queue-only flow in fileNCMECReport() with a live HTTPS POST to:
+ *             https://www.ncmec.org/cybertiplinedata/
+ *   Step 3: Store the NCMEC-assigned reportId from the API response in ncmecReports.
+ *   Step 4: Add a deadline SLA monitor: if status stays 'pending_submission' past
+ *             NCMEC_SLA_HOURS, escalate and page on-call.
+ *   Step 5: Set NCMEC_SUBMISSION_ENABLED=true in Cloud Functions environment after step 1-4.
+ *
+ *   CyberTipline payload shape (ESP Report submission):
  *     {
  *       reportType: "Child Pornography (possession, manufacture, and distribution)",
  *       incidentDateTime: <ISO8601>,
@@ -24,9 +30,11 @@
  *       reportedContent: [{ value: <url>, type: "url" }],
  *       additionalInfo: <detectedCategories joined>
  *     }
- *   Once credentials are obtained, replace the queue-only approach below with a
- *   live HTTPS POST to the above endpoint, and store the NCMEC report ID returned
- *   in the ncmecReports document alongside the local reportId.
+ *
+ * CURRENT STATUS: Queue-only (no live NCMEC HTTP call). Every detected CSAM case is
+ * written to ncmecReports + ncmecSubmissionQueue and admins are alerted via FCM.
+ * Human operators must manually submit to NCMEC until API integration is complete.
+ * This is a LAUNCH BLOCKER — see OPEN-4 in C5-security-rules.md.
  */
 
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
@@ -36,6 +44,12 @@ const { getStorage } = require("firebase-admin/storage");
 const { getMessaging } = require("firebase-admin/messaging");
 
 const db = getFirestore();
+const NCMEC_SUBMISSION_ENABLED = process.env.NCMEC_SUBMISSION_ENABLED === "true";
+const NCMEC_SLA_HOURS = Number(process.env.NCMEC_SLA_HOURS || 24);
+
+function ncmecDueAt() {
+  return new Date(Date.now() + NCMEC_SLA_HOURS * 60 * 60 * 1000);
+}
 
 /**
  * fileNCMECReport — internal helper (not a Cloud Function).
@@ -69,6 +83,14 @@ async function fileNCMECReport(payload) {
     createdAt: FieldValue.serverTimestamp(),
     legalHold: true,
     preservedAt: FieldValue.serverTimestamp(),
+    submissionEnabled: NCMEC_SUBMISSION_ENABLED,
+    submissionDueAt: ncmecDueAt(),
+    decisionRequired: true,
+    decisionItems: [
+      "NCMEC ESP registration",
+      "CyberTipline API credentials",
+      "counsel-approved submission procedure",
+    ],
   });
 
   const preview = textPreview ? String(textPreview).slice(0, 100) : "image";
@@ -82,6 +104,9 @@ async function fileNCMECReport(payload) {
     urgency: "critical",
     status: "queued",
     createdAt: FieldValue.serverTimestamp(),
+    submissionEnabled: NCMEC_SUBMISSION_ENABLED,
+    submissionDueAt: ncmecDueAt(),
+    decisionRequired: true,
   });
 
   console.log(`[NCMEC] Report queued: ${reportId}`);
@@ -167,6 +192,67 @@ exports.onCSAMDetected = onDocumentCreated(
 );
 
 exports.fileNCMECReport = fileNCMECReport;
+
+/**
+ * reportToNcmec — placeholder that throws explicitly when called without credentials.
+ *
+ * This function MUST throw rather than silently swallowing calls so that callers
+ * are never left believing a live report was submitted when it was not.
+ * Replace this stub with the live HTTPS POST once NCMEC ESP credentials are obtained.
+ *
+ * TODO(legal): Replace stub body with live NCMEC API call — requires compliance approval.
+ *
+ * @param {object} caseData - CSAM case details (contentRef, authorId, mediaUrl, etc.)
+ * @throws {Error} Always — stub is not callable without proper setup.
+ */
+async function reportToNcmec(caseData) {
+  // SECURITY: This function intentionally throws so callers cannot silently skip
+  // the live NCMEC submission. A swallowed error would give false assurance that
+  // a mandatory report was filed when it was not.
+  throw new Error(
+    "[NCMEC] reportToNcmec() is not yet implemented — live API integration requires " +
+    "NCMEC Electronic Service Provider agreement and API credentials. " +
+    "See TODO(legal) in ncmecReporter.js. This is a LAUNCH BLOCKER."
+  );
+}
+
+/**
+ * createLegalHold — atomically write a tamper-evident legal hold record.
+ *
+ * Writes to legalHolds/{holdId} using a single atomic set(). The Admin SDK bypasses
+ * Firestore rules, so this record cannot be modified or deleted by any client.
+ * Used by the CSAM escalation pipeline to preserve evidence before content removal.
+ *
+ * @param {string} contentRef   - Firestore path of the content (e.g. "posts/abc123")
+ * @param {string} authorUid    - UID of the content author
+ * @param {object} evidence     - Evidence snapshot (mediaUrl, detectedCategories, etc.)
+ * @returns {Promise<string>}   - The holdId of the created document
+ */
+async function createLegalHold(contentRef, authorUid, evidence) {
+  if (!contentRef || !authorUid) {
+    throw new Error("[createLegalHold] contentRef and authorUid are required.");
+  }
+  const holdId = `hold_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const holdRef = db.collection("legalHolds").doc(holdId);
+  // Atomic single-document set — either the entire hold is written or nothing is.
+  await holdRef.set({
+    contentRef,
+    authorUid,
+    evidence: evidence || {},
+    legalHold: true,
+    status: "active",
+    createdAt: FieldValue.serverTimestamp(),
+    preservedAt: FieldValue.serverTimestamp(),
+    modifiedBy: "CF_Admin_SDK",
+    // This document must never be deleted or updated by any client or CF except
+    // under explicit legal-counsel direction. I-2 invariant applies.
+  });
+  console.log(`[createLegalHold] Legal hold created: ${holdId} for contentRef=${contentRef}`);
+  return holdId;
+}
+
+exports.reportToNcmec   = reportToNcmec;
+exports.createLegalHold = createLegalHold;
 
 // ─── Internal helper: alert trust_safety_admin users via FCM ──────────────────
 
@@ -288,6 +374,14 @@ exports.flagForNCMECReview = onCall(
       mediaPath: mediaPath || null,
       flaggedBy: request.auth.uid,
       legalHold: true,
+      submissionEnabled: NCMEC_SUBMISSION_ENABLED,
+      submissionDueAt: ncmecDueAt(),
+      decisionRequired: true,
+      decisionItems: [
+        "NCMEC ESP registration",
+        "CyberTipline API credentials",
+        "counsel-approved submission procedure",
+      ],
     });
     console.log(`[NCMEC flagForNCMECReview] mandatory_reports record created: ${reportRef.id}`);
 
@@ -377,11 +471,19 @@ exports.onModerationRequiresMandatoryReport = onDocumentWritten(
         reportType: "NCMEC_REQUIRED",
         status: "PENDING_HUMAN_REVIEW",
         mediaUrl,
-        mediaPath: mediaPath || null,
-        sourceDocId: docId,
-        triggeredBy: "onModerationRequiresMandatoryReport",
-        legalHold: true,
-      });
+      mediaPath: mediaPath || null,
+      sourceDocId: docId,
+      triggeredBy: "onModerationRequiresMandatoryReport",
+      legalHold: true,
+      submissionEnabled: NCMEC_SUBMISSION_ENABLED,
+      submissionDueAt: ncmecDueAt(),
+      decisionRequired: true,
+      decisionItems: [
+        "NCMEC ESP registration",
+        "CyberTipline API credentials",
+        "counsel-approved submission procedure",
+      ],
+    });
       console.log(`[NCMEC trigger] mandatory_reports record created: ${reportRef.id}`);
 
       // Step 3: Alert all trust_safety_admin users.

@@ -743,8 +743,10 @@ exports.moderatePostText = async function moderatePostText(postId, userId, text)
     return { shouldRemove: action === 'remove', action, reasons };
   } catch (error) {
     console.error(`[onPostCreate moderation] Error for post ${postId}:`, error);
-    // Fail open: post stays visible, flagged for async review
-    return { shouldRemove: false, action: 'error_allow', reasons: [] };
+    // SECURITY FIX: Fail CLOSED — on error, post is hidden and queued for human review.
+    // Previously this returned 'error_allow' (fail open) which published unmoderated content.
+    // On a platform with minor users, fail open is never acceptable.
+    return { shouldRemove: false, action: 'pending_review', reasons: ['moderation_error'] };
   }
 };
 

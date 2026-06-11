@@ -102,6 +102,30 @@ exports.serverSidePostModeration = onDocumentWritten(
       }
     } catch (err) {
       console.error("[serverSidePostModeration] Error:", err);
+      // SECURITY FIX: Fail CLOSED — on any moderation error, hide the post and queue
+      // it for human review rather than leaving it visible (fail open).
+      // Previously this catch silently swallowed the error and left the post published.
+      try {
+        await db.collection("posts").doc(postId).update({
+          visible: false,
+          flaggedForReview: true,
+          moderationStatus: "pending_review",
+          moderationReasons: ["moderation_error"],
+          serverModerated: true,
+          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        await db.collection("moderationQueue").add({
+          postRef: `posts/${postId}`,
+          authorId: userId ?? null,
+          status: "pending_review",
+          categories: ["moderation_error"],
+          reason: "serverSidePostModeration threw — hidden pending human review",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        });
+      } catch (writeErr) {
+        console.error("[serverSidePostModeration] Could not write fail-closed state:", writeErr);
+      }
     }
 
     return null;

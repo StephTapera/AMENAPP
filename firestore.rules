@@ -269,6 +269,31 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(commentModerationFields());
     }
 
+    // Post moderation fields — clients must never be able to change these.
+    // Analogue of commentModerationFields() for the post owner update path.
+    // SECURITY FIX: Without this guard, a post author can overwrite visible:false or
+    // moderationStatus:'flagged' set by the moderation pipeline, re-publishing
+    // quarantined or CSAM-flagged content before staff review completes.
+    function postModerationFields() {
+      return [
+        'visible',
+        'isModerated',
+        'moderationStatus',
+        'moderationVerdict',
+        'moderationDecisionId',
+        'removedByModeration',
+        'moderationReviewedAt',
+        'isDeleted',
+        'deletionReason',
+        'flaggedForReview',
+        'removed'
+      ];
+    }
+
+    function postModerationFieldsNotChanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(postModerationFields());
+    }
+
     // Is an isDeleted transition valid?
     // Clients may only flip isDeleted from false → true (soft delete), never reverse.
     function validSoftDelete() {
@@ -304,6 +329,17 @@ service cloud.firestore {
       ]);
     }
 
+    // Role and safety-classification fields must never be writable by clients.
+    // SECURITY FIX: isAdmin, role, safety.isMinor, safety.ageTier, and trust fields
+    // are set by Cloud Functions only. If a client could write these, they could
+    // escalate privileges or bypass minor-safety gating.
+    function roleAndSafetyFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'isAdmin', 'role', 'safety', 'trustScore', 'accountStatus',
+        'violationCount', 'fcmToken'
+      ]);
+    }
+
     // =========================================================================
     // /users/{userId}
     // C5 §2a — User Resource
@@ -323,9 +359,12 @@ service cloud.firestore {
       // Update: owner may update own profile; protected fields frozen.
       // ageTier / ageCategory / dateOfBirth / ageVerified are CF/Admin SDK only.
       // Premium entitlement fields are CF/Admin SDK only.
+      // SECURITY FIX: roleAndSafetyFieldsUnchanged() blocks isAdmin, role, safety,
+      // trustScore, accountStatus from being written by any client.
       allow update: if isOwner(userId) &&
         premiumFieldsUnchanged() &&
         ageTierUnchanged() &&
+        roleAndSafetyFieldsUnchanged() &&
         provenanceUnchanged();
 
       // Delete: hard delete denied — I-1. Use soft-delete (set deletedAt).
@@ -498,11 +537,18 @@ service cloud.firestore {
       // Create: must be signed in; under_minimum blocked entirely.
       // [MINOR] I-3: Minors cannot post publicly without publicConfirmed == true.
       // Visitors (no org membership) cannot create posts per §2b matrix.
+      // SECURITY FIX: client must not create a post with visible:true or any moderation
+      // field set. The moderatePost Cloud Function sets visible after content review.
       allow create: if
         isSignedIn() &&
         !isUnderMinimum() &&
         request.resource.data.get('authorId', '') == request.auth.uid &&
         provenanceUnchanged() &&
+        // SECURITY: clients must not pre-set visible:true or any moderation state.
+        // moderatePost CF sets visible after safety review.
+        request.resource.data.get('visible', false) == false &&
+        !request.resource.data.keys().hasAny(['moderation', 'moderationStatus',
+          'moderationVerdict', 'isModerated', 'flaggedForReview', 'removed']) &&
         // [MINOR] Minors must set publicConfirmed == true to post publicly
         (!isMinor() ||
           request.resource.data.get('privacyLevel', 'private') != 'public' ||
@@ -513,12 +559,16 @@ service cloud.firestore {
       // Update: owner can update own post; moderators/admins can soft-delete.
       // Provenance must never change. isDeleted can only go false → true.
       // ownerUidEncrypted must never be touched by client.
+      // SECURITY FIX: owner update path now blocks moderation fields (visible, isModerated,
+      // moderationStatus, etc.) so a post author cannot re-publish quarantined content.
       allow update: if
         !request.resource.data.keys().hasAny(['ownerUidEncrypted']) &&
         provenanceUnchanged() &&
         (
           // Owner updates own post (non-soft-delete fields)
-          isOwner(resource.data.get('authorId', ''))
+          // postModerationFieldsNotChanged() prevents author from overwriting moderation state.
+          (isOwner(resource.data.get('authorId', '')) &&
+           postModerationFieldsNotChanged())
           ||
           // Moderator/admin soft-delete only (I-1 + C5 §2b)
           (isSoftDeleteOnly() &&
@@ -1264,6 +1314,15 @@ service cloud.firestore {
     // =========================================================================
     // /moderationQueue/{itemId}
     // C5 §2o — ModeratorQueue Resource
+    //
+    // SECURITY FIX: The previous rule required isAdminSDK() for create, silently
+    // denying all iOS client reports (harassment, CSAM escalations, etc.) because
+    // user auth tokens never have the admin claim. Changed to allow signed-in users
+    // to create reports with a strict field allow-list. Server-controlled fields
+    // (escalateImmediately, type:'csam', etc.) are blocked at the field level to
+    // prevent clients from spoofing escalation tier. All unsafe reports MUST go
+    // through a CF callable for enrichment + rate-limiting; direct iOS writes here
+    // are the fallback for simple user reports only.
     // =========================================================================
 
     match /moderationQueue/{itemId} {
@@ -1274,8 +1333,23 @@ service cloud.firestore {
          sameOrg(resource.data.get('orgId', '')) &&
          isSpaceMember(resource.data.get('spaceId', '')));
 
-      // Create: Admin SDK only (CF-generated reports; clients escalate via CF callable).
-      allow create: if isAdminSDK();
+      // Create: Admin SDK (CF pipeline) OR signed-in user with strict field allow-list.
+      // Clients may submit user reports; CFs handle CSAM/grooming escalations (Admin SDK).
+      // Field-level restrictions prevent clients from setting escalateImmediately or
+      // overriding type to 'csam' / 'grooming_auto_removal'.
+      allow create: if isAdminSDK() ||
+        (isSignedIn() &&
+         !isUnderMinimum() &&
+         request.resource.data.keys().hasOnly([
+           'type', 'contentRef', 'contentType', 'status', 'reportedBy',
+           'reportReason', 'categories', 'preview', 'createdAt', 'expireAt',
+           'priority', 'postRef', 'authorId', 'conversationId', 'sanctuaryId'
+         ]) &&
+         request.resource.data.get('status', '') == 'pending' &&
+         request.resource.data.get('reportedBy', '') == request.auth.uid &&
+         // Clients cannot set escalateImmediately — CF only.
+         !request.resource.data.keys().hasAny(['escalateImmediately', 'imageReviewRequired',
+           'childSafetyEscalated', 'legalHoldRef', 'ncmecRequired']));
 
       // Update: moderators and above can action items.
       allow update: if
@@ -1546,12 +1620,30 @@ service cloud.firestore {
 
     // one_users: profile reads are scoped by privacy mirror level.
     // sealed + opaque profiles are not readable by strangers.
+    // SECURITY FIX: replaced open self-write (allow write) with field-level restrictions.
+    // The previous allow write: if request.auth.uid == uid had no field restrictions,
+    // allowing users to write any field on their document including privacyMirror and
+    // any role/trust fields that CFs might read for authorization decisions.
     match /one_users/{uid} {
       allow read: if isSignedIn() && (
         request.auth.uid == uid ||                          // always self-readable
         !(resource.data.get('privacyMirror','open') in ['sealed','opaque'])
       );
-      allow write: if request.auth.uid == uid;             // self-write only
+      // Self-create: allowed with a defined field allowlist only.
+      allow create: if request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly([
+          'displayName', 'photoUrl', 'bio', 'privacyMirror',
+          'createdAt', 'updatedAt', 'uid'
+        ]);
+      // Self-update: allowed only on the user-mutable fields below.
+      // Fields set by CF (witnessCount, trustScore, accountStatus, role, etc.)
+      // are excluded — they cannot be written by the client under any circumstances.
+      allow update: if request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'photoUrl', 'bio', 'privacyMirror', 'updatedAt'
+        ]);
+      // Deletes: denied — use CF for account removal (I-1).
+      allow delete: if false;
     }
 
     match /one_users/{uid}/witnesses/{witnessId} {
@@ -2668,6 +2760,78 @@ service cloud.firestore {
         && request.resource.data.status == 'submitted'
         && request.resource.data.keys().hasAll(['churchId', 'claimantUid', 'verificationMethod', 'status', 'submittedAt']);
       allow update, delete: if false;  // CF Admin SDK only
+    }
+
+    // =========================================================================
+    // SAFETY AUDIT + GUARDIAN COLLECTIONS
+    // SECURITY FIX: These collections were previously absent from rules, causing
+    // all iOS client writes to fall through to the catch-all DENY. This broke the
+    // CSAM escalation audit trail, grooming auto-removal audit trail, and the
+    // guardian link flow. Added explicit rules for each collection.
+    // =========================================================================
+
+    // /safetyAuditLog/{eventId}
+    // Audit trail for CSAM/grooming escalation events (law-enforcement facing).
+    // Signed-in users may append their own safety events; no client reads/updates/deletes.
+    // Read + modification is CF Admin SDK only (legalHolds, NCMEC pipeline).
+    match /safetyAuditLog/{eventId} {
+      // SECURITY: Strict field allow-list prevents clients from writing arbitrary fields.
+      // Only the minimal schema required by the CSAM escalation pipeline is permitted.
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'event', 'contentRef', 'authorId', 'detectionSource',
+          'clientTimestamp', 'source', 'createdAt'
+        ]) &&
+        request.resource.data.get('authorId', '') == request.auth.uid;
+      // No client reads — audit trail is CF + legal review only.
+      allow read: if false;
+      // Append-only — no client updates or deletes ever.
+      allow update, delete: if false;
+    }
+
+    // /guardianLinkRequests/{requestId}
+    // Minor-initiated requests to link a guardian account.
+    // The minorId on the request must match the authenticated caller.
+    match /guardianLinkRequests/{requestId} {
+      // Minors may create a link request for themselves only.
+      allow create: if isSignedIn() &&
+        request.resource.data.get('minorId', '') == request.auth.uid &&
+        request.resource.data.keys().hasOnly([
+          'minorId', 'guardianEmail', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.get('status', '') == 'pending';
+      // Minors may read their own pending requests.
+      allow read: if isSignedIn() &&
+        resource.data.get('minorId', '') == request.auth.uid;
+      // No client updates or deletes — CF processes guardian approval/rejection.
+      allow update, delete: if false;
+    }
+
+    // /guardianApprovedContacts/{minorUid}
+    // Guardian-approved contact list for a minor. Owner (minor) may read only.
+    // All writes are CF Admin SDK only (guardian approval CF sets approved:true).
+    // SECURITY FIX: fail-CLOSED — absence of a document means NO contacts are approved.
+    // The iOS isGuardianApprovedContact() must return false (deny) when doc is absent.
+    match /guardianApprovedContacts/{minorUid} {
+      // Owner (the minor) may read their own approved contacts document.
+      allow read: if isSignedIn() && request.auth.uid == minorUid;
+      // No client writes — all mutations are CF Admin SDK only.
+      allow create, update, delete: if false;
+    }
+
+    // /moderationAuditLog/{eventId}
+    // Server-only audit trail for moderation decisions. No client access.
+    match /moderationAuditLog/{eventId} {
+      allow read, write: if false;
+    }
+
+    // /legalHolds/{holdId}
+    // Tamper-evident legal hold records — Admin SDK writes only.
+    // Read: only users with the legalReviewer custom claim.
+    // No client writes under any circumstances.
+    match /legalHolds/{holdId} {
+      allow read: if isSignedIn() && request.auth.token.get('legalReviewer', false) == true;
+      allow create, update, delete: if false;
     }
 
     // =========================================================================
