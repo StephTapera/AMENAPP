@@ -306,7 +306,7 @@ final class AmenPrivacyEngine: ObservableObject {
         // and fails closed on error. The comment "cannot resolve the social graph on-device"
         // was incorrect — areMutualFollows() in AmenChildSafetyService does exactly this.
         if recipIsMinor {
-            return await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
+            return try await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
         }
 
         // [MINOR] SECURITY FIX (HIGH 2026-06-11): If sender is a minor, apply the same
@@ -314,7 +314,7 @@ final class AmenPrivacyEngine: ObservableObject {
         // previous unconditional `return true` relied solely on the CF gate with no
         // iOS-layer defense-in-depth. AmenChildSafetyService.canDM() fails closed on error.
         if senderIsMinor {
-            return await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
+            return try await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
         }
 
         // Standard adult-to-adult DM policy check

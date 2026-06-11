@@ -1062,7 +1062,7 @@ public class FirebaseMessagingService: ObservableObject {
             // enforces mutual-follow for minors, checks both sender and recipient age, and
             // fails closed on error. The raw isMinor/birthYear checks below are retained
             // as a secondary layer but canDM() is the authoritative gate.
-            let dmAllowed = await AmenChildSafetyService.shared.canDM(from: currentUserId, to: userId)
+            let dmAllowed = try await AmenChildSafetyService.shared.canDM(from: currentUserId, to: userId)
             if !dmAllowed {
                 throw FirebaseMessagingError.permissionDenied
             }

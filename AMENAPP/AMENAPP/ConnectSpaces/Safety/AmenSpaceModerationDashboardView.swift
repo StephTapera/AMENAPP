@@ -747,7 +747,7 @@ struct AmenSpaceModerationDashboardView: View {
             if #available(iOS 26, *) {
                 Color.clear.amenGlassEffect()
             } else {
-                Color(.ultraThinMaterial)
+                Rectangle().fill(.ultraThinMaterial)
             }
         }
     }

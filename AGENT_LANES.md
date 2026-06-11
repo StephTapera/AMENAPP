@@ -395,6 +395,17 @@ is ever set to `true`. Flipping a flag before its server gate ships is a securit
 | Honestly-deferred | FaithGraph persistence (Stage-3), ListeningRoom LiveKit (Stage-3), Pulse integration (Stage-3), church note save/share/comment (Stage-2) |
 | AMENFeatureFlags.swift pending | Add System 40 block + RC sync line (see WIRING_CERT.md) — HUMAN STEP, not auto-applied (hotspot file) |
 
+## Guardian Link CF Lane (2026-06-11)
+
+| Item | Detail |
+|---|---|
+| Owner | claude (this conversation) |
+| Branch | safety-hardening |
+| Mission | Build finding #44 end-to-end: guardian email verification CF + iOS service + rules + tests. Gate: `guardian_link_enabled` default OFF. No policy decision required to build mechanism; A-03 activates it. |
+| Paths | `functions/guardianLink.js`, `AMENAPP/AMENAPP/CommunityOS/ChildSafety/GuardianLinkService.swift`, `AMENAPP/AMENAPP/CommunityOS/ChildSafety/GuardianLinkInvitationView.swift`, `AMENAPPTests/GuardianLinkTests.swift` |
+| Status | ACTIVE |
+| Hotspot | `firestore.rules` (append-only), `functions/index.js` (append-only export) |
+
 ## LAUNCH READINESS SWARM (2026-06-11)
 
 | Item | Detail |

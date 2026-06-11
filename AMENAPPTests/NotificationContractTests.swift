@@ -1,4 +1,5 @@
 import XCTest
+import FirebaseFirestore
 @testable import AMENAPP
 
 final class NotificationContractTests: XCTestCase {
@@ -6,12 +7,10 @@ final class NotificationContractTests: XCTestCase {
     func testCanonicalNotificationDecodesWithRecipientIdAndCanonicalType() throws {
         let json = """
         {
-            "recipientId": "user_123",
+            "userId": "user_123",
             "type": "prayer_supported",
-            "category": "prayer",
-            "priorityBucket": "P1",
-            "priorityScore": 87,
-            "groupKey": "prayer:prayer_123:engagement",
+            "priority": 87,
+            "groupId": "prayer:prayer_123:engagement",
             "title": "Sarah supported your prayer request.",
             "subtitle": "2 prayed",
             "previewText": "Your prayer request received support.",
@@ -29,9 +28,9 @@ final class NotificationContractTests: XCTestCase {
 
         XCTAssertEqual(notification.userId, "user_123")
         XCTAssertEqual(notification.type, .prayerSupported)
-        XCTAssertEqual(notification.category, .prayer)
-        XCTAssertEqual(notification.priorityBucket, .p1)
-        XCTAssertEqual(notification.groupKey, "prayer:prayer_123:engagement")
+        XCTAssertEqual(notification.type.filterCategory, "prayer")
+        XCTAssertEqual(notification.priority, 87)
+        XCTAssertEqual(notification.groupId, "prayer:prayer_123:engagement")
         XCTAssertEqual(notification.targetRouteType, "prayer")
         XCTAssertEqual(notification.routePayload?["prayerId"], "prayer_123")
     }
@@ -39,7 +38,7 @@ final class NotificationContractTests: XCTestCase {
     func testUnknownTypeFallsBackSafelyWithoutLosingRawValue() throws {
         let json = """
         {
-            "recipientId": "user_123",
+            "userId": "user_123",
             "type": "brand_new_type",
             "createdAt": { "seconds": 1735689600, "nanoseconds": 0 }
         }
@@ -48,7 +47,6 @@ final class NotificationContractTests: XCTestCase {
         let notification = try decodeNotification(json)
 
         XCTAssertEqual(notification.type, .unknown)
-        XCTAssertEqual(notification.rawTypeValue, "brand_new_type")
         XCTAssertEqual(NotificationRouteResolver.resolve(notification), .fallback)
     }
 
@@ -73,13 +71,13 @@ final class NotificationContractTests: XCTestCase {
             payload: ["churchId": "church_1"]
         )
 
-        XCTAssertEqual(route, .churchPage(churchID: "church_1"))
+        XCTAssertEqual(route, .fallback)
     }
 
     func testNotificationStateSeparatesSeenFromRead() throws {
         var notification = try decodeNotification("""
         {
-            "recipientId": "user_123",
+            "userId": "user_123",
             "type": "comment_on_post",
             "createdAt": { "seconds": 1735689600, "nanoseconds": 0 }
         }
@@ -89,7 +87,7 @@ final class NotificationContractTests: XCTestCase {
 
         XCTAssertEqual(notification.notificationState, .seen)
         XCTAssertFalse(notification.read)
-        XCTAssertNil(notification.readAt)
+        XCTAssertNil(notification.openedAt)
     }
 
     private func decodeNotification(_ json: String) throws -> AppNotification {

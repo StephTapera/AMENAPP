@@ -48,6 +48,7 @@
 #if canImport(Testing)
 import Testing
 import Foundation
+import SwiftUI
 @testable import AMENAPP
 
 // MARK: - Helpers

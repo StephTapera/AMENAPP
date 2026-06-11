@@ -38,21 +38,14 @@ struct ChurchLivingNotesView: View {
         }
     }
 
-    private var duringService: [LivingEntry] {
-        entries.filter { $0.type == .churchNote || $0.type == .sermonInsight }
+    private var groupedEntries: GroupedEntries {
+        Self.group(entries: entries)
     }
 
-    private var afterService: [LivingEntry] {
-        entries.filter { $0.type == .followUp || $0.type == .prayer }
-    }
-
-    private var thisWeek: [LivingEntry] {
-        entries.filter { $0.intent == .spiritualGrowth || $0.intent == .churchVisit }
-    }
-
-    private var reflections: [LivingEntry] {
-        entries.filter { $0.state == .needsReflection || $0.type == .reflection }
-    }
+    private var duringService: [LivingEntry] { groupedEntries.duringService }
+    private var afterService: [LivingEntry] { groupedEntries.afterService }
+    private var thisWeek: [LivingEntry] { groupedEntries.thisWeek }
+    private var reflections: [LivingEntry] { groupedEntries.reflections }
 
     @ViewBuilder
     private func section(_ title: String, entries: [LivingEntry]) -> some View {
@@ -63,5 +56,23 @@ struct ChurchLivingNotesView: View {
                 LiquidGlassEntryCard(entry: entry, triggerReason: LivingEntryContextEngine.evaluate(entry: entry, context: .current()).matchedReasons.first)
             }
         }
+    }
+}
+
+extension ChurchLivingNotesView {
+    struct GroupedEntries: Equatable {
+        let duringService: [LivingEntry]
+        let afterService: [LivingEntry]
+        let thisWeek: [LivingEntry]
+        let reflections: [LivingEntry]
+    }
+
+    static func group(entries: [LivingEntry]) -> GroupedEntries {
+        GroupedEntries(
+            duringService: entries.filter { $0.type == .churchNote || $0.type == .sermonInsight },
+            afterService: entries.filter { $0.type == .followUp || $0.type == .prayer },
+            thisWeek: entries.filter { $0.intent == .spiritualGrowth || $0.intent == .churchVisit },
+            reflections: entries.filter { $0.state == .needsReflection || $0.type == .reflection }
+        )
     }
 }

@@ -297,7 +297,7 @@ extension View {
     @ViewBuilder
     func amenRegularGlassEffect<S: Shape>(in shape: S) -> some View {
         if #available(iOS 26, *) {
-            self.glassEffect(.regular, in: shape)
+            self.glassEffect(Glass.regular, in: shape)
         } else {
             self.background(.thinMaterial, in: shape)
         }
@@ -306,7 +306,7 @@ extension View {
     @ViewBuilder
     func amenInteractiveGlassEffect<S: Shape>(in shape: S) -> some View {
         if #available(iOS 26, *) {
-            self.glassEffect(.regular.interactive(), in: shape)
+            self.glassEffect(Glass.regular.interactive(), in: shape)
         } else {
             self.background(.thinMaterial, in: shape)
         }
