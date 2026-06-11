@@ -986,6 +986,18 @@ final class AMENFeatureFlags: ObservableObject {
             // Amen Pulse (daily surface) — default OFF
             "amen_pulse_enabled": false as NSObject,
 
+            // Spiritual OS — all default OFF until human flag flip
+            "spiritualOS_enabled": false as NSObject,
+            "spiritualOS_daily_enabled": false as NSObject,
+            "spiritualOS_hub_enabled": false as NSObject,
+            "spiritualOS_planner_enabled": false as NSObject,
+            "spiritualOS_spaces_dashboard_enabled": false as NSObject,
+            "spiritualOS_create_space_enhanced_enabled": false as NSObject,
+            "spiritualOS_command_center_enabled": false as NSObject,
+            "spiritualOS_assistant_bar_enabled": false as NSObject,
+            "spiritualOS_context_engine_enabled": false as NSObject,
+            "spiritualOS_community_os_enabled": false as NSObject,
+
             // Universal Migration & Context System — all default OFF
             "context_system_enabled": false as NSObject,
             "context_manual_entry_enabled": false as NSObject,
@@ -1564,6 +1576,8 @@ final class AMENFeatureFlags: ObservableObject {
         bereanPulseEnabled = config["berean_pulse_enabled"].boolValue
         amenPulseEnabled = config["amen_pulse_enabled"].boolValue
 
+        syncSpiritualOSAppStorageFlags(config)
+
         contextSystemEnabled = config["context_system_enabled"].boolValue
         contextManualEntryEnabled = config["context_manual_entry_enabled"].boolValue
         contextBereanInterviewEnabled = config["context_berean_interview_enabled"].boolValue
@@ -1971,6 +1985,25 @@ final class AMENFeatureFlags: ObservableObject {
             values[key] = config.configValue(forKey: key).boolValue
         }
         CommunicationOSRemoteConfigBridge.applyRemoteConfig(communicationOSValues)
+    }
+
+    private func syncSpiritualOSAppStorageFlags(_ config: RemoteConfig) {
+        let keys = [
+            "spiritualOS_enabled",
+            "spiritualOS_daily_enabled",
+            "spiritualOS_hub_enabled",
+            "spiritualOS_planner_enabled",
+            "spiritualOS_spaces_dashboard_enabled",
+            "spiritualOS_create_space_enhanced_enabled",
+            "spiritualOS_command_center_enabled",
+            "spiritualOS_assistant_bar_enabled",
+            "spiritualOS_context_engine_enabled",
+            "spiritualOS_community_os_enabled"
+        ]
+
+        for key in keys {
+            UserDefaults.standard.set(config[key].boolValue, forKey: key)
+        }
     }
 
     private func applyUITestOverrides() {

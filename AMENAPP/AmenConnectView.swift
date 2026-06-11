@@ -21,6 +21,18 @@ struct AMENConnectView: View {
 }
 
 struct AmenConnectRootView: View {
+    @ObservedObject private var flags = AMENFeatureFlags.shared
+
+    var body: some View {
+        if flags.connectLayoutV2Enabled {
+            AmenConnectV2RootView()
+        } else {
+            AmenConnectRootViewLegacy()
+        }
+    }
+}
+
+private struct AmenConnectRootViewLegacy: View {
     @StateObject private var viewModel = AmenConnectViewModel()
     @State private var scrollOffset: CGFloat = 0
 
@@ -195,10 +207,10 @@ private struct AmenConnectPriorityPanel: View {
                         }
                     }
                 }
-                Text("AI-assisted summaries exclude private, paid, youth-protected, deleted, confidential, and admin-excluded content.")
+                Text(ConnectStrings.aiSummaryDisclosure)
                     .font(.systemScaled(11, weight: .medium))
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel("AI summaries are permission aware and exclude restricted content")
+                    .accessibilityLabel("AI summaries are permission-aware and exclude restricted content.")
             }
         }
     }
@@ -679,12 +691,12 @@ struct AmenConnectAICatchUpSheet: View {
                     }
 
                     // Permission footnote
-                    Text("AI-assisted summaries include only content you have access to. Paid, private, confidential, youth-protected, deleted, and AI-excluded content is never included.")
+                    Text(ConnectStrings.aiSummaryDisclosure)
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 8)
-                        .accessibilityLabel("AI summaries are permission aware and exclude restricted content")
+                        .accessibilityLabel("AI summaries are permission-aware and exclude restricted content.")
                 }
                 .padding(.vertical, 8)
             }

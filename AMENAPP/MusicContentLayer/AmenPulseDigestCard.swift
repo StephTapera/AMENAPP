@@ -4,25 +4,6 @@
 
 import SwiftUI
 
-// MARK: - Helpers
-
-private func glassBackground(reduceTransparency: Bool) -> some View {
-    Group {
-        if reduceTransparency {
-            Color(.systemBackground)
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.10))
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.28), lineWidth: 0.5)
-            }
-        }
-    }
-}
-
 // MARK: - Rights Policy Pill
 
 private struct RightsPolicyPill: View {
@@ -112,7 +93,7 @@ struct AmenPulseDigestItemCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Text(item.title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.subheadline.weight(colorSchemeContrast == .increased ? .heavy : .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 Text(item.summary)
@@ -173,6 +154,10 @@ struct AmenPulseDigestItemCard: View {
         }
         .accessibilityLabel(item.title)
         .accessibilityHint("Double tap to open")
+        .animation(
+            reduceMotion ? .easeOut(duration: 0.12) : .default,
+            value: reduceTransparency
+        )
     }
 }
 
@@ -186,6 +171,7 @@ struct AmenPulseDigestSectionView: View {
     @State private var isExpanded: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     init(section: AmenPulseDigestSection, onMuteSource: @escaping (String) -> Void, onSaveItem: @escaping (String) -> Void) {
         self.section = section
@@ -229,6 +215,19 @@ struct AmenPulseDigestSectionView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 6)
+            .background {
+                if reduceTransparency {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.secondarySystemBackground))
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(colorSchemeContrast == .increased
+                              ? Color(.secondarySystemBackground)
+                              : Color.clear)
+                }
+            }
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel("\(section.title), \(section.items.count) items, \(isExpanded ? "expanded" : "collapsed")")
             .accessibilityHint("Double tap to \(isExpanded ? "collapse" : "expand")")
@@ -323,7 +322,7 @@ struct AmenPulseDigestCard: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Today's Pulse")
-                            .font(.title3.weight(.bold))
+                            .font(.title3.weight(colorSchemeContrast == .increased ? .heavy : .bold))
                             .foregroundStyle(.primary)
                         Text(digest.greeting)
                             .font(.caption)
@@ -375,6 +374,10 @@ struct AmenPulseDigestCard: View {
             .padding(20)
         }
         .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 8)
+        .animation(
+            reduceMotion ? .easeOut(duration: 0.12) : .default,
+            value: reduceTransparency
+        )
         .sheet(isPresented: $showWhySheet) {
             AmenPulseWhySheet(isPresented: $showWhySheet)
         }
@@ -416,7 +419,7 @@ struct AmenPulseDigestLoadingCard: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Text("Today's Pulse")
-                        .font(.title3.weight(.bold))
+                        .font(.title3.weight(colorSchemeContrast == .increased ? .heavy : .bold))
                         .foregroundStyle(.primary)
                     Spacer()
                 }
@@ -429,6 +432,7 @@ struct AmenPulseDigestLoadingCard: View {
             .padding(20)
         }
         .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 8)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .default, value: reduceTransparency)
     }
 }
 
@@ -460,7 +464,7 @@ struct AmenPulseDigestEmptyCard: View {
                     .font(.system(size: 36, weight: .light))
                     .foregroundStyle(.secondary)
                 Text("Nothing new right now")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.subheadline.weight(colorSchemeContrast == .increased ? .heavy : .semibold))
                     .foregroundStyle(.primary)
                 Text("Check back later for updates from your churches and community.")
                     .font(.caption)
@@ -470,6 +474,7 @@ struct AmenPulseDigestEmptyCard: View {
             .padding(32)
         }
         .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 8)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .default, value: reduceTransparency)
     }
 }
 
@@ -493,14 +498,24 @@ private struct AmenPulseWhySheet: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(20)
+                .background(
+                    reduceTransparency
+                        ? Color(.systemBackground)
+                        : Color.clear
+                )
             }
             .navigationTitle("About Your Pulse")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { isPresented = false }
+                        .fontWeight(colorSchemeContrast == .increased ? .heavy : .semibold)
                 }
             }
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.12) : .default,
+                value: reduceTransparency
+            )
         }
     }
 }
@@ -607,9 +622,15 @@ struct AmenPulsePersonalizationSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { isPresented = false }
+                        .fontWeight(colorSchemeContrast == .increased ? .heavy : .semibold)
                         .accessibilityLabel("Done, dismiss personalization sheet")
                 }
             }
+            .scrollContentBackground(reduceTransparency ? .visible : .hidden)
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.12) : .default,
+                value: reduceTransparency
+            )
         }
     }
 }

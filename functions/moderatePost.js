@@ -13,7 +13,6 @@ const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { withRetry } = require("./retryHelper");
 
 // Shared decision persistence + crisis escalation
 function getGateway() { return require("./moderationGateway"); }
@@ -41,11 +40,214 @@ const SAFETY_MODEL = "nvidia/llama-3.1-nemoguard-8b-content-safety";
 // false = fail closed (hide + queue for admin review) — matches Amen's "safe" promise.
 const FAIL_OPEN = false;
 
+// Policy version stamped on every audit log entry.
+const POLICY_VERSION = "amen-safety-v1";
+
 // TTL helpers
 // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
 const TTL_PENDING_MS  = 90 * 24 * 60 * 60 * 1000; // 90 days — unresolved items
 const TTL_RESOLVED_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — resolved items
 
+// Child-safety category tokens that trigger CSAM escalation path.
+const CHILD_SAFETY_CATEGORIES = new Set(["child_safety", "csam_suspected"]);
+
+// ─── Retry with exponential backoff ──────────────────────────────────────────
+// Retries a fetch factory up to maxRetries times on 429 / 5xx responses.
+// On exhaustion returns null so the caller can fail-closed.
+// Delays: 500 ms → 1 000 ms → 2 000 ms
+async function fetchWithRetry(fetchFn, maxRetries = 3) {
+  const delays = [500, 1000, 2000];
+  let lastErr = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let res;
+    try {
+      res = await fetchFn();
+    } catch (err) {
+      lastErr = err;
+      // Network-level error — retry if attempts remain.
+      if (attempt < maxRetries) {
+        await sleep(delays[Math.min(attempt, delays.length - 1)]);
+        continue;
+      }
+      return { exhausted: true, error: lastErr, response: null };
+    }
+
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable) {
+      return { exhausted: false, error: null, response: res };
+    }
+
+    // Retryable HTTP status.
+    lastErr = new Error(`NIM ${res.status}`);
+    if (attempt < maxRetries) {
+      await sleep(delays[Math.min(attempt, delays.length - 1)]);
+    }
+  }
+  return { exhausted: true, error: lastErr, response: null };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ─── Jailbreak-proof safety parser ───────────────────────────────────────────
+// Returns { safe: boolean, categories: string[] }.
+// Fail-closed: any ambiguity → safe = false.
+function parseSafetyResponse(raw) {
+  // Attempt 1: full JSON parse with EXACT string match.
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "User Safety" in parsed) {
+      const verdict = String(parsed["User Safety"]).trim().toLowerCase();
+      // EXACT match only — never "not unsafe", never substring tricks.
+      const safe = verdict === "safe";
+      let categories = [];
+      if (parsed["Safety Categories"]) {
+        categories = String(parsed["Safety Categories"])
+          .split(",")
+          .map((c) => c.trim().toLowerCase())
+          .filter(Boolean);
+      }
+      return { safe, categories };
+    }
+    // JSON parsed but "User Safety" key absent — fail closed.
+    return { safe: false, categories: [] };
+  } catch {
+    // Not valid JSON — fall through to line-regex search.
+  }
+
+  // Attempt 2: find a line matching the expected key:value shape.
+  const lines = raw.split(/\r?\n/);
+  for (const line of lines) {
+    const m = line.match(/^\s*"?User Safety"?\s*:\s*"(safe|unsafe)"/i);
+    if (m) {
+      const safe = m[1].toLowerCase() === "safe"; // EXACT, not negation-based
+      return { safe, categories: [] };
+    }
+  }
+
+  // Attempt 3: ambiguous or unrecognised format — default UNSAFE (fail-closed).
+  return { safe: false, categories: [] };
+}
+
+// ─── NIM safety check ────────────────────────────────────────────────────────
+async function checkSafety(text, apiKey) {
+  const { exhausted, error, response } = await fetchWithRetry(
+    () =>
+      fetch(NIM_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: SAFETY_MODEL,
+          messages: [{ role: "user", content: text }],
+          max_tokens: 100,
+          temperature: 0,
+        }),
+      }),
+    3,
+  );
+
+  if (exhausted || !response) {
+    throw Object.assign(
+      new Error(`NIM fetch exhausted after 3 retries: ${error?.message ?? "unknown"}`),
+      { retryExhausted: true, cause: error },
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(`NIM ${response.status}: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  const raw = data.choices?.[0]?.message?.content ?? "";
+  return parseSafetyResponse(raw);
+}
+
+// ─── Audit log writer ─────────────────────────────────────────────────────────
+async function writeAuditLog(db, { postRef, status, categories, provider, model }) {
+  await db.collection("moderationAuditLog").add({
+    postRef: postRef.path ?? postRef,
+    status,
+    categories,
+    provider,
+    model: model ?? SAFETY_MODEL,
+    policyVersion: POLICY_VERSION,
+    decidedAt: FieldValue.serverTimestamp(),
+    actorType: "auto",
+  });
+}
+
+// ─── Dead-letter writer ───────────────────────────────────────────────────────
+async function writeDeadLetter(db, { postRef, error }) {
+  await db.collection("moderationDeadLetter").add({
+    postRef: postRef.path ?? postRef,
+    error: error?.message ?? String(error),
+    errorStack: error?.stack ?? null,
+    timestamp: FieldValue.serverTimestamp(),
+  });
+}
+
+// ─── Child-safety escalation ──────────────────────────────────────────────────
+async function escalateChildSafety(db, { snap, post, categories, authorId }) {
+  const holdId = `hold_${snap.ref.id}_${Date.now()}`;
+  const holdRef = db.collection("legalHolds").doc(holdId);
+
+  const batch = db.batch();
+
+  // 1. Post: immediately invisible.
+  batch.update(snap.ref, {
+    visible: false,
+    flaggedForReview: true,
+    removed: false,
+    moderation: {
+      status: "blocked",
+      categories,
+      provider: "nvidia-nemoguard",
+      checkedAt: FieldValue.serverTimestamp(),
+      childSafetyEscalated: true,
+    },
+  });
+
+  // 2. Legal hold: snapshot of post data.
+  batch.set(holdRef, {
+    postRef: snap.ref.path,
+    authorId: authorId ?? null,
+    postSnapshot: post,
+    categories,
+    createdAt: FieldValue.serverTimestamp(),
+    status: "active",
+  });
+
+  // 3. Child safety escalations collection.
+  const escRef = db.collection("childSafetyEscalations").doc();
+  batch.set(escRef, {
+    contentRef: snap.ref.path,
+    authorId: authorId ?? null,
+    categories,
+    status: "new",
+    severity: "critical",
+    legalHold: true,
+    legalHoldRef: holdRef.path,
+    externalReport: {
+      required: true,
+      provider: "NCMEC_CYBERTIPLINE_TODO",
+      submitted: false,
+    },
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  await batch.commit();
+  console.warn(
+    `[moderatePost] CHILD SAFETY ESCALATION — post ${snap.ref.id}, holdId ${holdId}, categories: ${categories.join(", ")}`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// moderatePost — Firestore onCreate trigger
+// ─────────────────────────────────────────────────────────────────────────────
 exports.moderatePost = onDocumentCreated(
   {
     document: "posts/{postId}",
@@ -56,13 +258,17 @@ exports.moderatePost = onDocumentCreated(
     const snap = event.data;
     if (!snap) return;
 
+    const db = getFirestore();
     const post = snap.data();
     const text = (post.text || post.body || "").trim();
+    const authorId = post.authorId || post.userId || null;
+    const hasImage = Boolean(post.imageUrl || post.mediaUrl);
 
+    // ── IMAGE-ONLY POSTS ────────────────────────────────────────────────────
+    // Never silently pass. Route to pending_image_review with imageReviewRequired.
     if (!text) {
-      // Image-only post: hold it invisible until the Storage trigger
-      // (moderateUploadedImage) clears the media via SafeSearch.
-      await snap.ref.update({
+      const batch = db.batch();
+      batch.update(snap.ref, {
         visible: false,
         flaggedForReview: true,
         removed: false,
@@ -70,43 +276,90 @@ exports.moderatePost = onDocumentCreated(
           status: "pending_image_review",
           categories: [],
           provider: "image-review-pending",
+          imageReviewRequired: true,
           checkedAt: FieldValue.serverTimestamp(),
         },
       });
-      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
-      await getFirestore().collection("moderationQueue").add({
+      const qRef = db.collection("moderationQueue").doc();
+      batch.set(qRef, {
         postRef: snap.ref.path,
-        authorId: post.authorId || null,
+        authorId: authorId ?? null,
         preview: "[image-only post — pending visual review]",
-        status: "pending",
+        status: "pending_image_review",
         categories: [],
         reason: "image_only_pending_visual_review",
+        imageReviewRequired: true,
+        hasImage,
         createdAt: FieldValue.serverTimestamp(),
         expireAt: new Date(Date.now() + TTL_PENDING_MS),
+      });
+      await batch.commit();
+
+      // Audit log for image-only path.
+      await writeAuditLog(db, {
+        postRef: snap.ref,
+        status: "pending_image_review",
+        categories: [],
+        provider: "image-review-pending",
+        model: null,
       });
       return;
     }
 
-    const authorId = post.authorId || post.userId || null;
+    // ── SELF-HARM FAST CHECK ─────────────────────────────────────────────────
     const selfHarm = detectSelfHarm(text);
 
+    // ── NIM SAFETY CHECK (with retry) ────────────────────────────────────────
     let status;
     let categories = [];
+    let nimError = null;
+    let retryExhausted = false;
+
     try {
       const verdict = await checkSafety(text, NVIDIA_API_KEY.value());
       status = verdict.safe ? "approved" : "blocked";
       categories = verdict.categories;
     } catch (err) {
-      console.error("NIM moderation failed:", err);
+      nimError = err;
+      retryExhausted = Boolean(err.retryExhausted);
+      console.error("[moderatePost] NIM moderation failed:", err.message);
       status = FAIL_OPEN ? "approved" : "pending";
     }
 
-    // Self-harm posts must never be silently blocked — route to crisis review
+    // Self-harm posts must never be silently blocked — route to crisis review.
     if (selfHarm) {
-      status = "pending"; // Kept visible to author; surfaced as urgent for admin
+      status = "pending"; // Kept visible to author; surfaced as urgent for admin.
     }
 
-    await snap.ref.update({
+    // ── CHILD SAFETY ESCALATION ───────────────────────────────────────────────
+    const hasChildSafetyFlag = categories.some((c) => CHILD_SAFETY_CATEGORIES.has(c));
+    if (hasChildSafetyFlag) {
+      await escalateChildSafety(db, { snap, post, categories, authorId });
+
+      // Audit log for child-safety path.
+      await writeAuditLog(db, {
+        postRef: snap.ref,
+        status: "blocked",
+        categories,
+        provider: "nvidia-nemoguard",
+        model: SAFETY_MODEL,
+      }).catch((e) => console.error("[moderatePost] auditLog error (child safety):", e.message));
+
+      // Child-safety posts do NOT go to the normal moderationQueue.
+      return;
+    }
+
+    // ── DEAD LETTER on retry exhaustion ──────────────────────────────────────
+    if (retryExhausted) {
+      await writeDeadLetter(db, { postRef: snap.ref, error: nimError }).catch((e) =>
+        console.error("[moderatePost] deadLetter write error:", e.message),
+      );
+    }
+
+    // ── ATOMIC BATCH: update post + add to moderationQueue ───────────────────
+    const writeBatch = db.batch();
+
+    writeBatch.update(snap.ref, {
       visible: status === "approved" || selfHarm,
       flaggedForReview: status === "pending" || status === "pending_image_review",
       removed: status === "blocked" && !selfHarm,
@@ -119,14 +372,51 @@ exports.moderatePost = onDocumentCreated(
       },
     });
 
-    // Persist to canonical moderationDecisions/ and handle crisis escalation
+    if (status !== "approved") {
+      const qRef = db.collection("moderationQueue").doc();
+      writeBatch.set(qRef, {
+        postRef: snap.ref.path,
+        authorId: authorId ?? null,
+        preview: text.slice(0, 280),
+        status,
+        categories,
+        crisisEscalated: selfHarm,
+        priority: selfHarm ? "critical" : "normal",
+        createdAt: FieldValue.serverTimestamp(),
+        expireAt: new Date(Date.now() + TTL_PENDING_MS),
+      });
+    }
+
+    await writeBatch.commit();
+
+    // ── AUDIT LOG ─────────────────────────────────────────────────────────────
+    await writeAuditLog(db, {
+      postRef: snap.ref,
+      status,
+      categories,
+      provider: "nvidia-nemoguard",
+      model: SAFETY_MODEL,
+    }).catch((e) => console.error("[moderatePost] auditLog error:", e.message));
+
+    // ── PERSIST CANONICAL DECISION + CRISIS ESCALATION ───────────────────────
     const { persistDecision, escalateSelfHarm } = getGateway();
     const decisionId = await persistDecision({
       uid: authorId,
       contentType: "post",
       contextId: snap.ref.path,
-      decision: selfHarm ? "review" : (status === "approved" ? "allow" : status === "blocked" ? "block" : "review"),
-      reason: selfHarm ? "Self-harm language detected in post" : (categories.length ? categories.join(", ") : null),
+      decision:
+        selfHarm
+          ? "review"
+          : status === "approved"
+          ? "allow"
+          : status === "blocked"
+          ? "block"
+          : "review",
+      reason: selfHarm
+        ? "Self-harm language detected in post"
+        : categories.length
+        ? categories.join(", ")
+        : null,
       detectedCategories: selfHarm ? ["self_harm", ...categories] : categories,
       crisisEscalated: selfHarm,
       contentLength: text.length,
@@ -141,24 +431,7 @@ exports.moderatePost = onDocumentCreated(
         console.error("[moderatePost] escalateSelfHarm error:", err.message);
       });
     }
-
-    // Anything not auto-approved goes to the Admin Center queue.
-    if (status !== "approved") {
-      // TTL: Firestore TTL policy should be enabled on moderationQueue.expireAt in Firebase Console
-      await getFirestore().collection("moderationQueue").add({
-        postRef: snap.ref.path,
-        authorId: authorId || null,
-        preview: text.slice(0, 280),
-        status,
-        categories,
-        crisisEscalated: selfHarm,
-        priority: selfHarm ? "critical" : "normal",
-        moderationDecisionId: decisionId,
-        createdAt: FieldValue.serverTimestamp(),
-        expireAt: new Date(Date.now() + TTL_PENDING_MS),
-      });
-    }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,7 +462,8 @@ exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
 
   if (decision === "approved") {
     // Collect blocked media URLs from all matching queue items so we can strip them.
-    const queueSnap = await db.collection("moderationQueue")
+    const queueSnap = await db
+      .collection("moderationQueue")
       .where("postRef", "==", `posts/${postId}`)
       .where("status", "in", ["blocked", "pending"])
       .get();
@@ -197,7 +471,7 @@ exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
     const blockedUrls = new Set(
       queueSnap.docs
         .map((d) => d.data().blockedMediaUrl)
-        .filter(Boolean)
+        .filter(Boolean),
     );
 
     const postData = postSnap.data();
@@ -238,7 +512,9 @@ exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
     }
     await batch.commit();
 
-    console.log(`[adminReviewPost] Admin ${request.auth.uid} approved post ${postId}, stripped ${blockedUrls.size} blocked URL(s).`);
+    console.log(
+      `[adminReviewPost] Admin ${request.auth.uid} approved post ${postId}, stripped ${blockedUrls.size} blocked URL(s).`,
+    );
     return { success: true, strippedMedia: blockedUrls.size };
   }
 
@@ -268,47 +544,3 @@ exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
   console.log(`[adminReviewPost] Admin ${request.auth.uid} rejected post ${postId}.`);
   return { success: true };
 });
-
-async function checkSafety(text, apiKey) {
-  // M-01: wrap NIM fetch in retry/backoff
-  const res = await withRetry(() => fetch(NIM_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: SAFETY_MODEL,
-      messages: [{ role: "user", content: text }],
-      max_tokens: 100,
-      temperature: 0,
-    }),
-  }), 3, 500);
-
-  if (!res.ok) {
-    throw new Error(`NIM ${res.status}: ${await res.text()}`);
-  }
-
-  const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content ?? "";
-
-  // NemoGuard returns JSON like:
-  //   {"User Safety": "unsafe", "Safety Categories": "Hate, Harassment"}
-  let safe = true;
-  let categories = [];
-  try {
-    const parsed = JSON.parse(raw);
-    safe = String(parsed["User Safety"] ?? "safe").toLowerCase() === "safe";
-    if (parsed["Safety Categories"]) {
-      categories = String(parsed["Safety Categories"])
-        .split(",")
-        .map((c) => c.trim().toLowerCase())
-        .filter(Boolean);
-    }
-  } catch {
-    // Fallback if the model returns plain text instead of JSON.
-    safe = !/unsafe/i.test(raw);
-  }
-
-  return { safe, categories };
-}

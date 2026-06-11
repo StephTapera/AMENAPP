@@ -206,14 +206,7 @@ struct AmenConnectSpacesHubView: View {
                 .accessibilityAddTraits(selectedTab == index ? [.isSelected] : [])
             }
         }
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color(.separator).opacity(0.25), lineWidth: 0.5)
-                }
-        }
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 4)
@@ -345,14 +338,7 @@ struct AmenConnectSpacesHubView: View {
             .foregroundStyle(foreground)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background {
-                Capsule(style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        Capsule(style: .continuous)
-                            .strokeBorder(foreground.opacity(0.25), lineWidth: 0.5)
-                    }
-            }
+            .amenGlassEffect(in: Capsule())
             .padding(.horizontal, 16)
     }
 
@@ -460,10 +446,10 @@ private struct LiveSpaceCardRow: View {
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.secondarySystemBackground))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color(.separator).opacity(0.30), lineWidth: 0.5)
+                        .strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.5)
                 }
         }
         .accessibilityLabel("\(space.name), \(space.memberCount) member\(space.memberCount == 1 ? "" : "s")\(space.isPrivate ? ", private" : "")")
@@ -527,10 +513,10 @@ private struct SpaceCardRow: View {
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.secondarySystemBackground))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color(.separator).opacity(0.30), lineWidth: 0.5)
+                        .strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.5)
                 }
         }
         .accessibilityLabel("\(space.name), \(space.memberIds.count) member\(space.memberIds.count == 1 ? "" : "s")\(space.careSensitivity ? ", private" : "")")
@@ -582,10 +568,10 @@ private struct VideoCardRow: View {
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.secondarySystemBackground))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color(.separator).opacity(0.30), lineWidth: 0.5)
+                        .strokeBorder(Color(.separator).opacity(0.22), lineWidth: 0.5)
                 }
         }
     }

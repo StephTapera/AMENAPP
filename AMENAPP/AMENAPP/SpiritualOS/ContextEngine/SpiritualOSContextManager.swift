@@ -1,17 +1,14 @@
 import Foundation
 import SwiftUI
-import CoreLocation
 import FirebaseFunctions
-import FirebaseAuth
 
 // MARK: - SpiritualOSContextManager
-// @MainActor ObservableObject that owns the Context Engine lifecycle.
-// Injected via .environmentObject() at ContentView level by the Lead.
-// DORMANT until spiritualOS_context_engine_enabled == true AND permissions granted.
-// Privacy contract: no location/motion starts unless isEnabled AND user has opted in.
+// @MainActor ObservableObject that owns the Spiritual OS context lifecycle.
+// Context source of truth: server-assembled Ambient/ContextStore projection.
+// This manager does not start location, motion, or background sensing pipelines.
 
 @MainActor
-final class SpiritualOSContextManager: NSObject, ObservableObject {
+final class SpiritualOSContextManager: ObservableObject {
 
     // MARK: Published state
 
@@ -21,117 +18,139 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
     // MARK: Private state
 
     private let userId: String
-    private var locationManager: CLLocationManager?
     private var evaluationTimer: Timer?
     private let functions = Functions.functions()
 
-    // MARK: Feature flag
-    // Gated at AppStorage level — changes take effect on next launch/activate call.
+    // MARK: Feature flags
 
-    @AppStorage("spiritualOS_context_engine_enabled") private var isEnabled: Bool = true
+    @AppStorage("spiritualOS_enabled") private var masterEnabled: Bool = false
+    @AppStorage("spiritualOS_context_engine_enabled") private var isEnabled: Bool = false
 
-    // MARK: Test church coordinate (placeholder until churchEnhancementFunctions CF is wired)
-    // Real implementation will query the CF for church locations by user region.
+    private var featureEnabled: Bool {
+        masterEnabled && isEnabled
+    }
 
-    fileprivate let testChurchCoordinate = CLLocationCoordinate2D(
-        latitude: 33.7490,  // Atlanta, GA — representative placeholder
-        longitude: -84.3880
-    )
-    fileprivate let churchProximityThresholdMeters: CLLocationDistance = 500.0
-
-    // MARK: - Init
+    // MARK: Init
 
     init(userId: String) {
         self.userId = userId
-        super.init()
         contextState.timeOfDay = SOTimeOfDay.current()
-        if isEnabled {
+        if featureEnabled {
             activate()
         }
     }
 
     // MARK: - Lifecycle
 
-    /// Activates the context engine. No-ops if already active.
-    /// Starts time-of-day and Sunday detection. Location/motion only if user has opted in.
+    /// Activates context mapping. It consumes the Ambient OS callable and keeps a local timer
+    /// only for time-of-day labels; it never starts device sensing.
     func activate() {
+        guard featureEnabled else {
+            deactivate()
+            return
+        }
         guard !isActive else { return }
         isActive = true
         evaluateTimeContext()
         startEvaluationTimer()
-
-        // Restart location if permission was previously granted
-        if contextState.userPermissions.geofenceOptIn &&
-           contextState.userPermissions.locationEnabled {
-            startLocationUpdatesIfPermitted()
-        }
+        Task { await refreshFromAmbientContext() }
     }
 
-    /// Stops all active monitoring and invalidates the timer.
+    /// Stops local refresh timers. No sensor teardown is needed because this manager owns none.
     func deactivate() {
         isActive = false
         invalidateTimer()
-        stopLocationMonitoring()
     }
 
-    /// Full logout cleanup — deactivates, resets state, and fires server cleanup callable.
+    /// Full logout cleanup. Server cleanup is best-effort and feature-gated.
     func onLogout() async {
         deactivate()
-        await cleanupContextOnLogout()
+        if featureEnabled {
+            await cleanupContextOnLogout()
+        }
         contextState = AmenContextState()
     }
 
-    // MARK: - Permission Request
+    // MARK: - User Consent
 
-    /// Entry point for the Privacy Consent Sheet. Call this when the user taps "Enable Selected"
-    /// and has toggled geofence/location on. Sets the opt-in flag then requests system permission.
+    /// Records the user's opt-in intent and refreshes the approved server projection.
+    /// Device permission prompts belong to ContextStore/Ambient OS, not this consumer.
     func requestGeofenceOptIn() {
         contextState.userPermissions.geofenceOptIn = true
-
-        let manager = CLLocationManager()
-        manager.delegate = locationDelegate
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        manager.distanceFilter = 200
-        locationManager = manager
-
-        switch manager.authorizationStatus {
-        case .notDetermined:
-            guard Auth.auth().currentUser != nil else { return }
-            manager.requestWhenInUseAuthorization()
-        case .authorizedWhenInUse, .authorizedAlways:
-            contextState.userPermissions.locationEnabled = true
-            startLocationUpdatesIfPermitted()
-        case .denied, .restricted:
-            contextState.userPermissions.locationEnabled = false
-        @unknown default:
-            contextState.userPermissions.locationEnabled = false
-        }
+        Task { await refreshFromAmbientContext() }
     }
 
     // MARK: - Mode Evaluation
 
-    /// Re-evaluates the context mode from current signals. Called by the timer and after
-    /// any permission or location signal changes.
+    /// Re-evaluates local time context and refreshes explicit server context.
     func updateMode() {
-        let tod = SOTimeOfDay.current()
-        contextState.timeOfDay = tod
-        contextState.isSundayChurchTime = isSundayMorning()
+        guard featureEnabled else {
+            deactivate()
+            return
+        }
+        evaluateTimeContext()
+        Task { await refreshFromAmbientContext() }
+    }
 
-        let newMode = resolvedMode(tod: tod)
-        guard newMode != contextState.mode else { return }
+    // MARK: - Ambient Context
 
-        contextState.mode = newMode
-        contextState.lastUpdated = Date()
+    /// Pulls the single approved context projection. Ambient OS callables aggregate any
+    /// ContextStore inputs server-side, so Spiritual OS does not read raw facets or sensors.
+    func refreshFromAmbientContext() async {
+        guard featureEnabled, !userId.isEmpty else { return }
 
-        Task {
+        do {
+            let payload: [String: Any] = [
+                "userId": userId,
+                "mode": contextState.mode.rawValue
+            ]
+            let result = try await functions.httpsCallable("getAmbientContext").call(payload)
+            guard let data = result.data as? [String: Any] else { return }
+            applyAmbientContextPayload(data)
             await syncToServer()
+        } catch {
+            print("[ContextEngine] refreshFromAmbientContext failed closed: \(error.localizedDescription)")
+        }
+    }
+
+    private func applyAmbientContextPayload(_ data: [String: Any]) {
+        if let mode = data["mode"] as? String {
+            applyAmbientMode(mode)
+        } else if let context = data["context"] as? [String: Any],
+                  let mode = context["mode"] as? String {
+            applyAmbientMode(mode)
+        }
+
+        contextState.timeOfDay = SOTimeOfDay.current()
+        contextState.lastUpdated = Date()
+    }
+
+    private func applyAmbientMode(_ mode: String) {
+        switch mode {
+        case AmbientMode.driving.rawValue:
+            contextState.mode = .driveMode
+            contextState.isDriving = true
+            contextState.isNearChurch = false
+            contextState.isTraveling = false
+        case AmbientMode.atChurch.rawValue:
+            contextState.mode = .worshipMode
+            contextState.isDriving = false
+            contextState.isNearChurch = true
+            contextState.isTraveling = false
+        default:
+            contextState.mode = resolvedMode(tod: SOTimeOfDay.current())
+            contextState.isDriving = false
+            contextState.isNearChurch = false
+            contextState.isTraveling = false
         }
     }
 
     // MARK: - Server Sync
 
-    /// Syncs the current context state to Firebase. Fire-and-forget — errors are logged silently.
+    /// Syncs derived, non-sensitive mode state. Failures remain silent in the UI.
     func syncToServer() async {
+        guard featureEnabled, !userId.isEmpty else { return }
+
         let payload: [String: Any] = [
             "userId": userId,
             "mode": contextState.mode.rawValue,
@@ -146,7 +165,6 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
         do {
             _ = try await functions.httpsCallable("updateContextState").call(payload)
         } catch {
-            // Background operation — surface nothing to the user.
             print("[ContextEngine] syncToServer silently failed: \(error.localizedDescription)")
         }
     }
@@ -162,10 +180,7 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
 
     private func startEvaluationTimer() {
         invalidateTimer()
-        let timer = Timer.scheduledTimer(
-            withTimeInterval: 60,
-            repeats: true
-        ) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.updateMode()
             }
@@ -182,7 +197,7 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
     private func isSundayMorning() -> Bool {
         let calendar = Calendar.current
         let now = Date()
-        let weekday = calendar.component(.weekday, from: now)  // 1 = Sunday
+        let weekday = calendar.component(.weekday, from: now)
         let hour = calendar.component(.hour, from: now)
         return weekday == 1 && hour >= 7 && hour < 14
     }
@@ -203,106 +218,11 @@ final class SpiritualOSContextManager: NSObject, ObservableObject {
         return .default
     }
 
-    private func startLocationUpdatesIfPermitted() {
-        guard let manager = locationManager,
-              manager.authorizationStatus == .authorizedWhenInUse ||
-              manager.authorizationStatus == .authorizedAlways else {
-            return
-        }
-        manager.startUpdatingLocation()
-    }
-
-    private func stopLocationMonitoring() {
-        locationManager?.stopUpdatingLocation()
-        locationManager?.delegate = nil
-        locationManager = nil
-    }
-
-    // MARK: - Server Cleanup
-
     private func cleanupContextOnLogout() async {
         do {
             _ = try await functions.httpsCallable("cleanupContextOnLogout").call(["userId": userId])
         } catch {
             print("[ContextEngine] cleanupContextOnLogout silently failed: \(error.localizedDescription)")
-        }
-    }
-
-    // MARK: - Location Delegate
-
-    // Stored as a strong reference because CLLocationManager holds a weak delegate.
-    private lazy var locationDelegate: ContextLocationDelegate = {
-        ContextLocationDelegate(manager: self)
-    }()
-}
-
-// MARK: - ContextLocationDelegate
-// Private nested delegate class for CLLocationManager.
-// Keeps SpiritualOSContextManager free of Objective-C protocol conformance noise.
-
-private final class ContextLocationDelegate: NSObject, CLLocationManagerDelegate {
-
-    private weak var contextManager: SpiritualOSContextManager?
-
-    init(manager: SpiritualOSContextManager) {
-        self.contextManager = manager
-    }
-
-    // MARK: Auth changes
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        Task { @MainActor [weak self] in
-            guard let self, let ctx = self.contextManager else { return }
-            switch manager.authorizationStatus {
-            case .authorizedWhenInUse, .authorizedAlways:
-                ctx.contextState.userPermissions.locationEnabled = true
-                if ctx.contextState.userPermissions.geofenceOptIn {
-                    manager.startUpdatingLocation()
-                }
-            case .denied, .restricted:
-                ctx.contextState.userPermissions.locationEnabled = false
-                ctx.contextState.isNearChurch = false
-                ctx.updateMode()
-            default:
-                break
-            }
-        }
-    }
-
-    // MARK: Location updates
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-
-        Task { @MainActor [weak self] in
-            guard let self, let ctx = self.contextManager else { return }
-            guard ctx.contextState.userPermissions.geofenceOptIn else { return }
-
-            // Driving heuristic: speed > 15 m/s (~54 km/h)
-            let speed = location.speed
-            if speed > 0 {
-                ctx.contextState.isDriving = speed > 15.0
-            }
-
-            // Church proximity check (simplified: compare to test coordinate)
-            // Real implementation: query churchEnhancementFunctions CF for nearby churches
-            let testChurch = CLLocation(
-                latitude: ctx.testChurchCoordinate.latitude,
-                longitude: ctx.testChurchCoordinate.longitude
-            )
-            let distance = location.distance(from: testChurch)
-            ctx.contextState.isNearChurch = distance <= ctx.churchProximityThresholdMeters
-
-            ctx.updateMode()
-        }
-    }
-
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        // Location failure is non-fatal — context engine degrades gracefully.
-        print("[ContextEngine] Location update failed: \(error.localizedDescription)")
-        Task { @MainActor [weak self] in
-            self?.contextManager?.contextState.isNearChurch = false
-            self?.contextManager?.updateMode()
         }
     }
 }

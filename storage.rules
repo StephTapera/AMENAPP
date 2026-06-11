@@ -13,22 +13,171 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // Maximum file sizes by media type (enforced where supported by Storage rules).
-    // Primary size enforcement happens in the Cloud Function before returning a signed upload URL.
-    function withinAudioLimit()  { return request.resource.size <= 100 * 1024 * 1024; }
-    function withinImageLimit()  { return request.resource.size <=  20 * 1024 * 1024; }
-    function withinVideoLimit()  { return request.resource.size <= 500 * 1024 * 1024; }
+    // ── Size limits ───────────────────────────────────────────────────────────
 
-    // Allowed content types by folder.
+    function withinVideoLimit() {
+      return request.resource.size <= 100 * 1024 * 1024;   // 100 MB
+    }
+
+    function withinImageLimit() {
+      return request.resource.size <= 25 * 1024 * 1024;    // 25 MB
+    }
+
+    function withinAudioLimit() {
+      return request.resource.size <= 100 * 1024 * 1024;   // 100 MB
+    }
+
+    function withinProfilePhotoLimit() {
+      return request.resource.size <= 5 * 1024 * 1024;     // 5 MB
+    }
+
+    // ── MIME-type allowlists ──────────────────────────────────────────────────
+
+    // Explicitly blocked types — checked first.
+    function isBlockedType() {
+      return request.resource.contentType == 'application/x-executable'
+          || request.resource.contentType == 'text/html'
+          || request.resource.contentType == 'application/javascript';
+    }
+
+    function isAllowedImageType() {
+      return request.resource.contentType == 'image/jpeg'
+          || request.resource.contentType == 'image/png'
+          || request.resource.contentType == 'image/webp'
+          || request.resource.contentType == 'image/heic';
+    }
+
+    function isAllowedVideoType() {
+      return request.resource.contentType == 'video/mp4'
+          || request.resource.contentType == 'video/quicktime';
+    }
+
+    function isAllowedAudioType() {
+      return request.resource.contentType == 'audio/mpeg'
+          || request.resource.contentType == 'audio/mp4'
+          || request.resource.contentType == 'audio/aac';
+    }
+
+    function isAllowedDocumentType() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    // Full quarantine allowlist: image OR video OR audio OR document, never blocked.
+    function isAllowedQuarantineType() {
+      return !isBlockedType()
+          && (isAllowedImageType()
+           || isAllowedVideoType()
+           || isAllowedAudioType()
+           || isAllowedDocumentType());
+    }
+
+    // Per-type size gate used in quarantine writes.
+    function withinQuarantineSizeLimit() {
+      return (isAllowedVideoType() && withinVideoLimit())
+          || (isAllowedAudioType() && withinAudioLimit())
+          || (isAllowedImageType() && withinImageLimit())
+          || (isAllowedDocumentType() && withinImageLimit()); // PDF capped at 25 MB
+    }
+
+    // Helper for image-only content types (used in profile photos).
+    function isAnyImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // ── Legacy content-type helpers (preserved for churchNotes paths) ─────────
+
     function isAudioType()  {
       return request.resource.contentType.matches('audio/.*');
     }
+
     function isImageType()  {
       return request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
     }
+
     function isVideoType()  {
       return request.resource.contentType.matches('video/(mp4|quicktime|mpeg|avi|webm)');
     }
+
+    // =========================================================================
+    // QUARANTINE-FIRST UPLOAD PIPELINE
+    // =========================================================================
+    //
+    // Flow:
+    //   1. Client uploads to uploads/quarantine/{uid}/{mediaId}
+    //   2. Cloud Function (Admin SDK) reviews the file
+    //   3. Cloud Function moves to uploads/approved/ or uploads/blocked/
+    //   4. Legal team uses uploads/legalHold/ — no client access at all
+    //
+    // Clients can NEVER write directly to approved/, blocked/, or legalHold/.
+    // =========================================================================
+
+    // ── Quarantine bucket ─────────────────────────────────────────────────────
+    //
+    //  CREATE  : authenticated owner only; MIME + size must pass allowlist
+    //  READ    : owner only — quarantine files are NOT publicly visible
+    //  UPDATE  : owner may overwrite their own quarantine slot (same constraints)
+    //  DELETE  : owner may remove their own quarantine file
+
+    match /uploads/quarantine/{uid}/{mediaId} {
+      allow create: if isOwner(uid)
+                    && isAllowedQuarantineType()
+                    && withinQuarantineSizeLimit();
+
+      allow update: if isOwner(uid)
+                    && isAllowedQuarantineType()
+                    && withinQuarantineSizeLimit();
+
+      allow read:   if isOwner(uid);
+
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Approved bucket ───────────────────────────────────────────────────────
+    //
+    //  READ  : public (any authenticated or unauthenticated reader)
+    //  WRITE : NO client writes — Admin SDK (Cloud Functions) only
+
+    match /uploads/approved/{uid}/{mediaId} {
+      allow read:          if true;
+      allow write, delete: if false;
+    }
+
+    // ── Blocked bucket ────────────────────────────────────────────────────────
+    //
+    //  No client access at all — Admin SDK only.
+
+    match /uploads/blocked/{uid}/{mediaId} {
+      allow read, write, delete: if false;
+    }
+
+    // ── Legal Hold bucket ─────────────────────────────────────────────────────
+    //
+    //  No client read, write, or delete — legal review performed server-side
+    //  via Admin SDK / legalReviewer service account only.
+
+    match /uploads/legalHold/{caseId}/{mediaId} {
+      allow read, write, delete: if false;
+    }
+
+    // =========================================================================
+    // PROFILE PHOTOS
+    // =========================================================================
+    //
+    //  Path  : profilePhotos/{uid}/{photoId}
+    //  Write : owner only; image/* content type; max 5 MB
+    //  Read  : public (approved profile photos are publicly visible)
+
+    match /profilePhotos/{uid}/{photoId} {
+      allow read:   if true;
+      allow write:  if isOwner(uid)
+                    && isAnyImageType()
+                    && withinProfilePhotoLimit();
+      allow delete: if isOwner(uid);
+    }
+
+    // =========================================================================
+    // LEGACY PATHS (preserved — no behaviour change)
+    // =========================================================================
 
     // ── Church Notes media ────────────────────────────────────────────────────
     // Path: churchNotes/{uid}/{noteId}/audio/{filename}
@@ -60,7 +209,7 @@ service firebase.storage {
       allow delete: if isOwner(uid);
     }
 
-    // ── User profile media (existing pattern — preserved) ─────────────────────
+    // ── User profile images (legacy path — preserved) ─────────────────────────
 
     match /users/{uid}/profileImages/{filename} {
       allow read:   if isSignedIn();
@@ -68,7 +217,7 @@ service firebase.storage {
       allow delete: if isOwner(uid);
     }
 
-    // ── Default deny ──────────────────────────────────────────────────────────
+    // ── Default deny (catch-all) ──────────────────────────────────────────────
 
     match /{allPaths=**} {
       allow read, write: if false;

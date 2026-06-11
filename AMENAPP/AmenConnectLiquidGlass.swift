@@ -31,16 +31,26 @@ struct AmenConnectLiquidGlassSurface<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        content()
-            .background(surfaceBackground)
-            .clipShape(shape)
-            .overlay(borderLayer)
-            .overlay(innerHighlight)
-            .shadow(color: .black.opacity(reduceTransparency ? 0.05 : 0.08), radius: 18, x: 0, y: 8)
-            .saturation(reduceTransparency ? 1 : saturationBoost)
-            .scaleEffect(pressedScale)
-            .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.82), value: isPressed)
-            .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.86), value: isSelected)
+        if #available(iOS 26, *), !reduceTransparency {
+            // W1-W2 glass migration: native Liquid Glass replaces material approximation
+            content()
+                .amenGlassEffect(in: shape)
+                .scaleEffect(pressedScale)
+                .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.82), value: isPressed)
+                .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.86), value: isSelected)
+        } else {
+            // Legacy path: material approximation (iOS < 26 or Reduce Transparency)
+            content()
+                .background(surfaceBackground)
+                .clipShape(shape)
+                .overlay(borderLayer)
+                .overlay(innerHighlight)
+                .shadow(color: .black.opacity(reduceTransparency ? 0.05 : 0.08), radius: 18, x: 0, y: 8)
+                .saturation(reduceTransparency ? 1 : saturationBoost)
+                .scaleEffect(pressedScale)
+                .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.82), value: isPressed)
+                .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.86), value: isSelected)
+        }
     }
 
     private var shape: RoundedRectangle {

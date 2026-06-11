@@ -148,10 +148,11 @@ struct ConnectEmptyStateView: View {
     }
 }
 
-// MARK: - C-4: SkeletonCard + SkeletonRail
+// MARK: - C-4: ConnectSkeletonCard + ConnectSkeletonRail
+// Prefixed "Connect" to avoid collision with the app-wide SkeletonCard in EmptyStateView.swift.
 
 /// Single shimmer card placeholder. Shimmer respects Reduce Motion.
-struct SkeletonCard: View {
+struct ConnectSkeletonCard: View {
     var cornerRadius: CGFloat = 16
     var aspectRatio: CGFloat = 1.4
 
@@ -196,22 +197,23 @@ struct SkeletonCard: View {
 }
 
 /// Horizontal rail of shimmer cards. Used for Discover section loading states.
-struct SkeletonRail: View {
+struct ConnectSkeletonRail: View {
     var cardCount: Int = 3
     var cardWidth: CGFloat = 180
     var cardAspectRatio: CGFloat = 1.3
     var spacing: CGFloat = 12
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: spacing) {
                 ForEach(0..<cardCount, id: \.self) { _ in
-                    SkeletonCard(aspectRatio: cardAspectRatio)
+                    ConnectSkeletonCard(aspectRatio: cardAspectRatio)
                         .frame(width: cardWidth)
                 }
             }
             .padding(.horizontal, 20)
         }
+        .scrollIndicators(.hidden)
         .disabled(true)
         .accessibilityLabel("Loading content")
     }
