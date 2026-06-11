@@ -221,7 +221,9 @@ final class ChurchProximityEngine: NSObject, ObservableObject {
         let manager = CLLocationManager()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        manager.allowsBackgroundLocationUpdates = true
+        // GAP P0-5: allowsBackgroundLocationUpdates is set ONLY when the user has already
+        // granted Always authorization. Setting it unconditionally was the violation — it
+        // requested a privileged background entitlement regardless of the user's consent.
         manager.pausesLocationUpdatesAutomatically = true
         manager.activityType = .other
         locationManager = manager
@@ -230,10 +232,20 @@ final class ChurchProximityEngine: NSObject, ObservableObject {
         case .notDetermined:
             // Guard: only prompt if user is authenticated; monitoring starts post-login anyway.
             guard Auth.auth().currentUser != nil else { return }
+            // Request When In Use only. The user must explicitly upgrade to Always — we do
+            // not auto-escalate. The delegate's locationManagerDidChangeAuthorization will
+            // start monitoring once the user grants permission.
             manager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse:
-            manager.requestAlwaysAuthorization()
+            // GAP P0-5: Never auto-escalate to Always. If the user chose When In Use, honour
+            // that choice. Geofencing works with When In Use in the foreground; background
+            // Quiet Mode triggering requires Always, but must be explicitly requested by the
+            // user from Settings — not silently demanded by the app on service window entry.
+            manager.startUpdatingLocation()
+            if let window = activeWindow { registerGeofence(window) }
         case .authorizedAlways:
+            // Only here do we enable background updates — the user explicitly granted Always.
+            manager.allowsBackgroundLocationUpdates = true
             manager.startUpdatingLocation()
             if let window = activeWindow { registerGeofence(window) }
         default:

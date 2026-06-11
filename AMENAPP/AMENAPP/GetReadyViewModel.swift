@@ -914,6 +914,15 @@ final class GetReadyViewModel: ObservableObject {
     }
 
     private func wireProximityEngine() {
+        // GAP P0-5: never start the background sensing pipeline (location + CoreMotion +
+        // calendar) without explicit user consent from the QuietMode onboarding sheet.
+        // The onboarding sheet is the consent UI; when the user completes it, consent is
+        // granted and wireProximityEngine() is called again from onQuietModeOnboardingCompleted.
+        guard QuietModePreferenceService.shared.hasGrantedProximityConsent else {
+            showQuietModeOnboarding = true
+            return
+        }
+
         guard let coord = plan.coordinate else { return }
 
         let window = ChurchServiceWindow(
@@ -962,8 +971,13 @@ final class GetReadyViewModel: ObservableObject {
 
     func onQuietModeOnboardingCompleted(_ pref: QuietModePreference) {
         showQuietModeOnboarding = false
+        // GAP P0-5: the onboarding sheet is the explicit opt-in gate. Record consent
+        // and then start the proximity engine — it was blocked pending this tap.
+        QuietModePreferenceService.shared.grantProximityConsent()
         quietModeCardState = .ready(preference: pref)
         updateQuietModeInSections()
+        // Now that consent exists, start monitoring (wireProximityEngine will proceed past the guard).
+        wireProximityEngine()
     }
 
     func openMaps() {

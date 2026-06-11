@@ -87,10 +87,30 @@ final class QuietModePreferenceService: ObservableObject {
     static let shared = QuietModePreferenceService()
 
     private let globalKey = "amen.quietMode.preference"
+    // GAP P0-5: explicit consent gate for the background sensing pipeline (location +
+    // CoreMotion + calendar correlation). The user must tap through the QuietMode
+    // onboarding sheet before ChurchProximityEngine.startMonitoring() runs for the
+    // first time. Stored in UserDefaults so it persists across launches.
+    private let consentKey = "amen.quietMode.proximityConsent"
     private let db = Firestore.firestore()
 
     @Published private(set) var preference: QuietModePreference = .ask
     @Published private(set) var isSyncing = false
+
+    /// True iff the user has explicitly opted into attendance-sensing (Quiet Mode onboarding).
+    var hasGrantedProximityConsent: Bool {
+        UserDefaults.standard.bool(forKey: consentKey)
+    }
+
+    /// Call this when the user completes QuietMode onboarding (opt-in confirmed).
+    func grantProximityConsent() {
+        UserDefaults.standard.set(true, forKey: consentKey)
+    }
+
+    /// Call this if the user revokes consent (e.g., from Settings → Quiet Mode → Off).
+    func revokeProximityConsent() {
+        UserDefaults.standard.removeObject(forKey: consentKey)
+    }
 
     private init() {
         loadFromUserDefaults()
