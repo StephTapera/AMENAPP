@@ -8,13 +8,15 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "jest --testPathPattern=src/discussion --passWithNoTests"
+    "test": "jest --passWithNoTests"
   },
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
     "testMatch": [
-      "**/src/discussion/**/*.test.ts"
+      "**/src/discussion/**/*.test.ts",
+      "**/test/ageTier.test.js",
+      "**/test/phoneAuthPii.test.js"
     ],
     "moduleFileExtensions": [
       "ts",

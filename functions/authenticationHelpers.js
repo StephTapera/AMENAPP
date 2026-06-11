@@ -879,18 +879,10 @@ exports.cascadeDeleteUserData = cascadeDeleteUserData;
 
 const {onDocumentCreated: onDocCreated} = require("firebase-functions/v2/firestore");
 
-/**
- * Compute age tier from birth year.
- * currentYear is passed in to keep the function testable.
- */
-function computeAgeTier(birthYear, currentYear) {
-  if (!birthYear || typeof birthYear !== "number") return "tierD"; // conservative default for adult
-  const age = currentYear - birthYear;
-  if (age < 13) return "blocked";
-  if (age <= 15) return "tierB";
-  if (age <= 17) return "tierC";
-  return "tierD";
-}
+// GAP P0-11: computeAgeTier moved to the shared ./ageTier module so production and
+// the COPPA unit test import the SAME function instead of a forked copy.
+const {computeAgeTier} = require("./ageTier");
+exports.computeAgeTier = computeAgeTier;
 
 exports.onUserDocCreated = onDocCreated(
     {
