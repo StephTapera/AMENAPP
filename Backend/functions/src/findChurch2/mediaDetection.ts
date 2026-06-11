@@ -32,9 +32,12 @@ const IS_EMULATOR = process.env.FUNCTIONS_EMULATOR === "true";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type CallableRequest<T = Record<string, unknown>> = {
+type AuthContext = {
     auth?: { uid?: string };
     app?: { appId?: string };
+};
+
+type CallableRequest<T = Record<string, unknown>> = AuthContext & {
     data: T;
 };
 
@@ -60,7 +63,7 @@ interface ChurchData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function requireAuth(request: CallableRequest): string {
+function requireAuth(request: AuthContext): string {
     const uid = request.auth?.uid;
     if (!uid) {
         throw new HttpsError("unauthenticated", "Authentication required.");
@@ -68,7 +71,7 @@ function requireAuth(request: CallableRequest): string {
     return uid;
 }
 
-function requireAppCheck(request: CallableRequest): void {
+function requireAppCheck(request: AuthContext): void {
     if (IS_EMULATOR) return;
     if (!request.app?.appId) {
         throw new HttpsError("failed-precondition", "App Check token required.");

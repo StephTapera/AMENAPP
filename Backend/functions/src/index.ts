@@ -177,6 +177,14 @@ export * from "./createBlock";
 // follower-only post visibility.
 export * from "./createFollow";
 
+// Find Church 2.0 — Wave 2 backend
+// ingestChurchesFromGooglePlaces  (onCall, admin-only) — Google Places ingestion + dedup
+// computeAvailabilityStatus        (onCall) — compute + cache service-time availability for one church
+// scheduleAvailabilityRefresh      (onSchedule, every 30 min) — batch-refresh stale availability caches
+export * from "./findChurch2/ingestion";
+// detectChurchMedia                (onCall) — YouTube / podcast RSS / livestream auto-detection
+export * from "./findChurch2/mediaDetection";
+
 // Notification Functions — Server-side pipeline
 //
 // Firestore triggers use gen2 syntax (firebase-functions/v2/firestore) so they
