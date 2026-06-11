@@ -1,326 +1,157 @@
-# AMEN STATUS BOARD
-**Last generated:** 2026-06-11 | **HEAD:** 5525cf6e | **Branch:** safety-hardening  
-**Refreshed by:** `findChurch2(close)` lane — regenerate this file whenever any lane reports.  
-**Canonical deploy stack:** `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` (Steps 0–10e) · `RUN_ME.sh` (wrapper script)
+# STATUS BOARD
 
----
+Generated: 2026-06-11 09:02:51 MST
+Workspace HEAD at refresh: `12d149ea`
+Evidence bundle HEADs cited: `4526d792` where proof bundles were generated before this refresh
+Refresh commit: pending
 
-## SECTION 5 — SCOREBOARD HEADER *(read this first)*
+Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11.md`, `STAGE3_DEPLOY_PACKAGE_2026-06-11.md`, `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md`, `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md`, `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md`, `DECISION_DOC_SAFETY.md`, `AMENAPP/ContextStore/RUNLOG.md`, `AMENAPP/MusicContentLayer/WIRING_CERT.md`, `Docs/find-church/WIRING_CERT.md`, `src/features/connectedIntelligence.RUNLOG.md`.
 
-| Metric | Value |
+## SECTION 5 - SCOREBOARD HEADER
+
+| Metric | Current |
 |---|---|
-| **Last green build** | `5525cf6e` — 2026-06-11T06:15 -07:00 (Xcode MCP BuildProject, 0 errors) |
-| **Tests passing** | 1857 / 1857 compile (9 notRun — simulator; 0 failed) |
-| **P0 open** | **0** (GAP_BOARD_CLOSED.md sealed) |
-| **P1 open** | **0** |
-| **P2 open** | **0** |
-| **Deploys completed** | 0 of 10 steps (nothing has been deployed to production) |
-| **Deploys pending** | 10 steps in STAGE3_DEPLOY_PACKAGE_2026-06-11.md |
-| **DECISION_DOC_SAFETY answered** | 0 of 8 GROUP-A items · 0 of 16 GROUP-B items · 0 of 11 GROUP-C items |
-| **Lanes DONE** | Connect V2, Find Church 2.0, Safety P0, Music Content Layer, Smart Composer, Gap Audit |
-| **Lanes in-flight** | Onboarding/Auth, Church Notes, Berean LLM, AIL, Note Share Viewer, ONE audit |
-| **Screenshots owed** | All surfaces (no simulator deployed) |
+| Tests passing/total | `1848/1857 executable discovered`, `9 notRun`, `0 failed` from `STEP5_PROOF_BUNDLE_2026-06-11.md` |
+| P0/P1/P2 open counts | `0/0/0` from `GAP_BOARD_CLOSED.md`; safety follow-ons still list `5 OPEN + 3 HUMAN-DECISION` in `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` |
+| Lanes DONE vs total | `7/16` board rows are `✅ DONE-PROVEN`; remaining rows are human-pending, in-flight, parked, blocked, or deferred |
+| Deploys completed vs pending | `0/14` human checklist items have deploy/console proof in this workspace |
+| Last green build sha+time | `4526d792` at `2026-06-11T06:15:18 -07:00`; current workspace HEAD is `12d149ea` and has not been rebuilt in this harness |
 
----
+## SECTION 1 - FEATURES & SYSTEMS
 
-## SECTION 1 — FEATURES & SYSTEMS
-
-### CONNECT V2 (5 Waves)
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
+| Feature | Lane/Swarm | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
 |---|---|---|---|---|---|---|---|---|
-| V2 shell + glass union bar | Connect redesign | 🟢 DONE-AWAITING-CAPTURE | `3f84df7e` | STEP5_PROOF_BUNDLE §4 | ConnectOfflineQueueTests (5/5) | `connect_layout_v2_enabled` (false) | ❌ No — Step 1 | Screenshots |
-| Unified Catch Up / ⓘ chip | Connect redesign | 🟢 DONE-AWAITING-CAPTURE | `3f84df7e` | STEP5_PROOF_BUNDLE §4 | — | `connect_polish_v2_enabled` (false) | ❌ No | Screenshots |
-| ConnectEmptyStateView | Connect redesign | 🟢 DONE-AWAITING-CAPTURE | `3f84df7e` | STEP5_PROOF_BUNDLE §4 | — | `connect_empty_states_enabled` (false) | ❌ No | Screenshots |
-| Smart Berean pill | Connect redesign | 🟢 DONE-AWAITING-CAPTURE | `3f84df7e` | STEP5_PROOF_BUNDLE §4 | — | `connect_smart_berean_enabled` (false) | ❌ No — bereanQuestion CF | Screenshots + CF deploy |
-| Offline draft queue | Connect redesign | 🟢 DONE-AWAITING-CAPTURE | `3f84df7e` + `4526d792` | STEP5_PROOF_BUNDLE §4 | ConnectOfflineQueueTests | `connect_offline_queue_enabled` (false) | ❌ No — Step 3 | Firestore TTL console step |
-| C-2 AI disclosure string | Connect redesign | ✅ DONE-PROVEN | `3f84df7e` — `AmenConnectView.swift:194,682` | STEP5_PROOF_BUNDLE §4 | — | none (unconditional) | N/A | — |
-| C-1 bottom inset 115pt | Connect redesign | ✅ DONE-PROVEN | `3f84df7e` — `AmenConnectV2View.swift:101` | STEP5_PROOF_BUNDLE §4 | — | `connect_layout_v2_enabled` | N/A (client-only) | — |
-| one_relayMoment forwardAllowed | Connect/ONE | ✅ DONE-PROVEN | `3f84df7e` — `oneRelayMoment.ts:44-50` | STEP5_PROOF_BUNDLE §4 | — | always-on | ❌ No — Step 4 | Deploy |
-| ConnectBadgeStore feed | Connect redesign | ✅ DONE-PROVEN | `4526d792` — `AmenConnectService.swift:56-63` | GAP_BOARD_CLOSED | — | `connect_smart_berean_enabled` | N/A (client) | — |
+| Gap Audit + P0 Fix Wave 1 | Gap Audit + P0 Fix Wave 1 | ✅ DONE-PROVEN | `9bbfe47f`, `7af3204b`, `248df4ac`, `41bdf467` in `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` | Deploy package: `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` | Firestore emulator `18/18`; functions Jest `84/84` | No runtime flag; deploy package only | No | Human deploy: pepper secret, Firestore rules, index, 3 phone functions |
+| Safety Wave 3 package | Safety hardening | 🧍 HUMAN-PENDING (Group A safety decisions + NCMEC/Storage/rules verification) | Prepared in `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md` | Consolidated package: `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | `ageTier.test.js` `11/11`; Xcode diagnostics pass; focused Swift tests blocked by simulator wall | Safety flags already listed in Step 5 proof; production enablement gated | No | Answer `DECISION_DOC_SAFETY.md` Group A, legalReviewer claim, NCMEC registration, Storage/rules console verification |
+| Safety A3 callables | Safety P0 Wave 3 | ✅ DONE-PROVEN | `STEP5_PROOF_BUNDLE_2026-06-11.md` at `4526d792` | Stage-3 package Step 2: `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` | Build proof `0 errors`; A3 callable fail-closed wiring cited in Step 5 proof | Safety callables gated by App Check/Auth/rate limit, no client flip | No | Deploy `evaluateDmRisk`, `reportDmAbuse`, `contentSafetyScreen`, `analyzeRelationshipRisk`, `assessDogpileRisk`; verify active |
+| Connect V2 UI polish and gates | Connect lane | ✅ DONE-PROVEN | `STEP5_PROOF_BUNDLE_2026-06-11.md` at `4526d792` | Cert index in `STEP5_PROOF_BUNDLE_2026-06-11.md` | `ConnectOfflineQueueTests` `5` tests; build proof `0 errors`, `0 failures` | `connect_layout_v2_enabled=false`, `connect_polish_v2_enabled=false`, `connect_empty_states_enabled=false`, `connect_smart_berean_enabled=false` | No | Human deploy Step 3/6; in-app capture owed |
+| Connect offline queue callable | Connect lane | ✅ DONE-PROVEN | `Backend/functions/src/connectQueue/processConnectQueuedDraft.ts` cited in Step 5 proof | Stage-3 package Step 3 | Idempotency and callable-owned write proof cited in `STEP5_PROOF_BUNDLE_2026-06-11.md` | `connect_offline_queue_enabled=false` | No | Deploy callable; enable TTL on `connect_idempotency.processedAt`; smoke test |
+| ONE private social OS callables | ONE lane | ✅ DONE-PROVEN | `one_relayMoment` forwardAllowed rejection closed in `GAP_BOARD_CLOSED.md`; Stage-3 Step 4 lists 5 functions | Stage-3 package Step 4 | Build proof included in Step 5 proof; specific relay rejection proof in `GAP_BOARD_CLOSED.md` | ONE flags not safe until all `one_*` CFs active | No | Deploy `one_relayMoment`, `one_sendMoment`, `one_expireMoment`, `one_verifyEntitlement`, `one_activateLegacy`; smoke forwardAllowed rejection |
+| Spiritual OS callable batch | Spiritual OS lane | ✅ DONE-PROVEN | `GAP_BOARD_CLOSED.md` closes Phase 2/3 and confirms 10 surfaces build; Stage-3 Step 5 lists 27 CFs | Stage-3 package Step 5 | Build proof `4526d792`; `GAP_BOARD_CLOSED.md` says Swift views exist/build | `spiritualOS_*` flags stay off until all 27 CFs active | No | Deploy 27 CFs; verify ACTIVE before any flag flip |
+| Context System | Context System | ✅ DONE-PROVEN | `AMENAPP/ContextStore/RUNLOG.md` waves 0-5 complete | Runlog: `AMENAPP/ContextStore/RUNLOG.md` | `node --check` green per runlog; adversarial tests cited in handoff evidence | Context flags stay off until Stage-3 CFs/rules are live | No | Live bait transcript runner; `extractContextFacets` Stage-3 deploy; emulator harness still owed |
+| Connected Intelligence | Connected Intelligence | ⏸ PARKED-ON-GATE (OAuth secrets + deploy + native host registration) | `src/features/connectedIntelligence.RUNLOG.md` C1 phases 0-3 | Runlog: `src/features/connectedIntelligence.RUNLOG.md` | `tsc` `0 errors`; grep-lint clean | Connector and AIL flags default OFF | No | OAuth secrets, callable deploy, native host registration, E2E |
+| Find Church 2.0 | Find Church lane | 🔧 IN-FLIGHT | `Docs/find-church/WIRING_CERT.md` lists surfaces and Tier-P invariant evidence | Cert: `Docs/find-church/WIRING_CERT.md`; deploy Step 10a-10e | Tier-P evidence lines cited in cert; screenshots owed | `findChurch2_*` all false | No | Places key, Phoenix seed, 4 CF deploys, RC keys, screenshots/capture |
+| Music Content Layer | Music Content Layer | ⏭ DEFERRED (Stage-3 backend and flag registration) | `AMENAPP/MusicContentLayer/WIRING_CERT.md` | Cert: `AMENAPP/MusicContentLayer/WIRING_CERT.md` | `26` `@Test` functions; MusicContentLayer build green in cert | `ff_music_content_layer=false`; `musicContentLayerEnabled` addition still human/implementation step | No | Stage-3 CFs `getMusicPulseItems`, `joinListeningRoom`; flag add; deferred persistence and integration items |
+| Smart Composer surfaces | Smart Composer lane | 🟢 DONE-AWAITING-CAPTURE (screenshots owed) | Commit `7bec341f` cited in `AGENT_LANES.md` | Runtime cert status in `AGENT_LANES.md` | `BuildProject` green and `RunProject` launched per lane entry | Composer flags default OFF | N/A | Auth runtime capture blocked by erased shared simulator with no real Firebase session |
+| Action Intelligence | Action Intelligence lane | 🔧 IN-FLIGHT | Active lane in `AGENT_LANES.md`; TS green evidence cited there | Lane report in `AGENT_LANES.md` | TS compile green per lane entry | Action Intelligence flags default OFF | No | Continue lane-specific service/UI/callable wiring |
+| AIL / Accessibility Intelligence | AIL lane | ⏸ PARKED-ON-GATE (ailTransform deploy + flags) | `src/features/connectedIntelligence.RUNLOG.md` says `ailTransform` joined Stage-3 batch | Runlog: `src/features/connectedIntelligence.RUNLOG.md` | Runlog compile proof only | AIL flags default OFF | No | Deploy `ailTransform`, add/verify all registry flags, focused UI verification |
+| Note Share Viewer | Note Share lane | 🔴 BLOCKED (runtime simulator/build blockers) | Active blocker in `AGENT_LANES.md` | None sufficient for DONE | No capture proof | Feature flag OFF | N/A | Resolve runtime blocker before cert can be trusted |
+| Church Notes Smart Objects | Church Notes swarm | 🔴 BLOCKED (active Church Notes owner owns `**/ChurchNotes/**`) | Contracts exist per user prompt; this lane must not duplicate ownership | No current cert in this board | No current board proof | `churchNotesSmartObjectsEnabled=false`; sub-flags default OFF | No | Existing owner must land or release lane before another agent touches `ChurchNotes/**` |
 
-### SAFETY (P0 Wave 3 + A3 Callables)
+## SECTION 2 - HUMAN CHECKLIST
 
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| A3 safety callables (5: evaluateDmRisk, reportDmAbuse, contentSafetyScreen, analyzeRelationshipRisk, assessDogpileRisk) | Safety P0 | 🟢 DONE-AWAITING-CAPTURE | `4526d792` — `a3Callables.ts` | GAP_BOARD_CLOSED | — | always-on, fail-closed | ❌ No — Step 2 | Deploy + bait-transcript runner |
-| Age-tier vocabulary + minor search exclusion | Safety P0 | 🟢 DONE-AWAITING-CAPTURE | Safety W3 commits | `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md` | 11/11 ageTier.test.js | always-on | ❌ No — Step 1 | Deploy |
-| CSAM fail-loud + NCMEC stub | Safety P0 | ⏸ PARKED-ON-GATE (NCMEC registration, A-01) | Safety W3 commits | `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md` | — | `NCMEC_SUBMISSION_ENABLED=false` | ❌ No | Legal: NCMEC registration |
-| Minor DM youth gate (isMinorSafeDM) | Safety P0 | 🟢 DONE-AWAITING-CAPTURE | `AGENT_LANES.md:Rules Warning Triage` | AGENT_LANES.md rules triage | rules tests confirmed | always-on | ❌ No — Step 1 (rules) | Rules deploy |
-| Guardian link + isGuardianApprovedContact fail-closed | Safety P0 | ⏸ PARKED-ON-GATE (B-13 product decision) | Written (fail-open) | — | — | always-on | ❌ No | Decision A-03/B-13 first |
-| processConnectQueuedDraft CF | Safety P0/Connect | 🟢 DONE-AWAITING-CAPTURE | `4526d792` — `processConnectQueuedDraft.ts` | GAP_BOARD_CLOSED | ConnectOfflineQueueTests | `connect_offline_queue_enabled` | ❌ No — Step 3 | Deploy + TTL console |
-| Context System W3-5 bait-transcript | Safety | 🧍 HUMAN-PENDING (run bait-transcript against live CFs) | — | — | — | — | ❌ No — Step 8 | Human runs bait-transcript runner after CFs deployed |
-| W3-12 deployed-storage check | Safety | 🧍 HUMAN-PENDING (Firebase console verify) | — | — | — | — | — | Human checks console |
-| Storage quarantine + MIME controls | Safety | 🟢 DONE-AWAITING-CAPTURE | Safety W3 commits | `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md` | — | always-on | ❌ No | Storage rules deploy |
-| safetyAuditLog / legalHolds / escalation | Safety | 🟢 DONE-AWAITING-CAPTURE | `a3059025` | — | — | always-on | ❌ No — fold into Step 1 | Rules deploy; legalReviewer claim: B-12 |
-| Moderation jailbreak fix + NCMEC stub | Safety | ✅ DONE-PROVEN | `c34f7975` | — | — | always-on | ❌ No | Rules deploy |
-| submitSafetyReport CF | Safety | 🟢 DONE-AWAITING-CAPTURE | `e58395c6` | — | — | always-on | ❌ No | Deploy |
+- ☐ Step 0 verify HEAD/project - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 0
+- ☐ Step 1 recovery redeploys (7 fns) - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 1 plus `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md`
+- ☐ pepper rotation + 3 phone fns - `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` required deploy steps
+- ☐ Step 2 safety wave 3 - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 2
+- ☐ Step 3 connect queue - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 3
+- ☐ Step 4 ONE CFs - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 4
+- ☐ Step 5 Spiritual OS CFs (27) - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 5
+- ☐ Step 6 RC keys - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 6
+- ☐ Step 8 bait-transcript runner - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 8
+- ☐ Step 9 W3-12 console check - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 9
+- ☐ Step 10a-d Find Church, including Places key + Phoenix seed - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` Step 10
+- ☐ smoke checklist - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` smoke checklist
+- ☐ DECISION_DOC_SAFETY answers - `DECISION_DOC_SAFETY.md` Group A
+- ☐ rules reconciliation verdict reviewed - `DECISION_DOC_SAFETY.md` A-06 and `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md`
 
-### MUSIC CONTENT LAYER
+## SECTION 3 - FLAG REGISTRY
 
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| 14 Swift files (MusicContentLayer) | MusicContentLayer | ✅ DONE-PROVEN | `900c1638` | AGENT_LANES.md §MusicContentLayer | — | `ff_music_content_layer` (false) | N/A | Xcode target membership (manual human step) |
-| Stage-3 CF registry + dual-gate | MusicContentLayer | ✅ DONE-PROVEN | `718b3c86` | `WIRING_CERT.md` (MusicContentLayer) | — | — | N/A | AMENFeatureFlags System 40 block (human hotspot) |
-| Firestore rules for MusicContentLayer collections | MusicContentLayer | ⏸ PARKED-ON-GATE (B-10 decision — collections not yet enumerated) | — | — | — | — | ❌ No | Decision B-10 then rules |
-
-### FIND CHURCH 2.0
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| Contracts (ChurchObject, GatheringObject, MatchExplanation, SeekerProfile, AvailabilityStatus) | FindChurch2 | ✅ DONE-PROVEN | `4352e88f` — `FindChurch2Contracts.swift` | `docs/find-church/WIRING_CERT.md` | `FindChurch2ContractsTests` 17 tests | N/A (shared) | N/A | — |
-| 10 findChurch2_* feature flags | FindChurch2 | ✅ DONE-PROVEN | `4352e88f` — `AMENFeatureFlags.swift` | `docs/find-church/WIRING_CERT.md` | — | all false | ❌ No — Step 10c | RC upload |
-| Firestore rules (gatherings, seekerProfiles, visitPlans, claimRequests) | FindChurch2 | ✅ DONE-PROVEN | `4352e88f` — `firestore.rules` | `docs/find-church/WIRING_CERT.md` | — | always-on | ❌ No — Step 10a/Step 1 | Rules deploy |
-| AvailabilityStatus service + ingestion CF | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `144be72b` + pre-existing | `docs/find-church/WIRING_CERT.md` | FindChurch2ContractsTests | `findChurch2_availability` (false) | ❌ No — Step 10b | GOOGLE_PLACES_API_KEY + CF deploy |
-| Gatherings service + search extension | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `144be72b` + pre-existing | `docs/find-church/WIRING_CERT.md` | — | `findChurch2_gatherings` (false) | ❌ No — rules first | Rules deploy (10a) |
-| Media detection CF (YouTube/podcast/livestream) | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `144be72b` | `docs/find-church/WIRING_CERT.md` | — | `findChurch2_availability` (false) | ❌ No — Step 10b | CF deploy |
-| 3-phase Liquid Glass onboarding | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `04a89d01` — `FindChurch2OnboardingView.swift` | `docs/find-church/WIRING_CERT.md §Surface 1` | — | `findChurch2_onboarding` (false) | N/A (client-only) | Mounting in FindChurchView + screenshots |
-| SeekerProfile Tier-P service | FindChurch2 | ✅ DONE-PROVEN | `04a89d01` — `FindChurch2SeekerProfileService.swift:78` | `docs/find-church/WIRING_CERT.md §Tier-P` | — | `findChurch2_onboarding` (false) | ❌ No — seekerProfiles rules | Rules deploy (10a) |
-| MatchExplanation badge + "Why this church?" | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `04a89d01` — `FindChurch2MatchBadgeView.swift` | `docs/find-church/WIRING_CERT.md §Surface 3` | — | `findChurch2_matchExplain` (false) | N/A (client-only) | Mounting + screenshots |
-| Find My People mode (life-stage picker) | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `04a89d01` — `FindChurch2FindMyPeopleView.swift` | `docs/find-church/WIRING_CERT.md` | — | `findChurch2_gatherings` (false) | N/A (client-only) | Mounting + screenshots |
-| Smart Church Card (5 intent variants) | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `04a89d01` — `FindChurch2SmartChurchCard.swift` | `docs/find-church/WIRING_CERT.md §Surface 2` | — | `findChurch2_matchExplain` (false) | N/A (client-only) | Replace EnhancedChurchCard in FindChurchView |
-| Discovery agent foundation | FindChurch2 | ✅ DONE-PROVEN | `04a89d01` — `FindChurch2SeekerProfileService.swift` (discoveryAgentEnabled default OFF) | `docs/find-church/WIRING_CERT.md` | — | `findChurch2_onboarding` + `discoveryAgentEnabled=false` | N/A | Privacy policy update |
-| Visit Planner (EventKit + UNNotifications + Firestore) | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `359d560f` — `FindChurch2VisitPlannerService.swift` | `docs/find-church/WIRING_CERT.md §Surface 4` | — | `findChurch2_visitPlanner` (false) | ❌ No — visitPlans rules | Rules deploy (10a) + screenshots |
-| Church Notes post-visit integration | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `359d560f` — `startPostVisitReflection()` | `docs/find-church/WIRING_CERT.md §Surface 4` | — | `findChurch2_visitPlanner` (false) | N/A (wires to existing churchNotes) | Screenshots |
-| AI Concierge (local-only, no fabrication) | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `359d560f` — `FindChurch2ConciergeView.swift` | `docs/find-church/WIRING_CERT.md §Surface 5` | — | `findChurch2_concierge` (false) | N/A (local only) | Mounting + screenshots |
-| Claim flow (unclaimed → pending → verified) | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `6b1321aa` — `FindChurch2ClaimView.swift` | `docs/find-church/WIRING_CERT.md §Surface 6` | — | `findChurch2_claimPortal` (false) | ❌ No — claimRequests rules | Rules deploy (10a) + screenshots |
-| Admin portal in-app v1 | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `6b1321aa` — `FindChurch2AdminPortalView.swift` | `docs/find-church/WIRING_CERT.md §Surface 7` | — | `findChurch2_claimPortal` (false) | N/A (client-only writes) | Screenshots |
-| Trust signals on profiles | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | `6b1321aa` — `FindChurch2TrustSignalsView.swift` | `docs/find-church/WIRING_CERT.md` | — | `findChurch2_trustSignals` (false) | N/A | Mounting + screenshots |
-| Premium church tools (Stripe paywall scaffold) | FindChurch2 | ⏭ DEFERRED | `6b1321aa` — `FindChurch2AdminPortalView.swift` (non-tappable overlay) | — | — | N/A | N/A | [DEFERRED: Stripe requires business/legal decision — D-09 in `docs/find-church/DECISIONS.md`] |
-| UI system refresh (header, pills, map/list, card→profile) | FindChurch2 | 🟢 DONE-AWAITING-CAPTURE | pre-existing + `c358840f` | `docs/find-church/WIRING_CERT.md §Surface 8,9` | — | `findChurch2_designRefresh` (false) | N/A | Wire into FindChurchView + screenshots |
-| Phoenix metro corpus seed | FindChurch2 | 🧍 HUMAN-PENDING (call ingestChurchesFromGooglePlaces after CF deploy) | Step 10d in STAGE3 | — | — | — | ❌ No — Step 10d | After 10b CFs + GOOGLE_PLACES_API_KEY set |
-
-### ONE PRIVATE SOCIAL OS
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| one_relayMoment (forwardAllowed server gate) | ONE audit | ✅ DONE-PROVEN | `oneRelayMoment.ts:44-50` | STEP5_PROOF_BUNDLE §4 | — | always-on | ❌ No — Step 4 | Deploy |
-| one_sendMoment, one_expireMoment, one_verifyEntitlement, one_activateLegacy | ONE | 🟢 DONE-AWAITING-CAPTURE | Backend/functions/src/one/ | — | — | `one_*` flags (false) | ❌ No — Step 4 | Deploy |
-| Firestore rules: one_reach client no-write, one_evidence client no-read | ONE | ⏸ PARKED-ON-GATE (CONTRACTS.md §14 rules draft) | Draft in CONTRACTS.md | — | — | — | ❌ No | Rules PR from ONE lane |
-
-### SPIRITUAL OS (Phase 2/3)
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| 27 SpiritualOS callables | Spiritual OS | 🟢 DONE-AWAITING-CAPTURE | `Backend/functions/src/spiritualOS` — all 27 in index.ts | GAP_BOARD_CLOSED | — | `spiritualOS_*` flags | ❌ No — Step 5 | Deploy |
-| Phase 2 Swift views (10 surfaces) | Spiritual OS | 🟢 DONE-AWAITING-CAPTURE | Prior commits | GAP_BOARD_CLOSED | — | `spiritualOS_*` flags | N/A | Firestore rules deploy (Step 1) |
-
-### CONTEXT SYSTEM
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| W0–W2 (manual entry, Berean interview, universal import) | Context lane | 🔧 IN-FLIGHT | Committed per AGENT_LANES.md | — | ContextStoreAdversarialTests | `context_*` flags (false) | ❌ No | Step 8 bait-transcript, W3-5 surfaces |
-| W3–W5 (matching, export, QR) | Context lane | ⏸ PARKED-ON-GATE (Step 8 bait-transcript runner required) | — | — | — | `context_*` flags (false) | ❌ No | Bait-transcript runner + human decision |
-
-### ACTION INTELLIGENCE
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| Action thread detection + CF | Action Intel | ✅ DONE-PROVEN | `AGENT_LANES.md:Action Intel` — `actionIntelligence.ts:index.ts:92` | AGENT_LANES.md | ActionIntelligenceDetectorTests, NotePillTests | `action_threads_enabled` (true) | ❌ No — index.ts export exists | TS build green; deploy in next batch |
-
-### AIL — Accessibility Intelligence Layer
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| 22 AIL Swift files landed | AIL | ✅ DONE-PROVEN | `bd6d68f8` — auto via PBXFileSystemSynchronizedRootGroup | AGENT_LANES.md §AIL | — | `accessibility_intelligence_enabled` (false) | N/A | — |
-| 7 mounting points committed (Settings, comment, Spaces, Church Notes, notifications, DM, media) | AIL | ✅ DONE-PROVEN | `bd6d68f8` | AGENT_LANES.md §AIL | — | `accessibilityIntelligenceEnabled` | N/A | — |
-| PostDetail/Settings/ContentView AIL hunks | AIL | 🔧 IN-FLIGHT | Mixed with other lanes' uncommitted work | — | — | `accessibilityIntelligenceEnabled` | N/A | Isolate + commit |
-| ailTransform CF | AIL | 🔴 BLOCKED (CF not deployed — fails open to original) | Stub | — | — | — | ❌ No | CF deploy; fails open safely |
-| Reply-with-Care + Cooldown pre-send | AIL | 🔧 IN-FLIGHT | Proposal-only in lane | — | — | `accessibilityIntelligenceEnabled` | N/A | Implementation |
-| Live-room captions | AIL | ⏸ PARKED-ON-GATE (audio pipeline + SpeechProvider) | Deferred per AGENT_LANES.md | — | — | — | — | Audio pipeline prerequisite |
-
-### SMART COMPOSER
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| Smart Composer review gate | Smart Composer | ✅ DONE-PROVEN | `7bec341f` | `audit/runtime-evidence/smart-composer/SMART_COMPOSER_WIRING_CERT_2026_06_10.md` | — | `action_intelligence_enabled` (false) | N/A | Screenshots blocked (no real Firebase test user on sim) |
-
-### NOTE SHARE VIEWER
-
-| Feature | Lane | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
-|---|---|---|---|---|---|---|---|---|
-| Note Share deep link + viewer | NoteShare | ⏸ PARKED-ON-GATE (build failures unrelated) | Wave 1 committed | — | — | `feature_note_share_viewer` (false) | N/A | Build clean → screenshots (shared-note, revoked, share sheet) |
-
----
-
-## SECTION 2 — HUMAN CHECKLIST
-
-**Execute in order. Never skip. Never mark ☑ without verifiable evidence.**  
-**Full commands:** `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` · `RUN_ME.sh` (wrapper)  
-**Prerequisite:** Answer all GROUP-A items in `DECISION_DOC_SAFETY.md` before any deploy.
-
-```
-DECISION_DOC_SAFETY.md (MUST COMPLETE FIRST)
-☐ A-01  NCMEC registration — engage counsel, obtain ESP ID + API key → store in Secret Manager
-☐ A-02  Minimum age floor — choose 13/16/18; confirm EU launch plan
-☐ A-03  Guardian consent model — choose read-only / active approve-deny / emergency-only
-☐ A-04  Designate Safety Officer — name, contact, UID; mint legalReviewer custom claim
-☐ A-05  Age verification method — choose self-attest / carrier signal / third-party vendor
-☐ A-06  Canonical Firestore rules file — confirm firestore.rules (root) vs firestore.deploy.rules;
-          update firebase.json; run dry-run; reconcile both files
-☐ A-07  Storage rules status — dry-run; confirm post_media/chat_videos/profile_images paths added
-☐ A-08  CSAM detection pipeline — confirm live, test with known hash, document call chain
-```
-
-```
-DEPLOY STACK (STAGE3_DEPLOY_PACKAGE_2026-06-11.md)
-☐ Step 0   git log HEAD == 5525cf6e; firebase projects:list == amen-5e359
-☐ Step 1   Recovery redeploys:
-              firebase deploy --only firestore:rules             (includes FC2 rules — 10a folded in)
-              firebase deploy --only functions:syncAgeTierClaim
-              firebase deploy --only functions:antiHarassmentEnforcement
-              firebase deploy --only functions:commentModerationEnforcement
-            + storage rules (after A-07 verdict)
-☐ Step 2   Pepper rotation:
-              openssl rand -hex 32 (new pepper)
-              firebase functions:config:set auth.pepper="<value>"
-              firebase deploy --only functions:hashPhone,functions:verifyPhone,functions:checkPhoneExists
-☐ Step 3   Stage-3 CFs:
-            ☐ A3 safety (5): evaluateDmRisk, reportDmAbuse, contentSafetyScreen,
-                              analyzeRelationshipRisk, assessDogpileRisk
-☐ Step 4   Connect queue: processConnectQueuedDraft
-            + Firestore console: connect_idempotency TTL policy on processedAt (7 days)
-☐ Step 5   ONE CFs: one_relayMoment, one_sendMoment, one_expireMoment,
-                     one_verifyEntitlement, one_activateLegacy
-☐ Step 6   Spiritual OS CFs (27):
-              detectUnsentThoughtRisk, saveUnsentThought, resolveUnsentThought,
-              analyzeScriptureDrift, generateBalancingScripture, dismissDriftSignal,
-              detectSilencePatterns, resurfaceAvoidedItem, markSilenceSignalResolved,
-              updateRelationalGravity, classifyRelationshipState, generateReconciliationPrompt,
-              evaluateMomentRisk, logMomentInterception, updateMomentLearning,
-              createReflectionPrompt, savePostActionReflection, updateUserGrowthPattern,
-              analyzeTruthVsEmotion, scoreWeightOfWords, generateGracefulRewrite,
-              aggregateDiscernmentSignals, generateCommunityDiscernmentSummary,
-              calculateEternalWeight, updateEternalWeightAfterReflection,
-              generateMeaningPrompt, createWalkWithChristPathFromPattern
-☐ Step 7   Remote Config — upload 15 keys (5 connect_* + 10 findChurch2_*, all false):
-              connect_layout_v2_enabled · connect_polish_v2_enabled · connect_empty_states_enabled
-              connect_smart_berean_enabled · connect_offline_queue_enabled
-              findChurch2_onboarding · findChurch2_matchExplain · findChurch2_gatherings
-              findChurch2_visitPlanner · findChurch2_claimPortal · findChurch2_concierge
-              findChurch2_mapHybrid · findChurch2_availability · findChurch2_trustSignals
-              findChurch2_designRefresh
-☐ Step 8   Bait-transcript runner (after A3 callables live):
-              Call contentSafetyScreen, assessDogpileRisk, evaluateDmRisk with synthetic bait.
-              All must fail-closed. Review bait_transcript_results_*.txt — all must PASS.
-☐ Step 9   W3-12 console check: verify Firestore rules from safety-hardening are live;
-              age-tier custom claims sync running without errors in Functions log
-☐ Step 10a  (folded into Step 1 — firestore.rules already includes FC2 collections)
-☐ Step 10b  Find Church 2.0 CFs:
-              firebase functions:config:set places.api_key="YOUR_KEY"
-              firebase deploy --only functions:ingestChurchesFromGooglePlaces,
-                functions:computeAvailabilityStatus,functions:scheduleAvailabilityRefresh,
-                functions:detectChurchMedia
-☐ Step 10c  RC keys uploaded as part of Step 7 above (already included)
-☐ Step 10d  Seed Phoenix metro corpus:
-              Call ingestChurchesFromGooglePlaces with { location: {lat:33.4484, lng:-112.0740}, radiusMeters:50000 }
-☐ Smoke checklist (10 items per RUN_ME.md §Smoke checklist):
-              ☐ evaluateDmRisk cold-start clean
-              ☐ one_relayMoment forwardAllowed=false returns permission-denied
-              ☐ processConnectQueuedDraft idempotency dedup working
-              ☐ iOS 26 sim: flip connect_layout_v2_enabled → glass bar renders
-              ☐ iOS 17 sim: same flag → fallback matte bar renders
-              ☐ FC2: flip findChurch2_matchExplain → MatchExplanation badge visible
-              ☐ FC2: flip findChurch2_concierge → concierge appears on church profile
-              ☐ All bait-transcript results: PASS
-              ☐ CSAM detection confirmed end-to-end (A-08)
-              ☐ Safety Officer claim minted (A-04)
-☐ DECISION_DOC_SAFETY GROUP-B (16 items) answered before App Store submission
-☐ RULES_RECONCILIATION_VERDICT.md: GREEN verdict before storage rules deploy
-```
-
----
-
-## SECTION 3 — FLAG REGISTRY
-
-| Flag | Default | Precondition | Precondition status | Safe to flip? |
+| Flag | Default | Preconditions | Precondition status | Safe to flip? |
 |---|---|---|---|---|
-| `connect_layout_v2_enabled` | false | processConnectQueuedDraft deployed; iOS 26 device tested | ❌ CF not deployed | **N — deploy Step 3+4 first** |
-| `connect_polish_v2_enabled` | false | connect_layout_v2 already ON | ❌ Depends on above | **N** |
-| `connect_empty_states_enabled` | false | connect_layout_v2 already ON | ❌ Depends on above | **N** |
-| `connect_smart_berean_enabled` | false | bereanQuestion CF live; connect_layout_v2 ON | ❌ CF not deployed | **N** |
-| `connect_offline_queue_enabled` | false | processConnectQueuedDraft deployed + TTL policy | ❌ CF not deployed | **N** |
-| `one_*` (any) | false | ALL one_* CFs deployed; one_relayMoment forwardAllowed verified | ❌ Not deployed | **N — deploy Step 5 first** |
-| `spiritualOS_*` (any) | false | All 27 Step 5 CFs deployed and ACTIVE in console | ❌ Not deployed | **N — deploy Step 6 first** |
-| `findChurch2_onboarding` | false | seekerProfiles/ rules live; privacy policy updated | ❌ Rules not deployed | **N** |
-| `findChurch2_matchExplain` | false | No CF dependency | ✅ Client-only | **Y after RC uploaded (Step 7)** |
-| `findChurch2_gatherings` | false | gatherings/ Firestore rules live | ❌ Rules not deployed | **N** |
-| `findChurch2_visitPlanner` | false | seekerProfiles/ + visitPlans/ rules live; EventKit plist confirmed | ❌ Rules not deployed | **N** |
-| `findChurch2_claimPortal` | false | claimRequests/ rules live; Aegis review queue handler live | ❌ Rules not deployed | **N** |
-| `findChurch2_concierge` | false | No CF dependency (local-only) | ✅ Client-only | **Y after RC uploaded (Step 7)** |
-| `findChurch2_mapHybrid` | false | No CF dependency | ✅ Client-only | **Y after RC uploaded (Step 7)** |
-| `findChurch2_availability` | false | computeAvailabilityStatus + scheduleAvailabilityRefresh deployed | ❌ CFs not deployed | **N — Step 10b first** |
-| `findChurch2_trustSignals` | false | No CF dependency | ✅ Client-only | **Y after RC uploaded (Step 7)** |
-| `findChurch2_designRefresh` | false | findChurch2_matchExplain already ON; smallest + largest device tested | Partially (matchExplain can flip) | **Y after matchExplain ON + device tested** |
-| `findChurch2_*` (all others) | false | See preconditions above | Varies | **See above** |
-| `context_system_enabled` | false | Step 8 bait-transcript runner PASS | ❌ Not completed | **N** |
-| `context_manual_entry_enabled` | false | context_system_enabled ON | ❌ Depends | **N** |
-| `context_berean_interview_enabled` | false | context_system_enabled ON | ❌ Depends | **N** |
-| `context_universal_import_enabled` | false | context_system_enabled ON | ❌ Depends | **N** |
-| `context_matching_enabled` | false | Bait-transcript PASS + W4 validation | ❌ | **N** |
-| `accessibility_intelligence_enabled` | false | ailTransform CF deployed | ❌ CF not deployed | **N** |
-| `feature_note_share_viewer` | false | Build clean; simctl screenshots posted | 🔴 Build blocked | **N** |
-| `action_intelligence_enabled` | false | No CF dependency (client-gates) | ✅ | **Y after RC key added** |
-| `ff_music_content_layer` | false | Xcode target membership confirmed (human step) | ❌ Manual step pending | **N — Xcode step first** |
-| `amen_pulse_enabled` | false | FirebaseAI iOS-27 SDK error resolved | ❌ SDK error present | **N** |
-| `NCMEC_SUBMISSION_ENABLED` | false | NCMEC registration complete (A-01); ESP ID + API key in Secret Manager | ❌ Legal step required | **N — NEVER until A-01 resolved** |
+| `connect_layout_v2_enabled` | `false` | `processConnectQueuedDraft` deployed; iOS 26 tested | Pending deploy/capture | N |
+| `connect_polish_v2_enabled` | `false` | Layout v2 reviewed in app; screenshots/capture | Pending capture | N |
+| `connect_empty_states_enabled` | `false` | Layout v2 reviewed; empty-state smoke | Pending capture | N |
+| `connect_smart_berean_enabled` | `false` | `bereanQuestion` live; layout v2 already on | Pending live function proof | N |
+| `connect_offline_queue_enabled` | `false` | `processConnectQueuedDraft` deployed; TTL set | Pending deploy/TTL | N |
+| `moderationV2Enabled` | `true` | Existing safety stack and audit path | Listed true in Step 5 proof; production console state not proven here | N |
+| `imageModerationEnabled` | `true` | CSAM/image moderation live status verified | A-08 pending | N |
+| `dmEnhancedScanningEnabled` | `true` | A3 callables deployed and App Check enforced | Pending Step 2 deploy | N |
+| `bereanEntitlementEnforcementEnabled` | `true` | Entitlement callable deployed and rules verified | Not proven in this refresh | N |
+| `checkInCrisisEscalationEnabled` | `true` | Crisis escalation call chain verified | Pending safety decisions/live proof | N |
+| `findChurch2_onboarding` | `false` | RC key added; in-app onboarding capture; privacy reviewed | Pending Step 10/RC/capture | N |
+| `findChurch2_matchExplain` | `false` | RC key added; explanation sheet capture | Pending Step 10/RC/capture | N |
+| `findChurch2_gatherings` | `false` | Rules Step 10a; gatherings data path verified | Pending rules deploy | N |
+| `findChurch2_visitPlanner` | `false` | Rules Step 10a; visit plan writes verified | Pending rules deploy | N |
+| `findChurch2_claimPortal` | `false` | Rules Step 10a; claim request flow verified | Pending rules deploy/capture | N |
+| `findChurch2_concierge` | `false` | Concierge callable/AI review; privacy clamp | Pending implementation proof | N |
+| `findChurch2_mapHybrid` | `false` | Places key; Phoenix seed; map/list capture | Pending key/seed/capture | N |
+| `findChurch2_availability` | `false` | `computeAvailabilityStatus` and scheduler deployed | Pending Step 10b | N |
+| `findChurch2_trustSignals` | `false` | Media/trust signal callable deployed and verified | Pending Step 10b | N |
+| `findChurch2_designRefresh` | `false` | In-app design review capture | Pending capture | N |
+| `ff_music_content_layer` | `false` | Feature flag registered in app; Stage-3 CFs live | Deferred in cert | N |
+| `churchNotesSmartObjectsEnabled` | `false` | Church Notes owner lane lands contracts, detection, renderer, rules, tests | Blocked by lane ownership | N |
+| `smartObjects.detectionOnDevice` | `false` | On-device detector tests and Tier-P isolation proof | Blocked by lane ownership | N |
+| `smartObjects.detectionServer` | `false` | Callables/triggers, App Check, rules, emulator tests | Blocked by lane ownership | N |
+| `smartObjects.cardVariants` | `false` | Real SwiftUI variants and accessibility/capture proof | Blocked by lane ownership | N |
+| `smartObjects.expandedView` | `false` | Expanded view + dock wired/captured | Blocked by lane ownership | N |
+| `smartObjects.composer` | `false` | Composer E2E and Tier-P zero-server-object proof | Blocked by lane ownership | N |
+| `smartObjects.comments` | `false` | SmartCommentBar and moderation tests | Blocked by lane ownership | N |
+| `smartObjects.personalization` | `false` | ContextStore-only wiring and explainer toggles | Blocked by lane ownership | N |
+| `smartObjects.premiumGenerators` | `false` | Server-side entitlement checks and matrix tests | Blocked by lane ownership | N |
+| `smartObjects.churchPremium` | `false` | Church tier checks and branded card cert | Blocked by lane ownership | N |
+| `smartObjects.givingIntegration` | `false` | Stripe business/legal decision | Deferred by spec | N |
+| Connected Intelligence connector flags | `false` | OAuth secrets, callable deploy, native host registration, E2E | Parked on gate | N |
+| AIL accessibility flags | `false` | `ailTransform` deployed and UI verification complete | Parked on gate | N |
 
----
+## SECTION 4 - RISKS & OPEN DECISIONS
 
-## SECTION 4 — RISKS & OPEN DECISIONS
+### ANSWER-NOW
 
-*Source: `DECISION_DOC_SAFETY.md`. Grouped per directive.*
-
-### GROUP A — ANSWER NOW (blocks safety branch deploy)
-
-| # | Question | Recommended default | Status |
-|---|---|---|---|
-| A-01 | NCMEC CyberTipline Registration — has counsel been engaged? `NCMEC_SUBMISSION_ENABLED` is false; must stay false until registered. Criminal liability under 18 U.S.C. § 2258A if skipped. | Engage counsel immediately. Never deploy NCMEC pipeline until registered + ESP ID in Secret Manager. | ❌ **UNANSWERED** |
-| A-02 | Minimum age floor — 13 (COPPA US) or 16 (GDPR-K EU)? | 13 if US-only launch. 16 if EU included. | ❌ **UNANSWERED** |
-| A-03 | Guardian / parental consent for ages 13–15? `isGuardianApprovedContact()` currently returns `true` (fail-open). | Require verifiable consent; invert to fail-closed. Model: active approve/deny. | ❌ **UNANSWERED** |
-| A-04 | Who is the designated Safety Officer? `legalReviewer` claim referenced but not minted. | Appoint before any beta. Mint claim in CF token flow immediately. | ❌ **UNANSWERED** |
-| A-05 | Age verification method beyond self-attestation? | Self-attestation + phone carrier for 16+; third-party vendor for 13–15. | ❌ **UNANSWERED** |
-| A-06 | Which Firestore rules file is deployed? `firebase.json` may point to wrong file. `firestore.rules` vs `firestore.deploy.rules` have diverged. | Run dry-run to confirm; reconcile into single canonical file. | ❌ **UNANSWERED** |
-| A-07 | Storage rules deployment status? `post_media`, `chat_videos`, `profile_images` paths absent. | Dry-run; add all missing paths before deploy. | ❌ **UNANSWERED** |
-| A-08 | Is CSAM detection pipeline actually live and producing detection events? | Confirm end-to-end with test hash. Document call chain. | ❌ **UNANSWERED** |
-
-### GROUP B — BEFORE APP STORE LAUNCH
-
-| # | Question | Recommended default | Status |
-|---|---|---|---|
-| B-01 | Pastor/leader DMs to minors — allowed? | Guardian-visible thread required; auto-notify on first message. | ❌ **UNANSWERED** |
-| B-02 | Paid org moderation bypass — any exemption? | NO. Paid status never grants moderation bypass. | ❌ **UNANSWERED** |
-| B-03 | Minor discoverability in Algolia / people search? | Not discoverable by strangers. Audit all sync paths. | ❌ **UNANSWERED** |
-| B-04 | Anonymous prayer requests — allowed? | Allowed with rate limit + server-side moderation. Crisis routing always enabled. | ❌ **UNANSWERED** |
-| B-05 | Moderation appeal response SLA? | 5 business days standard; 24h suspension appeals. | ❌ **UNANSWERED** |
-| B-06 | Data retention policy (moderation reports, audit logs, NCMEC filings, legal holds)? | Moderation: 3yr. Audit: 5yr. NCMEC: indefinite. Legal: indefinite. Enable Firestore TTL in console. | ❌ **UNANSWERED** |
-| B-07 | Minors in adult-led Spaces/Sanctuaries? | Guardian approval required for non-church spaces. | ❌ **UNANSWERED** |
-| B-08 | Self-harm and crisis content protocol? | Block + 988 inline + pastoral notify + audit log + preserve (no delete). | ❌ **UNANSWERED** |
-| B-09 | Unauthenticated reads of public posts (OPEN-5)? | Make deliberate choice: CF proxy (strips PII for SEO) OR gate behind auth. | ❌ **UNANSWERED** |
-| B-10 | MusicContentLayer Firestore rules coverage? Enumerate all collections written; add rules. | Default-deny any path not covered. | ❌ **UNANSWERED** |
-| B-11 | moderationQueue end-to-end iOS client test? silent `try?` calls may be silently failing. | Manual test from real device before deploy. Route creates through CF callable. | ❌ **UNANSWERED** |
-| B-12 | `legalReviewer` custom claim definition? Referenced in rules but not minted anywhere. | Define in CF token-minting before deploying legalHolds rule. | ❌ **UNANSWERED** |
-| B-13 | Guardian approval scope (OPEN-2) — `isGuardianApprovedContact()` fail-open. | Invert to fail-closed. Implement guardianLinkRequests CF. | ❌ **UNANSWERED** |
-| B-14 | Berean AI access policy for minors? No confirmed age gate on Berean callables. | Spiritual guidance: all ages. Counseling-adjacent: 16+ or guardian visibility. Crisis: always enabled. | ❌ **UNANSWERED** |
-| B-15 | Prayer request indexing in Algolia? | Never index. Server-side search only within church/sanctuary. Anonymous: no index at all. | ❌ **UNANSWERED** |
-| B-16 | `chat_videos` Storage path write access — no rule exists. | CF callable validates participants + MIME + size before write. | ❌ **UNANSWERED** |
-
-### GROUP C — LATER (post-launch, non-blocking)
-
-| # | Question | Recommended default |
+| ID | Question | Recommended default |
 |---|---|---|
-| C-01 | E2EE recovery keys — Stripe model vs platform escrow vs user-held? | User-held BIP-39 mnemonic with iCloud Keychain backup option. |
-| C-02 | Stripe integration for church premium / monetization? | DEFERRED (business/legal decision). Scaffold wired, non-tappable. |
-| C-03 | App Store privacy nutrition label — all data categories declared? | Audit against current feature set before submission. |
-| C-04 | GDPR Data Subject Rights (right to erasure, portability) — implemented? | Stub exists; full pipeline needed before EU launch. |
-| C-05 | App Check enforcement — currently emulator-exempt. When to enforce in prod? | After all CFs verified in prod; never in emulator/CI. |
-| C-06 | Rate limits on Berean AI — currently uncapped per-user? | 100 requests/day for free tier; enforce server-side. |
-| C-07 | Background check policy for church staff claiming profiles? | Required for VerificationTier.manual (Aegis review queue). |
-| C-08 | Accessibility audit — WCAG 2.1 AA compliance? | Schedule after AIL flag is ON and surfaces are screenshot-verified. |
-| C-09 | TestFlight / external beta — which users, what scope? | Internal-only first; external after DECISION_DOC_SAFETY GROUP-B complete. |
-| C-10 | Push notification content — any PII in notification payload? | Sanitize all push payloads; use notification service extension for media-only. |
-| C-11 | Berean LLM TS build — `npm run build` green? | Human: run in Backend/functions. ~24 TS errors pending. |
+| A-01 | NCMEC CyberTipline registration | Engage counsel; keep live NCMEC HTTP submission disabled until ESP ID/API key are issued and stored in Secret Manager |
+| A-02 | Minimum age floor | `13` for US-only launch; `16` if EU launch is included or undecided |
+| A-03 | Guardian / parental consent for ages 13-15 | Require verifiable consent; fail closed when no guardian approval exists |
+| A-04 | Designated safety officer | Appoint before beta; mint `legalReviewer` Firebase custom claim |
+| A-05 | Age verification method | Self-attestation plus phone signal for 16+; third-party age verification vendor for ages 13-15 |
+| A-06 | Which Firestore rules file is production | Reconcile to one canonical rules file and dry-run before deploy |
+| A-07 | Storage rules deployment status | Verify live Storage rules or deploy reviewed hardened package; add missing upload paths first |
+| A-08 | CSAM detection pipeline live status | Confirm end-to-end hash/ML detection with test hash before public launch |
 
----
+### BEFORE-LAUNCH
 
-*STATUS_BOARD.md — refresh on every lane report. Commit with `docs(status-board): refresh [timestamp] [sha]`*
+| ID | Question | Recommended default |
+|---|---|---|
+| B-01 | Pastor / leader DMs to minors | Guardian-visible thread required |
+| B-02 | Paid orgs and moderation bypass | Paid status never bypasses moderation |
+| B-03 | Minor discoverability in search and people index | Minors are not discoverable by strangers; audit Algolia sync paths |
+| B-04 | Anonymous prayer requests | Allowed with rate limiting, mandatory moderation, hidden display identity, server-side legal identity retention |
+| B-05 | Moderation appeal response SLA | 5 business days standard; 24 hours for suspension appeals |
+| B-06 | Data retention policy | Moderation 3 years; audit logs 5 years; NCMEC/legal holds indefinitely; enable TTL policies |
+| B-07 | Minors in adult-led sanctuaries/spaces | Guardian approval for adult-led spaces outside registered church |
+| B-08 | Self-harm and crisis content protocol | Block public posting, show 988 resources, preserve record, private pastoral route where configured |
+| B-09 | Unauthenticated read of public posts | Gate reads behind auth unless a CF proxy strips PII for SEO |
+| B-10 | MusicContentLayer Firestore rules coverage | Keep flag OFF until rules paths are explicitly covered and reviewed |
+| B-11 | moderationQueue end-to-end iOS client test | Require client E2E before launch |
+| B-12 | `legalReviewer` custom claim definition | Define and mint server-side before safety deploy |
+| B-13 | Guardian approval scope | Fail closed; require approval for DMs/spaces involving minors |
+| B-14 | Berean AI access policy for minors | Restrict and log minor access; apply crisis escalation |
+| B-15 | Prayer request indexing and search policy | Do not index private/sensitive prayers; anonymous display must retain server moderation identity |
+| B-16 | `chat_videos` Storage path write access | Add explicit Storage rules before deploying hardened Storage |
+| B-17 | `moderateUploadedImage` CDN caching window | Fail closed; avoid serving unmoderated media from CDN cache |
+| B-18 | Direct client writes to comments collection | Prefer callable-owned moderation writes or rules-enforced pending state |
+| B-19 | `one_users/witnesses` enforcement CF | Keep ONE flags OFF until callable enforcement is deployed |
+| B-20 | `/users/{userId}` minor status exposure | Minimize exposed minor fields; use claims/derived server checks |
+| B-21 | App Check project-level enforcement | Enforce after callables deployed and smoke-tested |
+| B-22 | Stripe webhook canonical file | Select one canonical webhook; migrate secret handling/idempotency before enabling payments |
+| B-23 | `safeMessagingGateway.js` direct write bypass | Route writes through moderated callable path only |
+| B-24 | RBAC Firestore path consistency | Normalize org/church role paths; enforce server-side |
+| B-25 | `backfillUsernameLookup` admin claim guard | Require admin claim and audit log for backfill |
+
+### LATER
+
+| ID | Question | Recommended default |
+|---|---|---|
+| C-01 | Moderation team staffing model | Assign dedicated safety ownership before public scale |
+| C-02 | Human vs AI review ratio | Use AI triage only; require human review for CSAM, minors, legal holds, suspensions |
+
+Additional later backlog exists in `DECISION_DOC_SAFETY.md` C-03 through C-15 and remains tracked there until the answer-now and before-launch items are closed.
+
+### OTHER PRODUCT/LEGAL DECISIONS
+
+| Decision | Recommended default |
+|---|---|
+| Stripe model | Keep all giving/payment integration flags OFF; do not implement payment flow until webhook canonical file, idempotency, business model, and legal review are complete |
+| E2EE recovery | Default to user-controlled recovery with no plaintext server recovery; document irrecoverable-loss UX before launch |
+| NCMEC registration | Treat as hard blocker for any live NCMEC submission; keep `NCMEC_SUBMISSION_ENABLED=false` until counsel completes registration |
