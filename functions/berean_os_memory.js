@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * Berean OS — Project Memory Brain Cloud Functions
  * bereanExtractProjectMemory
@@ -19,7 +20,7 @@ exports.bereanExtractProjectMemory = onCall(
   {
     region: REGION,
     secrets: [OPENAI_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 90,
   },
   async (request) => {

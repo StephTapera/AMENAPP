@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * Berean OS — Research Engine Cloud Functions
  * bereanStartResearch
@@ -18,7 +19,7 @@ exports.bereanStartResearch = onCall(
   {
     region: REGION,
     secrets: [CLAUDE_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 120,
   },
   async (request) => {

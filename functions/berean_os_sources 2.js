@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * Berean OS — Source Explorer Cloud Functions
  * bereanFetchSources
@@ -17,7 +18,7 @@ exports.bereanFetchSources = onCall(
   {
     region: REGION,
     secrets: [CLAUDE_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 60,
   },
   async (request) => {

@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * Berean OS — Projects Engine Cloud Functions
  * bereanCreateProject, bereanArchiveProject, bereanUpdateProject
@@ -13,7 +14,7 @@ const REGION = "us-central1";
 const PROJECT_LIMIT = 20;
 
 exports.bereanCreateProject = onCall(
-  { region: REGION, enforceAppCheck: false, timeoutSeconds: 30 },
+  { region: REGION, enforceAppCheck: true, timeoutSeconds: 30 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -63,7 +64,7 @@ exports.bereanCreateProject = onCall(
 );
 
 exports.bereanArchiveProject = onCall(
-  { region: REGION, enforceAppCheck: false, timeoutSeconds: 15 },
+  { region: REGION, enforceAppCheck: true, timeoutSeconds: 15 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");
@@ -87,7 +88,7 @@ exports.bereanArchiveProject = onCall(
 );
 
 exports.bereanUpdateProject = onCall(
-  { region: REGION, enforceAppCheck: false, timeoutSeconds: 15 },
+  { region: REGION, enforceAppCheck: true, timeoutSeconds: 15 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentication required.");

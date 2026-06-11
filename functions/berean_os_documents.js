@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * Berean OS — Living Documents + Action Planner Cloud Functions
  * bereanRefineDocument, bereanGenerateActionPlan
@@ -19,7 +20,7 @@ exports.bereanRefineDocument = onCall(
   {
     region: REGION,
     secrets: [CLAUDE_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 60,
   },
   async (request) => {
@@ -90,7 +91,7 @@ exports.bereanGenerateActionPlan = onCall(
   {
     region: REGION,
     secrets: [CLAUDE_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 90,
   },
   async (request) => {

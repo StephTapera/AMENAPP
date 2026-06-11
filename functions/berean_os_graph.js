@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * Berean OS — Knowledge Graph Cloud Functions
  * bereanDiscoverKnowledgeLinks
@@ -19,7 +20,7 @@ exports.bereanDiscoverKnowledgeLinks = onCall(
   {
     region: REGION,
     secrets: [OPENAI_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 60,
   },
   async (request) => {

@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 "use strict";
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
@@ -18,7 +19,7 @@ const REGION = "us-central1";
  * Levels: verified | supported | likely | uncertain | speculative | opinion | aiGenerated
  */
 exports.bereanClassifyStatement = onCall(
-  {region: REGION, secrets: [OPENAI_API_KEY]},
+  {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: true},
   async (request) => {
     // Auth guard
     if (!request.auth) {

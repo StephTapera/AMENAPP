@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * selahCorpusService.js — Firebase gen2 callable Cloud Functions for the Selah personal study corpus.
  *
@@ -82,7 +83,7 @@ function selahNoteRef(uid, noteId) {
  * Returns: { success: true, indexed: true } | { success: false, error: string }
  */
 exports.indexSelahNote = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     const startMs = Date.now();
 
@@ -276,7 +277,7 @@ exports.indexSelahNote = onCall(
  *   results[]: { noteId, verseRef, kind, score, body, color, createdAt }
  */
 exports.querySelahCorpus = onCall(
-  { region: "us-central1" },
+  { region: "us-central1", enforceAppCheck: true },
   async (request) => {
     const startMs = Date.now();
 

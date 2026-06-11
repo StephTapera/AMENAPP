@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * discernmentEngine.js — Berean Discernment Engine (Firebase gen2 callable functions).
  *
@@ -377,7 +378,7 @@ async function saveDiscernmentCheck(check) {
 exports.runDiscernmentCheck = onCall(
   {
     secrets: [ANTHROPIC_API_KEY, NVIDIA_API_KEY, PINECONE_API_KEY, PINECONE_HOST],
-    enforceAppCheck: false, // App Check migration tracked separately per Trust OS audit
+    enforceAppCheck: true,
   },
   async (request) => {
     const startMs = Date.now();
@@ -627,7 +628,7 @@ exports.runDiscernmentCheck = onCall(
 exports.shareDiscernmentCheck = onCall(
   {
     secrets: [NVIDIA_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
   },
   async (request) => {
     // ── Auth guard ─────────────────────────────────────────────────────────

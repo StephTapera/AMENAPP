@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 "use strict";
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
@@ -6,7 +7,7 @@ const CLAUDE_API_KEY = defineSecret("CLAUDE_API_KEY");
 const REGION = "us-central1";
 
 exports.bereanMultiPerspective = onCall(
-  {region: REGION, secrets: [CLAUDE_API_KEY], timeoutSeconds: 90},
+  {region: REGION, secrets: [CLAUDE_API_KEY], timeoutSeconds: 90, enforceAppCheck: true},
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
     const {question, perspectives} = request.data;

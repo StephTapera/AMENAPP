@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * Berean OS — Wisdom Engine Cloud Functions
  * bereanWisdomAnalysis
@@ -18,7 +19,7 @@ exports.bereanWisdomAnalysis = onCall(
   {
     region: REGION,
     secrets: [CLAUDE_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 90,
   },
   async (request) => {

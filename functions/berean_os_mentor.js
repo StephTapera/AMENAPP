@@ -1,3 +1,4 @@
+// SECURITY: enforceAppCheck: true added — enable Console enforce-mode per DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md
 /**
  * Berean OS — Mentor OS Cloud Functions
  * bereanAIMentorReview
@@ -26,7 +27,7 @@ exports.bereanAIMentorReview = onCall(
   {
     region: REGION,
     secrets: [CLAUDE_API_KEY],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 60,
   },
   async (request) => {
