@@ -2,6 +2,24 @@
 // AMENAPP/MusicContentLayer/
 // Pulse digest data models and service for the AMEN app.
 
+// INTEGRATION NOTE — 2026-06-11
+// AmenPulseDigestService is the MusicContentLayer extension of the Amen Pulse system.
+// The CANONICAL Pulse surface owner is:
+//   AMENAPP/AMENAPP/AMENAPP/AMENAPP/Pulse/PulseService.swift  (PulseProviding protocol)
+//   Firestore path: /users/{uid}/pulse/{dateKey}
+//   Gate: AMENFeatureFlags.shared.amenPulseEnabled
+//
+// HONESTLY-DEFERRED (Stage-3):
+//   This service currently generates mock digest data locally.
+//   Production integration requires:
+//   1. Call PulseService.shared.fetchDigest(userId:dateKey:) for the base PulseDigest
+//   2. Augment with music-specific signals (new releases, listening rooms, worship charts)
+//      via a new CF `getMusicPulseItems` that appends to the existing digest document
+//   3. AmenPulseDigestCard renders the augmented digest, not a parallel document
+//   4. Gate: amenPulseEnabled (existing) + musicContentLayerEnabled (new) must both be true
+//
+// Until Stage-3: loadDailyDigest() returns mock data. No Firestore calls. Safe to ship.
+
 import SwiftUI
 
 // MARK: - Item Type
@@ -111,6 +129,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
     @Published private(set) var mutedTopics: Set<String> = []
 
     func loadDailyDigest() async {
+        // MOCK DATA — see integration note above
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
