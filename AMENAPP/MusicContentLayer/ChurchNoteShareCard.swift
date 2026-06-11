@@ -38,7 +38,7 @@ private struct ScripturePill: View {
             .padding(.vertical, 5)
             .background {
                 if reduceTransparency {
-                    Capsule().fill(Color.systemBackground)
+                    Capsule().fill(Color(uiColor: .systemBackground))
                 } else {
                     Capsule().fill(.ultraThinMaterial)
                 }
@@ -96,7 +96,7 @@ private struct ActionStepRow: View {
     }
 }
 
-private struct PrayerCard: View {
+private struct ChurchNoteSharePrayerCard: View {
     let prompt: String
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -211,7 +211,7 @@ struct ChurchNoteShareCard: View {
                     }
                     actionStepsSection
                     if let prayer = data.prayerPrompt {
-                        PrayerCard(prompt: prayer)
+                        ChurchNoteSharePrayerCard(prompt: prayer)
                     }
                     if !data.discussionQuestions.isEmpty {
                         discussionSection
@@ -329,7 +329,7 @@ struct ChurchNoteShareCard: View {
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .tracking(0.5)
-                FlowLayout(spacing: 6) {
+                ChurchNoteShareFlowLayout(spacing: 6) {
                     ForEach(data.scriptureReferences, id: \.self) { ref in
                         ScripturePill(reference: ref)
                     }
@@ -503,7 +503,7 @@ struct ChurchNoteShareCard: View {
 
 // MARK: - FlowLayout (chip wrapping)
 
-private struct FlowLayout: Layout {
+private struct ChurchNoteShareFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {

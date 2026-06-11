@@ -6,7 +6,7 @@ import SwiftUI
 
 // MARK: - Data Models
 
-enum ProfileResourceCategory: String, Codable, Sendable, CaseIterable {
+enum ProfileShelfResourceCategory: String, Codable, Sendable, CaseIterable {
     case music = "Music"
     case sermons = "Sermons"
     case notes = "Notes"
@@ -38,9 +38,9 @@ enum ProfileResourceCategory: String, Codable, Sendable, CaseIterable {
     }
 }
 
-struct ProfileResourceItem: Codable, Sendable, Identifiable {
+struct ProfileShelfResourceItem: Codable, Sendable, Identifiable {
     let id: String
-    let category: ProfileResourceCategory
+    let category: ProfileShelfResourceCategory
     let title: String
     let subtitle: String?
     let artworkURL: URL?
@@ -55,8 +55,8 @@ struct ProfileResourceItem: Codable, Sendable, Identifiable {
 
 // MARK: - Resource Card
 
-private struct ResourceCard: View {
-    let item: ProfileResourceItem
+private struct ProfileShelfResourceCard: View {
+    let item: ProfileShelfResourceItem
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -202,7 +202,7 @@ private struct ResourceCard: View {
 
 // MARK: - Filter Chip
 
-private struct CategoryFilterChip: View {
+private struct ProfileShelfCategoryChip: View {
     let label: String
     let isSelected: Bool
     let action: () -> Void
@@ -269,18 +269,18 @@ private struct ResourcesEmptyState: View {
 // MARK: - Main View
 
 struct ProfileResourceShelf: View {
-    let items: [ProfileResourceItem]
+    let items: [ProfileShelfResourceItem]
     let isAdmin: Bool
     var onAddResource: (() -> Void)?
 
-    @State private var selectedCategory: ProfileResourceCategory?
+    @State private var selectedCategory: ProfileShelfResourceCategory?
     @State private var isLoading: Bool = false
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
 
-    private var presentCategories: [ProfileResourceCategory] {
-        var seen = Set<ProfileResourceCategory>()
+    private var presentCategories: [ProfileShelfResourceCategory] {
+        var seen = Set<ProfileShelfResourceCategory>()
         return items.compactMap { item in
             guard !seen.contains(item.category) else { return nil }
             seen.insert(item.category)
@@ -288,7 +288,7 @@ struct ProfileResourceShelf: View {
         }
     }
 
-    private var filteredItems: [ProfileResourceItem] {
+    private var filteredItems: [ProfileShelfResourceItem] {
         guard let category = selectedCategory else { return items }
         return items.filter { $0.category == category }
     }
@@ -317,7 +317,7 @@ struct ProfileResourceShelf: View {
             } else {
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(filteredItems) { item in
-                        ResourceCard(item: item)
+                        ProfileShelfResourceCard(item: item)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -366,14 +366,14 @@ struct ProfileResourceShelf: View {
     private var filterChipRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                CategoryFilterChip(
+                ProfileShelfCategoryChip(
                     label: "All",
                     isSelected: selectedCategory == nil
                 ) {
                     selectedCategory = nil
                 }
                 ForEach(presentCategories, id: \.self) { category in
-                    CategoryFilterChip(
+                    ProfileShelfCategoryChip(
                         label: category.rawValue,
                         isSelected: selectedCategory == category
                     ) {
@@ -403,7 +403,7 @@ struct ProfileResourceShelf: View {
     ScrollView {
         ProfileResourceShelf(
             items: [
-                ProfileResourceItem(
+                ProfileShelfResourceItem(
                     id: "1",
                     category: .sermons,
                     title: "Walking in the Spirit",
@@ -417,7 +417,7 @@ struct ProfileResourceShelf: View {
                     viewCount: 1240,
                     publishedAt: "2026-06-01T10:00:00Z"
                 ),
-                ProfileResourceItem(
+                ProfileShelfResourceItem(
                     id: "2",
                     category: .sermons,
                     title: "The Power of Prayer",
@@ -431,7 +431,7 @@ struct ProfileResourceShelf: View {
                     viewCount: 450,
                     publishedAt: "2026-05-18T10:00:00Z"
                 ),
-                ProfileResourceItem(
+                ProfileShelfResourceItem(
                     id: "3",
                     category: .music,
                     title: "Sunday Worship Mix",
@@ -445,7 +445,7 @@ struct ProfileResourceShelf: View {
                     viewCount: 3200,
                     publishedAt: "2026-06-08T09:00:00Z"
                 ),
-                ProfileResourceItem(
+                ProfileShelfResourceItem(
                     id: "4",
                     category: .music,
                     title: "Christmas Cantata 2025",
@@ -459,7 +459,7 @@ struct ProfileResourceShelf: View {
                     viewCount: 720,
                     publishedAt: "2025-12-21T10:00:00Z"
                 ),
-                ProfileResourceItem(
+                ProfileShelfResourceItem(
                     id: "5",
                     category: .courses,
                     title: "Foundations of Faith",
@@ -473,7 +473,7 @@ struct ProfileResourceShelf: View {
                     viewCount: 890,
                     publishedAt: "2026-01-10T10:00:00Z"
                 ),
-                ProfileResourceItem(
+                ProfileShelfResourceItem(
                     id: "6",
                     category: .courses,
                     title: "Prayer & Fasting",

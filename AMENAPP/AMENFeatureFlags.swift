@@ -178,6 +178,8 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var churchNotesStudyGuideGenerationEnabled: Bool = true
     /// Gates NOTE_SHARE_VIEWER. Default OFF until Wave 1 implements callables and UI.
     @Published private(set) var noteShareViewerEnabled: Bool = false
+    /// Gates Church Notes Smart Objects and Liquid Glass post cards. Default OFF until Wave 1 is verified.
+    @Published private(set) var churchNotesSmartObjectsEnabled: Bool = false
     // Kill switch: set true in Remote Config to block all new processing jobs instantly.
     @Published private(set) var churchNotesProcessingKillSwitch: Bool = false
     @Published private(set) var trustedContactsEnabled: Bool = true
@@ -754,6 +756,18 @@ final class AMENFeatureFlags: ObservableObject {
     /// Block AI access to sensitive spaces unless explicitly opted in.
     @Published private(set) var conversationOSSensitiveSpaceRestrictionsEnabled: Bool = false
 
+    // MARK: - Find Church 2.0 (all default OFF — flip via Remote Config after verification)
+    @Published private(set) var findChurch2OnboardingEnabled: Bool = false
+    @Published private(set) var findChurch2MatchExplainEnabled: Bool = false
+    @Published private(set) var findChurch2GatheringsEnabled: Bool = false
+    @Published private(set) var findChurch2VisitPlannerEnabled: Bool = false
+    @Published private(set) var findChurch2ClaimPortalEnabled: Bool = false
+    @Published private(set) var findChurch2ConciergeEnabled: Bool = false
+    @Published private(set) var findChurch2MapHybridEnabled: Bool = false
+    @Published private(set) var findChurch2AvailabilityEnabled: Bool = false
+    @Published private(set) var findChurch2TrustSignalsEnabled: Bool = false
+    @Published private(set) var findChurch2DesignRefreshEnabled: Bool = false
+
     // MARK: - Master-Run Phase Gates
     /// Phase 1: Find a Church surface (MapKit map, clustering, filter chips, bottom sheet).
     @Published private(set) var findAChurchEnabled: Bool = true
@@ -958,6 +972,7 @@ final class AMENFeatureFlags: ObservableObject {
             "sermon_clip_suggestion_enabled": true as NSObject,
             "church_notes_study_guide_generation_enabled": true as NSObject,
             "feature_note_share_viewer": false as NSObject,
+            "church_notes_smart_objects_enabled": false as NSObject,
             "church_notes_processing_kill_switch": false as NSObject,
             "trusted_contacts_enabled": true as NSObject,
             "helping_someone_else_enabled": true as NSObject,
@@ -1548,6 +1563,7 @@ final class AMENFeatureFlags: ObservableObject {
         sermonClipSuggestionEnabled = config["sermon_clip_suggestion_enabled"].boolValue
         churchNotesStudyGuideGenerationEnabled = config["church_notes_study_guide_generation_enabled"].boolValue
         noteShareViewerEnabled = config["feature_note_share_viewer"].boolValue
+        churchNotesSmartObjectsEnabled = config["church_notes_smart_objects_enabled"].boolValue
         churchNotesProcessingKillSwitch = config["church_notes_processing_kill_switch"].boolValue
 
         churchNotesAudioCaptureEnabled = churchNotesAudioCaptureEnabled || sermonAudioCaptureEnabled
@@ -1968,6 +1984,18 @@ final class AMENFeatureFlags: ObservableObject {
         conversationOSDebugTelemetryEnabled                = config["conversation_os_debug_telemetry_enabled"].boolValue
         conversationOSSensitiveSpaceRestrictionsEnabled    = config["conversation_os_sensitive_space_restrictions_enabled"].boolValue
 
+        // Find Church 2.0
+        findChurch2OnboardingEnabled     = config["findChurch2_onboarding"].boolValue
+        findChurch2MatchExplainEnabled   = config["findChurch2_matchExplain"].boolValue
+        findChurch2GatheringsEnabled     = config["findChurch2_gatherings"].boolValue
+        findChurch2VisitPlannerEnabled   = config["findChurch2_visitPlanner"].boolValue
+        findChurch2ClaimPortalEnabled    = config["findChurch2_claimPortal"].boolValue
+        findChurch2ConciergeEnabled      = config["findChurch2_concierge"].boolValue
+        findChurch2MapHybridEnabled      = config["findChurch2_mapHybrid"].boolValue
+        findChurch2AvailabilityEnabled   = config["findChurch2_availability"].boolValue
+        findChurch2TrustSignalsEnabled   = config["findChurch2_trustSignals"].boolValue
+        findChurch2DesignRefreshEnabled  = config["findChurch2_designRefresh"].boolValue
+
         // Master-Run Phase Gates
         findAChurchEnabled             = config["find_a_church_enabled"].boolValue
         postsLiquidGlassEnabled        = config["posts_liquid_glass_enabled"].boolValue
@@ -2016,6 +2044,9 @@ final class AMENFeatureFlags: ObservableObject {
         }
         if args.contains("--ui-test-enable-note-share-viewer") {
             noteShareViewerEnabled = true
+        }
+        if args.contains("--ui-test-enable-church-notes-smart-objects") {
+            churchNotesSmartObjectsEnabled = true
         }
         if args.contains("--ui-test-enable-camera-os") {
             cameraOSEnabled = true

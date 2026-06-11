@@ -383,7 +383,7 @@ struct ConnectV2CatchUpPanel: View {
                         if items.count > 3 {
                             Button("+ \(items.count - 3) more", action: onCatchUp)
                                 .font(.systemScaled(13, weight: .semibold))
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(.tint)
                         }
                     }
                     ConnectV2AIDisclosureChip()
@@ -542,7 +542,7 @@ private struct ConnectV2SectionGrid: View {
                     if isEmpty && !cta.isEmpty {
                         Text(cta)
                             .font(.systemScaled(12, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(.tint)
                     } else {
                         Text(tileSubtitle(title))
                             .font(.systemScaled(12))
@@ -685,7 +685,7 @@ struct ConnectV2DiscoverView: View {
                             .font(.systemScaled(18, weight: .bold)).padding(.leading, 20)
                         Spacer()
                         Button("See all") {}
-                            .font(.systemScaled(13, weight: .semibold)).foregroundStyle(.accentColor).padding(.trailing, 20)
+                            .font(.systemScaled(13, weight: .semibold)).foregroundStyle(.tint).padding(.trailing, 20)
                     }
                     ForEach(viewModel.listings.prefix(3)) { listing in
                         ConnectV2ListingRow(listing: listing).padding(.horizontal, 20)
@@ -704,7 +704,7 @@ struct ConnectV2DiscoverView: View {
                 Spacer()
                 if !viewModel.creators.isEmpty {
                     Button("See all") {}
-                        .font(.systemScaled(13, weight: .semibold)).foregroundStyle(.accentColor).padding(.trailing, 20)
+                        .font(.systemScaled(13, weight: .semibold)).foregroundStyle(.tint).padding(.trailing, 20)
                 }
             }
 
@@ -745,7 +745,7 @@ struct ConnectV2CatchUpSheet: View {
                     HStack {
                         Image(systemName: "sparkles")
                             .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(.tint)
                         Spacer()
                     }
                     .padding(.horizontal, 20).padding(.top, 8)
@@ -782,6 +782,26 @@ struct ConnectV2CatchUpSheet: View {
 }
 
 // MARK: - Local matte card (same contract as private AmenConnectCard)
+
+private struct SkeletonCard: View {
+    let height: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(Color(.secondarySystemBackground))
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.primary.opacity(0.04))
+                    .padding(12)
+            }
+            .frame(height: height)
+            .redacted(reason: .placeholder)
+            .opacity(reduceMotion ? 0.85 : 1)
+            .accessibilityLabel("Loading space")
+    }
+}
 
 struct ConnectV2Card<Content: View>: View {
     var content: () -> Content

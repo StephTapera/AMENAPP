@@ -168,6 +168,56 @@
       "description": "Enable Find a Church action in Amen Daily Digest.",
       "valueType": "BOOLEAN"
     },
+    "findChurch2_availability": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: AvailabilityStatus computed pills (Open Now, Service Today, etc.).",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_claimPortal": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: Church claim/verification portal (unclaimed → pending → verified).",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_concierge": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: Berean AI first-visit concierge on church profiles.",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_designRefresh": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: Full UI system refresh (collapsing header, unified glass tokens, card→profile expansion).",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_gatherings": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: Bible studies, home groups, and other gatherings surface.",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_mapHybrid": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: Glass toggle between list, full map, saved, visited, recommended views.",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_matchExplain": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: MatchExplanation drawer replacing bare percentage badge.",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_onboarding": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: 3-phase Liquid Glass seeker onboarding (intent + fit + comfort).",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_trustSignals": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: Trust signals on church profiles (verified badge, child safety, background checks).",
+      "valueType": "BOOLEAN"
+    },
+    "findChurch2_visitPlanner": {
+      "defaultValue": { "value": "false" },
+      "description": "Find Church 2.0: Visit Planner commitment object (I'm going this Sunday → EventKit + Live Activity + reflection).",
+      "valueType": "BOOLEAN"
+    },
     "amen_daily_digest_holiday_enabled": {
       "defaultValue": {
         "value": "true"
@@ -1450,7 +1500,7 @@
       "defaultValue": {
         "value": "100"
       },
-      "description": "Rollout percentage for Explain Video (0\u2013100).",
+      "description": "Rollout percentage for Explain Video (0–100).",
       "valueType": "NUMBER"
     },
     "feed_boundary_enabled": {
@@ -1520,7 +1570,7 @@
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 1 master-run: Find a Church \u2014 MapKit map, clustering, filter chips, bottom sheet.",
+      "description": "Phase 1 master-run: Find a Church — MapKit map, clustering, filter chips, bottom sheet.",
       "valueType": "BOOLEAN"
     },
     "find_church_study_actions_enabled": {
@@ -2304,7 +2354,7 @@
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 2 master-run: Posts Liquid Glass migration \u2014 switches Posts surfaces to AmenGlassKit components.",
+      "description": "Phase 2 master-run: Posts Liquid Glass migration — switches Posts surfaces to AmenGlassKit components.",
       "valueType": "BOOLEAN"
     },
     "presence_intelligence_enabled": {
@@ -2367,7 +2417,7 @@
       "defaultValue": {
         "value": "true"
       },
-      "description": "Enable Pulse awareness \u2014 UI adaptation based on interaction signals.",
+      "description": "Enable Pulse awareness — UI adaptation based on interaction signals.",
       "valueType": "BOOLEAN"
     },
     "purpose_open_screen_enabled": {
@@ -2479,7 +2529,7 @@
       "defaultValue": {
         "value": "100"
       },
-      "description": "Rollout percentage for Selah Media OS (0\u2013100).",
+      "description": "Rollout percentage for Selah Media OS (0–100).",
       "valueType": "NUMBER"
     },
     "selah_pause_enabled": {
@@ -2493,7 +2543,7 @@
       "defaultValue": {
         "value": "true"
       },
-      "description": "Enables SelahNote \u2192 Pinecone corpus indexing (indexSelahNote CF). Corresponds to selah.personalCorpus feature gate.",
+      "description": "Enables SelahNote → Pinecone corpus indexing (indexSelahNote CF). Corresponds to selah.personalCorpus feature gate.",
       "valueType": "BOOLEAN"
     },
     "selah_scripture_actions_enabled": {
@@ -2514,14 +2564,14 @@
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 5 master-run: Selah Stories free composer \u2014 ephemeral formation stories with private audience only.",
+      "description": "Phase 5 master-run: Selah Stories free composer — ephemeral formation stories with private audience only.",
       "valueType": "BOOLEAN"
     },
     "selah_stories_premium_ai_enabled": {
       "defaultValue": {
         "value": "true"
       },
-      "description": "Phase 5 master-run: Selah Stories premium AI features (subscription-gated) \u2014 verse recognition, Berean reflection prompts, semantic audio matching.",
+      "description": "Phase 5 master-run: Selah Stories premium AI features (subscription-gated) — verse recognition, Berean reflection prompts, semantic audio matching.",
       "valueType": "BOOLEAN"
     },
     "semantic_underline_enabled": {
@@ -3124,6 +3174,55 @@
         "value": "true"
       },
       "description": "Use backend-driven Why This Post sheet.",
+      "valueType": "BOOLEAN"
+    },
+    "context_system_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Master gate: Context System (Universal Migration & Context). Default OFF — flip after Stage-3 CF deploy.",
+      "valueType": "BOOLEAN"
+    },
+    "context_manual_entry_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Wave 1: manual facet entry, Identity Blueprint, Faith Journey Builder.",
+      "valueType": "BOOLEAN"
+    },
+    "context_berean_interview_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Wave 2: Berean Migration Interview.",
+      "valueType": "BOOLEAN"
+    },
+    "context_universal_import_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Wave 3: Universal Extractor (paste/upload) + Approval UI.",
+      "valueType": "BOOLEAN"
+    },
+    "context_matching_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Wave 4: community matching, feed init, introduction generator.",
+      "valueType": "BOOLEAN"
+    },
+    "context_export_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Wave 5: .amen export, Personal Operating Manual, Life Capsule.",
+      "valueType": "BOOLEAN"
+    },
+    "context_qr_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Wave 5: Context QR (public projection). C60 blocks for minors server-side.",
       "valueType": "BOOLEAN"
     }
   }
