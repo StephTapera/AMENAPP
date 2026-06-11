@@ -231,8 +231,9 @@ final class ContextStoreAdversarialTests: XCTestCase {
 
     func testAdult_contextQR_isAllowed_provingGateIsNotTriviallyDenied() {
         let decision = AegisEnforcementService.shared.minorConstraint(for: .contextQR, isMinor: false)
-        XCTAssertEqual(decision, .allowed,
-                       "Adults must be allowed Context QR, proving the minor gate is specific.")
+        guard case .allowed = decision else {
+            return XCTFail("Adults must be allowed Context QR, proving the minor gate is specific; got \(decision).")
+        }
     }
 }
 #endif

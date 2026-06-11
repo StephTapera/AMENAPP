@@ -722,6 +722,20 @@
 			path = AMENAPP;
 			sourceTree = "<group>";
 		};
+		EF6A47C62FDA867300CC9956 /* MusicContentLayer 2 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "MusicContentLayer 2";
+			sourceTree = "<group>";
+		};
+		EF6A47C72FDA868700CC9956 /* MusicContentLayer 3 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "MusicContentLayer 3";
+			sourceTree = "<group>";
+		};
 		EF8151922F184E97008912E3 = {
 			isa = PBXGroup;
 			children = (
@@ -1026,6 +1040,8 @@
 				EF9B624D2F90C2F200D0E71B /* Recovered References */,
 				0CAEB5424BA455BF5B516208 /* ConnectSpaces */,
 				CB29FBBEBA6E9C34C0B8D533 /* AMENAPP */,
+				EF6A47C62FDA867300CC9956 /* MusicContentLayer 2 */,
+				EF6A47C72FDA868700CC9956 /* MusicContentLayer 3 */,
 			);
 			sourceTree = "<group>";
 		};
