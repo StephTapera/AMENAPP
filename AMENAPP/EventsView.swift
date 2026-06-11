@@ -177,6 +177,7 @@ struct EventsView: View {
     @State private var showCreateEvent = false
     @State private var selectedEvent: FaithEvent?
     @State private var appeared = false
+    @State private var plannerViewModel = AmenLifePlannerViewModel()
 
     private var filteredEvents: [FaithEvent] {
         guard let cat = selectedCategory else { return store.upcomingEvents }
@@ -188,6 +189,12 @@ struct EventsView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     heroHeader
+
+                    // Spiritual OS — Life Planner (Agent C, gated by master + planner flags)
+                    AmenLifePlannerSectionView(
+                        viewModel: plannerViewModel,
+                        userId: Auth.auth().currentUser?.uid ?? ""
+                    )
 
                     // Category filter
                     categoryPills
