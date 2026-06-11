@@ -51,6 +51,17 @@ class RemoteKillSwitch: ObservableObject {
 
         // 1. Remote Config fetch (scheduled cadence, existing behaviour)
         let config = RemoteConfig.remoteConfig()
+        // GAP A5-P1 RC defaults
+        config.setDefaults([
+            "kill_feed_enabled": true as NSObject,
+            "kill_berean_enabled": true as NSObject,
+            "kill_messaging_enabled": true as NSObject,
+            "kill_create_post_enabled": true as NSObject,
+            "kill_search_enabled": true as NSObject,
+            "kill_notifications_enabled": true as NSObject,
+            "maintenance_mode": false as NSObject,
+            "maintenance_message": "" as NSObject,
+        ])
         config.fetchAndActivate { [weak self] _, error in
             if let error = error {
                 print("[RemoteKillSwitch] fetch error: \(error.localizedDescription)")

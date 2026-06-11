@@ -1662,17 +1662,9 @@ service cloud.firestore {
       allow create, update, delete: if false; // CF callable only (classifyPostNeed)
     }
 
-    // =========================================================================
-    // /church_pulse/{churchId}
-    // Computed church health metrics — CF Admin SDK writes only (refreshChurchPulses).
-    // Derived from real Firestore data only — never fabricated.
-    // Added 2026-06-06 — Living Intelligence build
-    // =========================================================================
-
-    match /church_pulse/{churchId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if false; // CF Admin SDK only (refreshChurchPulses)
-    }
+    // NOTE: duplicate /church_pulse/{churchId} block removed here. // GAP A4-P1
+    // The member-gated block above (lines ~1610-1617) is the canonical rule.
+    // The broad isSignedIn() block was removed to close the over-permissive read gap.
 
     // =========================================================================
     // /users/{userId}/intelligence_brief/{briefId}
@@ -2451,7 +2443,47 @@ service cloud.firestore {
     match /users/{uid}/{coll}/{docId} {
       allow read, write: if isOwner(uid)
         && coll in ['notes', 'notebookEntries', 'prayerJournal', 'shareDrafts',
-                    'tasks', 'calendarDrafts', 'plans', 'polls', 'posts'];
+                    'tasks', 'calendarDrafts', 'plans', 'polls', 'posts',
+                    'creatorScenes']; // GAP A4-P1
+    }
+
+    // GAP A4-P1: bereanMemory subcollection — owner read; CF writes only.
+    match /users/{uid}/bereanMemory/{docId} {
+      allow read: if isOwner(uid); // GAP A4-P1
+      allow create, update, delete: if false; // CF Admin SDK only
+    }
+
+    // =========================================================================
+    // GAP A4-P1: Missing collection rules
+    // =========================================================================
+
+    // /whisperUsage/{docId}: WhisperVoiceService.swift:370 writes user audio quota docs.
+    // Doc ID is the uid; owner read/write.
+    match /whisperUsage/{docId} {
+      allow read, write: if isOwner(docId); // GAP A4-P1
+    }
+
+    // /helixNodes/{docId}: HelixNodeDetailSheets.swift writes/deletes directly.
+    // Owner-scoped: ownerId field must match caller.
+    match /helixNodes/{docId} {
+      allow read: if isSignedIn() && resource.data.get('ownerId', '') == request.auth.uid; // GAP A4-P1
+      allow create: if isSignedIn() && request.resource.data.get('ownerId', '') == request.auth.uid; // GAP A4-P1
+      allow update, delete: if isSignedIn() && resource.data.get('ownerId', '') == request.auth.uid; // GAP A4-P1
+    }
+
+    // /notificationBatches/{batchId}: owner read/write; uid stored on the doc.
+    match /notificationBatches/{batchId} {
+      allow read, write: if isOwner(resource.data.get('uid', '')); // GAP A4-P1
+    }
+
+    // /scheduledBatches/{batchId}: owner read/write; uid stored on the doc.
+    match /scheduledBatches/{batchId} {
+      allow read, write: if isOwner(resource.data.get('uid', '')); // GAP A4-P1
+    }
+
+    // /userNotificationPreferences/{uid}: owner read/write; doc ID is the uid.
+    match /userNotificationPreferences/{uid} {
+      allow read, write: if isOwner(uid); // GAP A4-P1
     }
 
     // =========================================================================

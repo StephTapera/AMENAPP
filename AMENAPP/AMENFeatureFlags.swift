@@ -868,6 +868,11 @@ final class AMENFeatureFlags: ObservableObject {
             "suggested_rail_testimonies_enabled": true as NSObject,
             "suggested_rail_peek_sheet_enabled": true as NSObject,
             "suggested_rail_server_ranking_enabled": true as NSObject,
+            // GAP A5-P1 suggested-rail integer defaults
+            "suggested_rail_insertion_index": 2 as NSObject,
+            "suggested_rail_card_limit": 12 as NSObject,
+            "suggested_rail_cooldown_hours": 24 as NSObject,
+            "suggested_rail_dismiss_cooldown_days": 7 as NSObject,
 
             // Social Context & UX Enhancements
             "mutual_context_row_enabled": true as NSObject,
@@ -1934,6 +1939,9 @@ final class AMENFeatureFlags: ObservableObject {
         selahPersonalCorpusEnabled      = config["selah_personal_corpus_enabled"].boolValue
         selahDiscernmentEnabled         = config["selah_discernment_enabled"].boolValue
         selahDiscernmentSharingEnabled  = config["selah_discernment_sharing_enabled"].boolValue
+
+        // GAP A5-P1 bridge call
+        CommunicationOSRemoteConfigBridge.applyRemoteConfig(config)
     }
 
     private func applyUITestOverrides() {

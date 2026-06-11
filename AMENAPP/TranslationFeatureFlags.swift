@@ -96,7 +96,7 @@ final class TranslationFeatureFlags: ObservableObject {
         // Remote Config defaults
         config.setDefaults([
             "translation_system_enabled": true as NSObject,
-            "translation_gcp_backend_enabled": true as NSObject,
+            "translation_gcp_backend_enabled": false as NSObject, // GAP A5-P1 default matches init
             "translation_apple_fallback_enabled": true as NSObject,
             "translation_auto_enabled": true as NSObject,
             "translation_messages_enabled": true as NSObject,

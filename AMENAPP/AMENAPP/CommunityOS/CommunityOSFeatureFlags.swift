@@ -2,7 +2,7 @@
 // AMEN App — Community Around Content OS
 //
 // All Community OS flags are gated here via Firebase Remote Config.
-// Every flag defaults to false — nothing activates in production without explicit enablement.
+// Every flag defaults to true (see defaultValue) — Remote Config can lower them for staged rollouts. // GAP A5-P1 header corrected
 // Fetch runs once at app launch; subsequent reads are synchronous from the local cache.
 //
 // Usage:
