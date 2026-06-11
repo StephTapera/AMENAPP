@@ -57,6 +57,11 @@ class DeepLinkRouter: ObservableObject {
         case churchNote(noteId: String)
         /// Open the intelligence/Berean brief card.
         case intelligence(cardId: String?)
+        /// Open a specific Space (community). Lands on the Spaces hub tab.
+        case space(spaceId: String)
+        /// Open a church event. Interim destination — routes to the church/resources
+        /// surface until a dedicated event detail surface exists (see navigate()).
+        case event(eventId: String)
     }
     
     enum DeepLinkDestination: Hashable {
@@ -161,6 +166,16 @@ class DeepLinkRouter: ObservableObject {
                 : pathComponents.first
             return .intelligence(cardId: cardId)
 
+        case "space":
+            // amen://space/{spaceId}
+            guard let spaceId = pathComponents.first else { return nil }
+            return .space(spaceId: spaceId)
+
+        case "event":
+            // amen://event/{eventId}
+            guard let eventId = pathComponents.first else { return nil }
+            return .event(eventId: eventId)
+
         default:
             return nil
         }
@@ -220,6 +235,12 @@ class DeepLinkRouter: ObservableObject {
             selectedTab = 3  // Resources tab (index 3)
         case .intelligence:
             selectedTab = 7  // Intelligence Brief tab
+        case .space:
+            selectedTab = 6  // Spaces hub (AmenConnectSpacesHubView)
+        case .event:
+            // INTERIM DESTINATION — dedicated church-event surface TBD. Church
+            // events live in the Resources surface; land there scoped via activeRoute.
+            selectedTab = 3
         }
         // End the reply activity since user opened the destination
         LiveActivityManager.shared.endReplyActivity(reason: .userOpened)
@@ -317,6 +338,14 @@ class DeepLinkRouter: ObservableObject {
             if let cardId {
                 components.path = "/card/\(cardId)"
             }
+
+        case .space(let spaceId):
+            components.host = "space"
+            components.path = "/\(spaceId)"
+
+        case .event(let eventId):
+            components.host = "event"
+            components.path = "/\(eventId)"
         }
 
         return components.url
@@ -391,6 +420,10 @@ extension DeepLinkRouter.DeepLinkRoute {
             return .feed              // prayer/church notes live in the resources feed
         case .intelligence:
             return .feed
+        case .space:
+            return .messages         // Spaces are conversational/community — gate like messages
+        case .event:
+            return .findChurch       // church-published events — allowed like church
         }
     }
 
@@ -413,6 +446,8 @@ extension DeepLinkRouter.DeepLinkRoute {
         case .prayer(let id):            return "prayer/\(id)"
         case .churchNote(let id):        return "church-note/\(id)"
         case .intelligence(let id):      return "intelligence/\(id ?? "root")"
+        case .space(let id):             return "space/\(id)"
+        case .event(let id):             return "event/\(id)"
         }
     }
 }

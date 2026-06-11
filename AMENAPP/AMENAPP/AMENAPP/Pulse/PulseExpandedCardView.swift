@@ -126,8 +126,8 @@ struct PulseExpandedCardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-
-            actionButton
+            // No action button here: the Daily Brief IS the destination (you're
+            // already reading it), so "Open Brief" would land nowhere.
         }
     }
 
@@ -181,7 +181,9 @@ struct PulseExpandedCardView: View {
 
     @ViewBuilder
     private var actionButton: some View {
-        if card.action.kind != .none {
+        // Only render the verb when it resolves to a real destination — a verb
+        // with no routable deeplink disables (fail-closed beats fail-silent).
+        if card.action.kind != .none, PulseActionRouter.shared.canRoute(card) {
             Button {
                 onAction(card)
             } label: {

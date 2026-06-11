@@ -57,7 +57,7 @@ extension PulseDigest {
             eyebrow: "Prayer Update",
             title: "Marcus posted an update",
             subtitle: "You prayed for his father’s surgery 7 days ago. He shared good news this morning.",
-            action: PulseAction(kind: .checkIn, label: "Check In", deeplink: nil),
+            action: PulseAction(kind: .checkIn, label: "Check In", deeplink: "amen://prayer/marcus-surgery"),
             minorSafe: true
         )
 
@@ -68,7 +68,7 @@ extension PulseDigest {
             eyebrow: "Tonight · 7:00 PM",
             title: "Elevation Worship Night",
             subtitle: "Hosted at Redemption Gateway. Doors at 6:30.",
-            action: PulseAction(kind: .rsvp, label: "RSVP"),
+            action: PulseAction(kind: .rsvp, label: "RSVP", deeplink: "amen://event/elevation-worship"),
             minorSafe: true,
             meta: [
                 PulseFact(systemImage: "person.2", text: "7 friends interested"),
@@ -94,7 +94,7 @@ extension PulseDigest {
             eyebrow: "Milestone",
             title: "Sarah & Mike welcomed baby Eden",
             subtitle: "Born Tuesday, 7 lbs 2 oz. The Hendersons are home and resting.",
-            action: PulseAction(kind: .sendLove, label: "Send Love"),
+            action: PulseAction(kind: .sendLove, label: "Send Love", deeplink: "amen://user/sarah-mike"),
             minorSafe: true
         )
 
@@ -105,7 +105,7 @@ extension PulseDigest {
             eyebrow: "Your Spaces",
             title: "Tuesday Group is in James 2",
             subtitle: "Faith and works — three thoughtful replies since last night. No rush; it’ll be there.",
-            action: PulseAction(kind: .openSpace, label: "Open Space"),
+            action: PulseAction(kind: .openSpace, label: "Open Space", deeplink: "amen://space/tuesday-group"),
             minorSafe: true
         )
 
