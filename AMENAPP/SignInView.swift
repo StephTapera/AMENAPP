@@ -1079,10 +1079,11 @@ struct SignInView: View {
         
         // Format phone to E.164 for consistent lookup
         let formattedPhone = formatPhoneNumberForLookup(phoneNumber)
+        let lookupHash = phoneHashForLookup(formattedPhone)
         
         do {
             let snapshot = try await db.collection("users")
-                .whereField("phoneNumber", isEqualTo: formattedPhone)
+                .whereField("phoneHash", isEqualTo: lookupHash)
                 .limit(to: 1)
                 .getDocuments()
             
@@ -1119,6 +1120,12 @@ struct SignInView: View {
         }
         
         return "+\(digits)"
+    }
+
+    private func phoneHashForLookup(_ phoneNumber: String) -> String {
+        let normalized = phoneNumber.filter { $0.isNumber }
+        let digest = SHA256.hash(data: Data(normalized.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
     
     private func handleGoogleSignIn() {

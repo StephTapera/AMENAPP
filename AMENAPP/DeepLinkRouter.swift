@@ -216,7 +216,7 @@ class DeepLinkRouter: ObservableObject {
         case .post, .userProfile, .category, .church:
             selectedTab = 0  // Home/Feed tab
         case .conversation:
-            selectedTab = 3  // Messages tab
+            selectedTab = 2  // Messages tab
         case .notification:
             selectedTab = 2  // Notifications tab
         case .search:
@@ -228,13 +228,13 @@ class DeepLinkRouter: ObservableObject {
             selectedTab = 0
         case .chat:
             // Open the DM thread directly
-            selectedTab = 3
+            selectedTab = 2
         case .groupJoin:
-            selectedTab = 3  // Messages tab (group join flow lives there)
+            selectedTab = 2  // Messages tab (group join flow lives there)
         case .notifications:
             selectedTab = 2  // Notifications tab
         case .messages:
-            selectedTab = 3  // Messages tab
+            selectedTab = 2  // Messages tab
         case .prayer, .churchNote:
             selectedTab = 3  // Resources tab (index 3)
         case .intelligence:

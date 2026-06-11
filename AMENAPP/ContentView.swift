@@ -826,8 +826,10 @@ struct ContentView: View {
                 viewModel.selectedTab = 0
             case .search:
                 viewModel.selectedTab = 1
-            case .conversation, .chat, .messages, .groupJoin, .prayer, .churchNote:
-                viewModel.selectedTab = 3
+                    case .conversation, .chat, .messages, .groupJoin:
+                        viewModel.selectedTab = 2
+                    case .prayer, .churchNote:
+                        viewModel.selectedTab = 3
             case .notification, .notifications:
                 viewModel.selectedTab = 4
             case .settings:
@@ -1940,4 +1942,3 @@ private struct KillSwitchUnavailableView: View {
 // (No need to redefine - already exists globally)
 
 // P0 FIX: Removed UIView.findScrollView extension - no longer needed with PreferenceKey approach
-

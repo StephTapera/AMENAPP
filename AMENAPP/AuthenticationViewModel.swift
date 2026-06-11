@@ -13,6 +13,7 @@ import FirebaseAuth
 import FirebaseCore
 import FirebaseFirestore
 import FirebaseFunctions
+import CryptoKit
 
 @MainActor
 class AuthenticationViewModel: ObservableObject {
@@ -1509,7 +1510,7 @@ class AuthenticationViewModel: ObservableObject {
         }
         
         #if DEBUG
-        dlog("📱 Sending verification code to: \(phoneNumber)")
+        dlog("📱 Sending verification code to phone \(redactedPhoneForLog(phoneNumber))")
         #endif
 
         // P0: Enforce server-side rate limit BEFORE calling Firebase.
@@ -1638,7 +1639,9 @@ class AuthenticationViewModel: ObservableObject {
                 
                 let userData: [String: Any] = [
                     "uid": userId,
-                    "phoneNumber": phoneNumber,
+                    "phoneHash": phoneHash(for: phoneNumber),
+                    "phoneLast4": phoneLast4(for: phoneNumber),
+                    "phoneNumber": FieldValue.delete(),
                     "displayName": displayName,
                     "displayNameLowercase": displayName.lowercased(),
                     "username": username.lowercased(),
@@ -1703,7 +1706,9 @@ class AuthenticationViewModel: ObservableObject {
                 try await firebaseManager.firestore.collection("users")
                     .document(userId)
                     .setData([
-                        "phoneNumber": phoneNumber,
+                        "phoneHash": phoneHash(for: phoneNumber),
+                        "phoneLast4": phoneLast4(for: phoneNumber),
+                        "phoneNumber": FieldValue.delete(),
                         "phoneVerified": true,
                         "phoneVerifiedAt": Timestamp(date: Date()),
                         "updatedAt": Timestamp(date: Date())
@@ -1929,6 +1934,21 @@ class AuthenticationViewModel: ObservableObject {
         
         // Return with + prefix
         return "+\(digits)"
+    }
+
+    private func phoneHash(for phoneNumber: String) -> String {
+        let normalized = formatPhoneNumber(phoneNumber).filter { $0.isNumber }
+        let digest = SHA256.hash(data: Data(normalized.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func phoneLast4(for phoneNumber: String) -> String {
+        String(formatPhoneNumber(phoneNumber).filter { $0.isNumber }.suffix(4))
+    }
+
+    private func redactedPhoneForLog(_ phoneNumber: String) -> String {
+        let last4 = phoneLast4(for: phoneNumber)
+        return last4.isEmpty ? "last4=[unavailable]" : "last4=\(last4)"
     }
     
     /// Create searchable name keywords
@@ -2190,7 +2210,9 @@ class AuthenticationViewModel: ObservableObject {
                 try await firebaseManager.firestore.collection("users")
                     .document(currentUser.uid)
                     .setData([
-                        "phoneNumber": phoneNum,
+                        "phoneHash": phoneHash(for: phoneNum),
+                        "phoneLast4": phoneLast4(for: phoneNum),
+                        "phoneNumber": FieldValue.delete(),
                         "phoneVerified": true,
                         "phoneVerifiedAt": Timestamp(date: Date()),
                         "updatedAt": Timestamp(date: Date())
@@ -2271,6 +2293,8 @@ class AuthenticationViewModel: ObservableObject {
                 .document(currentUser.uid)
                 .updateData([
                     "phoneNumber": FieldValue.delete(),
+                    "phoneHash": FieldValue.delete(),
+                    "phoneLast4": FieldValue.delete(),
                     "phoneVerified": false,
                     "updatedAt": Timestamp(date: Date())
                 ])
