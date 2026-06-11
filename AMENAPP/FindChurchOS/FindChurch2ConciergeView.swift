@@ -42,6 +42,7 @@ struct FindChurch2ConciergeView: View {
     @State private var activeQuestion: String = ""
     @State private var responseText: String = ""
     @State private var isAnimating: Bool = false
+    @State private var revealTask: Task<Void, Never>? = nil
     @FocusState private var isFieldFocused: Bool
 
     // MARK: Environment
@@ -351,25 +352,24 @@ struct FindChurch2ConciergeView: View {
             }
         } else {
             isAnimating = true
-            Task { await animateReveal(fullAnswer) }
+            revealTask?.cancel()
+            revealTask = Task { await animateReveal(fullAnswer) }
         }
     }
 
     /// Streams characters one by one with a 15 ms delay between each character.
+    /// Exits early if the task is cancelled (e.g. user submits a new question).
     private func animateReveal(_ text: String) async {
         let chars = Array(text)
         var built = ""
         for char in chars {
+            guard !Task.isCancelled else { break }
             built.append(char)
             let snapshot = built
-            await MainActor.run {
-                self.responseText = snapshot
-            }
-            try? await Task.sleep(nanoseconds: 15_000_000) // 15 ms
+            await MainActor.run { self.responseText = snapshot }
+            try? await Task.sleep(nanoseconds: 15_000_000) // 15 ms — try? OK: cancel exits loop above
         }
-        await MainActor.run {
-            self.isAnimating = false
-        }
+        await MainActor.run { self.isAnimating = false }
     }
 
     // MARK: - Local Answer Builder

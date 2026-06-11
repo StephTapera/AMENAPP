@@ -177,7 +177,11 @@ final class FindChurch2VisitPlannerService: ObservableObject {
                 patch["day_of_reminder_scheduled"] = true
                 patch["day_of_reminder_notification_id"] = notifId
             }
-            try? await db.collection("visitPlans").document(compositeDocId).updateData(patch)
+            do {
+                try await db.collection("visitPlans").document(compositeDocId).updateData(patch)
+            } catch {
+                dlog("[VisitPlanner] Non-critical: failed to persist EK/notification IDs for \(compositeDocId): \(error)")
+            }
         }
 
         // 8. Update active plan
@@ -386,7 +390,11 @@ final class FindChurch2VisitPlannerService: ObservableObject {
             "auto_note_created": true,
             "updatedAt": Timestamp(date: Date())
         ]
-        try? await db.collection("visitPlans").document(planId).updateData(linkPatch)
+        do {
+            try await db.collection("visitPlans").document(planId).updateData(linkPatch)
+        } catch {
+            dlog("[VisitPlanner] Non-critical: failed to link note \(noteId) back to plan \(planId): \(error)")
+        }
 
         // Update local state
         if let idx = upcomingPlans.firstIndex(where: { $0.id == planId }) {

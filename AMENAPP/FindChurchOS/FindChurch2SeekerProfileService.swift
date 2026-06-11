@@ -107,9 +107,7 @@ final class FindChurch2SeekerProfileService: ObservableObject {
         // Apply functional flags embedded in comfort chips.
         updated = applyComfortFlags(to: updated, chips: comfortChips)
 
-        Task {
-            await saveProfile(updated)
-        }
+        Task { [weak self] in await self?.saveProfile(updated) }
     }
 
     // MARK: - Apply Comfort Chips (functional flags)
@@ -124,9 +122,7 @@ final class FindChurch2SeekerProfileService: ObservableObject {
         updated = applyComfortFlags(to: updated, chips: chips)
         updated.updatedAt = Date()
 
-        Task {
-            await saveProfile(updated)
-        }
+        Task { [weak self] in await self?.saveProfile(updated) }
     }
 
     // MARK: - Reset
