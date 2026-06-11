@@ -213,9 +213,10 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - Onboarding & Auth Remediation (Wave 1)
     /// Master gate for the onboarding/auth remediation (see contracts/onboarding/).
-    /// Default OFF in production until the new continuous flow, canonical GlassButton,
-    /// Keychain identity hint, and E2EE recovery handoff are validated end-to-end.
-    @Published private(set) var onboardingV2Enabled: Bool = false
+    /// SAFETY INFRASTRUCTURE — must be ON before any public launch.
+    /// The age-gate (COPPA/KOSA) runs unconditionally; this flag only gates the
+    /// new continuous-flow UI. Default changed to true (security fix H2).
+    @Published private(set) var onboardingV2Enabled: Bool = true
 
     // MARK: - System 19: Berean Pulse
     @Published private(set) var bereanPulseEnabled: Bool = true
@@ -1028,8 +1029,8 @@ final class AMENFeatureFlags: ObservableObject {
             "amen_daily_digest_selah_action_enabled": true as NSObject,
             "amen_daily_digest_ai_reflection_enabled": true as NSObject,
 
-            // Onboarding & Auth Remediation — default OFF
-            "ff_onboarding_v2": false as NSObject,
+            // Onboarding & Auth Remediation — SAFETY INFRASTRUCTURE, default ON (security fix H2)
+            "ff_onboarding_v2": true as NSObject,
 
             // Berean Pulse
             "berean_pulse_enabled": true as NSObject,

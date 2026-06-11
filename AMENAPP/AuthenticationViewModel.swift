@@ -285,13 +285,16 @@ class AuthenticationViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Age Gate (audit D-01)
+    // MARK: - Age Gate (audit D-01 / security H2)
 
     /// Sets `needsAgeGate` when the authenticated user has no stored age profile.
     /// Email/phone sign-up already collects a DOB; this catches social sign-ins and
-    /// any legacy account that never had one. No-op unless ff_onboarding_v2 is on.
+    /// any legacy account that never had one.
+    ///
+    /// IMPORTANT (security fix H2): The age gate is COPPA/KOSA safety infrastructure
+    /// and runs unconditionally regardless of any feature flag. Removing or weakening
+    /// this guard is a compliance violation.
     private func evaluateAgeGateIfNeeded(userId: String) async {
-        guard AMENFeatureFlags.shared.onboardingV2Enabled else { return }
         do {
             _ = try await AgeAssuranceService.shared.getAgeProfile(userId: userId)
             needsAgeGate = false   // profile exists → already age-assured
