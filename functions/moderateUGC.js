@@ -186,10 +186,90 @@ exports.moderateSanctuaryMessage = ugcFunctions.firestore
     const text = (message.text || message.body || message.content || "").trim();
 
     if (!text) {
+      // SECURITY (C2 fix 2026-06-11): Run vision moderation on image-only sanctuary
+      // messages so CSAM images reach the mandatory escalation pipeline.
+      const sanctuaryImageUrl = message.imageUrl || message.mediaUrl || null;
+      const sanctuaryAuthorId = message.senderId || message.authorId || null;
+      let sanctuaryImgResult = null;
+      if (sanctuaryImageUrl) {
+        try {
+          sanctuaryImgResult = await moderateImage(sanctuaryImageUrl, process.env.NVIDIA_API_KEY);
+        } catch (imgErr) {
+          console.warn(`[moderateSanctuaryMessage] moderateImage failed (${imgErr.message}) — failing closed`);
+          sanctuaryImgResult = null;
+        }
+      }
+
+      const sanctuaryImgCategories = sanctuaryImgResult ? sanctuaryImgResult.categories : [];
+      const sanctuaryImgHasCSAM = sanctuaryImgCategories.some((c) => IMAGE_CSAM_CATEGORIES_UGC.has(c));
+
+      if (sanctuaryImgHasCSAM) {
+        const db = getFirestore();
+        const holdId = `hold_sanc_${snap.id}_${Date.now()}`;
+        const holdRef = db.collection("legalHolds").doc(holdId);
+        const escRef = db.collection("childSafetyEscalations").doc();
+        const sanctuaryCsamBatch = db.batch();
+
+        sanctuaryCsamBatch.update(snap.ref, {
+          visible: false,
+          moderation: {
+            status: "blocked",
+            categories: sanctuaryImgCategories,
+            provider: "nvidia-vision-llm",
+            checkedAt: FieldValue.serverTimestamp(),
+            childSafetyEscalated: true,
+          },
+        });
+
+        sanctuaryCsamBatch.set(holdRef, {
+          contentRef: snap.ref.path,
+          authorId: sanctuaryAuthorId ?? null,
+          contentSnapshot: message,
+          categories: sanctuaryImgCategories,
+          createdAt: FieldValue.serverTimestamp(),
+          status: "active",
+        });
+
+        sanctuaryCsamBatch.set(escRef, {
+          contentRef: snap.ref.path,
+          authorId: sanctuaryAuthorId ?? null,
+          categories: sanctuaryImgCategories,
+          status: "new",
+          severity: "critical",
+          legalHold: true,
+          legalHoldRef: holdRef.path,
+          externalReport: {
+            required: true,
+            provider: "NCMEC_CYBERTIPLINE",
+            submitted: false,
+          },
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        await sanctuaryCsamBatch.commit();
+
+        await fileNCMECReport({
+          contentRef: snap.ref.path,
+          contentType: "sanctuary_image",
+          contentUrl: sanctuaryImageUrl,
+          authorId: sanctuaryAuthorId ?? null,
+          detectedCategories: sanctuaryImgCategories,
+          detectedBy: "nvidia-vision-llm",
+        }).catch((e) => console.error("[moderateSanctuaryMessage] fileNCMECReport error (CSAM):", e.message));
+
+        console.warn(
+          `[moderateSanctuaryMessage] SANCTUARY IMAGE CSAM ESCALATED — msg ${snap.id} categories: ${sanctuaryImgCategories.join(", ")}`,
+        );
+        return;
+      }
+
+      // Non-CSAM: route to human review queue as before.
       await snap.ref.update({
         visible: false,
         moderation: {
           status: "pending_image_review",
+          categories: sanctuaryImgCategories,
+          provider: sanctuaryImgResult ? "nvidia-vision-llm" : "image-review-pending",
           checkedAt: FieldValue.serverTimestamp(),
         },
       });
@@ -197,10 +277,10 @@ exports.moderateSanctuaryMessage = ugcFunctions.firestore
         contentRef: snap.ref.path,
         contentType: "sanctuary_message",
         sanctuaryId: context.params.sanctuaryId,
-        authorId: message.senderId || message.authorId || null,
+        authorId: sanctuaryAuthorId,
         preview: "[media-only message — pending visual review]",
         status: "pending",
-        categories: [],
+        categories: sanctuaryImgCategories,
         createdAt: FieldValue.serverTimestamp(),
         expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
