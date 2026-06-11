@@ -54,6 +54,8 @@ Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11
 - ☐ smoke checklist - `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` smoke checklist
 - ☐ DECISION_DOC_SAFETY answers - `DECISION_DOC_SAFETY.md` Group A
 - ☐ rules reconciliation verdict reviewed - `DECISION_DOC_SAFETY.md` A-06 and `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md`
+- ☐ SAFETY: Grant legalReviewer claim — Firebase Auth UID of designated safety officer (see `DECISION_DOC_SAFETY.md` A-04); run: `firebase auth:users:update <UID> --custom-claims '{"legalReviewer":true}' --project amen-5e359` or via Admin SDK: `admin.auth().setCustomUserClaims(uid, { legalReviewer: true })`
+- ☐ SAFETY: Enable App Check enforce-mode — Firebase Console → App Check → each CF → toggle Enforce Mode ON; order: `submitSafetyReport` → `moderation/*` → Berean OS + Selah functions; pre-condition: only after RUN_ME.sh Stage 4 STEP 3 (functions deploy) is verified working (also echoed as the final instruction in RUN_ME.sh)
 
 ## SECTION 3 - FLAG REGISTRY
 
@@ -155,3 +157,50 @@ Additional later backlog exists in `DECISION_DOC_SAFETY.md` C-03 through C-15 an
 | Stripe model | Keep all giving/payment integration flags OFF; do not implement payment flow until webhook canonical file, idempotency, business model, and legal review are complete |
 | E2EE recovery | Default to user-controlled recovery with no plaintext server recovery; document irrecoverable-loss UX before launch |
 | NCMEC registration | Treat as hard blocker for any live NCMEC submission; keep `NCMEC_SUBMISSION_ENABLED=false` until counsel completes registration |
+
+---
+
+### Agent 2 — Runtime Proof Status (2026-06-11)
+- Simulator state: **Booted** (UUID `313273F4-133A-42A8-9D12-8784FC893230`, iPhone 17 Pro 27.0)
+- App installed: **No — human must build and run via Xcode first** (app container not present on sim)
+- Test run: **BLOCKED by pre-existing build error** — duplicate `CONTRACTS.md` resource copy rule (`AMENAPP/ConnectSpaces/CONTRACTS.md` vs `AMENAPP/Shared/Contracts/CONTRACTS.md` both copy to same app bundle path). Last verified green: `5525cf6e` — 1857/1857 passing (per Section 5 scoreboard). Fix: remove one CONTRACTS.md from the Xcode target's Copy Bundle Resources phase.
+- WALKTHROUGH_SCRIPT.md: **FILED** — 15 stations, ≈45 min total, signed-in entry point, flags + paths + doctrine checks per station
+- CAPTURE_PLAN.md: **FILED** — 67 ordered screenshots across 16 groups, priority tier (Must Have / Should Have), Guideline 1.2 safety evidence groups K and L flagged MUST HAVE
+- Human's part: (1) Fix duplicate CONTRACTS.md build error → (2) Build + run via Xcode → (3) Sign in → (4) Follow WALKTHROUGH_SCRIPT.md (≈2 min per station) → (5) Capture screenshots per CAPTURE_PLAN.md
+
+### Agent 4 — Launch Config Status (2026-06-11)
+- LAUNCH_CONFIG_VNEXT.md: FILED at repo root
+- Total flags evaluated: 278
+- Recommended ON: 148 (core proven + safety-hardened; default true in code with no unmet CF/decision gate)
+- Recommended OFF: 130 (backend not deployed / GROUP A or B decision open / in-flight lane / DONE-AWAITING-CAPTURE / CF dependency unmet)
+- Key ON categories: Moderation, Berean RAG, Church Discovery v1, Selah Media OS, Daily Digest, Social Safety OS (all 25 flags), Aegis Pre-Post Review, Feed Intelligence, Church Notes, Smart Share, Profile V2, Connect Hub v1, Discussion OS
+- Key OFF categories: Spiritual OS (27 CFs not deployed), Connect V2 (CF not deployed), Find Church 2.0 (rules + CFs pending), AIL (CF not deployed, in-flight), Context System (bait-transcript not run), Community OS (Phase 1 incomplete), ONE OS (CFs not deployed), Berean OS (CFs not deployed), Amen Pulse (SDK error)
+- Human action: Read LAUNCH_CONFIG_VNEXT.md → approve flag set → publish 15 RC keys to Remote Config after RUN_ME.sh → follow 30-step ordered flag flip sequence
+- Critical reminder: NCMEC_SUBMISSION_ENABLED must remain false until A-01 (NCMEC registration) is resolved — criminal liability risk
+
+### Agent 3 — Decision Counsel Status (2026-06-11)
+- DECISION_BRIEFS/: **FILED** — 48 individual decision briefs + EXECUTIVE_SUMMARY.md + 2 legal memos (LEGAL_MEMO_NCMEC.md, LEGAL_MEMO_COPPA.md) = 51 files total
+- GROUP A (ANSWER-NOW hard blockers): **8 items** — A-01 through A-08
+- GROUP B (BEFORE-LAUNCH): **25 items** — B-01 through B-25
+- GROUP C (LATER, 90-day window): **15 items** — C-01 through C-15
+- Legal counsel required for: **A-01** (NCMEC 18 U.S.C. § 2258A), **A-03** (COPPA verifiable parental consent), **A-05** (age verification method), **A-02 if EU launch planned** (GDPR-K)
+- Critical code gap confirmed: `isGuardianApprovedContact()` is fail-open (line 566 `if !doc.exists { return true }`) — one-line fix ready pending A-03 decision
+- NCMEC pipeline status: queue-only (no live HTTP call); `TODO_ESP_ID` / `TODO_ESP_API_KEY` are literal placeholders; `NCMEC_SUBMISSION_ENABLED=false` — **do not enable** until attorney completes registration
+- Human action: Read `DECISION_BRIEFS/EXECUTIVE_SUMMARY.md` → answer GROUP A items → engage attorney for A-01 and A-03 → sign DECISION_DOC_SAFETY.md sign-off table
+
+### Agent 5 — Submission Mechanic Status (2026-06-11)
+- APP_PRIVACY_LABELS.md: **FILED** — full privacy nutrition label derived from code analysis (PrivacyInfo.xcprivacy + all 15 NS*UsageDescription keys + ATT + HealthKit + CoreMotion + StoreKit + all UGC types); tracking confirmed via NSPrivacyTracking=true; all App Store Connect answers tabulated row-by-row; third-party SDK list included
+- AGE_RATING_WORKSHEET.md: **FILED** — all 13 Apple questionnaire questions answered; recommended rating **12+** (Social Networking + UGC); UGC mitigation evidence mapped to source files; minor safety age-tier table documented; operational SLA gap flagged as HUMAN action
+- REVIEW_READINESS.md: **FILED** — Guideline 1.2 UGC compliance evidence (report/block/moderate/SLA), Guideline 4.8 Sign in with Apple confirmed present, Guideline 5.1 ATT confirmed, demo account instructions, complete review notes draft (paste-ready), full pre-submission blocking checklist
+- RELEASE_NOTES.md: **FILED** — "What's New" (v1.0 full text), short description (136 chars), full description (~2400 chars), keywords (93 chars), subtitle (30 chars), promotional text; all within App Store Connect character limits; metadata field-by-field checklist included
+- ARCHIVE_AND_TESTFLIGHT.md: **FILED** — 9-step archive/upload/TestFlight guide; entitlements verification; export compliance answers; 19-station TestFlight acceptance checklist; all pre-submission gates listed with cross-references
+- Human actions remaining:
+  - Create demo account `review@amen-appstore-demo.com` with 3+ posts, 2+ prayer requests, 1 church note (REVIEW_READINESS.md)
+  - Answer privacy labels in App Store Connect using APP_PRIVACY_LABELS.md
+  - Answer age rating questionnaire in App Store Connect using AGE_RATING_WORKSHEET.md
+  - Enter release metadata (description, keywords, screenshots) using RELEASE_NOTES.md
+  - Set Privacy Policy URL and Support URL in App Store Connect
+  - Verify account deletion works end-to-end on device
+  - Document moderation SLA and publish moderation contact email
+  - Archive and upload per ARCHIVE_AND_TESTFLIGHT.md (after all 10 backend deploy steps complete)
+  - Complete TestFlight 19-station checklist on a real device before submitting
