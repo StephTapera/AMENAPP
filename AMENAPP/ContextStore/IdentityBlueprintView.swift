@@ -111,7 +111,7 @@ struct BlueprintCategoryGroup: View {
             HStack(spacing: 8) {
                 Text(displayName(category))
                     .font(.headline)
-                TierBadge(tier: ContextTierTable.tier(for: category))
+                IdentityTierBadge(tier: ContextTierTable.tier(for: category))
                 Spacer()
             }
 
@@ -243,7 +243,7 @@ struct VisibilityBadge: View {
     }
 }
 
-struct TierBadge: View {
+struct IdentityTierBadge: View {
     let tier: EncryptionTier
 
     var body: some View {

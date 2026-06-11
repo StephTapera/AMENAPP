@@ -202,7 +202,7 @@ private struct FlowChips: View {
     let onToggle: (String) -> Void
 
     var body: some View {
-        FlowLayout(spacing: 8, lineSpacing: 8) {
+        PulseFlowLayout(spacing: 8, lineSpacing: 8) {
             ForEach(items, id: \.self) { item in
                 let selected = isSelected(item)
                 Button {
@@ -229,7 +229,7 @@ private struct FlowChips: View {
 
 // MARK: - Simple wrapping layout
 
-private struct FlowLayout: Layout {
+private struct PulseFlowLayout: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 8
 
