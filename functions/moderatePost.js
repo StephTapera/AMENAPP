@@ -17,6 +17,15 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // Shared decision persistence + crisis escalation
 function getGateway() { return require("./moderationGateway"); }
 
+// Image CSAM pipeline — used for image-only posts and human review of image posts.
+// SECURITY (C2 fix): Both paths must call escalateChildSafety + fileNCMECReport
+// when the vision model returns cs_csam_suspected or cs_child_exploitation.
+const { moderateImage } = require("./moderation/imageModeration");
+const { fileNCMECReport } = require("./ncmecReporter");
+
+// Vision categories that require mandatory CSAM escalation regardless of path.
+const IMAGE_CSAM_CATEGORIES = new Set(["cs_csam_suspected", "cs_child_exploitation"]);
+
 // Self-harm phrase fast pre-check (mirrors moderationGateway.js)
 const SELF_HARM_PHRASES = [
   "kill myself", "killing myself", "end my life", "end it all",
@@ -268,17 +277,74 @@ exports.moderatePost = onDocumentCreated(
     const hasImage = Boolean(post.imageUrl || post.mediaUrl);
 
     // ── IMAGE-ONLY POSTS ────────────────────────────────────────────────────
-    // Never silently pass. Route to pending_image_review with imageReviewRequired.
+    // SECURITY (C2 fix 2026-06-11): Run vision moderation inline so CSAM images
+    // are escalated immediately — never held in the human review queue without a
+    // legalHold + childSafetyEscalations record + NCMEC queue entry.
+    //
+    // Flow:
+    //   1. Run moderateImage on the image URL.
+    //   2. If CSAM categories detected → escalateChildSafety + fileNCMECReport, return.
+    //   3. If non-CSAM blocked → route to pending_image_review queue as before.
+    //   4. Vision model unavailable → fail closed to pending_image_review.
     if (!text) {
+      const imageUrl = post.imageUrl || post.mediaUrl || null;
+
+      let imgResult = null;
+      if (imageUrl) {
+        try {
+          imgResult = await moderateImage(imageUrl, NVIDIA_API_KEY.value());
+        } catch (imgErr) {
+          // Fail closed — vision model unavailable.
+          console.warn(`[moderatePost] moderateImage failed (${imgErr.message}) — failing closed to review queue`);
+          imgResult = null;
+        }
+      }
+
+      const imgCategories = imgResult ? imgResult.categories : [];
+      const imgHasCSAM = imgCategories.some((c) => IMAGE_CSAM_CATEGORIES.has(c));
+
+      if (imgHasCSAM) {
+        // CSAM confirmed by vision model — mandatory escalation before any queue entry.
+        await escalateChildSafety(db, { snap, post, categories: imgCategories, authorId });
+
+        // File tamper-evident NCMEC record.
+        await fileNCMECReport({
+          contentRef: snap.ref.path,
+          contentType: "image",
+          contentUrl: imageUrl,
+          authorId: authorId ?? null,
+          detectedCategories: imgCategories,
+          detectedBy: "nvidia-vision-llm",
+        }).catch((e) => console.error("[moderatePost] fileNCMECReport error (image-only CSAM):", e.message));
+
+        // Audit log.
+        await writeAuditLog(db, {
+          postRef: snap.ref,
+          status: "blocked",
+          categories: imgCategories,
+          provider: "nvidia-vision-llm",
+          model: null,
+        }).catch((e) => console.error("[moderatePost] auditLog error (image-only CSAM):", e.message));
+
+        console.warn(
+          `[moderatePost] IMAGE-ONLY CSAM ESCALATED — post ${snap.ref.id} categories: ${imgCategories.join(", ")}`,
+        );
+        return;
+      }
+
+      // Non-CSAM image result: route to human review queue (original behaviour).
+      const imgStatus = imgResult ? imgResult.status : "pending_image_review";
+      const queueCategories = imgCategories.length > 0 ? imgCategories : [];
+
       const batch = db.batch();
       batch.update(snap.ref, {
         visible: false,
         flaggedForReview: true,
         removed: false,
         moderation: {
-          status: "pending_image_review",
-          categories: [],
-          provider: "image-review-pending",
+          status: imgStatus,
+          categories: queueCategories,
+          provider: imgResult ? "nvidia-vision-llm" : "image-review-pending",
           imageReviewRequired: true,
           checkedAt: FieldValue.serverTimestamp(),
         },
@@ -288,8 +354,8 @@ exports.moderatePost = onDocumentCreated(
         postRef: snap.ref.path,
         authorId: authorId ?? null,
         preview: "[image-only post — pending visual review]",
-        status: "pending_image_review",
-        categories: [],
+        status: imgStatus,
+        categories: queueCategories,
         reason: "image_only_pending_visual_review",
         imageReviewRequired: true,
         hasImage,
@@ -301,9 +367,9 @@ exports.moderatePost = onDocumentCreated(
       // Audit log for image-only path.
       await writeAuditLog(db, {
         postRef: snap.ref,
-        status: "pending_image_review",
-        categories: [],
-        provider: "image-review-pending",
+        status: imgStatus,
+        categories: queueCategories,
+        provider: imgResult ? "nvidia-vision-llm" : "image-review-pending",
         model: null,
       });
       return;
