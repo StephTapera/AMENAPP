@@ -173,7 +173,10 @@ final class HealthyModeService: ObservableObject {
     private func detectMinorStatus() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let profile = await MinorSafetyService.shared.fetchProfile(userId: uid)
-        isMinor = profile?.isMinorOrUnknown ?? false
+        // SECURITY FIX (LOW 2026-06-11): Fail closed — default to minor-safe (true) when
+        // fetchProfile returns nil (network error, partial document). Minors on flaky
+        // connections still receive protective defaults (no autoplay, no infinite scroll).
+        isMinor = profile?.isMinorOrUnknown ?? true
         if isMinor {
             // Minors always get Healthy Mode defaults regardless of toggle
             enforceMinorDefaults()

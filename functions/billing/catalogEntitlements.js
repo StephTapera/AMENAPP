@@ -24,9 +24,25 @@
 
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
-const {defineSecret} = require("firebase-functions/params");
+const {defineSecret, defineString} = require("firebase-functions/params");
 
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
+
+// SECURITY FIX (HIGH 2026-06-11): Declare Stripe Price IDs and checkout redirect URLs
+// with defineString() so they are required at deploy time (fail-fast) instead of
+// silently undefined at runtime. STRIPE_SECRET_KEY already uses defineSecret() correctly.
+const STRIPE_PRICE_CREATOR_PRO = defineString("STRIPE_PRICE_CREATOR_PRO", {
+  description: "Stripe Price ID for creator_pro plan ($19/mo)",
+});
+const STRIPE_PRICE_CREATOR_STUDIO = defineString("STRIPE_PRICE_CREATOR_STUDIO", {
+  description: "Stripe Price ID for creator_studio plan ($49/mo)",
+});
+const STRIPE_CHECKOUT_SUCCESS_URL = defineString("STRIPE_CHECKOUT_SUCCESS_URL", {
+  description: "Stripe Checkout success redirect URL",
+});
+const STRIPE_CHECKOUT_CANCEL_URL = defineString("STRIPE_CHECKOUT_CANCEL_URL", {
+  description: "Stripe Checkout cancel redirect URL",
+});
 
 const db = () => admin.firestore();
 
@@ -305,11 +321,11 @@ const createCatalogCheckoutSession = onCall(
         );
       }
 
-      // Resolve Stripe Price ID from environment (never hardcode)
+      // Resolve Stripe Price ID from defineString() params (fail-fast at deploy time)
       const priceId =
         plan === "creator_pro"
-          ? process.env.STRIPE_PRICE_CREATOR_PRO
-          : process.env.STRIPE_PRICE_CREATOR_STUDIO;
+          ? STRIPE_PRICE_CREATOR_PRO.value()
+          : STRIPE_PRICE_CREATOR_STUDIO.value();
 
       if (!priceId) {
         throw new HttpsError(
@@ -318,8 +334,8 @@ const createCatalogCheckoutSession = onCall(
         );
       }
 
-      const successUrl = process.env.STRIPE_CHECKOUT_SUCCESS_URL;
-      const cancelUrl = process.env.STRIPE_CHECKOUT_CANCEL_URL;
+      const successUrl = STRIPE_CHECKOUT_SUCCESS_URL.value();
+      const cancelUrl = STRIPE_CHECKOUT_CANCEL_URL.value();
 
       if (!successUrl || !cancelUrl) {
         throw new HttpsError("failed-precondition", "Checkout redirect URLs not configured");

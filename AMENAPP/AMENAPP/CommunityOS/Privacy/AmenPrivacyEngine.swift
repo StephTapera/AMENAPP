@@ -309,9 +309,12 @@ final class AmenPrivacyEngine: ObservableObject {
             return await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
         }
 
-        // [MINOR] If sender is a minor, they can only DM mutual follows (CF gate enforces).
+        // [MINOR] SECURITY FIX (HIGH 2026-06-11): If sender is a minor, apply the same
+        // mutual-follow + fail-closed treatment as the recipIsMinor branch above. The
+        // previous unconditional `return true` relied solely on the CF gate with no
+        // iOS-layer defense-in-depth. AmenChildSafetyService.canDM() fails closed on error.
         if senderIsMinor {
-            return true // CF gate enforces C-MINOR-DM
+            return await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
         }
 
         // Standard adult-to-adult DM policy check

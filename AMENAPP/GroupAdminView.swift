@@ -546,7 +546,10 @@ struct GroupInfoView: View {
             guard let data = try await item.loadTransferable(type: Data.self) else { return }
             
             let storage = Storage.storage()
-            let ref = storage.reference().child("group_photos/\(conversation.id).jpg")
+            // SECURITY FIX (HIGH 2026-06-11): Use two-segment path so the storage rule at
+            // group_photos/{conversationId}/{filename} matches. The flat path
+            // "group_photos/<id>.jpg" previously fell to the catch-all deny.
+            let ref = storage.reference().child("group_photos/\(conversation.id)/photo.jpg")
             
             let metadata = StorageMetadata()
             metadata.contentType = "image/jpeg"

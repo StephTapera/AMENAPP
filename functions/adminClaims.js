@@ -48,6 +48,10 @@ exports.grantAdminRole = regionalFunctions.https.onCall(async (data, context) =>
     grantedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
+  // SECURITY FIX (HIGH 2026-06-11): Revoke refresh tokens so the new admin claim
+  // takes effect immediately rather than waiting up to 60 min for token expiry.
+  await admin.auth().revokeRefreshTokens(targetUid);
+
   console.log(`[adminClaims] Granted admin to ${targetUid} by ${context.auth.uid}`);
   return { success: true };
 });
@@ -89,6 +93,10 @@ exports.revokeAdminRole = regionalFunctions.https.onCall(async (data, context) =
     revokedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
+  // SECURITY FIX (HIGH 2026-06-11): Revoke refresh tokens CRITICAL for revoke path —
+  // a just-revoked admin retains privilege for up to 60 minutes without this.
+  await admin.auth().revokeRefreshTokens(targetUid);
+
   console.log(`[adminClaims] Revoked admin from ${targetUid} by ${context.auth.uid}`);
   return { success: true };
 });
@@ -100,7 +108,18 @@ exports.bootstrapFirstAdmin = regionalFunctions.https.onCall(async (data, contex
   const callerUid = context.auth?.uid;
   if (!callerUid) throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
 
-  const adminUids = (process.env.ADMIN_UIDS || '').split(',').map(s => s.trim()).filter(Boolean);
+  // SECURITY FIX (MEDIUM 2026-06-11): Fail closed if ADMIN_UIDS is unset or empty —
+  // an empty list previously silently rejected everyone with a generic permission-denied
+  // making misconfiguration hard to diagnose. Now we throw a distinct error to surface
+  // the configuration gap immediately.
+  const adminUidsRaw = process.env.ADMIN_UIDS;
+  if (!adminUidsRaw || !adminUidsRaw.trim()) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'ADMIN_UIDS environment variable is not configured. Set it in Firebase Function config before bootstrapping.'
+    );
+  }
+  const adminUids = adminUidsRaw.split(',').map(s => s.trim()).filter(Boolean);
   if (!adminUids.includes(callerUid)) {
     throw new functions.https.HttpsError('permission-denied', 'Not in ADMIN_UIDS bootstrap list');
   }
@@ -139,7 +158,12 @@ exports.onUserAdminFlagChanged = regionalFunctions.firestore
     const isAdmin = after?.isAdmin === true;
 
     try {
-      await admin.auth().setCustomUserClaims(userId, { admin: isAdmin });
+      // SECURITY FIX (HIGH 2026-06-11): Read existing claims before overwriting so
+      // a direct Firestore write to users/{uid}.isAdmin (e.g. migration script) does
+      // not silently wipe the user's ageTier, orgAdmin, and moderator claims.
+      const existingUserRecord = await admin.auth().getUser(userId);
+      const existingClaims = existingUserRecord.customClaims || {};
+      await admin.auth().setCustomUserClaims(userId, { ...existingClaims, admin: isAdmin });
       console.log(`[adminClaims] Synced Custom Claim admin=${isAdmin} for ${userId}`);
     } catch (err) {
       console.error(`[adminClaims] Failed to sync claim for ${userId}:`, err);

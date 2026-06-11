@@ -3738,13 +3738,17 @@ struct CreatePostView: View {
                 }
                 return
             }
+            // SECURITY FIX (HIGH 2026-06-11): Resolve actual minor status instead of
+            // hardcoding false. Default to true (minor-safe) on error, matching
+            // AmenComposerViewModel.swift line 177 pattern.
+            let aegisIsMinorAuthor = (try? await AmenChildSafetyService.shared.checkIsMinor(userId: aegisAuthorId)) ?? true
             let aegisRequest = ContentCheckRequest(
                 text: aegisSanitizedContent,
                 mediaUrls: [],
                 authorId: aegisAuthorId,
                 objectType: "post",
                 contextRef: nil,
-                isMinorAuthor: false
+                isMinorAuthor: aegisIsMinorAuthor
             )
             let decision: PrePostDecision
             do {

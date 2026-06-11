@@ -184,11 +184,17 @@ struct AmenVerifiedHostBadgeView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .frame(height: 28)
+            // DESIGN FIX (MEDIUM 2026-06-11): Use amenGlassEffect() guard pattern for
+            // consistent safety surface appearance across OS versions.
             .background {
-                Capsule().fill(.ultraThinMaterial)
-                    .overlay {
-                        Capsule().strokeBorder(tint.opacity(0.4), lineWidth: 1)
-                    }
+                if #available(iOS 26, *) {
+                    Capsule().amenGlassEffect()
+                } else {
+                    Capsule().fill(.ultraThinMaterial)
+                        .overlay {
+                            Capsule().strokeBorder(tint.opacity(0.4), lineWidth: 1)
+                        }
+                }
             }
         }
         .buttonStyle(.plain)

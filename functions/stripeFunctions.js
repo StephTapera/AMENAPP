@@ -14,11 +14,19 @@
  */
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
-const {defineSecret} = require("firebase-functions/params");
+const {defineSecret, defineString} = require("firebase-functions/params");
 
-// ─── Secret ───────────────────────────────────────────────────────────────────
+// ─── Secrets and params ───────────────────────────────────────────────────────
 // Provision once: firebase functions:secrets:set STRIPE_SECRET_KEY --project amen-5e359
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
+
+// SECURITY FIX (HIGH 2026-06-11): Use defineString() for redirect base URL so
+// staging deployments cannot silently point at the production Stripe redirect URL.
+// Set via: firebase functions:config:set stripe.return_base_url="https://amenapp.com"
+const STRIPE_RETURN_BASE_URL = defineString("STRIPE_RETURN_BASE_URL", {
+  default: "https://amenapp.com",
+  description: "Base URL for Stripe Connect redirect URLs. Override in staging.",
+});
 
 const db = () => admin.firestore();
 
@@ -56,8 +64,8 @@ const stripeCreateConnectedAccount = onCall(
         // Generate new onboarding link for existing account
         const accountLink = await stripe.accountLinks.create({
           account: existingAccountId,
-          refresh_url: `https://amenapp.com/studio/stripe-refresh?uid=${uid}`,
-          return_url: `https://amenapp.com/studio/stripe-complete?uid=${uid}`,
+          refresh_url: `${STRIPE_RETURN_BASE_URL.value()}/studio/stripe-refresh?uid=${uid}`,
+          return_url: `${STRIPE_RETURN_BASE_URL.value()}/studio/stripe-complete?uid=${uid}`,
           type: "account_onboarding",
         });
         return {onboardingUrl: accountLink.url, accountId: existingAccountId};

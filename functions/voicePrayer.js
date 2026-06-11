@@ -280,9 +280,12 @@ exports.finalizeVoicePrayerComment = onCall(
             safetyPrompt,
         );
       } catch (err) {
-        // Moderation service error — fail open with a warning, still activate.
-        console.error("[voicePrayer] NeMo Guard error:", err.message);
-        moderationResult = {safe: true, raw: "error_fallback"};
+        // SECURITY FIX (CRITICAL 2026-06-11): Fail CLOSED on NeMo error.
+        // Any NeMo network or API error must not activate the voice prayer.
+        // Route to 'pending' status awaiting human review, consistent with
+        // all other moderation triggers (moderatePost.js, moderateUGC.js).
+        console.error("[voicePrayer] NeMo Guard error — failing closed:", err.message);
+        moderationResult = {safe: false, raw: "error_fallback"};
       }
 
       const {safe, raw: nemoRaw} = moderationResult;

@@ -193,8 +193,10 @@ struct SafetyWarningBanner: View {
                 
                 Spacer()
                 
+                // ACCESSIBILITY FIX (MEDIUM 2026-06-11): Use Motion.adaptive() so the
+                // safety notification banner dismiss respects @accessibilityReduceMotion.
                 Button {
-                    withAnimation {
+                    withAnimation(Motion.adaptive(.easeOut(duration: 0.15))) {
                         isVisible = false
                     }
                 } label: {

@@ -429,19 +429,21 @@ struct BereanConflictRewriteBar: View {
 
                 // Action buttons
                 HStack(spacing: 8) {
+                    // ACCESSIBILITY FIX (MEDIUM 2026-06-11): Use Motion.adaptive() on all
+                    // three dismiss actions so reduce-motion is respected on this safety surface.
                     ConflictRewriteActionButton(title: "Use this instead", icon: "checkmark.circle.fill") {
                         onUseRewrite(rewrittenText)
-                        withAnimation { isVisible = false }
+                        withAnimation(Motion.adaptive(.easeOut(duration: 0.2))) { isVisible = false }
                     }
 
                     ConflictRewriteActionButton(title: "Send as is", icon: "arrow.right.circle") {
                         onSendAsIs()
-                        withAnimation { isVisible = false }
+                        withAnimation(Motion.adaptive(.easeOut(duration: 0.2))) { isVisible = false }
                     }
 
                     ConflictRewriteActionButton(title: "Edit", icon: "pencil.circle") {
                         onEdit(rewrittenText)
-                        withAnimation { isVisible = false }
+                        withAnimation(Motion.adaptive(.easeOut(duration: 0.2))) { isVisible = false }
                     }
                 }
             }

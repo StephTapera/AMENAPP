@@ -513,13 +513,30 @@ class CommentService: ObservableObject {
                     return .moderation(result)
                 }
                 group.addTask {
-                    let result = try? await CommentSafetySystem.shared.checkCommentSafety(
-                        content: capturedContent,
-                        postId: capturedPostId,
-                        postAuthorId: capturedPostAuthorId,
-                        commenterId: capturedUserId
-                    )
-                    return .safety(result)
+                    // SECURITY FIX (MEDIUM 2026-06-11): Use do/catch instead of try? so
+                    // a network failure or CF error does not silently bypass the safety check.
+                    // On error return a blocking safety result to fail closed.
+                    do {
+                        let result = try await CommentSafetySystem.shared.checkCommentSafety(
+                            content: capturedContent,
+                            postId: capturedPostId,
+                            postAuthorId: capturedPostAuthorId,
+                            commenterId: capturedUserId
+                        )
+                        return .safety(result)
+                    } catch {
+                        dlog("[CommentService] Safety check failed — failing closed: \(error)")
+                        let blockedResult = CommentSafetySystem.SafetyCheckResult(
+                            action: .blockAndReview,
+                            violations: [],
+                            confidence: 1.0,
+                            userMessage: nil,
+                            suggestedRevisions: nil,
+                            cooldownSeconds: nil,
+                            requiresRevision: false
+                        )
+                        return .safety(blockedResult)
+                    }
                 }
                 group.addTask {
                     let result = await AIContentDetectionService.shared.detectAIContent(capturedContent)

@@ -1098,6 +1098,7 @@ struct JobReportSheet: View {
     @State private var description = ""
     @State private var isSubmitting = false
     @State private var didSubmit = false
+    @State private var reportErrorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -1151,14 +1152,20 @@ struct JobReportSheet: View {
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Submit") {
+                            // SECURITY FIX (HIGH 2026-06-11): Use explicit do-catch so the
+                            // reporter learns of failure. Set didSubmit only on success.
                             Task {
                                 isSubmitting = true
-                                try? await service.reportJob(
-                                    jobId: targetId,
-                                    reason: selectedReason,
-                                    description: description.isEmpty ? nil : description
-                                )
-                                didSubmit = true
+                                do {
+                                    try await service.reportJob(
+                                        jobId: targetId,
+                                        reason: selectedReason,
+                                        description: description.isEmpty ? nil : description
+                                    )
+                                    didSubmit = true
+                                } catch {
+                                    reportErrorMessage = error.localizedDescription
+                                }
                                 isSubmitting = false
                             }
                         }
@@ -1169,6 +1176,11 @@ struct JobReportSheet: View {
             }
         }
         .presentationDetents([.large])
+        .alert("Report Failed", isPresented: Binding(get: { reportErrorMessage != nil }, set: { if !$0 { reportErrorMessage = nil } })) {
+            Button("OK", role: .cancel) { reportErrorMessage = nil }
+        } message: {
+            Text(reportErrorMessage ?? "An error occurred. Please try again.")
+        }
     }
 }
 

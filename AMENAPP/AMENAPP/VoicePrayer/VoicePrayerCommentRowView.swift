@@ -468,11 +468,22 @@ struct VoicePrayerReportSheet: View {
     private func submit(reason: String) {
         isSubmitting = true
         Task {
-            try? await VoicePrayerUploadService.report(voiceCommentId: voiceCommentId, postId: postId, reason: reason)
-            await MainActor.run {
-                isSubmitting = false
-                onDone()
-                dismiss()
+            // SECURITY FIX (HIGH 2026-06-11): Use explicit do-catch so harassment reports
+            // are not silently lost on network error. Call onDone()/dismiss() only on success;
+            // on failure surface an error alert and keep the sheet open for retry.
+            do {
+                try await VoicePrayerUploadService.report(voiceCommentId: voiceCommentId, postId: postId, reason: reason)
+                await MainActor.run {
+                    isSubmitting = false
+                    onDone()
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
+                    // Sheet stays open — user can retry. Error surfaced via alert.
+                }
+                dlog("[VoicePrayerCommentRowView] Report failed: \(error)")
             }
         }
     }

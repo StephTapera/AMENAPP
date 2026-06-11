@@ -69,8 +69,9 @@ function wrapAffiliateLink({platform, originalUrl, isbn}) {
   if (platform === "amazon") {
     const tag = process.env.AMAZON_AFFILIATE_TAG;
     if (!tag) {
-      // Missing config — return original URL, still open
-      console.warn("affiliateLinkWrapper: AMAZON_AFFILIATE_TAG not set; returning original URL");
+      // OBSERVABILITY FIX (LOW 2026-06-11): Escalate to console.error so misconfiguration
+      // is visible in Firebase Monitoring rather than silently losing affiliate revenue.
+      console.error("affiliateLinkWrapper: AMAZON_AFFILIATE_TAG not set; affiliate revenue lost. Set the env var in Firebase Function config.");
       return {affiliateUrl: originalUrl, platform, open: true};
     }
     // Preserve existing query params; set/override the tag param
@@ -82,7 +83,8 @@ function wrapAffiliateLink({platform, originalUrl, isbn}) {
   if (platform === "bookshop") {
     const code = process.env.BOOKSHOP_AFFILIATE_CODE;
     if (!code) {
-      console.warn("affiliateLinkWrapper: BOOKSHOP_AFFILIATE_CODE not set; returning original URL");
+      // OBSERVABILITY FIX (LOW 2026-06-11): Escalate to console.error for monitoring.
+      console.error("affiliateLinkWrapper: BOOKSHOP_AFFILIATE_CODE not set; affiliate revenue lost. Set the env var in Firebase Function config.");
       return {affiliateUrl: originalUrl, platform, open: true};
     }
     // Bookshop affiliate URL pattern: https://bookshop.org/a/{CODE}/{isbn-or-path}

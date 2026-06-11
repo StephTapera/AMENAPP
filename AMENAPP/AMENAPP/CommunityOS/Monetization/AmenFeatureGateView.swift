@@ -28,6 +28,7 @@ struct AmenFeatureGateView<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     @StateObject private var service = AmenEntitlementService()
+    @State private var loadFailed = false
 
     var body: some View {
         Group {
@@ -42,7 +43,38 @@ struct AmenFeatureGateView<Content: View>: View {
             }
         }
         .task {
-            try? await service.loadEntitlement(for: holderId)
+            // SECURITY FIX (LOW 2026-06-11): Use explicit do-catch so a failed entitlement
+            // load surfaces an error state instead of silently blocking paying users.
+            do {
+                try await service.loadEntitlement(for: holderId)
+                loadFailed = false
+            } catch {
+                loadFailed = true
+                dlog("[AmenFeatureGateView] Entitlement load failed: \(error)")
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if loadFailed {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Text("Could not load entitlement — tap to retry")
+                        .font(.caption)
+                    Spacer()
+                }
+                .padding(12)
+                .background(.regularMaterial)
+                .onTapGesture {
+                    loadFailed = false
+                    Task {
+                        do {
+                            try await service.loadEntitlement(for: holderId)
+                        } catch {
+                            loadFailed = true
+                        }
+                    }
+                }
+            }
         }
     }
 }

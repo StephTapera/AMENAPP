@@ -447,7 +447,9 @@ exports.exportEngagementData = onCall(
       // Upload to Cloud Storage (for Vertex AI)
       const {Storage} = require("@google-cloud/storage");
       const storage = new Storage();
-      const bucket = storage.bucket(`${process.env.GOOGLE_CLOUD_PROJECT}.appspot.com`);
+      // SECURITY FIX (MEDIUM 2026-06-11): Add fallback for GOOGLE_CLOUD_PROJECT so
+      // the bucket name does not become "undefined.appspot.com" in the emulator.
+      const bucket = storage.bucket(`${process.env.GOOGLE_CLOUD_PROJECT || 'amen-5e359'}.appspot.com`);
       const fileName = `training-data/engagement_${Date.now()}.jsonl`;
       const file = bucket.file(fileName);
 

@@ -287,7 +287,11 @@ final class AmenModerationService: ObservableObject {
             if pathComponents.count == 2 {
                 let collection = pathComponents[0]
                 let documentId = pathComponents[1]
-                try? await db.collection(collection).document(documentId).updateData([
+                // SECURITY FIX (HIGH 2026-06-11): Use `try` instead of `try?` so that a
+                // failed restore write propagates an error to the caller. The outer
+                // `applyModeration` function already throws — the moderator will see a real
+                // failure signal and know the restore did not take effect.
+                try await db.collection(collection).document(documentId).updateData([
                     "isDeleted": false,
                     "restoredAt": FieldValue.serverTimestamp(),
                     "restoredBy": moderatorId

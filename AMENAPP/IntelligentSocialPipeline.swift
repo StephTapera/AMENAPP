@@ -60,6 +60,12 @@ final class IntelligentSocialPipeline {
             Calendar.current.dateComponents([.day], from: creationDate, to: Date()).day ?? 0
         )
 
+        // SECURITY FIX (MEDIUM 2026-06-11): Resolve actual minor status from
+        // AgeAssuranceService (synchronous, already loaded) instead of hardcoding false.
+        // Default to true (minor-safe) so that users on first load or with a stale token
+        // receive protective defaults until the age tier is confirmed.
+        let currentIsMinor = AgeAssuranceService.shared.currentUserTier.isMinor
+
         let category = post.category.rawValue
         return UserContextWindow(
             userId: userId,
@@ -68,7 +74,7 @@ final class IntelligentSocialPipeline {
             recentPostCategories: [category],
             recentActionTypes: ["post_created"],
             accountAgeDays: accountAgeDays,
-            isMinor: false,
+            isMinor: currentIsMinor,
             trustTier: "standard",
             activeActionThreadCount: post.hasActiveActionThread ? 1 : 0,
             timestamp: Date()

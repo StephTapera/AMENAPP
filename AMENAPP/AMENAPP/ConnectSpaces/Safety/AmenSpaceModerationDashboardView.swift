@@ -115,8 +115,20 @@ private struct AmenModerationActionSheet: View {
                     ProgressView("Submitting…")
                         .tint(Color(hex: "6E4BB5"))
                         .padding(24)
-                        .background(.ultraThinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        // DESIGN FIX (MEDIUM 2026-06-11): Use amenGlassEffect() guard pattern.
+                        .background {
+                            if #available(iOS 26, *) {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .amenGlassEffect()
+                            } else {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                                    }
+                            }
+                        }
                 }
             }
         }
@@ -440,12 +452,18 @@ private struct MembersTabView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
             .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                    }
+                // DESIGN FIX (MEDIUM 2026-06-11): Use amenGlassEffect() guard pattern.
+                if #available(iOS 26, *) {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .amenGlassEffect()
+                } else {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -724,7 +742,14 @@ struct AmenSpaceModerationDashboardView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
+        // DESIGN FIX (MEDIUM 2026-06-11): Use amenGlassEffect() guard pattern.
+        .background {
+            if #available(iOS 26, *) {
+                Color.clear.amenGlassEffect()
+            } else {
+                Color(.ultraThinMaterial)
+            }
+        }
     }
 }
 

@@ -319,7 +319,14 @@ exports.moderatePrayerRequest = ugcFunctions.firestore
       status = "pending"; // Keep visible to author; hold for crisis team review
     }
 
-    await snap.ref.update({
+    // SECURITY FIX (MEDIUM 2026-06-11): Use a Firestore batch so that the
+    // moderation-status update and moderationQueue write are atomic. A function
+    // crash between the two sequential awaits previously left a blocked/pending
+    // prayer visible in Firestore but absent from the admin review queue.
+    const db = getFirestore();
+    const batch = db.batch();
+
+    batch.update(snap.ref, {
       visible: status === "approved" || selfHarm, // self-harm prayers stay visible to author
       removed: status === "blocked" && !selfHarm,
       moderation: {
@@ -331,19 +338,9 @@ exports.moderatePrayerRequest = ugcFunctions.firestore
       },
     });
 
-    // Persist to moderationDecisions/ and (if self-harm) crisisEscalations/
-    await persistUGCDecision(
-      authorId,
-      "prayer_request",
-      snap.ref.path,
-      status,
-      categories,
-      selfHarm,
-      text
-    );
-
     if (status !== "approved") {
-      await getFirestore().collection("moderationQueue").add({
+      const queueRef = db.collection("moderationQueue").doc();
+      batch.set(queueRef, {
         contentRef: snap.ref.path,
         contentType: "prayer_request",
         authorId,
@@ -356,6 +353,20 @@ exports.moderatePrayerRequest = ugcFunctions.firestore
         expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
     }
+
+    await batch.commit();
+
+    // Persist to moderationDecisions/ and (if self-harm) crisisEscalations/ — outside
+    // the batch because persistUGCDecision handles its own writes and error handling.
+    await persistUGCDecision(
+      authorId,
+      "prayer_request",
+      snap.ref.path,
+      status,
+      categories,
+      selfHarm,
+      text
+    );
   });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -399,7 +410,13 @@ exports.moderateDMMessage = ugcFunctions.firestore
       status = "approved"; // Message is delivered; crisis resources shown by client
     }
 
-    await snap.ref.update({
+    // SECURITY FIX (MEDIUM 2026-06-11): Use a Firestore batch so that the
+    // moderation-status update and moderationQueue write are atomic, matching
+    // the pattern in moderateSanctuaryMessage.
+    const dmDb = getFirestore();
+    const dmBatch = dmDb.batch();
+
+    dmBatch.update(snap.ref, {
       visible: status === "approved",
       moderation: {
         status,
@@ -410,19 +427,9 @@ exports.moderateDMMessage = ugcFunctions.firestore
       },
     });
 
-    // Persist to moderationDecisions/ and (if self-harm) crisisEscalations/
-    await persistUGCDecision(
-      authorId,
-      "dm_message",
-      snap.ref.path,
-      status,
-      categories,
-      selfHarm,
-      text
-    );
-
     if (status !== "approved") {
-      await getFirestore().collection("moderationQueue").add({
+      const dmQueueRef = dmDb.collection("moderationQueue").doc();
+      dmBatch.set(dmQueueRef, {
         contentRef: snap.ref.path,
         contentType: "dm_message",
         conversationId: context.params.conversationId,
@@ -434,4 +441,18 @@ exports.moderateDMMessage = ugcFunctions.firestore
         expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
     }
+
+    await dmBatch.commit();
+
+    // Persist to moderationDecisions/ and (if self-harm) crisisEscalations/ — outside
+    // the batch because persistUGCDecision handles its own writes and error handling.
+    await persistUGCDecision(
+      authorId,
+      "dm_message",
+      snap.ref.path,
+      status,
+      categories,
+      selfHarm,
+      text
+    );
   });

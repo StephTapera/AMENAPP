@@ -67,10 +67,12 @@ exports.verifyHost = onCall({ enforceAppCheck: true }, async (request) => { // r
     throw new HttpsError("invalid-argument", "verificationStatus must be verified, rejected, or pending.");
   }
 
-  // Only an admin-flagged user can call verify (production: check admin custom claim)
-  // For now we do a Firestore-level admin check
-  const adminSnap = await db.collection("admins").doc(userId).get();
-  if (!adminSnap.exists) {
+  // SECURITY FIX (MEDIUM 2026-06-11): Check the tamper-proof admin custom claim
+  // instead of the mutable 'admins' Firestore collection. Firestore collection
+  // membership can be written by any Cloud Function or Admin SDK call without going
+  // through the audited grantAdminRole path — the custom claim is the authoritative
+  // source of truth.
+  if (request.auth?.token?.admin !== true) {
     throw new HttpsError("permission-denied", "Admin access required.");
   }
 

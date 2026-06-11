@@ -675,7 +675,15 @@ private struct BlockMuteView: View {
         ) {
             Button("Unblock", role: .destructive) {
                 if let user = userToUnblock {
-                    Task { try? await blockService.unblockUser(userId: user.id) }
+                    // SECURITY FIX (LOW 2026-06-11): Use explicit do-catch so the user
+                    // knows the unblock did not take effect if the write fails.
+                    Task {
+                        do {
+                            try await blockService.unblockUser(userId: user.id)
+                        } catch {
+                            dlog("[AmenConnectPreferencesView] Unblock failed: \(error)")
+                        }
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}

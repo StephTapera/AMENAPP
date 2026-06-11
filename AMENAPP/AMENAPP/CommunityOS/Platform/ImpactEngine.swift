@@ -455,9 +455,11 @@ struct ImpactOpportunitiesView: View {
                     .foregroundColor(Color(.systemBackground))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
+                    // DESIGN FIX (LOW 2026-06-11): Removed .amenGlassEffect() — stacking it
+                    // over an opaque Color(.label) background produces broken appearance on
+                    // iOS 26. The opaque background alone is the correct treatment here.
                     .background(Color(.label))
                     .clipShape(Capsule())
-                    .amenGlassEffect()
                 }
                 .accessibilityLabel("Learn more about \(opportunity.title)")
             }

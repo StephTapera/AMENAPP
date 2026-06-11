@@ -1057,12 +1057,22 @@ public class FirebaseMessagingService: ObservableObject {
                 }
             }
             
+            // SECURITY FIX (MEDIUM 2026-06-11): Check AmenChildSafetyService.canDM()
+            // before any recipient-side lookup. This is the canonical DM safety gate that
+            // enforces mutual-follow for minors, checks both sender and recipient age, and
+            // fails closed on error. The raw isMinor/birthYear checks below are retained
+            // as a secondary layer but canDM() is the authoritative gate.
+            let dmAllowed = await AmenChildSafetyService.shared.canDM(from: currentUserId, to: userId)
+            if !dmAllowed {
+                throw FirebaseMessagingError.permissionDenied
+            }
+
             // Check recipient's privacy settings from Firestore
             let userDoc = try await db.collection("users").document(userId).getDocument()
             let recipientData = userDoc.data() ?? [:]
             let allowMessages = recipientData["allowMessagesFromEveryone"] as? Bool ?? true
 
-            // COPPA: block DMs to recipients flagged as under-13
+            // Secondary COPPA: block DMs to recipients flagged as under-13
             if recipientData["isMinor"] as? Bool == true {
                 throw FirebaseMessagingError.permissionDenied
             }
@@ -2602,8 +2612,10 @@ public class FirebaseMessagingService: ObservableObject {
                 throw FirebaseMessagingError.uploadFailed("Failed to convert image to JPEG")
             }
             
-            let filename = "\(conversationId)_avatar.jpg"
-            let path = "group_avatars/\(filename)"
+            // SECURITY FIX (HIGH 2026-06-11): Use two-segment path group_avatars/{conversationId}/{filename}
+            // so the storage rule can gate on conversationId (e.g. admin/participant check).
+            let filename = "avatar.jpg"
+            let path = "group_avatars/\(conversationId)/\(filename)"
             let storageRef = storage.reference().child(path)
             
             let metadata = StorageMetadata()

@@ -18,6 +18,7 @@
 // Design (C3): systemGroupedBackground page, white floating cards, accentColor only.
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - AmenOrgDiscoveryView
 
@@ -207,7 +208,10 @@ struct AmenOrgDiscoveryView: View {
                 ForEach(displayedOrgs) { org in
                     NavigationLink(destination: AmenOrgProfileView(orgId: org.id)) {
                         AmenOrgCard(org: org) {
-                            Task { try? await service.followOrg(orgId: org.id, userId: "") }
+                            // SECURITY FIX (MEDIUM 2026-06-11): Use the current user's UID
+                            // instead of a hardcoded empty string so follow records are not orphaned.
+                            guard let currentUid = Auth.auth().currentUser?.uid, !currentUid.isEmpty else { return }
+                            Task { try? await service.followOrg(orgId: org.id, userId: currentUid) }
                         }
                     }
                     .buttonStyle(.plain)

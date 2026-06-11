@@ -566,8 +566,11 @@ exports.safeMessageGateway = onCall(async (request) => {
         // detectSexualSolicitation will still fire correctly.
         // Rule: treat any sender whose ageTier does NOT confirm minor status as 18+
         // for scoring purposes, so unverified declared ages never suppress adult risk.
-        const senderAgeTier = senderData.ageTier || 'tierD';
-        const recipientAgeTier = recipientData.ageTier || 'tierD';
+        // SECURITY FIX (MEDIUM 2026-06-11): Default missing ageTier to 'tierB' (minor-safe)
+        // rather than 'tierD' (adult). A missing ageTier means onUserDocCreated has not run
+        // yet (race condition) or failed — it must not grant adult content access.
+        const senderAgeTier = senderData.ageTier || 'tierB';
+        const recipientAgeTier = recipientData.ageTier || 'tierB';
         const senderIsVerifiedMinor = (senderAgeTier === 'tierB' || senderAgeTier === 'tierC');
         const recipientIsVerifiedMinor = (recipientAgeTier === 'tierB' || recipientAgeTier === 'tierC');
         // For risk scoring: unverified sender age is floored at 18 (adult).
@@ -582,18 +585,20 @@ exports.safeMessageGateway = onCall(async (request) => {
         // ================================================================
 
         // Check if sender is banned — live Firestore read (not stale batch data).
-        // Fail closed per Amen safety policy: if the read fails, treat as restricted.
+        // SECURITY FIX (MEDIUM 2026-06-11): Removed isBanned legacy fallback.
+        // Fail closed per Amen safety policy: if the read fails OR accountStatus is absent,
+        // treat as restricted rather than active so that accounts that have not been through
+        // onUserDocCreated yet do not receive active status.
         {
-            let acctState = "active";
+            let acctState = "restricted";
             try {
                 const liveDoc = await db.collection("users").doc(senderId).get();
                 const liveData = liveDoc.data();
                 if (liveData && liveData.accountStatus && liveData.accountStatus.state) {
                     acctState = liveData.accountStatus.state;
-                } else if (liveData && liveData.isBanned) {
-                    // Legacy field fallback
-                    acctState = "banned";
                 }
+                // Legacy isBanned field is intentionally NOT checked — rely solely on
+                // authoritative accountStatus.state to prevent bypass via legacy path.
             } catch (banCheckErr) {
                 console.error("[safeMessageGateway] Live ban check failed — restricting:", banCheckErr.message);
                 acctState = "restricted"; // Fail closed: cannot verify, so block
@@ -623,8 +628,9 @@ exports.safeMessageGateway = onCall(async (request) => {
         // cannot bypass the guard. tierA = under 13, tierB = 13-15, tierC = 16-17.
         // ================================================================
         {
-            const senderTierForCoppa = senderData.ageTier || 'tierD';
-            const recipientTierForCoppa = recipientData.ageTier || 'tierD';
+            // SECURITY FIX (MEDIUM 2026-06-11): Default to 'tierB' (minor-safe) not 'tierD'.
+            const senderTierForCoppa = senderData.ageTier || 'tierB';
+            const recipientTierForCoppa = recipientData.ageTier || 'tierB';
 
             // Derive ages from verified server tier for COPPA math
             const currentYear = new Date().getFullYear();

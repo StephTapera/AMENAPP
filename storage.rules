@@ -349,8 +349,16 @@ service firebase.storage {
     // Spec path: sanctuary_media/{sid}/{filename}
 
     match /sanctuary_media/{sid}/{filename} {
+      // SECURITY FIX (MEDIUM 2026-06-11): Restrict create to verified media writers for
+      // this sanctuary. Previously any signed-in user could upload without ownership check.
+      function isSanctuaryMediaWriter() {
+        return isSignedIn()
+            && firestore.exists(/databases/(default)/documents/sanctuaries/$(sid)/members/$(request.auth.uid))
+            && firestore.get(/databases/(default)/documents/sanctuaries/$(sid)/members/$(request.auth.uid))
+               .data.role in ['owner', 'admin', 'moderator', 'mediaManager'];
+      }
       allow read:   if isSignedIn();
-      allow create: if isSignedIn()
+      allow create: if isSanctuaryMediaWriter()
                     && (isAllowedVideoType() || isAllowedAudioType())
                     && ((isAllowedVideoType() && withinVideoLimit())
                       || (isAllowedAudioType() && withinAudioLimit()));
@@ -435,8 +443,10 @@ service firebase.storage {
     // ── User profile images (legacy path — preserved) ─────────────────────────
 
     match /users/{uid}/profileImages/{filename} {
+      // SECURITY FIX (MEDIUM 2026-06-11): Replaced deprecated isImageType() regex with
+      // isAllowedImageType() explicit allowlist (jpeg/png/webp/heic only).
       allow read:   if isSignedIn();
-      allow write:  if isOwner(uid) && isImageType() && withinImageLimit();
+      allow write:  if isOwner(uid) && isAllowedImageType() && withinImageLimit();
       allow delete: if isOwner(uid);
     }
 
@@ -554,7 +564,9 @@ service firebase.storage {
     // ── Message attachments (per-recipient) ───────────────────────────────────
     // iOS path: message_attachments/{uid}/{recipientId}/{filename}  (MediaModerationPipeline.swift)
     match /message_attachments/{uid}/{recipientId}/{filename} {
-      allow read:   if isOwner(uid);
+      // SECURITY FIX (MEDIUM 2026-06-11): Allow recipient to read attachments sent to them.
+      // Previously only the sender (uid) could read, preventing recipients from viewing files.
+      allow read:   if isOwner(uid) || isOwner(recipientId);
       allow create: if isOwner(uid)
                     && (isAllowedImageType() || isAllowedVideoType() || isAllowedAudioType() || isAllowedDocumentType())
                     && ((isAllowedImageType() && withinImageLimit())
@@ -637,6 +649,60 @@ service firebase.storage {
                     && withinProfilePhotoLimit();
       allow update: if false;
       allow delete: if false;
+    }
+
+    // ── Group avatar uploads ──────────────────────────────────────────────────
+    // iOS path: group_avatars/{conversationId}/{filename}  (FirebaseMessagingService.swift)
+    // SECURITY FIX (HIGH 2026-06-11): Added rule; previously no rule covered this path
+    // so all group avatar uploads silently failed at runtime.
+    match /group_avatars/{conversationId}/{filename} {
+      function isGroupParticipant() {
+        return isSignedIn()
+            && firestore.exists(/databases/(default)/documents/conversations/$(conversationId))
+            && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId))
+               .data.participantIds;
+      }
+      allow read:   if isSignedIn(); // Group avatars viewable by any signed-in user
+      allow create: if isGroupParticipant()
+                    && isAllowedImageType()
+                    && withinProfilePhotoLimit();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Church note attachments ───────────────────────────────────────────────
+    // iOS path: churchNotes/{noteId}/attachments/{attachmentId}/{filename}
+    //           (ChurchNotesAttachmentService.swift)
+    // SECURITY FIX (HIGH 2026-06-11): Added rule; previously this path had no rule
+    // and fell to the catch-all deny. The uid-based rules at churchNotes/{uid}/{noteId}/…
+    // do not match this flat noteId path.
+    match /churchNotes/{noteId}/attachments/{attachmentId}/{filename} {
+      function noteOwner() {
+        return isSignedIn()
+            && firestore.exists(/databases/(default)/documents/churchNotes/$(noteId))
+            && firestore.get(/databases/(default)/documents/churchNotes/$(noteId))
+               .data.get('userId', firestore.get(/databases/(default)/documents/churchNotes/$(noteId)).data.get('authorId', ''))
+               == request.auth.uid;
+      }
+      allow read:   if noteOwner();
+      allow create: if noteOwner()
+                    && (isAllowedImageType() || isAllowedDocumentType() || isAllowedAudioType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                      || (isAllowedDocumentType() && withinImageLimit())
+                      || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false; // No mid-flight substitution
+      allow delete: if noteOwner();
+    }
+
+    // ── AmenSync raw assets ───────────────────────────────────────────────────
+    // iOS path: amenSync/users/{uid}/projects/{projectId}/raw/{assetId}.jpg
+    //           (AmenSyncViewModel.swift)
+    // SECURITY FIX (HIGH 2026-06-11): Added rule; previously no rule covered this path.
+    match /amenSync/users/{uid}/projects/{projectId}/raw/{assetId} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && isAllowedImageType() && withinImageLimit();
+      allow update: if false; // Create-only; no mid-flight substitution
+      allow delete: if isOwner(uid);
     }
 
     // ── Berean OCR queue ──────────────────────────────────────────────────────

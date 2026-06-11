@@ -297,10 +297,23 @@ final class AmenContentSafetyService: ObservableObject {
             "source": "AmenContentSafetyService"
         ]
 
-        try? await db.collection("safetyAuditLog").addDocument(data: auditRecord)
-        // Note: `try?` is intentional here — the audit log must not crash the app,
-        // but the failure IS logged by the catch implicitly (Firestore SDK logs internally).
-        // The critical escalation record write above already has explicit error logging.
+        // SECURITY FIX (MEDIUM 2026-06-11): Use explicit do/catch for the CSAM audit log
+        // write. This is a compliance-critical audit trail — silent failure is not acceptable.
+        // On write failure, emit a structured critical error so operations can detect missed writes.
+        do {
+            try await db.collection("safetyAuditLog").addDocument(data: auditRecord)
+        } catch {
+            dlog("[AmenContentSafetyService] CRITICAL: CSAM audit log write FAILED: \(error). Attempting criticalSafetyAlert fallback.")
+            let alertRecord: [String: Any] = [
+                "alertType": "audit_write_failure",
+                "originalEvent": "csam_ios_detection",
+                "contentRef": contentRef,
+                "authorId": authorId,
+                "error": error.localizedDescription,
+                "clientTimestamp": Date().timeIntervalSince1970
+            ]
+            try? await db.collection("criticalSafetyAlerts").addDocument(data: alertRecord)
+        }
     }
 
     // =========================================================================

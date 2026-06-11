@@ -372,17 +372,23 @@ final class AmenDiscussionService: ObservableObject {
         roomId: String,
         moderatorId: String
     ) async throws {
-        let ref = messagesCollection(roomId: roomId).document(messageId)
-        try await ref.updateData([
+        // SECURITY FIX (MEDIUM 2026-06-11): Use a Firestore batch so the soft-delete and
+        // messageCount decrement are atomic. A crash between the two sequential writes
+        // previously left a deleted message still counted toward the room total,
+        // causing the counter to drift silently over time.
+        let batch = db.batch()
+        let messageRef = messagesCollection(roomId: roomId).document(messageId)
+        batch.updateData([
             "isDeleted":      true,
             "moderationNote": "Removed by moderator \(moderatorId).",
             "updatedAt":      FieldValue.serverTimestamp()
-        ])
-        // Decrement room messageCount
-        try? await roomsCollection.document(roomId).updateData([
+        ], forDocument: messageRef)
+        let roomRef = roomsCollection.document(roomId)
+        batch.updateData([
             "messageCount": FieldValue.increment(Int64(-1)),
             "updatedAt":    FieldValue.serverTimestamp()
-        ])
+        ], forDocument: roomRef)
+        try await batch.commit()
     }
 
     // MARK: - moderateMessage

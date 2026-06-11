@@ -346,7 +346,9 @@ exports.checkCreatorProtection = onCall({ region: 'us-central1' }, async (req) =
  * Input:  { orgId, newAdminId, confirmed }
  * Output: { transferred: boolean }
  */
-exports.transferOrgAdmin = onCall({ region: 'us-central1' }, async (req) => { const data = req.data; const context = { auth: req.auth };
+// SECURITY FIX (HIGH 2026-06-11): Added enforceAppCheck to prevent calls from
+// non-app clients. The confirmed: true human gate is retained.
+exports.transferOrgAdmin = onCall({ region: 'us-central1', enforceAppCheck: true }, async (req) => { const data = req.data; const context = { auth: req.auth };
   if (!context.auth) {
     throw new HttpsError('unauthenticated', 'Authentication required');
   }
@@ -445,6 +447,9 @@ exports.transferOrgAdmin = onCall({ region: 'us-central1' }, async (req) => { co
     ...newAdminCurrentClaims,
     orgAdmin: newAdminOrgs,
   });
+  // SECURITY FIX (HIGH 2026-06-11): Revoke refresh tokens so the new claim takes
+  // effect immediately instead of waiting up to 60 min for token expiry.
+  await admin.auth().revokeRefreshTokens(newAdminId);
 
   // Revoke current admin's org claim for this org
   const currentAdminRecord = await admin.auth().getUser(currentAdminUid);
@@ -455,6 +460,9 @@ exports.transferOrgAdmin = onCall({ region: 'us-central1' }, async (req) => { co
     ...currentClaims,
     orgAdmin: updatedOrgList,
   });
+  // SECURITY FIX (HIGH 2026-06-11): Revoke refresh tokens for the former admin so the
+  // removed claim takes effect immediately — critical to prevent privilege continuation.
+  await admin.auth().revokeRefreshTokens(currentAdminUid);
 
   // Audit log
   await firestore.collection('verificationAuditLog').add({

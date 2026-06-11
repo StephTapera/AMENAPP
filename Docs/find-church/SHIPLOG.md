@@ -46,14 +46,40 @@ Generated: 2026-06-11  Branch: safety-hardening
 
 ## Open Human Steps
 
-These require human action before features can be enabled:
+All Find Church 2.0 deploy steps are consolidated into **Step 10** of `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` — not an independent deploy. Do not deploy Find Church 2.0 items separately from the safety-hardening package.
 
-1. **Deploy Cloud Functions**: `firebase deploy --only functions:ingestChurchesFromGooglePlaces,functions:computeAvailabilityStatus,functions:scheduleAvailabilityRefresh,functions:detectChurchMedia --project amen-5e359`
-2. **Set GOOGLE_PLACES_API_KEY** in Firebase environment config: `firebase functions:config:set places.api_key="YOUR_KEY"`
-3. **Deploy Firestore rules**: `firebase deploy --only firestore:rules --project amen-5e359` (rules extended with gatherings/, seekerProfiles/, visitPlans/, claimRequests/)
-4. **Deploy Remote Config**: Upload `remoteconfig.template.json` — all `findChurch2_*` flags default OFF; flip them individually as each feature is verified
-5. **Seed Phoenix metro churches**: Call `ingestChurchesFromGooglePlaces` callable with `{ location: { lat: 33.4484, lng: -112.0740 }, radiusMeters: 50000 }`
-6. **Stripe integration** (DEFERRED): Business/legal decision required before `churchPremium` paywall is activated
+| Step | Location | Action |
+|---|---|---|
+| 10a — Firestore rules | `STAGE3_DEPLOY_PACKAGE_2026-06-11.md#step-10a` | Fold into existing rules deploy (Step 1 of Stage-3) |
+| 10b — Cloud Functions | `STAGE3_DEPLOY_PACKAGE_2026-06-11.md#step-10b` | Deploy 4 CFs after `GOOGLE_PLACES_API_KEY` set |
+| 10c — Remote Config | `STAGE3_DEPLOY_PACKAGE_2026-06-11.md#step-10c` | Upload 10 new flags (all default OFF) |
+| 10d — Seed corpus | `STAGE3_DEPLOY_PACKAGE_2026-06-11.md#step-10d` | Call after 10b live; Phoenix metro 50 km radius |
+| — | — | **Stripe integration** (DEFERRED — business/legal decision required) |
+
+**Wiring cert:** `docs/find-church/WIRING_CERT.md` — per-surface control matrix + Tier-P invariant proof.
+
+---
+
+## Implementation of Record — Onboarding
+
+`FindChurch2OnboardingView.swift` is the implementation of record for the 3-phase onboarding.
+
+The HTML prototype at `docs/find-church/onboarding-prototype.html` predates the no-HTML fleet directive and is grandfathered as **reference only**. No code routes through it. It has no Swift imports, no flag gates, and no production entry points. It is frozen and will not be updated.
+
+Nothing in the navigation or feature-flag chain references the prototype file. The single callable surface is `FindChurch2OnboardingView` (Swift, `findChurch2_onboarding` gate).
+
+---
+
+## Tier-P SeekerProfile — Invariant Proof
+
+| Invariant | File:Line | Quoted check |
+|---|---|---|
+| Sync is opt-in | `FindChurch2SeekerProfileService.swift:78` | `guard updatedProfile.privacySyncEnabled else { return }` |
+| `.noLocation` chip is functional | `FindChurch2SeekerProfileService.swift:158-159` | `if chips.contains(.noLocation) { updated.dontShareLocation = true }` |
+| `.privateRecs` chip is functional | `FindChurch2SeekerProfileService.swift:162-163` | `if chips.contains(.privateRecs) { updated.privateRecommendationsOnly = true }` |
+| No Tier-P fields in CF logs | `grep -r "SeekerProfile\|dontShare\|privateRec\|inferredSignal\|fitChips\|comfortPref" Backend/functions/src/findChurch2/` | **zero matches** — confirmed 2026-06-11 |
+| MatchExplanation payload carries no user fields | `FindChurch2Contracts.swift:MatchExplanation` | Fields: `score`, `topReasons[{category,label,weight,isPositive}]`, `mismatches`, `generatedBy`, `generatedAt` — no SeekerProfile fields, no user location, no intent |
+| computeAvailabilityStatus reads church data only | `ingestion.ts:402-475` | Reads `churches/{churchId}.serviceTimes`; no `seekerProfiles/` read |
 
 ---
 

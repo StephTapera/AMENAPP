@@ -250,7 +250,9 @@ struct ONEReportMomentView: View {
         do {
             let r = try await ONEImmuneSignalService.shared.reportMoment(momentID: momentID, category: cat)
             receipt = r
-            withAnimation { phase = .locked }
+            // ACCESSIBILITY FIX (MEDIUM 2026-06-11): Use Motion.adaptive() so the
+            // safety-lock transition respects @accessibilityReduceMotion.
+            withAnimation(Motion.adaptive(.easeOut(duration: 0.2))) { phase = .locked }
         } catch {
             errorMessage = error.localizedDescription
         }
