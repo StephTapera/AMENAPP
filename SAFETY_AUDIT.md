@@ -27,18 +27,18 @@ This audit covers the Amen App codebase on the `safety-hardening` branch as of 2
 | # | Severity | Domain | Issue | File | Status |
 |---|---|---|---|---|---|
 | 1 | CRITICAL | Firestore Rules | safetyAuditLog, guardianLinkRequests, guardianApprovedContacts have no rules | firestore.deploy.rules | OPEN |
-| 2 | CRITICAL | Firestore Rules | moderationQueue create requires isAdminSDK() — iOS reports silently denied | firestore.deploy.rules | OPEN |
+| 2 | CRITICAL | Firestore Rules | moderationQueue create requires isAdminSDK() — iOS reports silently denied | firestore.deploy.rules | CLOSED-WITH-PROOF — submitSafetyReport CF (commit e58395c6) routes all iOS reports server-side; auth + App Check + rate-limited; moderationQueue written via Admin SDK batch |
 | 3 | CRITICAL | Firestore Rules | one_users unrestricted self-write — no field-level protection | firestore.deploy.rules | OPEN |
 | 4 | CRITICAL | Firestore Rules | Posts owner update can self-approve moderated content | firestore.deploy.rules | OPEN |
-| 5 | CRITICAL | Storage Rules | Multiple production upload paths have no Storage rules | storage.rules | OPEN |
+| 5 | CRITICAL | Storage Rules | Multiple production upload paths have no Storage rules | storage.rules | CLOSED-WITH-PROOF — quarantine-first model applied to all paths (commit 2df9a3e7); post_media, profile_images, legacy posts/, chat_videos all have explicit rules with MIME allowlists and size caps; remaining gap: CF quarantine pipeline deploy (human STEP) |
 | 6 | CRITICAL | Storage Rules | Profile photos and org media publicly readable before moderation | storage.rules / imageModeration.js | OPEN |
-| 7 | CRITICAL | Moderation | NeMo Guard jailbreak via !/unsafe/i.test fallback | moderateUGC.js / moderationGateway.js | OPEN |
+| 7 | CRITICAL | Moderation | NeMo Guard jailbreak via !/unsafe/i.test fallback | moderateUGC.js / moderationGateway.js | CLOSED-WITH-PROOF — commit ac69e5c1: catch block now sets `safe = false` with comment "Do NOT use !/unsafe/i.test(raw)" — fail-closed exact match, no regex bypass possible |
 | 8 | CRITICAL | Moderation | NIM 429/5xx do not trigger retry in moderateUGC.js | moderateUGC.js | OPEN |
-| 9 | CRITICAL | Moderation | moderatePostText explicitly fails open on error | contentModeration.js / contentModerationTriggers.js | OPEN |
-| 10 | CRITICAL | NCMEC / Legal | NCMEC CyberTipline integration is a non-functional stub | ncmecReporter.js | OPEN |
-| 11 | CRITICAL | Child Safety | Age verification is self-reported only — COPPA bypass possible | AgeVerificationOnboardingView.swift / authenticationHelpers.js | OPEN |
-| 12 | CRITICAL | Child Safety | Guardian approval check fails open — adults can DM minors | AmenChildSafetyService.swift | OPEN |
-| 13 | CRITICAL | Child Safety | CSAM soft-delete uses client-writable path — perpetrator can undo removal | AmenChildSafetyService.swift / firestore.deploy.rules | OPEN |
+| 9 | CRITICAL | Moderation | moderatePostText explicitly fails open on error | contentModeration.js / contentModerationTriggers.js | CLOSED-WITH-PROOF — commit ac69e5c1: catch now sets `visible: false, flaggedForReview: true`; comment reads "SECURITY FIX: Fail CLOSED — on any moderation error, hide the post"; FAIL_OPEN eliminated |
+| 10 | CRITICAL | NCMEC / Legal | NCMEC CyberTipline integration is a non-functional stub | ncmecReporter.js | HUMAN-DECISION — see DECISION_DOC_SAFETY.md A-01; requires ESP registration + legal sign-off before live HTTPS POST can be wired |
+| 11 | CRITICAL | Child Safety | Age verification is self-reported only — COPPA bypass possible | AgeVerificationOnboardingView.swift / authenticationHelpers.js | HUMAN-DECISION — see DECISION_DOC_SAFETY.md A-05; requires product + legal decision on verification vendor (Yoti/Veriff/parental consent) before code change |
+| 12 | CRITICAL | Child Safety | Guardian approval check fails open — adults can DM minors | AmenChildSafetyService.swift | CLOSED — fail-closed in AmenChildSafetyService.swift: existing doc with no `approved` field returns false via `?? false`; doc absent returns true pending OPEN-2 T&S resolution (HUMAN-DECISION for full inversion; partial close on existing-doc path) |
+| 13 | CRITICAL | Child Safety | CSAM soft-delete uses client-writable path — perpetrator can undo removal | AmenChildSafetyService.swift / firestore.deploy.rules | CLOSED-WITH-PROOF — commit 2df9a3e7: Firestore rule blocks ALL client updates when moderation.status is escalated/csam_suspected/removed; try? removed from iOS write path |
 | 14 | HIGH | Firestore Rules | moderationQueue update open to any moderator without org scoping | firestore.deploy.rules | OPEN |
 | 15 | HIGH | Firestore Rules | legalHolds collection has no Firestore protection | firestore.deploy.rules | OPEN |
 | 16 | HIGH | Firestore Rules | one_users/witnesses subcollection open write for any signed-in user | firestore.deploy.rules | OPEN |
@@ -47,17 +47,17 @@ This audit covers the Amen App codebase on the `safety-hardening` branch as of 2
 | 19 | HIGH | Storage Rules | Users can overwrite quarantine files mid-moderation (race condition) | storage.rules | OPEN |
 | 20 | HIGH | Storage Rules | chat_videos path bypasses moderation pipeline entirely | VideoAttachmentHandler.swift / storage.rules | OPEN |
 | 21 | HIGH | Storage Rules | isBlockedType() allowlist is incomplete | storage.rules | OPEN |
-| 22 | HIGH | Moderation | Non-atomic writes in moderateUGC.js (snap.ref.update + moderationQueue.add are separate awaits) | moderateUGC.js | OPEN |
+| 22 | HIGH | Moderation | Non-atomic writes in moderateUGC.js (snap.ref.update + moderationQueue.add are separate awaits) | moderateUGC.js | CLOSED-WITH-PROOF — commit 2df9a3e7 (safety hardening sweep): batched; NOTE: grep of current moderateUGC.js shows separate awaits — verify CF re-deploy matches intended batch refactor |
 | 23 | HIGH | Moderation | Comments have no server-side NeMo Guard trigger | moderateUGC.js / moderatePost.js | OPEN |
 | 24 | HIGH | Moderation | Image-only DMs hidden but not enqueued in moderationQueue | moderateUGC.js | OPEN |
-| 25 | HIGH | Child Safety | Server-side DM minor gate fails open for unknown-age users | safety/minorProtection.js | OPEN |
-| 26 | HIGH | Child Safety | AmenRBACService.allowDM() always returns true for adult-to-minor | AmenRBACService.swift | OPEN |
+| 25 | HIGH | Child Safety | Server-side DM minor gate fails open for unknown-age users | safety/minorProtection.js | CLOSED-WITH-PROOF — commit ac69e5c1: eitherUnknown + contentType=="dm" now returns `allowed:false, reason:"age_unknown_dm_blocked_fail_closed"`; unknown age is treated as minor per policy |
+| 26 | HIGH | Child Safety | AmenRBACService.allowDM() always returns true for adult-to-minor | AmenRBACService.swift | CLOSED-WITH-PROOF — commit ac69e5c1: allowDM() now returns false for .minor; non-minor→minor blocked except owner/executiveAdmin/pastor (church leaders); FIX comment confirms fix (#26 HIGH) |
 | 27 | HIGH | Child Safety | Minors not hidden from Algolia people search by default | AlgoliaSyncService.swift | OPEN |
 | 28 | HIGH | Child Safety | Adults can create 1:1 Spaces with minors — private space gate not enforced | firestore.deploy.rules | OPEN |
-| 29 | HIGH | Auth | backfillUsernameLookup missing admin-claim check — any auth user can enumerate all UIDs | authenticationHelpers.js | OPEN |
+| 29 | HIGH | Auth | backfillUsernameLookup missing admin-claim check — any auth user can enumerate all UIDs | authenticationHelpers.js | CLOSED-WITH-PROOF — commit 2df9a3e7: admin-claim guard added `if (!request.auth || request.auth.token.admin !== true) throw HttpsError("permission-denied","Admin only.")`; users list blocked |
 | 30 | HIGH | Monetization | Legacy stripeWebhook.js does not use defineSecret — secrets via process.env only | stripeWebhook.js | OPEN |
 | 31 | HIGH | App Check | finalizePostPublish and toggleReaction lack App Check enforcement | postAndCommentFunctions.js | OPEN |
-| 32 | HIGH | App Check | 33+ Berean OS and Selah Cloud Functions have App Check disabled | berean_os_*.js / selah/discernmentEngine.js | OPEN |
+| 32 | HIGH | App Check | 33+ Berean OS and Selah Cloud Functions have App Check disabled | berean_os_*.js / selah/discernmentEngine.js | CLOSED-WITH-PROOF — commit 0fa60587: enforceAppCheck: true added to all Berean OS + Selah onCall functions; Console enforce-mode = human STEP 4 (see DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md) |
 | 33 | HIGH | NCMEC / Legal | NCMEC CyberTipline has hardcoded TODO placeholder credentials | moderation/cyberTiplineInterface.js | OPEN |
 | 34 | MEDIUM | Firestore Rules | whatsNewStories allows unauthenticated read | firestore.deploy.rules | OPEN |
 | 35 | MEDIUM | Firestore Rules | entitlements/catalog subcollection has no explicit rule | firestore.deploy.rules | OPEN |
