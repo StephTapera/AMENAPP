@@ -22,12 +22,13 @@ struct AmenCommandCenterSection: View {
     @ObservedObject var viewModel: AmenCommandCenterViewModel
     var userId: String
 
-    @AppStorage("spiritualOS_command_center_enabled") private var isEnabled = true
+    @AppStorage("spiritualOS_enabled") private var masterEnabled = false
+    @AppStorage("spiritualOS_command_center_enabled") private var isEnabled = false
 
     // MARK: Body
 
     var body: some View {
-        if !isEnabled {
+        if !(masterEnabled && isEnabled) {
             EmptyView()
         } else {
             content

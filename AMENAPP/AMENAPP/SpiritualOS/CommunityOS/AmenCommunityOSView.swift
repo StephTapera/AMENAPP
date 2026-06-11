@@ -14,7 +14,8 @@ struct AmenCommunityOSView: View {
     var spaceName: String
 
     // MARK: Feature flag
-    @AppStorage("spiritualOS_community_os_enabled") private var isEnabled = true
+    @AppStorage("spiritualOS_enabled") private var masterEnabled = false
+    @AppStorage("spiritualOS_community_os_enabled") private var isEnabled = false
 
     // MARK: State
     @StateObject private var viewModel: AmenCommunityOSViewModel
@@ -30,7 +31,7 @@ struct AmenCommunityOSView: View {
     // MARK: Body
     var body: some View {
         GlassSheet(title: "Community Insights", tint: .amenPurple, onDismiss: { dismiss() }) {
-            if !isEnabled {
+            if !(masterEnabled && isEnabled) {
                 featureGateBody
             } else if viewModel.isLoading {
                 loadingBody

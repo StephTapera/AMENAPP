@@ -14,8 +14,9 @@ struct AmenDailyDigestView: View {
     @ObservedObject var viewModel: AmenDailyDigestViewModel
     var userId: String
 
-    // Feature flag — key must match Remote Config exactly
-    @AppStorage("spiritualOS_daily_enabled") private var isEnabled: Bool = true
+    // Feature flag — requires the Spiritual OS master flag plus this surface gate.
+    @AppStorage("spiritualOS_enabled") private var masterEnabled: Bool = false
+    @AppStorage("spiritualOS_daily_enabled") private var isEnabled: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -23,7 +24,7 @@ struct AmenDailyDigestView: View {
     @State private var selectedFilter: DigestFilter = .all
 
     var body: some View {
-        if !isEnabled {
+        if !(masterEnabled && isEnabled) {
             EmptyView()
         } else {
             content

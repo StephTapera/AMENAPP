@@ -219,10 +219,11 @@ struct AmenAssistantBarOverlay: View {
 
     @ObservedObject var coordinator: AmenAssistantBarCoordinator
 
-    @AppStorage("spiritualOS_assistant_bar_enabled") private var isEnabled = true
+    @AppStorage("spiritualOS_enabled") private var masterEnabled = false
+    @AppStorage("spiritualOS_assistant_bar_enabled") private var isEnabled = false
 
     var body: some View {
-        if !isEnabled {
+        if !(masterEnabled && isEnabled) {
             EmptyView()
         } else {
             overlayContent

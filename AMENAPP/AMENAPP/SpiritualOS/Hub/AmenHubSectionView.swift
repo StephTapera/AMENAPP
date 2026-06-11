@@ -26,13 +26,14 @@ struct AmenHubSectionView: View {
     var userId: String
 
     // MARK: Feature flag
-    @AppStorage("spiritualOS_hub_enabled") private var isEnabled = true
+    @AppStorage("spiritualOS_enabled") private var masterEnabled = false
+    @AppStorage("spiritualOS_hub_enabled") private var isEnabled = false
 
     // MARK: Navigation
     @State private var showFullHub = false
 
     var body: some View {
-        if isEnabled {
+        if masterEnabled && isEnabled {
             hubContent
         }
         // else: EmptyView() — no layout space consumed

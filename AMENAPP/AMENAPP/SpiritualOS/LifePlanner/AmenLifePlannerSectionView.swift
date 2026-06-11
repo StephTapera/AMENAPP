@@ -10,7 +10,8 @@ struct AmenLifePlannerSectionView: View {
     var viewModel: AmenLifePlannerViewModel
     var userId: String
 
-    @AppStorage("spiritualOS_planner_enabled") private var isEnabled = true
+    @AppStorage("spiritualOS_enabled") private var masterEnabled = false
+    @AppStorage("spiritualOS_planner_enabled") private var isEnabled = false
 
     // Date formatters — allocated once per view lifetime
     private static let dayFormatter: DateFormatter = {
@@ -33,7 +34,7 @@ struct AmenLifePlannerSectionView: View {
     }()
 
     var body: some View {
-        if !isEnabled {
+        if !(masterEnabled && isEnabled) {
             EmptyView()
         } else {
             VStack(alignment: .leading, spacing: 0) {

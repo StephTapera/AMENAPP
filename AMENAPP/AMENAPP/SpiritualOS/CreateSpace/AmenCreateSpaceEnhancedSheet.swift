@@ -16,6 +16,8 @@ struct AmenCreateSpaceEnhancedSheet: View {
     var onCreated: (String) -> Void
 
     // MARK: - Feature flag (default OFF)
+    @AppStorage("spiritualOS_enabled")
+    private var masterEnabled: Bool = false
     @AppStorage("spiritualOS_create_space_enhanced_enabled")
     private var isEnabled: Bool = false
 
@@ -38,19 +40,23 @@ struct AmenCreateSpaceEnhancedSheet: View {
 
     var body: some View {
         GlassSheet(title: "Create Space", tint: .accentColor, showDismissButton: true, onDismiss: onDismiss) {
-            ScrollView {
-                VStack(spacing: 20) {
-                    spaceTypeSection
-                    nameDescriptionSection
-                    coverPhotoSection
-                    membersSection
-                    privacySection
-                    featuresSection
-                    submitSection
+            if !(masterEnabled && isEnabled) {
+                featureGateBody
+            } else {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        spaceTypeSection
+                        nameDescriptionSection
+                        coverPhotoSection
+                        membersSection
+                        privacySection
+                        featuresSection
+                        submitSection
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 20)
+                    .padding(.bottom, 40)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 20)
-                .padding(.bottom, 40)
             }
         }
         .onChange(of: viewModel.isSubmitted) { _, submitted in
@@ -73,6 +79,26 @@ struct AmenCreateSpaceEnhancedSheet: View {
         .onChange(of: selectedCoverImage) { _, newImage in
             viewModel.coverImageData = newImage?.jpegData(compressionQuality: 0.8)
         }
+    }
+
+    // MARK: - Feature gate
+
+    private var featureGateBody: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.shield")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(Color.secondary)
+            Text("Create Space is not enabled yet.")
+                .font(.systemScaled(16, weight: .semibold))
+                .foregroundStyle(Color.primary)
+            Text("This flow will appear here after Spiritual OS and Create Space are enabled.")
+                .font(.systemScaled(13))
+                .foregroundStyle(Color.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .padding(.horizontal, 20)
     }
 
     // MARK: - Expandable section helper

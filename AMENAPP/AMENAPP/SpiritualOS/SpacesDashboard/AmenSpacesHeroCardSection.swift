@@ -375,7 +375,8 @@ struct AmenSpacesHeroCardSection: View {
 
     // MARK: Feature flag
 
-    @AppStorage("spiritualOS_spaces_dashboard_enabled") private var globalEnabled = true
+    @AppStorage("spiritualOS_enabled") private var masterEnabled = false
+    @AppStorage("spiritualOS_spaces_dashboard_enabled") private var globalEnabled = false
 
     // MARK: ViewModel (@Observable — use @State, not @StateObject)
 
@@ -418,13 +419,16 @@ struct AmenSpacesHeroCardSection: View {
 
     var body: some View {
         Group {
-            if viewModel.isLoading {
+            if !(masterEnabled && globalEnabled) {
+                EmptyView()
+            } else if viewModel.isLoading {
                 HeroLoadingPlaceholder()
             } else {
                 heroContent
             }
         }
         .task {
+            guard masterEnabled && globalEnabled else { return }
             await viewModel.load()
         }
         .sheet(isPresented: $showPrayTogether) {
