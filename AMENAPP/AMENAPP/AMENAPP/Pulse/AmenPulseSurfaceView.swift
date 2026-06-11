@@ -78,11 +78,24 @@ final class AmenPulseViewModel: ObservableObject {
         phase = .loading
         do {
             let loaded = try await service.loadToday()
+            #if DEBUG
+            // In DEBUG on simulator there's no real digest yet — fall back to preview seed.
+            if loaded.cards.isEmpty {
+                digest = .previewSeed
+                phase = .loaded
+                return
+            }
+            #endif
             digest = loaded
             phase = loaded.cards.isEmpty ? .empty : .loaded
             startObserving()
         } catch {
+            #if DEBUG
+            digest = .previewSeed
+            phase = .loaded
+            #else
             phase = .failed(error.localizedDescription)
+            #endif
         }
     }
 
