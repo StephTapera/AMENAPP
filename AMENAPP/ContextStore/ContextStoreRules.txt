@@ -1,0 +1,52 @@
+// ContextStoreRules.txt
+// AMEN Universal Migration & Context System — Firestore rules (Wave 0, FROZEN draft)
+//
+// Paste these match blocks into firestore.rules (inside the documents match block,
+// alongside the existing isSignedIn()/isOwner() helpers). Wave 1 rules-tester
+// integrates + emulator-tests them. Deny-by-default everywhere else.
+//
+// SECURITY MODEL:
+//  - Client access is OWNER-ONLY (read + write) on a user's own facets/snapshots.
+//  - Every facet write requires provenance.userApproved == true (approval before
+//    persistence, §1.7) and schemaVersion == 1.
+//  - Snapshots are APPEND-ONLY: create allowed for the owner; update/delete denied.
+//  - Tier 'P' confidentiality from Cloud Functions is NOT enforceable by rules
+//    (Admin SDK bypasses rules). It is enforced in CF CODE: server functions must
+//    never query facets where tier == 'P'. See CONTRACTS.md §Server-read invariant
+//    and the Wave 4 audit gate ("no tier-P facet in any function payload").
+
+// ── Context facets: contextFacets/{userId}/facets/{facetId} ──
+match /contextFacets/{userId} {
+  allow read: if isSignedIn() && request.auth.uid == userId;
+  // The parent doc itself is metadata-only; writes go to the /facets subcollection.
+  allow write: if isSignedIn() && request.auth.uid == userId;
+
+  match /facets/{facetId} {
+    allow read: if isSignedIn() && request.auth.uid == userId;
+
+    allow create, update: if isSignedIn()
+      && request.auth.uid == userId
+      && request.resource.data.userId == userId
+      && request.resource.data.provenance.userApproved == true
+      && request.resource.data.tier in ['S', 'C', 'P']
+      && request.resource.data.schemaVersion == 1;
+
+    allow delete: if isSignedIn() && request.auth.uid == userId;
+  }
+}
+
+// ── Context snapshots: contextSnapshots/{userId}/snapshots/{snapshotId} (append-only) ──
+match /contextSnapshots/{userId} {
+  allow read: if isSignedIn() && request.auth.uid == userId;
+  allow write: if false;
+
+  match /snapshots/{snapshotId} {
+    allow read: if isSignedIn() && request.auth.uid == userId;
+    allow create: if isSignedIn()
+      && request.auth.uid == userId
+      && request.resource.data.userId == userId
+      && request.resource.data.schemaVersion == 1;
+    // Immutable once written.
+    allow update, delete: if false;
+  }
+}

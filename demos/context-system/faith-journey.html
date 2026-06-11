@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AMEN — Faith Journey Builder (static demo)</title>
+<!--
+  Wave 1 / faith-builder — STATIC MOCK ONLY. No JS logic, no network, no content import.
+  Purpose: visualize the Faith Journey Builder + the faith consent gate before SwiftUI.
+  Hard rules reflected here:
+    - A dedicated faith CONSENT screen precedes any server-readable (Tier C) faith write.
+    - "Areas needing support" is ALWAYS Tier P — visibly marked "stays private on this device".
+    - NO ranking / scoring / levels / leaderboards anywhere. This facet only personalizes + connects.
+-->
+<style>
+  :root {
+    --bg: #0e1014;
+    --bg-2: #141821;
+    --glass: rgba(255,255,255,0.06);
+    --glass-strong: rgba(255,255,255,0.10);
+    --stroke: rgba(255,255,255,0.16);
+    --text: #f4f6fb;
+    --text-dim: rgba(244,246,251,0.62);
+    --gold: #e8c887;
+    --tierC: #6fb1ff;
+    --tierP: #7ee0b0;
+    --tierP-bg: rgba(126,224,176,0.12);
+  }
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(110,177,255,0.18), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(232,200,135,0.12), transparent 55%),
+      var(--bg);
+    min-height: 100vh;
+    padding: 28px 16px 80px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 28px; }
+  .screen-label {
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-dim); margin: 4px 2px;
+  }
+
+  /* ---- Glass card primitives (mock of AmenLiquidGlass) ---- */
+  .glass {
+    background: var(--glass);
+    border: 0.5px solid var(--stroke);
+    border-radius: 26px;
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.08);
+    padding: 22px;
+  }
+  h1 { font-size: 26px; margin: 0 0 4px; font-weight: 700; }
+  h2 { font-size: 19px; margin: 0 0 2px; font-weight: 650; }
+  .sub { color: var(--text-dim); font-size: 14px; line-height: 1.45; margin: 0; }
+  .section { display: grid; gap: 10px; margin-top: 22px; }
+  .section:first-of-type { margin-top: 8px; }
+  .field-label { font-size: 14px; font-weight: 600; }
+  .field-hint { font-size: 12.5px; color: var(--text-dim); }
+
+  .pill, .input, .selected {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 0.5px solid var(--stroke);
+    background: var(--glass);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 9px 14px; font-size: 14px;
+  }
+  .input {
+    width: 100%; border-radius: 16px; padding: 12px 14px;
+    color: var(--text-dim);
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 0.5px solid var(--stroke);
+    background: var(--glass);
+    border-radius: 999px; padding: 8px 13px; font-size: 13.5px; cursor: default;
+  }
+  .chip.on {
+    background: var(--glass-strong);
+    border-color: rgba(255,255,255,0.34);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+  .selected {
+    background: var(--glass-strong); border-color: rgba(255,255,255,0.30);
+    gap: 10px; padding: 12px 16px;
+  }
+  .selected .name { font-weight: 650; }
+  .selected .addr { color: var(--text-dim); font-size: 12.5px; }
+
+  /* ---- Tier badges ---- */
+  .tier {
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    border-radius: 8px; padding: 3px 8px; white-space: nowrap;
+  }
+  .tier.C { color: var(--tierC); background: rgba(110,177,255,0.12); border: 0.5px solid rgba(110,177,255,0.4); }
+  .tier.P { color: var(--tierP); background: var(--tierP-bg); border: 0.5px solid rgba(126,224,176,0.45); }
+  .row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+  /* ---- Tier-P highlighted block (areas needing support) ---- */
+  .private-block {
+    border: 1px solid rgba(126,224,176,0.4);
+    background: var(--tierP-bg);
+    border-radius: 20px; padding: 18px; margin-top: 22px;
+  }
+  .private-banner {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px; font-weight: 650; color: var(--tierP); margin-bottom: 8px;
+  }
+  .lock { font-size: 14px; }
+
+  /* ---- Commitment affordance ---- */
+  .commit {
+    margin-top: 10px; display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--gold);
+    border: 0.5px dashed rgba(232,200,135,0.5);
+    border-radius: 14px; padding: 10px 14px;
+  }
+
+  /* ---- Consent screen ---- */
+  .consent .icon {
+    width: 54px; height: 54px; border-radius: 18px;
+    display: grid; place-items: center; font-size: 26px;
+    background: var(--glass-strong); border: 0.5px solid var(--stroke); margin-bottom: 12px;
+  }
+  .consent p { font-size: 15px; line-height: 1.5; }
+  .consent .plain {
+    background: var(--glass); border-radius: 16px; padding: 16px; margin: 16px 0;
+    border: 0.5px solid var(--stroke);
+  }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; padding: 14px 4px; border-top: 0.5px solid var(--stroke);
+  }
+  .switch {
+    width: 50px; height: 30px; border-radius: 999px; background: rgba(126,224,176,0.9);
+    position: relative; flex: 0 0 auto;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 3px; left: 23px;
+    width: 24px; height: 24px; border-radius: 50%; background: #fff;
+  }
+  .btns { display: grid; gap: 10px; margin-top: 14px; }
+  .btn {
+    text-align: center; border-radius: 16px; padding: 14px; font-size: 15px; font-weight: 650;
+    border: 0.5px solid var(--stroke);
+  }
+  .btn.primary { background: var(--gold); color: #1a1408; border-color: transparent; }
+  .btn.ghost { background: var(--glass); color: var(--text); }
+  .decline-note {
+    font-size: 12.5px; color: var(--text-dim); margin-top: 6px; line-height: 1.45;
+  }
+  footer { text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ SCREEN 1: CONSENT GATE (appears BEFORE any Tier-C faith write) ============ -->
+  <div>
+    <div class="screen-label">Screen 1 · Faith consent gate (shown before any server-readable faith write)</div>
+    <div class="glass consent">
+      <div class="icon">✝︎</div>
+      <h1>Use your Faith Journey to connect you</h1>
+      <p class="sub">
+        You're about to add details about your faith. Some of these can help AMEN connect you —
+        but only if you say yes here first.
+      </p>
+
+      <div class="plain">
+        <strong>In plain language:</strong>
+        <p class="sub" style="margin-top:8px;">
+          AMEN's servers will use this to match you with churches and communities.
+          You can turn this off anytime.
+        </p>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="field-label">Allow faith matching</div>
+          <div class="field-hint">Lets AMEN's servers read your faith details <span class="tier C">TIER C</span> to suggest churches &amp; communities.</div>
+        </div>
+        <div class="switch" title="ON in this mock"></div>
+      </div>
+
+      <div class="btns">
+        <div class="btn primary">Turn on faith matching</div>
+        <div class="btn ghost">Not now — keep my faith details private</div>
+      </div>
+      <p class="decline-note">
+        If you decline, everything you enter below stays <strong>Tier P — on this device only</strong>.
+        Nothing faith-related is sent to AMEN's servers, and faith matching stays off. You can change your
+        mind later. Declining only disables faith matching — nothing else.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 2: FAITH JOURNEY BUILDER ============ -->
+  <div>
+    <div class="screen-label">Screen 2 · Faith Journey Builder</div>
+    <div class="glass">
+      <h1>Your Faith Journey</h1>
+      <p class="sub">This personalizes AMEN and helps connect you. There are no levels, scores, or rankings — ever.</p>
+
+      <!-- Current church (search-select, selection only) -->
+      <div class="section">
+        <div class="row-head">
+          <span class="field-label">Current church</span>
+          <span class="tier C">TIER C</span>
+        </div>
+        <div class="field-hint">Pick from Find a Church search. We only record which church you chose.</div>
+        <div class="input">🔎  Search churches…</div>
+        <div class="selected">
+          <span>⛪️</span>
+          <div>
+            <div class="name">Grace Fellowship Church</div>
+            <div class="addr">1200 Maple Ave · Springfield · Non-Denominational</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current study -->
+      <div class="section">
+        <div class="row-head">
+          <span class="field-label">What you're studying now</span>
+          <span class="tier C">TIER C</span>
+        </div>
+        <div class="input">e.g. The Gospel of John, a sermon series, a devotional…</div>
+      </div>
+
+      <!-- Favorite books of the Bible -->
+      <div class="section">
+        <div class="row-head">
+          <span class="field-label">Favorite books of the Bible</span>
+          <span class="tier C">TIER C</span>
+        </div>
+        <div class="chips">
+          <span class="chip on">John</span>
+          <span class="chip on">Psalms</span>
+          <span class="chip on">Romans</span>
+          <span class="chip">Genesis</span>
+          <span class="chip">Matthew</span>
+          <span class="chip">Philippians</span>
+          <span class="chip">Proverbs</span>
+          <span class="chip">+ add</span>
+        </div>
+      </div>
+
+      <!-- Spiritual goals (+ commitment affordance) -->
+      <div class="section">
+        <div class="row-head">
+          <span class="field-label">Spiritual goals</span>
+          <span class="tier C">TIER C</span>
+        </div>
+        <div class="chips">
+          <span class="chip on">Read the Bible daily</span>
+          <span class="chip on">Join a small group</span>
+          <span class="chip">+ add a goal</span>
+        </div>
+        <div class="commit">
+          <span>＋</span> Want to make “Read the Bible daily” a commitment?
+        </div>
+      </div>
+
+      <!-- Prayer habits -->
+      <div class="section">
+        <div class="row-head">
+          <span class="field-label">Prayer habits</span>
+          <span class="tier C">TIER C</span>
+        </div>
+        <div class="chips">
+          <span class="chip on">Morning prayer</span>
+          <span class="chip on">Prayer journal</span>
+          <span class="chip">Praying with others</span>
+          <span class="chip">+ add</span>
+        </div>
+      </div>
+
+      <!-- Areas of growth -->
+      <div class="section">
+        <div class="row-head">
+          <span class="field-label">Areas of growth</span>
+          <span class="tier C">TIER C</span>
+        </div>
+        <div class="chips">
+          <span class="chip on">Consistency in prayer</span>
+          <span class="chip on">Scripture memory</span>
+          <span class="chip">+ add</span>
+        </div>
+      </div>
+
+      <!-- ===== Areas needing support — ALWAYS Tier P ===== -->
+      <div class="private-block">
+        <div class="private-banner">
+          <span class="lock">🔒</span> Stays private on this device · never sent to AMEN's servers
+          <span class="tier P" style="margin-left:auto;">TIER P</span>
+        </div>
+        <div class="field-label">Areas where you need support</div>
+        <div class="field-hint" style="margin:6px 0 12px;">
+          This is the most sensitive part of your journey. It never leaves your device, never appears in
+          matching, logs, or analytics — even if faith matching is on.
+        </div>
+        <div class="chips">
+          <span class="chip on">Walking through grief</span>
+          <span class="chip on">Doubt &amp; questions</span>
+          <span class="chip">+ add (private)</span>
+        </div>
+      </div>
+
+      <div class="btns" style="margin-top:24px;">
+        <div class="btn primary">Save my Faith Journey</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Static mock · AMEN Universal Migration &amp; Context System · Wave 1 (faith-builder)</footer>
+</div>
+</body>
+</html>
