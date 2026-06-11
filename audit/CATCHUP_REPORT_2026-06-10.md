@@ -106,3 +106,45 @@ Posted readiness above; no guess-merge performed.
    2026-06-10; agent pbxproj edits hook-blocked).
 3. **Active lanes:** commit your compiling hunks now (wipe-risk window open, `AGENT_LANES.md:162`).
 4. **AIL / CI / integration owners:** STEP-4 merges + archives, green build between each, once (1)+(2) land.
+
+---
+
+## ADDENDUM — Round 2 (package-fix takeover, 2026-06-10)
+
+### Package-resolution root cause (SOLVED — not FirebaseAI, not stale cache)
+The project tree `/Users/stephtapera/Desktop/AMEN/AMENAPP copy` is under an **iCloud / file-provider
+synced location** (`com.apple.fileprovider.fpfs#P` xattr on build products). The sync daemon **evicts
+SwiftPM package files mid-build** → `resolved source packages:` empty / `"csharp_generator_unittest.cc"
+doesn't exist` / `dependency … missing`. Compounding factors:
+1. `-resolvePackageDependencies -scheme …` (no `-project`) resolved an **empty** graph; adding
+   `-project AMENAPP.xcodeproj` resolved all 22 packages correctly.
+2. DerivedData/SourcePackages under the synced tree get evicted → must use a **non-synced** path
+   (`/tmp`). `codesign` also rejects synced bundles (`resource fork / Finder information … not
+   allowed`) → simulator build uses `CODE_SIGNING_ALLOWED=NO`.
+**Green-path build command:** `xcodebuild build -project AMENAPP.xcodeproj -scheme AMENAPP -destination
+'generic/platform=iOS Simulator' -clonedSourcePackagesDirPath /tmp/amen-sp -derivedDataPath /tmp/amen-dd
+-packageCachePath /tmp/amen-pc CODE_SIGNING_ALLOWED=NO`. With `-project` + global cache the **app + all
+22 packages compiled with ZERO `error:` lines** (build3, 11.9k log lines).
+**HUMAN action:** move the working dir out of iCloud Desktop sync (or exclude `DerivedData`+`SourcePackages`
+from sync) so the mandated `./DerivedData` form is reliable.
+
+### P2 resolved
+FirebaseAI/FirebaseAILogic pbxproj unlink **LANDED** (human) — `grep` count now **0** (was 10 lines / 6 sites).
+
+### Junk-dup cleanup declaration (per GLOBAL deletion rule — declared before staging)
+Diffed all 21 untracked ` 2/3/4` dups vs canonical. **Deleting 14 BYTE-IDENTICAL** (zero loss):
+6× `demo_{note_pill,note_viewer,share_sheet} {3,4}.html`, `actionIntelligenceRules.test 2.js`,
+`noteShare.test 2.ts`, `agents/{agentIdentity,agentOutcomes} 2.ts`, `noteShare 2.ts`,
+`RULES_INDEX_AUDIT_{all_unruled,client_gaps} 2.txt`, `connectedIntelligence.{config,contracts} 2.ts`.
+**PRESERVING 6 DIVERGENT** (flagged to owners — may carry unmerged work; `Backend/* 2.ts` also pollute `tsc`):
+`AGENT_LANES 2.md`, `actionIntelligence 2.ts`, `userSettings 2.ts`, `noteShareAccess.rules.test 2.js`,
+`RULES_INDEX_AUDIT 2.md`, `VERIFICATION_SUITE 2.md`.
+
+### Tree-state actions this round
+- `manifest takeover` commit `da29574c`; `orphan sweep` commit `da327018` (24 untracked new files → wipe-risk closed).
+- Remaining dirty = tracked **modifications** (clean-safe, owner-arbitrated) + 6 divergent dups (owner).
+
+### Open blocker for green
+`ContextStore/ContextStoreAdversarialTests.swift` imports XCTest but sits in the **app target** →
+"XCTest isn't linked." Owner = Migration lane (self-reported, active). Trivial fix: move to
+`AMENAPPTests/` or guard `#if canImport(XCTest)`. Claimed by catch-up only on no owner heartbeat.
