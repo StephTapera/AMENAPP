@@ -1,9 +1,15 @@
 # FROZEN - Shared Components Contract - Spiritual OS
-> Version 1.2 - 2026-06-11 - Lead Orchestrator
+> Version 1.3 - 2026-06-11 - Lead Orchestrator
 > FROZEN. Implementations live in `AMENAPP/AMENAPP/AMENAPP/SpiritualOS/SharedComponents/SOSharedComponents.swift`.
 > Surface enum and context mode: `AMENAPP/AMENAPP/AMENAPP/SpiritualOS/SOSurface.swift`
 > Color tokens: `AMENAPP/AMENAPP/AMENAPP/SpiritualOS/SOColors.swift`
 > Agents use ONLY these 8 components. No new glass primitives. Escalate API gaps to Lead.
+
+---
+
+## Existing GlassKit Binding
+
+`SOSharedComponents.swift` is a facade over the existing app GlassKit/LiquidGlass layer, not a new component library. Implementations must extend, wrap, or alias existing primitives such as `LiquidGlassCard`, `livingGlassMaterial`, `AmenLiquidGlassComponents`, `CommunicationOSGlassKit`, and related `GlassEffectContainer` helpers. Agents may not define new glass materials, duplicate token systems, or create parallel card/bar/chip implementations outside this facade.
 
 ---
 

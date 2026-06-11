@@ -1,5 +1,5 @@
 # FROZEN - Data Models Contract - Spiritual OS
-> Version 1.1 - 2026-06-11 - Lead Orchestrator
+> Version 1.2 - 2026-06-11 - Lead Orchestrator
 > FROZEN. Implement against these exact schemas. No field renames or additions without Lead sign-off.
 
 ---
@@ -12,8 +12,18 @@ Consumed by Spiritual OS but not structurally changed:
 
 ---
 
+## Context Source of Truth
+
+Spiritual OS MUST consume the existing ContextStore as the single source of context truth. Agent H is a subscriber/projector over ContextStore state, not a new sensing pipeline. Ambient OS callables may enrich ContextStore through their existing contracts, but Spiritual OS must not read Ambient OS as a second context source or create a third context pipeline.
+
+`spiritualOS_context/{userId}` is a derived projection for Spiritual OS UI personalization and server-side digest shaping only. Its fields are copied from validated ContextStore state and user permissions; it never owns raw sensor events, geofence decisions, motion classification, or ambient context extraction.
+
+---
+
 ## New Collection 1: `spiritualOS_digest/{userId}/items/{itemId}`
 Daily digest feed. Server-written (CF), client read-only except `isRead`.
+
+Amen Daily is the Home-tab presentation layer for the shipped Pulse product. It extends existing Pulse/BereanPulse data, cards, routes, and the `amenPulseEnabled` feature flag where present; it must not create a competing daily formation engine, duplicate Pulse scoring, or fork Pulse storage.
 
 ```
 itemId        String    Auto (CF-generated)
@@ -90,7 +100,7 @@ Index required: userId + startDate ASC + isCompleted == false
 ---
 
 ## New Collection 4: `spiritualOS_context/{userId}` (single doc per user)
-Live context state. CF-written only. Never retained beyond the document.
+Live context projection. CF-written only from validated ContextStore state. Never retained beyond the document.
 
 ```
 userId                String
@@ -105,7 +115,7 @@ userPermissions       Map       { locationEnabled, motionEnabled, geofenceOptIn,
 aegisAuditRef         String?   Ref to Aegis audit log for permission grant
 ```
 
-Privacy: Never synced except via updateContextState CF. Deleted on logout.
+Privacy: Never synced except via `projectSpiritualOSContext`/`updateContextState` CF after reading ContextStore. Deleted on logout.
 
 ---
 

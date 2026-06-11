@@ -1,5 +1,5 @@
 # FROZEN - Navigation Contract - Spiritual OS
-> Version 1.2 - 2026-06-11 - Lead Orchestrator
+> Version 1.3 - 2026-06-11 - Lead Orchestrator
 > FROZEN. Zero buttons, controls, or views deleted. All surfaces are ADDITIVE insertions only.
 > USER CONFIRMED: "don't remove any button or anything"
 
@@ -22,6 +22,7 @@
 
 ### Agent A — Amen Daily Digest
 Mount: Home tab (index 0) — `AmenDailyDigestSection` inserted ABOVE existing feed in `HomeView`.
+Product reconciliation: Amen Daily is the Home presentation of shipped Pulse, not a second product. It must extend the existing Pulse/BereanPulse model, `amenPulseEnabled` gate, and Pulse routes; no separate Daily router, ranking engine, or competing feed store is allowed.
 Implementation: New view added to existing ScrollView/LazyVStack above post list. No existing UI removed.
 Deep link: `amen://daily` → Home tab, scroll to digest
 Feature flag: `spiritualOS_daily_enabled` (Remote Config, default OFF)
@@ -132,7 +133,7 @@ Privacy gate: Context Engine is dormant until:
 | `amen://berean` | Expand global AssistantBar |
 | `amen://berean?query={encoded}` | AssistantBar with pre-filled query |
 
-All routes extend existing `NotificationDeepLinkRouter` / `AmenContentRouter` pattern.
+All `amen://` routes are registered with and resolved through existing `DeepLinkRouter.shared`. `NotificationDeepLinkRouter` and `AmenContentRouter` are legacy/adaptor call sites only; Spiritual OS must not introduce a second router or bypass the recently added space/event routes.
 
 ---
 

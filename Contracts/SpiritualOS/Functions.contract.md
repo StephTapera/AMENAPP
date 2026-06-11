@@ -1,6 +1,6 @@
-# FROZEN — Cloud Functions Contract · Spiritual OS
-> Version 1.0 · 2026-06-02 · Lead Orchestrator
-> ⚠️ FROZEN. All new functions are v6 callables. App Check + Auth required on every function.
+# FROZEN - Cloud Functions Contract - Spiritual OS
+> Version 1.1 - 2026-06-11 - Lead Orchestrator
+> FROZEN. All new functions are v6 callables. App Check + Auth required on every function.
 > Agents NEVER call AI models client-side. All model calls go through these server-side proxies.
 
 ---
@@ -33,6 +33,7 @@ Response:
 }
 ```
 
+Source of product truth: existing Pulse/BereanPulse surfaces and the `amenPulseEnabled` gate. `getSpiritualDigest` may compose a Home presentation from Pulse cards plus eligible reminders/events, but it must not create a parallel daily product or duplicate Pulse ranking.
 Proxies: Anthropic Claude (greeting + verse selection). Falls back to seeded verse if Claude unavailable.
 Writes to: `spiritualOS_digest/{userId}/items/*`
 
@@ -127,13 +128,14 @@ Vision: image processed in-flight only — NOT stored. imageBase64 bytes are nev
 
 ---
 
-## updateContextState
-Client pushes context mode updates to server for digest personalization.
+## projectSpiritualOSContext / updateContextState
+Projects existing ContextStore state into the Spiritual OS context document for digest personalization. ContextStore is the only source of context truth; Ambient OS callables are upstream enrichers into ContextStore, not a second source consumed directly by Spiritual OS.
 
 Request:
 ```json
 {
   "userId": "string",
+  "contextStoreSnapshotId": "string",
   "mode": "default|worship|driving|travel|focus|rest",
   "isSundayChurchTime": "boolean",
   "isNearChurch": "boolean",
