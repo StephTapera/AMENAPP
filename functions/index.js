@@ -1822,3 +1822,11 @@ exports.reportUnsafeAIResponse = reportAI.reportUnsafeAIResponse;
 const moderationAppeals = require("./moderation/appeals");
 exports.submitAppeal = moderationAppeals.submitAppeal;
 exports.decideAppeal = moderationAppeals.decideAppeal;
+
+// ============================================================================
+// SAFETY REPORT — iOS report button backend (auth + App Check + rate-limited)
+//   submitSafetyReport — callable: writes to moderationQueue server-side;
+//     critical categories (csam/child_safety/grooming) trigger escalation pipeline.
+// Deploy: firebase deploy --only functions:submitSafetyReport --project amen-5e359
+// ============================================================================
+exports.submitSafetyReport = require("./safety/submitSafetyReport").submitSafetyReport;
