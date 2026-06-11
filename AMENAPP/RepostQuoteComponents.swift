@@ -977,22 +977,25 @@ struct QuotePostComposerView: View {
         }
     }
 
-    /// Fire-and-forget Firestore write when no parent callback is provided.
-    /// Uploads any attached images to Storage first, then writes the post doc.
+    /// Fallback publish path used when no parent `onPublish` callback is provided.
+    /// Uploads any attached images to Storage first (a legitimate client-side operation),
+    /// then routes through PostsManager.createPost — ensuring rate-limiting, AI-content
+    /// detection, idempotency, and the moderatePost Cloud Function trigger all execute.
+    /// Direct Firestore writes are intentionally removed to prevent bypassing the
+    /// moderation pipeline (H3 security fix).
     private func writeQuotePostToFirestore(text: String, images: [UIImage] = []) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        lazy var db = Firestore.firestore()
-        let docId = db.collection("posts").document().documentID
-        let docRef = db.collection("posts").document(docId)
 
         Task {
+            // Step 1: Upload images to Storage (legitimate client operation — no post doc yet)
             var imageURLs: [String] = []
             if !images.isEmpty {
+                let uploadSlot = UUID().uuidString
                 imageURLs = await withTaskGroup(of: String?.self) { group in
                     for (i, img) in images.enumerated() {
                         group.addTask {
                             guard let data = img.jpegData(compressionQuality: 0.82) else { return nil }
-                            let path = "posts/\(uid)/\(docId)/image_\(i).jpg"
+                            let path = "posts/\(uid)/\(uploadSlot)/image_\(i).jpg"
                             let ref = Storage.storage().reference().child(path)
                             let meta = StorageMetadata(); meta.contentType = "image/jpeg"
                             guard (try? await ref.putDataAsync(data, metadata: meta)) != nil,
@@ -1007,39 +1010,29 @@ struct QuotePostComposerView: View {
                 }
             }
 
-            // Extract hashtags from content for indexing
-            let hashtags = extractHashtags(from: text)
+            // Step 2: Build quote metadata — server will re-verify quoted fields via
+            // the moderatePost trigger; client-supplied values are treated as hints only.
+            let sourcePostId = originalPost.firebaseId ?? originalPost.id.uuidString
+            let quote = PostQuoteMetadata(
+                sourcePostId: sourcePostId,
+                sourceAuthorId: originalPost.authorId,
+                sourceAuthorName: originalPost.authorName,
+                sourceAuthorUsername: originalPost.authorUsername,
+                sourceExcerpt: String(originalPost.content.prefix(280)),
+                selectionStart: 0,
+                selectionLength: min(originalPost.content.count, 280),
+                quoteType: .sentence,
+                createdAt: Date()
+            )
 
-            var data: [String: Any] = [
-                "authorId": uid,
-                "content": text,
-                "category": selectedCategory.rawValue,
-                "isQuotePost": true,
-                "quotedPostId": originalPost.firebaseId ?? originalPost.id.uuidString,
-                "quotedAuthorId": originalPost.authorId,
-                "quotedAuthorName": originalPost.authorName,
-                "quotedContent": originalPost.content,
-                "createdAt": FieldValue.serverTimestamp(),
-                "repostCount": 0,
-                "amenCount": 0,
-                "commentCount": 0,
-                "lightbulbCount": 0,
-                "visibility": Post.PostVisibility.everyone.rawValue,
-                "isRepost": false
-            ]
-            if !imageURLs.isEmpty { data["imageURLs"] = imageURLs }
-            if !hashtags.isEmpty { data["hashtags"] = hashtags }
-            try? await docRef.setData(data)
-
-            // Index hashtags for search/discovery
-            if !hashtags.isEmpty {
-                await indexHashtags(hashtags, postId: docId)
-            }
-
-            NotificationCenter.default.post(
-                name: .newPostCreated,
-                object: nil,
-                userInfo: ["category": selectedCategory.rawValue]
+            // Step 3: Submit through the full moderation pipeline
+            PostsManager.shared.createPost(
+                content: text,
+                category: selectedCategory,
+                visibility: originalPost.visibility,
+                allowComments: true,
+                imageURLs: imageURLs.isEmpty ? nil : imageURLs,
+                quote: quote
             )
         }
     }

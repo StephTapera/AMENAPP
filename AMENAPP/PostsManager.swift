@@ -1564,30 +1564,37 @@ class PostsManager: ObservableObject {
 
     // MARK: - Quote Post
 
-    /// Writes a quote post to Firestore. Called from QuotePostComposerView via PostCard.
+    /// Publishes a quote post by routing through the standard firebasePostService.createPost
+    /// pipeline. This ensures rate-limiting, AI-content detection, idempotency, and the
+    /// moderatePost Cloud Function trigger all execute before the post becomes visible.
+    /// Direct Firestore writes are intentionally removed — quoted fields (quotedAuthorName,
+    /// quotedContent) must never be set client-side without going through the server pipeline.
     func publishQuotePost(text: String, originalPost: Post) async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        lazy var db = Firestore.firestore()
-        let ref = db.collection("posts").document()
-        let data: [String: Any] = [
-            "id": ref.documentID,
-            "content": text,
-            "authorId": uid,
-            "category": originalPost.category.rawValue,
-            "isQuotePost": true,
-            "quotedPostId": originalPost.firebaseId ?? originalPost.id.uuidString,
-            "quotedAuthorId": originalPost.authorId,
-            "quotedAuthorName": originalPost.authorName,
-            "quotedContent": originalPost.content,
-            "createdAt": FieldValue.serverTimestamp(),
-            "visibility": Post.PostVisibility.everyone.rawValue,
-            "allowComments": true
-        ]
+        let sourcePostId = originalPost.firebaseId ?? originalPost.id.uuidString
+        let quote = PostQuoteMetadata(
+            sourcePostId: sourcePostId,
+            sourceAuthorId: originalPost.authorId,
+            sourceAuthorName: originalPost.authorName,
+            sourceAuthorUsername: originalPost.authorUsername,
+            sourceExcerpt: String(originalPost.content.prefix(280)),
+            selectionStart: 0,
+            selectionLength: min(originalPost.content.count, 280),
+            quoteType: .sentence,
+            createdAt: Date()
+        )
         do {
-            try await ref.setData(data)
-            dlog("✅ Quote post published: \(ref.documentID)")
+            try await firebasePostService.createPost(
+                content: text,
+                category: originalPost.category,
+                topicTag: originalPost.topicTag,
+                visibility: originalPost.visibility,
+                allowComments: true,
+                quote: quote
+            )
+            dlog("✅ Quote post submitted through moderation pipeline")
         } catch {
             dlog("❌ Quote post failed: \(error)")
+            await MainActor.run { self.error = error.localizedDescription }
         }
     }
 }
