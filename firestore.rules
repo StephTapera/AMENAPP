@@ -1681,7 +1681,20 @@ service cloud.firestore {
         request.auth.uid == uid ||
         request.auth.uid == resource.data.get('witnessUID','')
       );
-      allow write: if isSignedIn();                        // CF validates both-party acceptance
+      // create: only the witness themselves may create the invitation record,
+      //         and they must be the witnessUID on the document (H5).
+      //         The initial invitation write is owned by the CF via Admin SDK;
+      //         client-side create is intentionally locked to self-witness to
+      //         prevent forging another user's witness list.
+      allow create: if isSignedIn()
+        && request.resource.data.witnessUID == request.auth.uid;
+      // update: only the account owner or the witness may update,
+      //         and only the allowed status fields may change (H5).
+      allow update: if isSignedIn()
+        && (request.auth.uid == uid || request.auth.uid == resource.data.witnessUID)
+        && request.resource.data.keys().hasOnly(['status', 'acceptedAt', 'updatedAt']);
+      // delete: denied — use CF for witness removal to maintain audit trail (H5).
+      allow delete: if false;
     }
 
     // one_vaults: strictly owner-only, no exceptions (SECURITY.md §6/CONTRACTS.md §14)
