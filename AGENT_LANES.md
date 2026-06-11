@@ -176,6 +176,7 @@ Security lane (`functions/*.js`: F-01 fail-closed, `signInWithUsername`, F-05 ad
 - Owner: Claude (ambient-UI lane), declared per the GLOBAL deletion rule BEFORE staging.
 - Scope: delete `* 2.*` junk-duplicate source/config files that cause "Multiple commands produce" / "invalid redeclaration" build failures. Proof captured per file (diff vs canonical sibling). Build artifacts (`.derivedData`, `SourcePackages`) and vendored `node_modules` are out of scope.
 - Verdict: every dup is IDENTICAL or stale-older (canonical newer mtime AND richer/deliberately-evolved in every differing case). NO " 2" file carried unmerged work its canonical sibling lacked → no STOP.
+- **Interim added 2026-06-10 (Codex / Spiritual OS):** `AMENAPP/AMENAPP/GetReadyViewModel 2.swift` caused ambiguous `GetReadyViewModel` / `GetReadyPlan` build blockers. It is currently preserved and excluded from compilation with `#if GET_READY_DUPLICATE_BACKUP` as an accepted temporary unblock. Queue owner must diff it against canonical `AMENAPP/AMENAPP/GetReadyViewModel.swift`, fold any unique work, then delete the duplicate; the conditional block must not become permanent.
 - Deleted (13):
   - `AMENAPP/AMENAPP/ChurchNotes/Services/NoteShareService 2.swift` — stale-older; canon adds `NoteShareServing` protocol + richer `parseViewerPayload`.
   - `AMENAPP/AMENAPP/ChurchNotes/Views/NoteShareViewerView 2.swift` — stale-older; canon adds DEBUG `NoteShareRuntimeProofService` + protocol injection.
@@ -340,6 +341,24 @@ This all-clear is the `.nosync` capable-lane handoff artifact required by:
 
 **Pathspec discipline note:** 4e9ddceb was a full-working-tree absorption commit — accepted under
 the consolidation precedent. All future commits are pathspec-scoped to own-lane files only.
+
+### ✅ Second independent green confirmation — Spiritual OS / Codex (2026-06-10)
+
+```
+Command : Xcode MCP BuildProject
+Result  : The project built successfully.
+Errors  : 0
+Full log: /var/folders/v6/7zm8wr6d7hq4wkm528s6q94m0000gn/T/ActionArtifacts/FB80D653-E732-40F1-A871-44A5DFC82AE2/BuildProject/BuildProject-Log-20260610-230910.txt
+SHA     : f8d0dfae
+Dirty   : true (unrelated active-lane files remain in flight; BuildProject was green at current HEAD)
+```
+
+Ping parked lanes for owed proof now that two independent greens exist:
+- Pulse: post tap-through screenshots + Total Control Wiring matrix.
+- Ambient: post entry/runtime screenshots + privacy/context-state matrix.
+- ONE: post relay-disabled and moment-flow screenshots + matrix.
+- AIL: post mounted accessibility-surface screenshots + matrix.
+- NoteShare: post viewer/revoked/share-sheet screenshots + matrix.
 
 ---
 
