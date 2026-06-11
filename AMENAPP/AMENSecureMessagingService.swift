@@ -111,6 +111,16 @@ final class AMENSecureMessagingService: ObservableObject {
     static let shared = AMENSecureMessagingService()
     private init() {}
 
+    /// GAP P0-4: Returns true when an account's ageTier is barred from initiating DMs.
+    /// Authoritative vocabulary (functions/authenticationHelpers.js computeAgeTier):
+    ///   blocked (<13, COPPA hard-block) · tierB (13–15) · tierC (16–17) · tierD (18+).
+    /// Only the COPPA hard-block tier is barred client-side; tierB/tierC minors are gated
+    /// server-side by the mutual-follow minor-safe-DM rule. Legacy strings retained so any
+    /// stale custom claim still fails closed.
+    static func isDMBlockedTier(_ ageTier: String) -> Bool {
+        return ["blocked", "under_minimum", "minor"].contains(ageTier)
+    }
+
     private lazy var db = Firestore.firestore()
     private let encryption = AMENEncryptionService.shared
     private let safety = AMENMessageSafetyEngine.shared
@@ -397,11 +407,16 @@ final class AMENSecureMessagingService: ObservableObject {
             throw SecureMessagingError.notAuthenticated
         }
 
-        // COPPA: minors (ageTier == 'minor' or 'under_minimum' in custom claims) cannot initiate DMs
+        // COPPA: under-13 (COPPA hard-block) accounts cannot initiate DMs.
+        // GAP P0-4: this gate previously checked 'under_minimum'/'minor' — tier strings
+        // the age system NEVER emits (real vocab: blocked/tierB/tierC/tierD). The check was
+        // dead, so a blocked under-13 account could open a DM client-side. We block the
+        // COPPA hard-block tier here; minors 13–17 (tierB/tierC) are permitted at the client
+        // and gated server-side by firestore.rules (mutual-follow minor-safe DM requirement).
         if let user = Auth.auth().currentUser {
             let claims = try? await user.getIDTokenResult()
             let ageTier = claims?.claims["ageTier"] as? String ?? ""
-            if ageTier == "under_minimum" || ageTier == "minor" {
+            if Self.isDMBlockedTier(ageTier) {
                 throw NSError(domain: "COPPA", code: 403, userInfo: [NSLocalizedDescriptionKey: "Direct messaging is not available for your account type."])
             }
         }
