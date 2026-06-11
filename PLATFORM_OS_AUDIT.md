@@ -1,204 +1,79 @@
-# AMEN PLATFORM OS AUDIT — 2026-06-01
-**25 OS Layers | Branch: feature/spiritual-os**
+# Platform OS Audit
 
----
+Branch: `audit/platform-os`  
+Date: 2026-06-10  
+Scope: additive audit only. No production deploys, rule changes, schema migrations, deletes, or secrets access.
 
-## SUMMARY
+## Executive Summary
 
-Three OS layers are completely missing and block launch:
-- **OS-02 Entitlement OS** — no single source of truth for what a user can access
-- **OS-20 Recovery OS** — no account recovery workflow beyond Firebase default
-- **OS-21 Audit OS** — no append-only audit trail (required for App Store COPPA + GDPR)
+Amen already has many system fragments: auth lifecycle gates, feature flags, monetization and entitlement services, notification tests, moderation audit contracts, context intelligence, and soft-delete fields in selected models. The platform risk is fragmentation: duplicated feature-level services, missing or mismatched backend callables, client-authored enforcement paths, and tests that often document expectations without emulator or UI integration coverage.
 
----
+## P0 Blockers
 
-## LAYER ANALYSIS
+| ID | Layer | Finding | Evidence | Status |
+|---|---|---|---|---|
+| POS-P0-001 | Role & Permission OS | Root role permission service is a scaffold and does not appear to persist/resolve roles. | `AMENAPP/AMENAPP/RolePermissionService.swift:17`, `:59`, `:134` | Open |
+| POS-P0-002 | Role & Permission OS | Role mutation paths write directly from client without an in-method authorization gate before assign/revoke/transfer. | `AMENAPP/AMENAPP/AMENAPP/CommunityOS/Identity/AmenRoleManager.swift:88`, `:141`, `:248` | Open |
+| POS-P0-003 | Community/Event/Membership Lifecycle OS | Covenant backend exports reference missing `./covenant/...` modules. Functions build/deploy is likely broken and lifecycle callables are unresolved. | `AMENAPP/Backend/functions/src/index.ts:322` | Open |
+| POS-P0-004 | Relationship Graph OS | Spiritual graph snapshot appears to aggregate first 300 global edges without filtering by caller uid, risking cross-user affinity contamination. | `AMENAPP/Backend/functions/src/spiritualGraph/services/SpiritualGraphService.ts:23`, `:35` | Open |
+| POS-P0-005 | AI Credit & Usage OS | Backend functions tree appears incomplete: AI/backend imports and callable names referenced by client are missing or mismatched. | `AMENAPP/Backend/functions/src/smartAttachments.ts:3`, `AMENAPP/Backend/functions/src/bereanChatProxy.ts:11`, `AMENAPP/AMENAPP/AIIntelligence/AmenAIFeaturesService.swift:96` | Open |
+| POS-P0-006 | Permission Revocation / Device OS | No automated mid-session OS permission revocation coverage for notification/camera/photo/mic or Firestore permission-denied listener recovery. | `AMENAPP/AMENAPPTests/NoteShareViewerTests.swift:44`, `AMENAPP/AMENAPPTests/WalkWithChristTests.swift:497` | Open |
+| POS-P0-007 | Recovery OS | Deleted-reference fan-out is not emulator-verified across saved posts, notifications, feed refs, comments/replies, search indexes, and media URLs. | `AMENAPP/AMENAPPTests/ProductionAuditTests.swift:119`, `AMENAPP/AMENAPPTests/ServiceProtocolTests.swift:231` | Open |
+| POS-P0-008 | Moderation OS | No automated report -> enforcement -> human review -> appeal -> restore/remove loop. | `AMENAPP/AMENAPPTests/AuditLogTests.swift:14`, `AMENAPP/AMENAPPTests/SocialSafetyOSTests.swift:103` | Open |
+| POS-P0-009 | Subscription OS | StoreKit/subscription tests do not cover cancel, restore, refund, billing retry, grace, expired transaction, downgrade timing, or server/client mismatch. | `AMENAPP/AMENAPPTests/RemainingReleaseScopesTests.swift:58`, `AMENAPP/AMENAPPTests/AmenConnectTests.swift:46` | Open |
+| POS-P0-010 | Ownership Lifecycle OS | No succession tests for owner deletion, last-admin leave, role transfer, paid/community takeover, or orphaned content. | `AMENAPP/AMENAPPTests/ContextStoreSecurityTests.swift:188`, `AMENAPP/AMENAPPTests/IntelligentSocialArchitectureTests.swift:115` | Open |
 
-### OS-01: Identity OS
-**Status:** COMPLETE
-Firebase Auth + Firestore profile. Email verification enforced at registration. Display name + avatar in UserProfile. Minor: verification gate at compose missing (C-2).
+## Layer Status
 
-### OS-02: Entitlement OS
-**Status:** MISSING — P0 BLOCKER
-EntitlementService.shared exists but has no typed protocol. Multiple features call it without contracts. Need EntitlementServiceProtocol with typed capabilities.
+| # | Layer | Status | Existing Evidence | Key Gap |
+|---|---|---|---|---|
+| 1 | Identity OS | Audited | `AuthenticationViewModel.swift`, `FirebaseManager.swift`, `AccountDeletionService.swift`, `AccountRecoveryService.swift` | No standalone boundary spanning sessions, devices, recovery, export, and deletion. |
+| 2 | Entitlement OS | Audited | `Shared/Contracts/Entitlement.swift`, `AmenEntitlementService.swift`, `AmenAccountEntitlementService.swift` | Multiple entitlement sources without one resolver/preference order. |
+| 3 | Subscription OS | Audited | `AmenStoreKitManager.swift`, `AmenPlatformStoreKitService.swift`, `AmenPlanModels.swift` | Edge states are not fully modeled/tested. |
+| 4 | Role & Permission OS | Audited | `RolePermissionService.swift`, `AmenRoleManager.swift`, ActionThread permission models | Central enforcement is incomplete. |
+| 5 | Notification OS | Audited | `NotificationSystemTests.swift`, `DeviceTokenManager.swift`, `PushNotificationHandler.swift` | Channels/cadence/quiet-hours are not unified; device-token stores are duplicated. |
+| 6 | AI Credit & Usage OS | Audited | `AIUsageService.swift`, `AmenAIFeaturesService.swift` | Quotas are local/fail-open in inspected paths; backend callables appear missing. |
+| 7 | Reputation & Trust OS | Partial | Trust flags, App Check, moderation hints | No central private trust ledger with retention policy. |
+| 8 | Legal & Compliance OS | Partial | Account deletion/recovery, consent surfaces | Consent/export/deletion/DMCA workflows are not one compliance contract. |
+| 9 | Creator Economy OS | Partial | Creator/studio monetization files | Payout/tax/refund/revenue-share interfaces need server-authoritative stubs. |
+| 10 | Organization Lifecycle OS | Partial | Org/community models, note-share membership probes | Org schemas drift between collections. |
+| 11 | Church Lifecycle OS | Partial | Church OS models and services | Legacy church lookup bypasses soft-delete filtering. |
+| 12 | Community Lifecycle OS | Partial | Covenant/community models | Missing succession and survival contracts. |
+| 13 | Event OS | Partial | Covenant event view/model snippets | Event status/canceled/deleted/restored fields and lifecycle filtering are thin. |
+| 14 | Search OS | Partial | RAG/search services, Algolia dependency | Search callables/index lifecycle and deleted-object filtering need verification. |
+| 15 | Media Rights OS | Missing/Partial | `AMENMediaService.swift` | Rights/license/removal-request lifecycle is mostly implicit. |
+| 16 | Moderation OS | Partial | `AmenSafetyModerationProvider.swift`, `AuditLogTests.swift` | Full moderation/appeal loop missing; some paths fail open or are stubs. |
+| 17 | Device OS | Partial | `DeviceTokenManager.swift`, `PushNotificationHandler.swift`, App Check | No single session/device trust registry. |
+| 18 | Membership OS | Partial | Covenant membership statuses/roles | No transition audit or succession rules. |
+| 19 | Relationship Graph OS | Partial | Spiritual graph backend | P0 cross-user aggregation risk found. |
+| 20 | Recovery OS | Partial | Selected `isDeleted`, `deletedAt`, archive fields | No universal tombstone/retention/restore contract. |
+| 21 | Audit OS | Partial | `AuditTrailService`, `AmenAuditLogService`, `AuditLogService`, `ContentAuditLogger` | Audit schemas are fragmented and often client-authored. |
+| 22 | Revenue OS | Partial | StoreKit, Stripe/covenant monetization, creator monetization | No single revenue lifecycle model; live billing remains approval-gated. |
+| 23 | Automation OS | Partial | Action suggestions, daily digest, reminders | No central rule engine with audit, retries, and idempotency. |
+| 24 | Smart Context OS | Partial | ContextStore, smart context engine, Berean actions | Consent/receipt/backend broker are incomplete. |
+| 25 | Memory & Continuity OS | Partial | ContextStore, conversation memory UI, journey tests | No authoritative consent/audit/retention contract for long-term memory. |
+| 26 | Governance OS | Missing/Partial | Moderation/trust systems | No moderator hierarchy, appeals board, escalation, or transparency reporting contract. |
 
-### OS-03: Subscription OS
-**Status:** PARTIAL
-AmenCovenantCheckoutService + StoreKit integration exists. Gap: IAP terms not shown before SKPayment.add() — App Store guideline 3.1.1 violation (C-7).
+## Hidden-Failure Test Matrix Gaps
 
-### OS-04: Role & Permission OS
-**Status:** COMPLETE
-AmenRoleService with admin/mod/member/pastor roles. Firestore rules enforce server-side. RBAC consistent across Church, Spaces, Orgs.
+| Matrix | Severity | Current Coverage | Missing Coverage |
+|---|---|---|---|
+| State x Screen | P1 | `AuthAccountLifecycle10GoTests.swift`, `AppReadyStateManagerTests.swift`, `AuthResolutionRaceTests.swift` | Exhaustive production route/UI matrix for logged out, partial onboarding, banned, deleted, offline, revoked permissions, role-switched. |
+| Timezone | P1 | Holiday/journey tests with simple offsets | DST forward/back, travel, leap year, birthdays, reminders across local midnight. |
+| Permission Revocation | P0 | Consent and note/share tests | Automated OS revocation while app is active and listener permission-denied recovery. |
+| Ownership Succession | P0 | Owner-scoped access model tests | Last admin/owner deletion, transfer, successor selection, orphaned objects. |
+| Cross-feature Chains | P1 | Bridge/unit contracts | Church Note -> Berean -> Notes -> Space -> Discussion -> Prayer end-to-end. |
+| Deleted References | P0 | Model/documentation tests | Emulator fan-out verification for all dependent references. |
+| Moderation Loop | P0 | Audit/safety model tests | Report -> action -> appeal -> reinstate/remove -> notify. |
+| Subscription Edges | P0 | Basic monetization tests | Cancel, restore, refund, grace, billing failed, family shared, downgrade, offline cached mismatch. |
+| Accessibility Regression | P2 | String labels/hints | UI tests for VoiceOver traversal, focus order, hit targets, Dynamic Type clipping, Reduce Motion, contrast. |
 
-### OS-05: Notification OS
-**Status:** PARTIAL
-FirebaseMessagingService handles FCM + local. CalmNotificationPolicyEngine (7 categories, 4 intensity modes, Sabbath mode). Gap: bulk send has no rate limit (C-10).
+## Approval-Gated Deferrals
 
-### OS-06: AI Credit OS
-**Status:** COMPLETE
-Berean credit system with monthly allocation, usage tracking, entitlement gates. Unentitled access blocked.
-
-### OS-07: Reputation OS
-**Status:** PARTIAL
-Aegis trust scores. Shadow-ban lacks audit trail for GDPR Article 22.
-
-### OS-08: Legal/Compliance OS
-**Status:** PARTIAL
-Privacy manifest present. COPPA DM (C-5) and data rights CFs (I-1) not yet deployed.
-
-### OS-09: Creator Economy OS
-**Status:** PARTIAL
-SpacesFeeCalculator present. Account delete does not resolve creator revenue stream.
-
-### OS-10: Organization Lifecycle OS
-**Status:** PARTIAL
-Organization CRUD exists. No secondary admin designation; org orphans if primary admin deletes account.
-
-### OS-11: Church Lifecycle OS
-**Status:** PARTIAL
-Church CRUD with pastor role. C-14: no designateSuccessor() before pastor account delete. Church becomes permanently uneditable.
-
-### OS-12: Community Lifecycle OS
-**Status:** COMPLETE
-Spaces v2 (49 Swift files). Admin chain auto-promotes next admin on owner delete.
-
-### OS-13: Event OS
-**Status:** PARTIAL
-EventService with RSVP. C-13: creator deletion strands RSVPs. Need soft-delete + system reminder to attendees.
-
-### OS-14: Search OS
-**Status:** COMPLETE
-Firestore full-text + churchSearchProxy CF. Denomination + location filters. VoiceOver labels present.
-
-### OS-15: Media Rights OS
-**Status:** PARTIAL
-AegisVisionDetector (C1-C13) built. C-11: grooming on child photo not auto-removed + T&S not escalated.
-
-### OS-16: Moderation OS
-**Status:** PARTIAL
-Aegis 58 caps built, all flagged OFF. C-1: AegisPrePostReviewSheet not wired into CreatePostView compose flow.
-
-### OS-17: Device OS
-**Status:** COMPLETE
-Siri, Spotlight, Widgets, Haptics, Translation, Media session all wired (23 Swift files). Reduce Motion + Dynamic Type respected.
-
-### OS-18: Membership OS
-**Status:** COMPLETE
-Subscription tiers (free/premium/creator). Entitlement gates on Berean AI, Spaces, Creator tools.
-
-### OS-19: Relationship Graph OS
-**Status:** COMPLETE
-Follow graph, prayer network, church membership. Cross-community relationships via SpaceV2 link system.
-
-### OS-20: Recovery OS
-**Status:** MISSING — P0 BLOCKER
-No AccountRecoveryService. Firebase default password reset only. No recovery flow for banned accounts, no appeal UX, no data export before delete.
-
-### OS-21: Audit OS
-**Status:** MISSING — P0 BLOCKER
-No AuditTrailService. T&S actions (bans, removals, escalations) are not logged to an append-only store. Required for COPPA + GDPR compliance audit.
-
-### OS-22: Revenue OS
-**Status:** PARTIAL
-Stripe webhook handler exists. No revenue reconciliation dashboard or discrepancy alerting. Stripe -> Firestore sync unverified for edge cases.
-
-### OS-23: Automation OS
-**Status:** COMPLETE
-CalmNotificationPolicyEngine, Spiritual Rhythm OS (40 features), Berean automation triggers all flag-gated.
-
-### OS-24: Smart Context OS
-**Status:** PARTIAL
-Berean context engine, scripture auto-detect, TrendingTopicService. AmenJourneyContinuityEngine relationship path still open — not wired to onboarding state.
-
-### OS-25: Memory & Continuity OS
-**Status:** PARTIAL
-Berean conversation history persisted. Journey state (liturgical season, growth phase) not linked to Berean context window. Cross-session continuity incomplete.
-
-
----
-
-## SWIFT PROTOCOL STUBS FOR MISSING OS LAYERS
-
-### EntitlementServiceProtocol (OS-02)
-
-protocol EntitlementServiceProtocol: AnyObject {
-    var currentTier: AmenSubscriptionTier { get }
-    func canAccess(_ capability: AmenCapability) async -> Bool
-    func grantCapability(_ capability: AmenCapability, to uid: String) async throws
-    func revokeCapability(_ capability: AmenCapability, from uid: String) async throws
-    func refreshEntitlements() async throws
-}
-
-enum AmenCapability: String, CaseIterable {
-    case bereanAI, spacesCreate, creatorOS, selahStories
-    case aegisModeration, bulkNotifications, analyticsExport
-}
-
-### RecoveryServiceProtocol (OS-20)
-
-protocol RecoveryServiceProtocol: AnyObject {
-    func submitBanAppeal(uid: String, reason: String) async throws -> AppealID
-    func getAppealStatus(appealID: AppealID) async throws -> AppealStatus
-    func initiateDataExport(uid: String) async throws -> ExportToken
-    func checkDataExportStatus(token: ExportToken) async throws -> DataExportStatus
-    func softDeleteAccount(uid: String, graceDays: Int) async throws
-    func cancelAccountDeletion(uid: String) async throws
-}
-
-enum AppealStatus: String { case pending, underReview, approved, denied }
-enum DataExportStatus: String { case requested, processing, ready, expired }
-
-### AuditServiceProtocol (OS-21)
-
-protocol AuditServiceProtocol: AnyObject {
-    func logEvent(_ event: AuditEvent) async
-    func queryEvents(filter: AuditFilter) async throws -> [AuditEvent]
-}
-
-struct AuditEvent: Codable {
-    let id: String
-    let timestamp: Date
-    let actorUID: String
-    let targetUID: String?
-    let action: AuditAction
-    let metadata: [String: String]
-}
-
-enum AuditAction: String, Codable {
-    case accountBan, accountUnban, contentRemoval, contentRestore
-    case shadowBan, appealApproved, appealDenied
-    case dataExportRequested, dataExportDelivered, accountDeleted
-    case moderatorAction, adminAction
-}
-
-struct AuditFilter {
-    var actorUID: String?
-    var targetUID: String?
-    var action: AuditAction?
-    var from: Date?
-    var to: Date?
-}
-
----
-
-## BUILD ORDER
-
-**Phase 1 (before any beta):**
-1. OS-21: AuditTrailService — append-only Firestore collection auditEvents/{id}, backed by AuditServiceProtocol
-2. OS-20: AccountRecoveryService — ban appeal UI, data export flow, soft-delete with 30-day grace
-3. OS-02: EntitlementService v2 — typed protocol, all capability gates migrate to it
-
-**Phase 2 (before App Store submission):**
-4. OS-03: IAP terms sheet shown before every SKPayment.add() call
-5. OS-08: COPPA DM gate + AegisDataRights CFs deployed
-6. OS-11: Church succession prompt on pastor account delete
-7. OS-13: Event soft-delete + system reminder to RSVPs
-
-**Phase 3 (post-launch hardening):**
-8. OS-07: Reputation audit trail + GDPR Article 22 shadow-ban notification
-9. OS-22: Stripe reconciliation view + discrepancy alert
-10. OS-24+25: AmenJourneyContinuityEngine wired to Berean context window
-
----
-
-*Platform OS Audit generated 2026-06-01 | Branch: feature/spiritual-os*
+| Action | Why Deferred |
+|---|---|
+| Firestore rules changes | Production/security-impacting and requires human review. |
+| Cloud Functions fixes/deploys | Backend deploy/build changes are approval-gated; missing modules need a focused backend branch. |
+| Schema migrations for audit/recovery/entitlements | Data migration and retention policy require explicit approval. |
+| Hard deletes or cleanup of orphaned assets | Safety contract requires soft-delete first and human approval for permanent deletes. |
+| Billing/payout implementation | Live money movement and subscription state changes are human-gated. |
