@@ -375,7 +375,7 @@ struct IntentSuggestionPill: View {
         .frame(minHeight: 36)
         .background {
             Capsule(style: .continuous)
-                .fill(reduceTransparency ? Color(.systemBackground) : AnyShapeStyle(.ultraThinMaterial))
+                .fill(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(.ultraThinMaterial))
                 .overlay {
                     if !reduceTransparency {
                         Capsule(style: .continuous)

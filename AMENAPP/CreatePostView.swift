@@ -241,6 +241,8 @@ struct CreatePostView: View {
     // MARK: - Smart Post Context Detection
     @State private var postDetectedItems: [DetectedPostContextItem] = []
     @State private var detectionTask: Task<Void, Never>?
+    @State private var showSmartComposerReview = false
+    @State private var smartComposerRiskAcknowledged = false
 
     // MARK: - Initializer
     
@@ -395,7 +397,7 @@ struct CreatePostView: View {
             // MARK: - Smart Post Context Tray
             SmartPostContextTray(
                 detectedItems: postDetectedItems,
-                onAction: { _, _ in }
+                onAction: handleSmartContextAction
             )
 
             // Topic tag selector (required for OpenTable/Prayer)
@@ -431,6 +433,32 @@ struct CreatePostView: View {
                     ? "Select topic tag\(selectedCategory != .testimonies ? " (required)" : "")"
                     : "Topic tag: \(topicTagButtonText). Double-tap to change.")
                 .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
+            }
+
+            if selectedTopicTag.isEmpty && !suggestedTopicTags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(suggestedTopicTags.prefix(4), id: \.self) { tag in
+                            Button {
+                                withAnimation(Motion.adaptive(.spring(response: 0.24, dampingFraction: 0.82))) {
+                                    selectedTopicTag = tag
+                                }
+                                HapticManager.impact(style: .light)
+                            } label: {
+                                Text(tag)
+                                    .font(.systemScaled(12, weight: .medium))
+                                    .foregroundStyle(Color.primary.opacity(0.65))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(.thinMaterial, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Use suggested topic \(tag)")
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             // Camera photo preview
@@ -786,9 +814,7 @@ struct CreatePostView: View {
         // Liquid Glass Post Button
         ToolbarItem(placement: .navigationBarTrailing) {
             Button {
-                if canPost {
-                    triggerLiquidPost()
-                }
+                requestPublishFromSmartComposer(useLiquidAnimation: true)
             } label: {
                 HStack(spacing: 6) {
                     ZStack {
@@ -885,10 +911,14 @@ struct CreatePostView: View {
                     .onChange(of: commentPermission) { oldValue, newValue in
                         // Update allowComments based on permission
                         allowComments = (newValue != .nobody)
+                        smartComposerRiskAcknowledged = false
                     }
             }
             .sheet(isPresented: $showingAudienceSheet) {
                 PostAudienceSheet(selectedVisibility: $postVisibility)
+                    .onChange(of: postVisibility) { _, _ in
+                        smartComposerRiskAcknowledged = false
+                    }
                     .presentationDetents([.medium])
             }
 
@@ -1134,6 +1164,16 @@ struct CreatePostView: View {
         } message: {
             Text("AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections. We want to hear from you, not from AI tools.")
         }
+        .sheet(isPresented: $showSmartComposerReview) {
+            SmartComposerReviewSheet(
+                notes: smartComposerReviewNotes,
+                requiresConfirmation: requiresSmartComposerConfirmation,
+                onAction: handleSmartComposerReviewAction,
+                onDismiss: { showSmartComposerReview = false }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .overlay {
             if showGuidelinesGate {
                 CommunityGuidelinesGateView(
@@ -1247,6 +1287,93 @@ struct CreatePostView: View {
         return hasContent
     }
 
+    private var suggestedTopicTags: [String] {
+        let tags = postDetectedItems
+            .filter { $0.type == .topicTag }
+            .map(\.rawValue)
+        return Array(Set(tags)).sorted()
+    }
+
+    private var smartComposerReviewNotes: [SmartComposerReviewNote] {
+        var notes: [SmartComposerReviewNote] = []
+        let lower = postText.lowercased()
+        let hasPersonalSignal = postDetectedItems.contains { $0.type == .audienceRisk }
+            || ["confession", "struggling with", "addiction", "abuse", "therapy", "private"].contains { lower.contains($0) }
+        let hasPublicAudience = postVisibility == .everyone
+        let hasOpenReplies = commentPermission == .everyone
+
+        if hasPersonalSignal && hasPublicAudience && hasOpenReplies {
+            notes.append(SmartComposerReviewNote(
+                title: "Public prayer or personal context",
+                message: "This draft sounds personal and is set to Everyone with open replies.",
+                severity: .confirmation,
+                actions: [.makeFollowersOnly, .limitRepliesToFollowers, .addSensitiveWarning]
+            ))
+        } else if hasPersonalSignal && hasPublicAudience {
+            notes.append(SmartComposerReviewNote(
+                title: "Audience privacy",
+                message: "This draft includes personal context. A smaller audience may fit better.",
+                severity: .warning,
+                actions: [.makeFollowersOnly, .addSensitiveWarning]
+            ))
+        }
+
+        if selectedTopicTag.isEmpty, let firstTag = suggestedTopicTags.first {
+            notes.append(SmartComposerReviewNote(
+                title: "Suggested topic",
+                message: "AMEN detected \(firstTag) from your draft.",
+                severity: .note,
+                actions: [.openTopicTags]
+            ))
+        }
+
+        if postDetectedItems.contains(where: { $0.type == .link }) && linkController.activeURL == nil && linkURL.isEmpty {
+            notes.append(SmartComposerReviewNote(
+                title: "Link preview available",
+                message: "Turn the pasted URL into a preview card before posting.",
+                severity: .info,
+                actions: [.openLinkPreview]
+            ))
+        }
+
+        if postDetectedItems.contains(where: { $0.type == .linkTrust }) {
+            notes.append(SmartComposerReviewNote(
+                title: "Check this link",
+                message: "This link may use HTTP or a short redirect. Preview it before posting.",
+                severity: .warning,
+                actions: [.openLinkPreview]
+            ))
+        }
+
+        if shouldShowVerseSuggestion {
+            notes.append(SmartComposerReviewNote(
+                title: "Verse context",
+                message: "A verse could add context to this post.",
+                severity: .note,
+                actions: [.addVerseContext]
+            ))
+        }
+
+        if postDetectedItems.contains(where: { $0.type == .sensitiveSignal }) && !hasSensitiveContent {
+            notes.append(SmartComposerReviewNote(
+                title: "Sensitive topic",
+                message: "Consider adding a content warning so readers can choose when to engage.",
+                severity: .warning,
+                actions: [.addSensitiveWarning]
+            ))
+        }
+
+        return notes
+    }
+
+    private var requiresSmartComposerConfirmation: Bool {
+        smartComposerReviewNotes.contains { $0.severity == .confirmation }
+    }
+
+    private var hasSmartComposerNotes: Bool {
+        !smartComposerReviewNotes.isEmpty
+    }
+
     private var pollHasValidOptions: Bool {
         let filled = pollOptions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         return filled.count >= 2
@@ -1354,6 +1481,78 @@ struct CreatePostView: View {
             withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
                 showingPoll = true
             }
+        }
+    }
+
+    private func handleSmartContextAction(_ action: PostContextAction, item: DetectedPostContextItem) {
+        HapticManager.impact(style: .light)
+        switch action {
+        case .addLinkPreview:
+            if item.type == .link {
+                linkURL = item.rawValue
+                linkController.handleTextChange(item.rawValue)
+            } else {
+                showingLinkSheet = true
+            }
+        case .attachMusic:
+            showingMusicBrowser = true
+        case .createReminder:
+            showingScheduleSheet = true
+        case .saveAsMemory:
+            showSmartComposerReview = true
+        case .addTopicTag:
+            selectedTopicTag = item.rawValue
+        case .adjustAudience:
+            showSmartComposerReview = true
+        case .dismiss:
+            postDetectedItems.removeAll { $0.id == item.id }
+        }
+    }
+
+    private func handleSmartComposerReviewAction(_ action: SmartComposerReviewAction) {
+        HapticManager.impact(style: .light)
+        switch action {
+        case .makeFollowersOnly:
+            postVisibility = .followers
+            smartComposerRiskAcknowledged = false
+            showSmartComposerReview = false
+        case .limitRepliesToFollowers:
+            commentPermission = .followersOnly
+            allowComments = true
+            smartComposerRiskAcknowledged = false
+            showSmartComposerReview = false
+        case .addSensitiveWarning:
+            hasSensitiveContent = true
+            if sensitiveContentReason.isEmpty {
+                sensitiveContentReason = "Personal or sensitive topic"
+            }
+            smartComposerRiskAcknowledged = false
+            showSmartComposerReview = false
+        case .openTopicTags:
+            showSmartComposerReview = false
+            showingTopicTagSheet = true
+        case .openLinkPreview:
+            showSmartComposerReview = false
+            showingLinkSheet = true
+        case .addVerseContext:
+            showSmartComposerReview = false
+            showingVersePickerSheet = true
+        case .continuePosting:
+            smartComposerRiskAcknowledged = true
+            showSmartComposerReview = false
+            publishPost()
+        }
+    }
+
+    private func requestPublishFromSmartComposer(useLiquidAnimation: Bool = false) {
+        guard canPost && !isPublishing else { return }
+        isTextFieldFocused = false
+        if requiresSmartComposerConfirmation && !smartComposerRiskAcknowledged {
+            showSmartComposerReview = true
+        } else if useLiquidAnimation {
+            triggerLiquidPost()
+        } else {
+            publishPost()
         }
     }
 
@@ -1941,21 +2140,34 @@ struct CreatePostView: View {
 
                 // Sensitive content toggle
                 Button {
-                    withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
-                        hasSensitiveContent.toggle()
-                        if !hasSensitiveContent {
-                            sensitiveContentReason = ""
-                            hideEngagementCounts = false
+                    if hasSmartComposerNotes {
+                        showSmartComposerReview = true
+                    } else {
+                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.8))) {
+                            hasSensitiveContent.toggle()
+                            if !hasSensitiveContent {
+                                sensitiveContentReason = ""
+                                hideEngagementCounts = false
+                            }
                         }
                     }
                     HapticManager.impact(style: .light)
                 } label: {
-                    Image(systemName: hasSensitiveContent ? "exclamationmark.triangle.fill" : "exclamationmark.triangle")
-                        .font(.systemScaled(15, weight: .medium))
-                        .foregroundStyle(hasSensitiveContent ? .orange : Color.primary.opacity(0.55))
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: hasSensitiveContent || hasSmartComposerNotes ? "exclamationmark.triangle.fill" : "exclamationmark.triangle")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(hasSensitiveContent || hasSmartComposerNotes ? .orange : Color.primary.opacity(0.55))
+
+                        if hasSmartComposerNotes {
+                            Circle()
+                                .fill(Color(red: 0.92, green: 0.15, blue: 0.26))
+                                .frame(width: 6, height: 6)
+                                .offset(x: 4, y: -3)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(hasSensitiveContent ? "Remove content warning" : "Mark as sensitive")
+                .accessibilityLabel(hasSmartComposerNotes ? "Review post notes" : hasSensitiveContent ? "Remove content warning" : "Mark as sensitive")
 
                 // Berean AI tone checker — only when text exists
                 if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -2210,9 +2422,7 @@ struct CreatePostView: View {
 
                 // ── POST button — always visible, right anchor ───────────
                 Button(action: {
-                    guard canPost && !isPublishing else { return }
-                    isTextFieldFocused = false
-                    publishPost()
+                    requestPublishFromSmartComposer()
                 }) {
                     ZStack {
                         Circle()
@@ -2584,6 +2794,7 @@ struct CreatePostView: View {
                         .accessibilityLabel("Post content")
                         .accessibilityHint("Type your post here")
                         .onChange(of: postText) { oldValue, newValue in
+                            smartComposerRiskAcknowledged = false
                             // Defer side effects so they don't trigger a re-render mid-paste,
                             // which would interrupt the paste operation on SwiftUI TextEditor.
                             let addedLength = newValue.count - oldValue.count

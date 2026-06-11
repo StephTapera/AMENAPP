@@ -72,7 +72,7 @@ struct EmptyStateView: View {
 
 // MARK: - Skeleton Loading Card
 
-struct SkeletonCard: View {
+struct EmptyStateSkeletonCard: View {
     var height: CGFloat = 120
     var cornerRadius: CGFloat = 16
     @State private var shimmer = false
@@ -97,7 +97,7 @@ struct SkeletonFeed: View {
     var body: some View {
         VStack(spacing: spacing) {
             ForEach(0..<count, id: \.self) { _ in
-                SkeletonCard(height: cardHeight)
+                EmptyStateSkeletonCard(height: cardHeight)
             }
         }
         .padding(.horizontal, 16)
