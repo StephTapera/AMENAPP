@@ -1,7 +1,7 @@
 // MusicContentContracts.swift
 // AMENAPP — MusicContentLayer
 //
-// FROZEN — v1.0  2026-06-10
+// FROZEN — v1.1  2026-06-10
 // Do NOT change existing case values or property names without a version bump.
 // Add new cases / properties only at the end of each declaration.
 //
@@ -10,21 +10,20 @@
 // §3  SermonResource
 // §4  ContentAttachment
 // §5  PostIntentType
-// §6  CommentContentContext
+// §6  CommentContentContextRecord
 // §7  ProfileResourceItem
 // §8  ProfileResourceCategory
 // §9  RightsPolicy
 // §10 VisibilityPolicy
 // §11 MusicContentModerationStatus
 // §12 FaithGraphNodeType
-// §13 ListeningRoomState
-// §14 AmenPulseDigestItemType
+// §13 ListeningRoomState + ListeningRoomRecord
+// §14 AmenPulseDigestItemType + AmenPulseDigestItemRecord
 
 import Foundation
 
 // MARK: - §1  ContentAttachmentType
 
-/// All content types that can be attached to a post, comment, or shelf item.
 enum ContentAttachmentType: String, Codable, Sendable, CaseIterable {
     case song               = "song"
     case album              = "album"
@@ -113,9 +112,49 @@ enum PostIntentType: String, Codable, Sendable, CaseIterable {
     case worshipRelease         = "worship_release"
     case orgUpdate              = "org_update"
     case communityDiscussion    = "community_discussion"
+
+    /// Human-readable label used in suggestion pills and accessibility strings.
+    var displayName: String {
+        switch self {
+        case .songShare:            return "Song Share"
+        case .albumShare:           return "Album Share"
+        case .sermonNote:           return "Sermon Note"
+        case .churchNote:           return "Church Note"
+        case .prayerRequest:        return "Prayer Request"
+        case .testimony:            return "Testimony"
+        case .eventAnnouncement:    return "Event"
+        case .scriptureQuote:       return "Scripture"
+        case .devotional:           return "Devotional"
+        case .resourceShare:        return "Resource"
+        case .question:             return "Question"
+        case .poll:                 return "Poll"
+        case .worshipRelease:       return "Worship Release"
+        case .orgUpdate:            return "Org Update"
+        case .communityDiscussion:  return "Discussion"
+        }
+    }
+
+    /// SF Symbol name for use in suggestion pills and intent indicators.
+    var sfSymbol: String {
+        switch self {
+        case .songShare, .albumShare:   return "music.note"
+        case .sermonNote, .churchNote:  return "note.text"
+        case .prayerRequest:            return "hands.sparkles"
+        case .testimony:                return "person.wave.2"
+        case .eventAnnouncement:        return "calendar.badge.plus"
+        case .scriptureQuote:           return "book.closed"
+        case .devotional:               return "heart.text.square"
+        case .resourceShare:            return "square.and.arrow.up"
+        case .question:                 return "questionmark.bubble"
+        case .poll:                     return "chart.bar"
+        case .worshipRelease:           return "music.mic"
+        case .orgUpdate:                return "building.2"
+        case .communityDiscussion:      return "bubble.left.and.bubble.right"
+        }
+    }
 }
 
-// MARK: - §6  CommentContentContext (contract struct)
+// MARK: - §6  CommentContentContextRecord
 
 struct CommentContentContextRecord: Codable, Sendable, Identifiable {
     let id: String
@@ -141,78 +180,78 @@ struct ProfileResourceItem: Codable, Sendable, Identifiable {
 // MARK: - §8  ProfileResourceCategory
 
 enum ProfileResourceCategory: String, Codable, Sendable, CaseIterable {
-    case music          = "music"
-    case sermons        = "sermons"
-    case podcasts       = "podcasts"
-    case events         = "events"
-    case devotionals    = "devotionals"
+    case music           = "music"
+    case sermons         = "sermons"
+    case podcasts        = "podcasts"
+    case events          = "events"
+    case devotionals     = "devotionals"
     case choirAndWorship = "choir_and_worship"
-    case resources      = "resources"
-    case other          = "other"
+    case resources       = "resources"
+    case other           = "other"
 }
 
 // MARK: - §9  RightsPolicy
 
 enum RightsPolicy: String, Codable, Sendable, CaseIterable {
-    case free           = "free"
-    case paid           = "paid"
-    case memberOnly     = "member_only"
+    case free              = "free"
+    case paid              = "paid"
+    case memberOnly        = "member_only"
     case donationSupported = "donation_supported"
-    case licensed       = "licensed"
-    case streamOnly     = "stream_only"
-    case downloadable   = "downloadable"
-    case `private`      = "private"
-    case unlisted       = "unlisted"
-    case restricted     = "restricted"
-    case pendingReview  = "pending_review"
+    case licensed          = "licensed"
+    case streamOnly        = "stream_only"
+    case downloadable      = "downloadable"
+    case `private`         = "private"
+    case unlisted          = "unlisted"
+    case restricted        = "restricted"
+    case pendingReview     = "pending_review"
 }
 
 // MARK: - §10  VisibilityPolicy
 
 enum VisibilityPolicy: String, Codable, Sendable, CaseIterable {
-    case `public`       = "public"
-    case `private`      = "private"
-    case unlisted       = "unlisted"
-    case membersOnly    = "members_only"
-    case childSafe      = "child_safe"
-    case adminOnly      = "admin_only"
+    case `public`    = "public"
+    case `private`   = "private"
+    case unlisted    = "unlisted"
+    case membersOnly = "members_only"
+    case childSafe   = "child_safe"
+    case adminOnly   = "admin_only"
 }
 
 // MARK: - §11  MusicContentModerationStatus
 
 enum MusicContentModerationStatus: String, Codable, Sendable, CaseIterable {
-    case approved       = "approved"
-    case pending        = "pending"
-    case flagged        = "flagged"
-    case blocked        = "blocked"
-    case underReview    = "under_review"
-    case appealing      = "appealing"
+    case approved    = "approved"
+    case pending     = "pending"
+    case flagged     = "flagged"
+    case blocked     = "blocked"
+    case underReview = "under_review"
+    case appealing   = "appealing"
 }
 
 // MARK: - §12  FaithGraphNodeType
 
 enum FaithGraphNodeType: String, Codable, Sendable, CaseIterable {
-    case song           = "song"
-    case sermon         = "sermon"
-    case church         = "church"
-    case scripture      = "scripture"
-    case artist         = "artist"
-    case album          = "album"
-    case playlist       = "playlist"
-    case devotional     = "devotional"
-    case podcast        = "podcast"
-    case event          = "event"
-    case ministry       = "ministry"
-    case person         = "person"
+    case song       = "song"
+    case sermon     = "sermon"
+    case church     = "church"
+    case scripture  = "scripture"
+    case artist     = "artist"
+    case album      = "album"
+    case playlist   = "playlist"
+    case devotional = "devotional"
+    case podcast    = "podcast"
+    case event      = "event"
+    case ministry   = "ministry"
+    case person     = "person"
 }
 
-// MARK: - §13  ListeningRoomState
+// MARK: - §13  ListeningRoomState + ListeningRoomRecord
 
 enum ListeningRoomState: String, Codable, Sendable, CaseIterable {
-    case scheduled      = "scheduled"
-    case live           = "live"
-    case ended          = "ended"
-    case cancelled      = "cancelled"
+    case scheduled = "scheduled"
+    case live      = "live"
+    case ended     = "ended"
+    case cancelled = "cancelled"
 }
 
 struct ListeningRoomRecord: Codable, Sendable, Identifiable {
@@ -229,7 +268,7 @@ struct ListeningRoomRecord: Codable, Sendable, Identifiable {
     let createdAt: String
 }
 
-// MARK: - §14  AmenPulseDigestItemType
+// MARK: - §14  AmenPulseDigestItemType + AmenPulseDigestItemRecord
 
 enum AmenPulseDigestItemType: String, Codable, Sendable, CaseIterable {
     case topSong            = "top_song"
@@ -271,4 +310,7 @@ func _musicContentContractAssertions() {
     assert(!RightsPolicy.allCases.isEmpty)
     assert(!VisibilityPolicy.allCases.isEmpty)
     assert(!FaithGraphNodeType.allCases.isEmpty)
+    // Verify UI properties compile
+    assert(!PostIntentType.allCases.map(\.displayName).isEmpty)
+    assert(!PostIntentType.allCases.map(\.sfSymbol).isEmpty)
 }

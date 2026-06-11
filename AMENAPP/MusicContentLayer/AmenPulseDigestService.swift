@@ -6,64 +6,49 @@ import SwiftUI
 
 // MARK: - Item Type
 
-enum AmenPulseDigestItemType: String, Codable, Sendable, CaseIterable {
-    case newMusic
-    case newSermon
-    case churchNote
-    case savedPost
-    case unreadComment
-    case prayerUpdate
-    case upcomingEvent
-    case listeningRoom
-    case communityActivity
-    case recommendedContent
-    case trendingWorship
-
+extension AmenPulseDigestItemType {
     var displayName: String {
         switch self {
-        case .newMusic:           return "New Music"
+        case .topSong:            return "Top Song"
         case .newSermon:          return "New Sermon"
-        case .churchNote:         return "Church Note"
-        case .savedPost:          return "Saved Post"
-        case .unreadComment:      return "Unread Comment"
-        case .prayerUpdate:       return "Prayer Update"
-        case .upcomingEvent:      return "Upcoming Event"
-        case .listeningRoom:      return "Listening Room"
-        case .communityActivity:  return "Community Activity"
-        case .recommendedContent: return "Recommended"
         case .trendingWorship:    return "Trending Worship"
+        case .communityHighlight: return "Community Highlight"
+        case .churchUpdate:       return "Church Update"
+        case .devotionalAudio:    return "Devotional Audio"
+        case .liveRoom:           return "Live Room"
+        case .curatedPlaylist:    return "Recommended"
+        case .featuredArtist:     return "Featured Artist"
+        case .scriptureOfTheDay:  return "Scripture of the Day"
         }
     }
 
     var sfSymbol: String {
         switch self {
-        case .newMusic:           return "music.note"
+        case .topSong:            return "music.note"
         case .newSermon:          return "book.fill"
-        case .churchNote:         return "note.text"
-        case .savedPost:          return "bookmark.fill"
-        case .unreadComment:      return "bubble.left.fill"
-        case .prayerUpdate:       return "hands.sparkles.fill"
-        case .upcomingEvent:      return "calendar"
-        case .listeningRoom:      return "waveform.circle.fill"
-        case .communityActivity:  return "person.3.fill"
-        case .recommendedContent: return "sparkles"
         case .trendingWorship:    return "flame.fill"
+        case .communityHighlight: return "person.3.fill"
+        case .churchUpdate:       return "note.text"
+        case .devotionalAudio:    return "hands.sparkles.fill"
+        case .liveRoom:           return "waveform.circle.fill"
+        case .curatedPlaylist:    return "sparkles"
+        case .featuredArtist:     return "music.mic"
+        case .scriptureOfTheDay:  return "book.closed.fill"
         }
     }
 
     var tintColor: Color {
         switch self {
-        case .newMusic:           return Color(red: 0.38, green: 0.52, blue: 0.88)
+        case .topSong:            return Color(red: 0.38, green: 0.52, blue: 0.88)
         case .newSermon:          return Color(red: 0.55, green: 0.38, blue: 0.80)
-        case .churchNote:         return Color(red: 0.30, green: 0.65, blue: 0.55)
-        case .savedPost:          return Color(red: 0.80, green: 0.60, blue: 0.20)
-        case .unreadComment:      return Color(red: 0.50, green: 0.72, blue: 0.88)
-        case .prayerUpdate:       return Color(red: 0.70, green: 0.42, blue: 0.75)
-        case .upcomingEvent:      return Color(red: 0.25, green: 0.72, blue: 0.45)
-        case .listeningRoom:      return Color(red: 0.88, green: 0.45, blue: 0.35)
-        case .communityActivity:  return Color(red: 0.40, green: 0.65, blue: 0.78)
-        case .recommendedContent: return Color(red: 0.78, green: 0.55, blue: 0.35)
         case .trendingWorship:    return Color(red: 0.88, green: 0.35, blue: 0.45)
+        case .communityHighlight: return Color(red: 0.40, green: 0.65, blue: 0.78)
+        case .churchUpdate:       return Color(red: 0.30, green: 0.65, blue: 0.55)
+        case .devotionalAudio:    return Color(red: 0.70, green: 0.42, blue: 0.75)
+        case .liveRoom:           return Color(red: 0.88, green: 0.45, blue: 0.35)
+        case .curatedPlaylist:    return Color(red: 0.78, green: 0.55, blue: 0.35)
+        case .featuredArtist:     return Color(red: 0.80, green: 0.60, blue: 0.20)
+        case .scriptureOfTheDay:  return Color(red: 0.50, green: 0.72, blue: 0.88)
         }
     }
 }
@@ -138,7 +123,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
             items: [
                 AmenPulseDigestItem(
                     id: "item-nm-1",
-                    type: .newMusic,
+                    type: .topSong,
                     title: "Graves Into Gardens (Live)",
                     summary: "A new live worship recording from Sunday's service, featuring the full worship team.",
                     sourceLabel: "Elevation Church",
@@ -152,7 +137,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
                 ),
                 AmenPulseDigestItem(
                     id: "item-nm-2",
-                    type: .newMusic,
+                    type: .topSong,
                     title: "Emmanuel (God With Us) — Single",
                     summary: "New original worship single released this morning by Bethel Music.",
                     sourceLabel: "Bethel Music",
@@ -188,7 +173,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
             items: [
                 AmenPulseDigestItem(
                     id: "item-pu-1",
-                    type: .prayerUpdate,
+                    type: .devotionalAudio,
                     title: "Marcus's Surgery — Answered Prayer",
                     summary: "Marcus shared that his surgery went well and he's recovering at home. The community rejoiced with him.",
                     sourceLabel: "Your Community",
@@ -202,7 +187,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
                 ),
                 AmenPulseDigestItem(
                     id: "item-pu-2",
-                    type: .prayerUpdate,
+                    type: .devotionalAudio,
                     title: "Community Fast — Day 3 Reflection",
                     summary: "The 7-day fast your church group is participating in has reached day 3. Here's today's reflection.",
                     sourceLabel: "Crossroads Bible Church",
@@ -224,7 +209,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
             items: [
                 AmenPulseDigestItem(
                     id: "item-ca-1",
-                    type: .communityActivity,
+                    type: .communityHighlight,
                     title: "Jordan and 14 others reacted to your post",
                     summary: "Your post about the worship night last Friday has been getting a lot of love from your community.",
                     sourceLabel: "Your Community",
@@ -238,7 +223,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
                 ),
                 AmenPulseDigestItem(
                     id: "item-ca-2",
-                    type: .communityActivity,
+                    type: .communityHighlight,
                     title: "New discussion in Faith & Doubt Circle",
                     summary: "A thoughtful conversation started about navigating seasons of spiritual dryness.",
                     sourceLabel: "Faith & Doubt Circle",
@@ -260,7 +245,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
             items: [
                 AmenPulseDigestItem(
                     id: "item-rc-1",
-                    type: .recommendedContent,
+                    type: .curatedPlaylist,
                     title: "Worship Playlist: Monday Morning Reset",
                     summary: "A curated 30-minute playlist to start your week grounded in worship and prayer.",
                     sourceLabel: "AMEN Curation",
@@ -274,7 +259,7 @@ struct AmenPulseDigest: Codable, Sendable, Identifiable {
                 ),
                 AmenPulseDigestItem(
                     id: "item-rc-2",
-                    type: .recommendedContent,
+                    type: .curatedPlaylist,
                     title: "Podcast: The Practice of Sabbath",
                     summary: "A 22-minute episode exploring what it means to truly rest in a productivity-obsessed culture.",
                     sourceLabel: "The Good Table Podcast",
