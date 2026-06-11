@@ -1,0 +1,223 @@
+diff --git a/AMENAPP/AMENAuthLandingView.swift b/AMENAPP/AMENAuthLandingView.swift
+index 68249ee3..30a96bbe 100644
+--- a/AMENAPP/AMENAuthLandingView.swift
++++ b/AMENAPP/AMENAuthLandingView.swift
+@@ -39,6 +39,50 @@ struct AMENAuthLandingView: View {
+     @State private var showPhoneSignUp = false
+     @State private var showPhoneSignIn = false
+ 
++    private var rememberedIdentity: AmenIdentityHint? {
++        AmenIdentityHintStore.shared.primary()
++    }
++
++    private var rememberedDisplayName: String? {
++        nonEmpty(UserDefaults.standard.string(forKey: "currentUserDisplayName"))
++            ?? nonEmpty(UserDefaults.standard.string(forKey: "cachedUsername"))
++            ?? nonEmpty(rememberedIdentity?.displayName)
++            ?? nonEmpty(rememberedIdentity?.username)
++    }
++
++    private var rememberedPhotoURL: URL? {
++        if let currentURL = nonEmpty(UserDefaults.standard.string(forKey: "currentUserProfileImageURL")) {
++            return URL(string: currentURL)
++        }
++        if let cachedURL = nonEmpty(UserDefaults.standard.string(forKey: "cachedPhotoURL")) {
++            return URL(string: cachedURL)
++        }
++        if let hintURL = nonEmpty(rememberedIdentity?.profilePhotoURL) {
++            return URL(string: hintURL)
++        }
++        return nil
++    }
++
++    private var rememberedSubtitle: String {
++        if let username = nonEmpty(rememberedIdentity?.username) {
++            return username.hasPrefix("@") ? username : "@\(username)"
++        }
++        if let masked = nonEmpty(rememberedIdentity?.maskedIdentifier) {
++            return masked
++        }
++        return "This device remembers your AMEN profile."
++    }
++
++    private var rememberedInitials: String {
++        let source = rememberedDisplayName ?? "AMEN"
++        let initials = source.split(separator: " ").prefix(2).compactMap(\.first)
++        return initials.isEmpty ? "A" : String(initials).uppercased()
++    }
++
++    private var hasRememberedIdentity: Bool {
++        rememberedDisplayName != nil || rememberedPhotoURL != nil || rememberedIdentity != nil
++    }
++
+     // Apple Sign In nonce
+     @State private var currentNonce: String?
+ 
+@@ -77,6 +121,13 @@ struct AMENAuthLandingView: View {
+                     // ── Button zone ────────────────────────────────────────
+                     VStack(spacing: 12) {
+ 
++                        if hasRememberedIdentity {
++                            rememberedAccountCard
++                                .opacity(btn1Opacity)
++                                .offset(y: btn1Offset)
++                                .padding(.bottom, 2)
++                        }
++
+                         // Apple
+                         appleButton
+                             .opacity(btn1Opacity)
+@@ -144,7 +195,7 @@ struct AMENAuthLandingView: View {
+                     .environmentObject(authViewModel)
+             }
+             .navigationDestination(isPresented: $showPhoneSignIn) {
+-                PhoneVerificationView()
++                SignInView(startWithPhone: true)
+                     .environmentObject(authViewModel)
+             }
+         }
+@@ -200,9 +251,7 @@ struct AMENAuthLandingView: View {
+                 Spacer()
+                 Color.clear.frame(width: 52)
+             }
+-            .frame(maxWidth: .infinity)
+-            .frame(height: 52)
+-            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
++            .modifier(AuthSecondaryButtonSurface())
+         }
+         .buttonStyle(ScaleButtonStyle())
+     }
+@@ -244,11 +293,9 @@ struct AMENAuthLandingView: View {
+                 Spacer()
+                 Color.clear.frame(width: 52)
+             }
+-            .frame(maxWidth: .infinity)
+-            .frame(height: 52)
+-            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
++            .modifier(AuthSecondaryButtonSurface())
+         }
+-        .buttonStyle(.plain)
++        .buttonStyle(ScaleButtonStyle())
+     }
+ 
+     // MARK: - Email button
+@@ -270,11 +317,9 @@ struct AMENAuthLandingView: View {
+                 Spacer()
+                 Color.clear.frame(width: 52)
+             }
+-            .frame(maxWidth: .infinity)
+-            .frame(height: 52)
+-            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
++            .modifier(AuthSecondaryButtonSurface())
+         }
+-        .buttonStyle(.plain)
++        .buttonStyle(ScaleButtonStyle())
+     }
+ 
+     // MARK: - Sign-in link
+@@ -306,6 +351,66 @@ struct AMENAuthLandingView: View {
+         }
+     }
+ 
++    // MARK: - Remembered account
++
++    private var rememberedAccountCard: some View {
++        HStack(spacing: 12) {
++            Group {
++                if let rememberedPhotoURL {
++                    AsyncImage(url: rememberedPhotoURL) { phase in
++                        switch phase {
++                        case .success(let image):
++                            image
++                                .resizable()
++                                .scaledToFill()
++                        default:
++                            rememberedAvatarFallback
++                        }
++                    }
++                } else {
++                    rememberedAvatarFallback
++                }
++            }
++            .frame(width: 46, height: 46)
++            .clipShape(Circle())
++
++            VStack(alignment: .leading, spacing: 2) {
++                Text(rememberedDisplayName ?? "Welcome back")
++                    .font(.systemScaled(14, weight: .semibold))
++                    .foregroundStyle(.primary)
++                    .lineLimit(1)
++
++                Text(rememberedSubtitle)
++                    .font(.systemScaled(12, weight: .regular))
++                    .foregroundStyle(.secondary)
++                    .lineLimit(1)
++            }
++
++            Spacer(minLength: 0)
++        }
++        .padding(.horizontal, 14)
++        .frame(maxWidth: .infinity)
++        .frame(height: 62)
++        .amenLiquidGlassCapsuleSurface(isSelected: true)
++    }
++
++    private var rememberedAvatarFallback: some View {
++        ZStack {
++            Circle()
++                .fill(Color.white.opacity(0.72))
++            Text(rememberedInitials)
++                .font(.systemScaled(15, weight: .semibold))
++                .foregroundStyle(Color.black.opacity(0.76))
++        }
++    }
++
++    private func nonEmpty(_ value: String?) -> String? {
++        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
++            return nil
++        }
++        return trimmed
++    }
++
+     // MARK: - Authentication Handlers
+     
+     private func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
+@@ -487,6 +592,19 @@ private struct GoogleGLogo: View {
+     }
+ }
+ 
++// MARK: - Secondary provider button surface
++
++/// Shared liquid-glass pill surface for non-platform auth buttons.
++private struct AuthSecondaryButtonSurface: ViewModifier {
++    func body(content: Content) -> some View {
++        content
++            .frame(maxWidth: .infinity)
++            .frame(height: 52)
++            .amenLiquidGlassCapsuleSurface(isSelected: true)
++            .contentShape(Capsule(style: .continuous))
++    }
++}
++
+ // MARK: - Button styles
+ // (ScaleButtonStyle is defined in SharedUIComponents.swift)
+ 
+@@ -512,12 +630,14 @@ struct EmailSignInView: View {
+     }
+ }
+ 
+-// Routes to SignInView with the phone tab pre-selected.
+-// Firebase phone auth creates an account automatically for new numbers,
+-// so this works for both sign-up and returning users.
++// Routes to the VM-backed phone flow so returning logins are profile-checked
++// and new phone signups collect the required profile fields before verification.
+ struct PhoneSignUpView: View {
++    @EnvironmentObject var authViewModel: AuthenticationViewModel
++
+     var body: some View {
+-        AmenPhoneAuthView()
++        SignInView(startWithPhone: true)
++            .environmentObject(authViewModel)
+             .navigationBarHidden(true)
+     }
+ }

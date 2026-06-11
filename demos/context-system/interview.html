@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AMEN — Berean Migration Interview (static mock)</title>
+<!--
+  Wave 2 / interview-ui — static HTML mock (inline CSS only, no JS behavior).
+  Purpose: lock the layout + copy of the conversational Migration Interview
+  inside the Passport BEFORE the SwiftUI/GlassKit build.
+  This is a MOCK — no content import, no real extraction, no spiritual ranking.
+-->
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: rgba(255,255,255,0.06);
+    --panel-stroke: rgba(255,255,255,0.14);
+    --ink: #f3f5f8;
+    --ink-dim: #aab3c0;
+    --ink-faint: #7b8694;
+    --berean: #d7c08a;          /* warm Berean gold, used sparingly */
+    --user-bubble: rgba(120,140,255,0.16);
+    --user-stroke: rgba(150,170,255,0.30);
+    --berean-bubble: rgba(255,255,255,0.07);
+    --berean-stroke: rgba(255,255,255,0.16);
+    --safe: #8fd6a8;
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(1200px 700px at 70% -10%, #1a2030 0%, var(--bg) 60%);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .phone {
+    max-width: 430px;
+    margin: 24px auto;
+    padding: 0 14px 24px;
+  }
+
+  /* Passport header */
+  .passport-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 6px 10px;
+  }
+  .passport-head .crumb { color: var(--ink-faint); font-size: 13px; }
+  .passport-head h1 {
+    font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.2px;
+  }
+  .berean-chip {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--berean);
+    padding: 5px 10px;
+    border: 1px solid rgba(215,192,138,0.40);
+    border-radius: 999px;
+    background: rgba(215,192,138,0.08);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--berean); }
+
+  /* Reassurance line */
+  .reassure {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin: 8px 4px 14px;
+    padding: 11px 13px;
+    background: var(--panel);
+    border: 1px solid var(--panel-stroke);
+    border-radius: var(--radius-md);
+    font-size: 13px; line-height: 1.4; color: var(--ink-dim);
+  }
+  .reassure .lock { color: var(--safe); font-size: 15px; line-height: 1.3; }
+  .reassure b { color: var(--ink); font-weight: 600; }
+
+  /* Layout: transcript + learning sidebar */
+  .stage { display: flex; flex-direction: column; gap: 14px; }
+
+  /* Transcript */
+  .transcript {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 6px 2px 4px;
+  }
+  .msg { max-width: 84%; }
+  .msg .who { font-size: 11px; color: var(--ink-faint); margin: 0 6px 4px; }
+  .bubble {
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    font-size: 15px; line-height: 1.45;
+    border: 1px solid var(--berean-stroke);
+    background: var(--berean-bubble);
+  }
+  .msg.berean .who { color: var(--berean); }
+  .msg.user { align-self: flex-end; }
+  .msg.user .who { text-align: right; }
+  .msg.user .bubble {
+    background: var(--user-bubble);
+    border-color: var(--user-stroke);
+  }
+
+  /* Composer */
+  .composer {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 4px;
+    padding: 8px 8px 8px 14px;
+    background: var(--panel);
+    border: 1px solid var(--panel-stroke);
+    border-radius: 999px;
+  }
+  .composer input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--ink); font-size: 15px;
+  }
+  .composer input::placeholder { color: var(--ink-faint); }
+  .send {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--berean-stroke);
+    background: rgba(255,255,255,0.10);
+    color: var(--ink); font-size: 16px;
+    display: grid; place-items: center;
+  }
+
+  /* "What Berean is learning" sidebar/sheet */
+  .learning {
+    margin-top: 6px;
+    background: var(--panel);
+    border: 1px solid var(--panel-stroke);
+    border-radius: var(--radius-lg);
+    padding: 14px 14px 16px;
+  }
+  .learning h2 {
+    font-size: 14px; font-weight: 700; margin: 0 0 2px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .learning .sub { font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; }
+  .pulse {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--berean);
+    box-shadow: 0 0 0 0 rgba(215,192,138,0.5);
+  }
+
+  .cands { display: flex; flex-direction: column; gap: 10px; }
+  .cand {
+    position: relative;
+    padding: 12px 38px 12px 13px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--panel-stroke);
+    border-radius: var(--radius-sm);
+  }
+  .cand .top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .cand .cat {
+    font-size: 10.5px; letter-spacing: 0.4px; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .tier {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    border: 1px solid var(--panel-stroke); color: var(--ink-dim);
+  }
+  .tier.p { color: var(--safe); border-color: rgba(143,214,168,0.4); }
+  .cand .label { font-size: 14.5px; font-weight: 600; }
+  .cand .val { font-size: 13px; color: var(--ink-dim); margin-top: 2px; }
+  .cand .vis { font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+  .dismiss {
+    position: absolute; top: 9px; right: 9px;
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 1px solid var(--panel-stroke);
+    background: transparent; color: var(--ink-faint);
+    font-size: 13px; line-height: 1; display: grid; place-items: center;
+  }
+
+  /* Footer actions */
+  .actions {
+    display: flex; gap: 10px; margin-top: 16px;
+  }
+  .btn {
+    flex: 1; text-align: center;
+    padding: 13px 12px; border-radius: 14px;
+    font-size: 14px; font-weight: 600;
+    border: 1px solid var(--panel-stroke);
+    background: rgba(255,255,255,0.06); color: var(--ink);
+  }
+  .btn.primary {
+    background: rgba(215,192,138,0.16);
+    border-color: rgba(215,192,138,0.45);
+    color: var(--berean);
+  }
+  .stop-note {
+    text-align: center; font-size: 12px; color: var(--ink-faint);
+    margin-top: 9px;
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="passport-head">
+    <div>
+      <div class="crumb">Passport</div>
+      <h1>Migration Interview</h1>
+    </div>
+    <span class="berean-chip"><span class="dot"></span> Berean</span>
+  </div>
+
+  <!-- Explicit privacy reassurance (non-negotiable) -->
+  <div class="reassure">
+    <span class="lock">&#128274;</span>
+    <span><b>We never read your messages, contacts, or photos.</b>
+      Berean only learns from what you choose to type here. Nothing is saved until you review and approve it.</span>
+  </div>
+
+  <div class="stage">
+
+    <!-- Transcript -->
+    <div class="transcript">
+      <div class="msg berean">
+        <div class="who">Berean</div>
+        <div class="bubble">Hey — no rush here. We can build your context together, one small thing at a time. What's something you've been into lately?</div>
+      </div>
+
+      <div class="msg user">
+        <div class="who">You</div>
+        <div class="bubble">Mostly theology and getting back into running. And I just started a small group at church.</div>
+      </div>
+
+      <div class="msg berean">
+        <div class="who">Berean</div>
+        <div class="bubble">Love that. I jotted a few things on the side — you can toss any of them. Is the small group something you'd want to connect around, or keep private for now?</div>
+      </div>
+
+      <div class="msg user">
+        <div class="who">You</div>
+        <div class="bubble">Keep it private for now.</div>
+      </div>
+    </div>
+
+    <!-- Composer (visual only) -->
+    <div class="composer">
+      <input placeholder="Type a reply…  (you control every word)" />
+      <button class="send" aria-label="Send">&#8593;</button>
+    </div>
+
+    <!-- "What Berean is learning" — live, dismissible candidates -->
+    <div class="learning">
+      <h2><span class="pulse"></span> What Berean is learning</h2>
+      <p class="sub">Forming live as you talk. Nothing here is saved yet — dismiss anything that doesn't fit.</p>
+
+      <div class="cands">
+        <div class="cand">
+          <button class="dismiss" aria-label="Dismiss">&times;</button>
+          <div class="top"><span class="cat">Interests</span><span class="tier">Tier C</span></div>
+          <div class="label">Theology</div>
+          <div class="val">A current interest</div>
+          <div class="vis">Visibility: Private (default)</div>
+        </div>
+
+        <div class="cand">
+          <button class="dismiss" aria-label="Dismiss">&times;</button>
+          <div class="top"><span class="cat">Interests</span><span class="tier">Tier C</span></div>
+          <div class="label">Running</div>
+          <div class="val">Picking it back up</div>
+          <div class="vis">Visibility: Private (default)</div>
+        </div>
+
+        <div class="cand">
+          <button class="dismiss" aria-label="Dismiss">&times;</button>
+          <div class="top"><span class="cat">Communities</span><span class="tier">Tier C</span></div>
+          <div class="label">Small group (church)</div>
+          <div class="val">Recently started</div>
+          <div class="vis">Visibility: Private (you chose this)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer: review/approve + stop -->
+    <div class="actions">
+      <button class="btn">Stop — keep what we have</button>
+      <button class="btn primary">Review &amp; approve (3)</button>
+    </div>
+    <div class="stop-note">Stop anytime. Nothing is stored until you approve it on the next screen.</div>
+
+  </div>
+</div>
+</body>
+</html>

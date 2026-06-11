@@ -1,0 +1,2412 @@
+// =============================================================================
+// firestore.rules
+//
+// CONTRACT: C5 — Security Rules (Phase 4 Production Implementation)
+// OWNER:    Trust & Safety Lead (ONE OWNER — no other party may unilaterally edit)
+// PHASE:    4 — Production implementation. All conditions implemented.
+// UPDATED:  2026-06-05
+//
+// DEPLOY: firebase deploy --only firestore:rules --project amen-5e359 (human-gated)
+//
+// IMPORTANT: Update firebase.json "firestore.rules" field to point to this file
+//   before deploying: change "AMENAPP/firestore 18.rules" → "firestore.rules"
+//
+// OPEN QUESTIONS (T&S Lead must resolve before final deploy — see C5-security-rules.md §6):
+//   OPEN-1: Minor age gate threshold — current impl uses 13 as US COPPA floor;
+//           EU GDPR-K may require 16 for some data categories. T&S Lead + Legal must confirm.
+//   OPEN-2: Guardian tools scope — current impl grants guardians ZERO read access
+//           to minor's private data; all escalation goes to minor's notification center.
+//           T&S Lead must confirm or expand guardian permissions before deploy.
+//   OPEN-3: Anonymous prayer identity shielding — current impl uses Option B
+//           (ExecutiveAdmin can see original UID for safety investigations via
+//           ownerUidEncrypted field, but ownerUidEncrypted is blocked from all
+//           client reads including ExecutiveAdmin). T&S Lead must choose A/B/C.
+//   OPEN-4: NCMEC pipeline timing — CSAM detection → human authorization SLA
+//           and escalation key holder are undefined. CF handles NCMEC CyberTipline
+//           reporting; these rules do not change that flow but T&S Lead must define SLA.
+//   OPEN-5: Unauthenticated visitor read access — current impl ALLOWS unauthenticated
+//           reads of public posts (privacyLevel == 'public'). If SEO is not a priority
+//           and privacy is, T&S Lead may want to restrict to isSignedIn() only.
+//   OPEN-6: Cross-church data access — current impl DENIES cross-church reads.
+//           Pastor from Church A cannot read Church B private content. Confirmed as intended.
+//
+// SECURITY INVARIANTS (non-negotiable — see C5-security-rules.md §5):
+//   I-1: Soft-delete only — all delete operations on Post/Prayer/Discussion/Comment/User denied
+//   I-2: C-AUDIT mutations are CF-batch-enforced; direct client admin mutations denied
+//   I-3: [MINOR] Minors are private by default; public post requires publicConfirmed == true
+//   I-4: MFA/passkeys are opt-in; no rule gates on MFA status
+//   I-5: No raw PII (contactPhone/contactEmail/homeAddress/salaryAmount) in opportunity listings
+//   I-6: ownerUidEncrypted field never readable by any client
+//   I-7: BereanInsight documents are CF-write-only (Admin SDK)
+//   I-8: Age profile (/users/{uid}/private/age_assurance) immutable by clients
+//
+// =============================================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // HELPER FUNCTIONS
+    // =========================================================================
+
+    // Is the request from a signed-in user?
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Is the request actor the document owner?
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Is this an Admin SDK / Cloud Function server-side request?
+    // Admin SDK sets the admin custom claim to true.
+    function isAdminSDK() {
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    // Does the requesting user hold a specific role claim?
+    // Roles are stored in custom claims: request.auth.token.role
+    // Valid values: 'owner', 'executive_admin', 'pastor', 'leader',
+    //   'moderator', 'volunteer_lead', 'content_manager', 'event_manager',
+    //   'member', 'visitor', 'minor'
+    function hasClaimRole(role) {
+      return isSignedIn() && request.auth.token.get('role', '') == role;
+    }
+
+    // Does the requesting user hold any of the given roles?
+    function hasAnyClaimRole(roles) {
+      return isSignedIn() && request.auth.token.get('role', '') in roles;
+    }
+
+    // [MINOR] Is the requesting user a minor?
+    // OPEN-1: threshold currently 13 (US COPPA) — GDPR-K may require 16 in EU.
+    function isMinor() {
+      return isSignedIn() &&
+        request.auth.token.get('ageTier', '') in ['teen', 'under_minimum'];
+    }
+
+    // [MINOR] Is the user completely blocked (under minimum age)?
+    function isUnderMinimum() {
+      return isSignedIn() && request.auth.token.get('ageTier', '') == 'under_minimum';
+    }
+
+    // Is the given privacy level 'public'?
+    function isPublicLevel(privacyLevel) {
+      return privacyLevel == 'public';
+    }
+
+    // Does the requesting user belong to the same org as a resource?
+    function sameOrg(orgId) {
+      return isSignedIn() && request.auth.token.get('orgId', '') == orgId;
+    }
+
+    // Does the requesting user belong to the same church as a resource?
+    // Checks custom claim churchId (set by CF at membership verification time).
+    function sameChurch(churchId) {
+      return isSignedIn() && request.auth.token.get('churchId', '') == churchId;
+    }
+
+    // Is the requesting user a member of a space?
+    // Checks existence of membership document (Firestore read — use sparingly).
+    function isSpaceMember(spaceId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+    }
+
+    // NOTE_SHARE_VIEWER v1: "followers" visibility means mutual connections,
+    // not one-way follower access.
+    function isMutualConnectionWith(authorUid) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + authorUid)) &&
+        exists(/databases/$(database)/documents/follows_index/$(authorUid + '_' + request.auth.uid));
+    }
+
+    // NOTE_SHARE_VIEWER v1: church/org visibility is resolved through the
+    // Organizations membership edge. Client-claimed church fields are not the predicate.
+    function isOrganizationMember(orgId) {
+      return isSignedIn() &&
+        orgId is string &&
+        (
+          (
+            exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+            !(get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('status', 'active') in ['removed', 'revoked', 'blocked', 'inactive']) &&
+            get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.get('role', 'member') in ['member', 'leader', 'owner', 'admin', 'executive_admin', 'pastor', 'moderator', 'content_manager', 'volunteer_lead']
+          ) ||
+          (
+            exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)) &&
+            !(get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.get('status', 'active') in ['removed', 'revoked', 'blocked', 'inactive']) &&
+            get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.get('role', 'member') in ['member', 'leader', 'owner', 'admin', 'executive_admin', 'pastor', 'moderator', 'content_manager', 'volunteer_lead']
+          )
+        );
+    }
+
+    // Backward-compatible helper for existing non-note-share rules.
+    // NOTE_SHARE_VIEWER does not use this as its church predicate.
+    function isChurchMember(churchId) {
+      return isSignedIn() &&
+        churchId is string &&
+        (
+          isOrganizationMember(churchId) ||
+          (
+            sameChurch(churchId) &&
+            exists(/databases/$(database)/documents/churches/$(churchId)/members/$(request.auth.uid))
+          )
+        );
+    }
+
+    function noteShareConfig(share) {
+      return share.get('shareConfig', {});
+    }
+
+    function noteShareVisibility(share) {
+      return noteShareConfig(share).get('visibility', '');
+    }
+
+    function canReadNoteShare(share) {
+      return isSignedIn() &&
+        share.get('status', '') == 'active' &&
+        (
+          request.auth.uid == share.get('authorUid', '') ||
+          noteShareVisibility(share) == 'public' ||
+          (noteShareVisibility(share) == 'followers' &&
+            isMutualConnectionWith(share.get('authorUid', ''))) ||
+          (noteShareVisibility(share) == 'church' &&
+            isOrganizationMember(noteShareConfig(share).get('churchId', ''))) ||
+          (noteShareVisibility(share) == 'space' &&
+            isSpaceMember(noteShareConfig(share).get('spaceId', '')))
+        );
+    }
+
+    function canReadNoteShareReflection(shareId) {
+      return canReadNoteShare(get(/databases/$(database)/documents/noteShares/$(shareId)).data);
+    }
+
+    // [MINOR] Is a DM safe for a minor sender?
+    // Requires mutual-follow edge: both A→B and B→A must exist.
+    // OPEN-2: Guardian can be whitelisted as non-mutual DM recipient — not yet implemented.
+    function isMinorSafeDM(recipientUid) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + recipientUid)) &&
+        exists(/databases/$(database)/documents/follows_index/$(recipientUid + '_' + request.auth.uid));
+    }
+
+    function isMinorAccount(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.get('ageTier', '') in ['teen', 'under_minimum', 'tierA', 'tierB', 'tierC'] ||
+        get(/databases/$(database)/documents/users/$(uid)).data.get('minorScoped', false) == true;
+    }
+
+    function dmRequiresMinorSafety(participantUids) {
+      return isMinor() ||
+        (
+          participantUids.size() == 2 &&
+          (
+            (participantUids[0] != request.auth.uid && isMinorAccount(participantUids[0])) ||
+            (participantUids[1] != request.auth.uid && isMinorAccount(participantUids[1]))
+          )
+        );
+    }
+
+    function twoPersonMinorSafeDM(participantUids) {
+      return participantUids.size() == 2 &&
+        (
+          (participantUids[0] == request.auth.uid && isMinorSafeDM(participantUids[1])) ||
+          (participantUids[1] == request.auth.uid && isMinorSafeDM(participantUids[0]))
+        );
+    }
+
+    // Does the incoming document contain raw PII fields forbidden by I-5?
+    function hasRawPII() {
+      return request.resource.data.keys().hasAny([
+        'contactPhone', 'contactEmail', 'homeAddress', 'salaryAmount'
+      ]);
+    }
+
+    // Is the given field missing from the incoming write?
+    // Used to prevent clients from setting protected fields.
+    function fieldNotChanged(fieldName) {
+      return !(request.resource.data.diff(resource.data).affectedKeys().hasAny([fieldName]));
+    }
+
+    function commentModerationFields() {
+      return [
+        'moderationDecisionId',
+        'moderationStatus',
+        'moderationVerdict',
+        'guardianVerdict',
+        'safetyStatus',
+        'removedByModeration',
+        'moderationReviewedAt'
+      ];
+    }
+
+    function noClientCommentModerationFieldsOnCreate() {
+      return !request.resource.data.keys().hasAny(commentModerationFields());
+    }
+
+    function commentModerationFieldsNotChanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(commentModerationFields());
+    }
+
+    // Is an isDeleted transition valid?
+    // Clients may only flip isDeleted from false → true (soft delete), never reverse.
+    function validSoftDelete() {
+      return request.resource.data.get('isDeleted', false) == true &&
+        resource.data.get('isDeleted', false) == false;
+    }
+
+    // Does the update only touch the allowed soft-delete fields?
+    function isSoftDeleteOnly() {
+      return validSoftDelete() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['isDeleted', 'deletedAt', 'updatedAt', 'deletedBy']);
+    }
+
+    // Provenance field must never be modified after creation.
+    function provenanceUnchanged() {
+      return fieldNotChanged('provenance');
+    }
+
+    // Premium/entitlement spoof protection — clients cannot self-grant tier fields.
+    function premiumFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'premiumTier', 'hasPlusAccess', 'hasProAccess', 'premiumEntitlement',
+        'customTopicTagCount', 'aiUsageRemaining', 'aiUsageLimit'
+      ]);
+    }
+
+    // Age-tier field must never be writable by any client (I-8 extension to user doc).
+    function ageTierUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'ageTier', 'ageCategory', 'dateOfBirth', 'ageVerified'
+      ]);
+    }
+
+    // =========================================================================
+    // /users/{userId}
+    // C5 §2a — User Resource
+    // =========================================================================
+
+    match /users/{userId} {
+      // Read: any signed-in user can read public profile data.
+      // Unauthenticated access is denied (all PII lives in subcollections).
+      allow read: if isSignedIn();
+
+      // Create: must create your own profile; no premium spoof fields.
+      allow create: if isOwner(userId) && !hasRawPII() &&
+        !request.resource.data.keys().hasAny(['premiumTier', 'hasPlusAccess',
+          'hasProAccess', 'premiumEntitlement', 'ageTier', 'ageCategory',
+          'dateOfBirth', 'ageVerified']);
+
+      // Update: owner may update own profile; protected fields frozen.
+      // ageTier / ageCategory / dateOfBirth / ageVerified are CF/Admin SDK only.
+      // Premium entitlement fields are CF/Admin SDK only.
+      allow update: if isOwner(userId) &&
+        premiumFieldsUnchanged() &&
+        ageTierUnchanged() &&
+        provenanceUnchanged();
+
+      // Delete: hard delete denied — I-1. Use soft-delete (set deletedAt).
+      allow delete: if false;
+
+      // ── Private subcollection: age assurance ────────────────────────────────
+      // I-8: Immutable by all clients. Admin SDK only.
+      // OPEN-2: Read is owner-only; guardian read not yet implemented.
+      match /private/age_assurance {
+        // [MINOR] Owner may read their own age assurance document.
+        allow read: if isOwner(userId);
+
+        // Create: only on first-time setup by owner IF doc does not yet exist.
+        // Subsequent updates are Admin SDK only (via CF age verification flow).
+        allow create: if isOwner(userId) &&
+          !exists(/databases/$(database)/documents/users/$(userId)/private/age_assurance);
+
+        // I-8: No client updates ever. CF Admin SDK only.
+        allow update: if false;
+
+        // Age profiles are never deleted by clients.
+        allow delete: if false;
+      }
+
+      // ── Usage subcollection ─────────────────────────────────────────────────
+      match /usage/{usageId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false; // CF only
+      }
+
+      // ── Safety subcollection ────────────────────────────────────────────────
+      match /safety/{docId} {
+        allow read: if isOwner(userId) || isAdminSDK();
+        allow create, update, delete: if false; // CF only
+
+        match /trustedContacts/{contactId} {
+          allow read: if isOwner(userId);
+          allow create, update, delete: if false;
+        }
+
+        match /wellbeingSignals/{signalId} {
+          allow read: if isOwner(userId);
+          allow create, update, delete: if false;
+        }
+
+        match /feedControls/{controlId} {
+          allow read: if isOwner(userId);
+          allow create, update, delete: if false;
+        }
+
+        match /sessionBoundaries/{sessionId} {
+          allow read: if isOwner(userId);
+          allow create, update, delete: if false;
+        }
+
+        match /reports/{reportId} {
+          allow read: if isOwner(userId) || isAdminSDK();
+          allow create, update, delete: if false;
+        }
+
+        match /notifications/{notificationId} {
+          allow read: if isOwner(userId);
+          allow create, update, delete: if false;
+        }
+      }
+
+      // ── Trust subcollection ─────────────────────────────────────────────────
+      match /trust/{trustDocId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false; // CF only
+      }
+
+      // ── Drafts subcollection ────────────────────────────────────────────────
+      match /drafts/{draftId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // CF only
+      }
+
+      // ── Media subcollection ─────────────────────────────────────────────────
+      match /media/{mediaId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // CF only
+
+        match /transcriptTracks/{trackId} {
+          allow read: if isOwner(userId);
+          allow write: if false;
+        }
+
+        match /captionTracks/{trackId} {
+          allow read: if isOwner(userId);
+          allow write: if false;
+        }
+      }
+
+      // ── Media progress / queues / sessions ─────────────────────────────────
+      match /mediaProgress/{mediaId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
+
+      match /mediaQueues/{queueId} {
+        allow read: if isOwner(userId);
+        allow create, update: if false;
+        allow delete: if isOwner(userId);
+
+        match /items/{itemId} {
+          allow read: if isOwner(userId);
+          allow create, update: if false;
+          allow delete: if isOwner(userId);
+        }
+      }
+
+      match /mediaSessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
+
+      // ── Accessibility preferences ───────────────────────────────────────────
+      match /accessibility/{prefDoc} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+
+      // ── Custom topic tags ───────────────────────────────────────────────────
+      match /customTopicTags/{tagId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false; // CF only
+      }
+
+      // ── Notifications ───────────────────────────────────────────────────────
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create, update: if false;
+        allow delete: if isOwner(userId);
+      }
+
+      // ── Action Layer — post-to-action transforms (AmenPostActionTransformService) ──
+      // Writes come from the iOS client after the user taps "Save" in the Action Sheet.
+      // Local push notifications are scheduled client-side; Firestore is the source of truth.
+      match /actions/{actionId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          request.resource.data.get('type', '') in
+            ['reminder','event','prayerItem','task','discussion','volunteerOpportunity'];
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // =========================================================================
+    // /posts/{postId}
+    // C5 §2b — Post Resource
+    // =========================================================================
+
+    match /posts/{postId} {
+      // Read: public posts are visible to unauthenticated visitors (OPEN-5 default).
+      // Church/Space/TrustedCircle/Private require auth + membership.
+      allow read: if
+        isPublicLevel(resource.data.get('privacyLevel', 'public'))
+        || (isSignedIn() && isOwner(resource.data.get('authorId', '')))
+        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'church' &&
+            sameChurch(resource.data.get('churchId', '')))
+        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'space' &&
+            isSpaceMember(resource.data.get('spaceId', '')))
+        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'private' &&
+            isOwner(resource.data.get('authorId', '')))
+        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'trustedCircle' &&
+            isOwner(resource.data.get('authorId', '')));
+
+      // Create: must be signed in; under_minimum blocked entirely.
+      // [MINOR] I-3: Minors cannot post publicly without publicConfirmed == true.
+      // Visitors (no org membership) cannot create posts per §2b matrix.
+      allow create: if
+        isSignedIn() &&
+        !isUnderMinimum() &&
+        request.resource.data.get('authorId', '') == request.auth.uid &&
+        provenanceUnchanged() &&
+        // [MINOR] Minors must set publicConfirmed == true to post publicly
+        (!isMinor() ||
+          request.resource.data.get('privacyLevel', 'private') != 'public' ||
+          request.resource.data.get('publicConfirmed', false) == true) &&
+        // [MINOR] ownerUidEncrypted must not be set by client (CF only)
+        !request.resource.data.keys().hasAny(['ownerUidEncrypted']);
+
+      // Update: owner can update own post; moderators/admins can soft-delete.
+      // Provenance must never change. isDeleted can only go false → true.
+      // ownerUidEncrypted must never be touched by client.
+      allow update: if
+        !request.resource.data.keys().hasAny(['ownerUidEncrypted']) &&
+        provenanceUnchanged() &&
+        (
+          // Owner updates own post (non-soft-delete fields)
+          isOwner(resource.data.get('authorId', ''))
+          ||
+          // Moderator/admin soft-delete only (I-1 + C5 §2b)
+          (isSoftDeleteOnly() &&
+           hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']) &&
+           (sameOrg(resource.data.get('orgId', '')) ||
+            sameChurch(resource.data.get('churchId', ''))))
+        );
+
+      // Delete: I-1 — hard deletes denied for all clients. CF Admin SDK handles physical removal.
+      allow delete: if false;
+
+      // ── Comments subcollection ──────────────────────────────────────────────
+      // C5 §2e — Comment Resource
+      match /comments/{commentId} {
+        // Read: comments inherit parent post visibility (simplified: any signed-in user).
+        allow read: if isSignedIn();
+
+        // Create: signed in + not under minimum age.
+        allow create: if isSignedIn() && !isUnderMinimum() &&
+          request.resource.data.get('authorId', '') == request.auth.uid &&
+          noClientCommentModerationFieldsOnCreate();
+
+        // Update: owner can update own comment; moderator+ can soft-delete.
+        allow update: if
+          (isOwner(resource.data.get('authorId', '')) &&
+           commentModerationFieldsNotChanged()) ||
+          (isSoftDeleteOnly() &&
+           hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']));
+
+        // I-1: Hard deletes denied.
+        allow delete: if false;
+      }
+
+      // ── Action threads subcollection ────────────────────────────────────────
+      match /actionThreads/{threadId} {
+        allow read: if isSignedIn();
+        allow create, update: if false; // CF only
+        allow delete: if false;
+
+        match /participants/{participantId} {
+          allow read: if isSignedIn();
+          allow create, update, delete: if false; // CF only
+        }
+      }
+
+      // ── Media moderation subcollection ──────────────────────────────────────
+      match /mediaModerations/{modId} {
+        allow read: if isOwner(resource.data.get('authorId', '')) ||
+          hasAnyClaimRole(['moderator', 'executive_admin']) || isAdminSDK();
+        allow create, update, delete: if false; // CF only
+      }
+    }
+
+    // =========================================================================
+    // /prayers/{prayerId}
+    // C5 §2c — Prayer Resource
+    // =========================================================================
+
+    match /prayers/{prayerId} {
+      // Read: privacy-level gated.
+      // [MINOR] Minors' prayers are private by default; no list exposure.
+      // I-6: ownerUidEncrypted is masked by the read path — CF strips it on delivery;
+      //      the document-level read is allowed, but clients must not access the field.
+      //      OPEN-3: Anonymous shielding level (Option B default — admin-readable via CF).
+      allow read: if
+        isOwner(resource.data.get('authorId', ''))
+        || isOwner(resource.data.get('ownerUid', ''))
+        || isOwner(resource.data.get('createdBy', ''))
+        || (resource.data.get('privacyLevel', '') == 'public' && isSignedIn())
+        || (resource.data.get('privacyLevel', '') == 'church' &&
+            (sameChurch(resource.data.get('churchId', '')) ||
+             sameChurch(resource.data.get('churchRef', ''))))
+        || (resource.data.get('privacyLevel', '') == 'space' &&
+            (isSpaceMember(resource.data.get('spaceId', '')) ||
+             isSpaceMember(resource.data.get('spaceRef', ''))))
+        || (resource.data.get('privacyLevel', '') == 'anonymous' && isSignedIn());
+        // NOTE: 'trustedCircle' requires a mutual-follow edge read — handled by CF query.
+        // 'private' is owner-only (covered by isOwner above).
+
+      // Writes are callable-owned. Clients use createPrayerRequest / prayer
+      // lifecycle callables so identity shielding, provenance, counters, rate
+      // limits, and moderation state remain server-authoritative.
+      allow create, update: if false;
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /prayerRequests/{id}
+    // Phase 2 Live Activity — denormalized projection separate from prayers/{id}.
+    // Counters (prayingCount, encouragementCount) are written ONLY by Cloud Functions
+    // (admin SDK); clients never update them directly.
+    // =========================================================================
+
+    match /prayerRequests/{id} {
+      allow read: if isSignedIn();
+      allow create: if false; // createPrayerRequest CF only
+      allow update: if false; // CFs only (admin SDK)
+      allow delete: if false;
+
+      match /prayingUsers/{uid} {
+        allow read: if isSignedIn() &&
+          (request.auth.uid == uid ||
+           request.auth.uid == get(/databases/$(database)/documents/prayerRequests/$(id)).data.requesterUid);
+        allow create, delete: if false; // prayForRequest CF only
+        allow update: if false;
+      }
+
+      match /liveActivityTokens/{token} {
+        allow read, write: if false; // host app + CF admin SDK only
+      }
+    }
+
+    // =========================================================================
+    // /discussions/{discussionId}
+    // C5 §2d — Discussion Resource
+    // =========================================================================
+
+    match /discussions/{discussionId} {
+      // Read: privacy-level gated. Visitors cannot read non-public.
+      allow read: if
+        isPublicLevel(resource.data.get('privacyLevel', 'public'))
+        || (isSignedIn() && isOwner(resource.data.get('authorId', '')))
+        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'church' &&
+            sameChurch(resource.data.get('churchId', '')))
+        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'space' &&
+            isSpaceMember(resource.data.get('spaceId', '')))
+        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'private' &&
+            isOwner(resource.data.get('authorId', '')));
+
+      // Create: signed in + not under minimum age.
+      // [MINOR] Minors may create in private/church contexts only (no public by default).
+      allow create: if
+        isSignedIn() && !isUnderMinimum() &&
+        request.resource.data.get('authorId', '') == request.auth.uid &&
+        (!isMinor() ||
+          request.resource.data.get('privacyLevel', 'private') in ['private', 'church', 'space']);
+
+      // Update: owner can update own discussion; moderator+ can soft-delete.
+      allow update: if
+        isOwner(resource.data.get('authorId', '')) ||
+        (isSoftDeleteOnly() &&
+         hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']));
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+
+      // ── Messages subcollection ──────────────────────────────────────────────
+      match /messages/{messageId} {
+        allow read: if
+          isPublicLevel(
+            get(/databases/$(database)/documents/discussions/$(discussionId))
+              .data.get('privacyLevel', 'public')
+          ) || isSignedIn();
+
+        allow create: if
+          isSignedIn() && !isUnderMinimum() &&
+          request.resource.data.get('authorId', '') == request.auth.uid &&
+          noClientCommentModerationFieldsOnCreate();
+
+        allow update: if
+          (isOwner(resource.data.get('authorId', '')) &&
+           commentModerationFieldsNotChanged()) ||
+          (isSoftDeleteOnly() &&
+           hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']));
+
+        // I-1: Hard deletes denied.
+        allow delete: if false;
+      }
+
+      // ── Comments subcollection on discussions ───────────────────────────────
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+
+        allow create: if isSignedIn() && !isUnderMinimum() &&
+          request.resource.data.get('authorId', '') == request.auth.uid &&
+          noClientCommentModerationFieldsOnCreate();
+
+        allow update: if (isOwner(resource.data.get('authorId', '')) &&
+          commentModerationFieldsNotChanged()) ||
+          (isSoftDeleteOnly() &&
+           hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']));
+
+        allow delete: if false;
+      }
+    }
+
+    // =========================================================================
+    // /communityTransforms/{transformId}
+    // Server-owned CommunityOS transform audit ledger. Cloud Functions write via
+    // Admin SDK; clients must use transformObject so provenance, role, rate-limit,
+    // and smart suggestion policy stay server-authoritative.
+    // =========================================================================
+
+    match /communityTransforms/{transformId} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // /edges/{edgeId}
+    // C5 §2n — Social Graph (follow/block/mutual)
+    // =========================================================================
+
+    match /edges/{edgeId} {
+      // Read: own edges always visible; others visible to moderator+.
+      allow read: if
+        isSignedIn() &&
+        (isOwner(resource.data.get('fromUid', '')) ||
+         isOwner(resource.data.get('toUid', '')) ||
+         hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']));
+
+      // Create: signed in; fromUid must match caller; under_minimum blocked.
+      // [MINOR] Minors cannot create 'external_discover' edge types.
+      allow create: if
+        isSignedIn() && !isUnderMinimum() &&
+        request.resource.data.get('fromUid', '') == request.auth.uid &&
+        provenanceUnchanged() &&
+        (!isMinor() || request.resource.data.get('edgeType', '') != 'external_discover');
+
+      // Update: only the creator can update (soft-delete: isDeleted false → true).
+      // Provenance must never change.
+      allow update: if
+        isOwner(resource.data.get('fromUid', '')) &&
+        provenanceUnchanged() &&
+        isSoftDeleteOnly();
+
+      // Delete: I-1 — soft-delete via update only. Hard delete denied.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /follows/{followId} and /follows_index/{indexId}
+    // Social graph follow edges (used by createFollow CF)
+    // =========================================================================
+
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if false; // CF createFollow only
+      allow update, delete: if false; // CF only
+    }
+
+    match /follows_index/{indexId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF only
+    }
+
+    match /blockedUsers/{blockId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('blockerUid', '')) || isAdminSDK());
+      allow create, update, delete: if false; // CF createBlock only
+    }
+
+    // =========================================================================
+    // /roles/{contextType}/{contextId}/members/{userId}
+    // Role management — who has what role in an org/church/space
+    // =========================================================================
+
+    match /roles/{contextType}/{contextId}/members/{userId} {
+      allow read: if
+        isSignedIn() &&
+        (isOwner(userId) ||
+         hasAnyClaimRole(['owner', 'executive_admin', 'pastor']));
+
+      allow create: if
+        hasAnyClaimRole(['owner', 'executive_admin', 'pastor']);
+
+      allow update: if
+        hasAnyClaimRole(['owner', 'executive_admin', 'pastor']);
+
+      // Delete denied — use isActive: false to deactivate roles. I-1.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /organizations/{orgId}
+    // C5 §2f — Organization Resource
+    // =========================================================================
+
+    match /organizations/{orgId} {
+      // Read: public org profiles readable by any signed-in user.
+      // Private org data requires same-org membership.
+      allow read: if
+        isPublicLevel(resource.data.get('privacyLevel', 'public'))
+        || sameOrg(orgId)
+        || isAdminSDK();
+
+      // Create: owner or executive admin only.
+      allow create: if hasAnyClaimRole(['owner', 'executive_admin']);
+
+      // Update: same-org owner/pastor or executive admin. Provenance immutable.
+      allow update: if
+        provenanceUnchanged() &&
+        (
+          (hasAnyClaimRole(['owner', 'pastor']) && sameOrg(orgId)) ||
+          hasClaimRole('executive_admin')
+        );
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+
+      // ── Org member subcollection ─────────────────────────────────────────────
+      match /members/{memberId} {
+        allow read: if sameOrg(orgId) || isAdminSDK();
+        allow create, update: if
+          hasAnyClaimRole(['owner', 'executive_admin', 'pastor']) && sameOrg(orgId);
+        allow delete: if false; // Use isActive: false
+      }
+    }
+
+    // =========================================================================
+    // /churches/{churchId}
+    // C5 §2g — Church Resource
+    // =========================================================================
+
+    match /churches/{churchId} {
+      // Read: public church profiles readable by all; private data requires membership.
+      allow read: if
+        isPublicLevel(resource.data.get('privacyLevel', 'public'))
+        || isChurchMember(churchId)
+        || isAdminSDK();
+
+      // Create: owner, executive admin, or pastor.
+      allow create: if hasAnyClaimRole(['owner', 'executive_admin', 'pastor']);
+
+      // Update: church owner/pastor within same church, executive admin, or content manager.
+      allow update: if
+        provenanceUnchanged() &&
+        (
+          (hasAnyClaimRole(['owner', 'pastor']) && sameChurch(churchId)) ||
+          hasClaimRole('executive_admin') ||
+          // ContentManager may update media fields only
+          (hasClaimRole('content_manager') && sameChurch(churchId) &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['mediaItems', 'sermonLibrary', 'headerImageUrl', 'logoUrl', 'updatedAt']))
+        );
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+
+      // ── Church members subcollection ─────────────────────────────────────────
+      match /members/{memberId} {
+        allow read: if isChurchMember(churchId) || isAdminSDK();
+
+        allow create, update: if
+          hasAnyClaimRole(['owner', 'pastor', 'executive_admin']) && sameChurch(churchId);
+
+        // Soft-delete only.
+        allow delete: if false;
+      }
+    }
+
+    // =========================================================================
+    // /spaces/{spaceId}
+    // C5 §2i — Space Resource
+    // =========================================================================
+
+    match /spaces/{spaceId} {
+      // Read: public spaces readable by signed-in users.
+      // [MINOR] Minors may only read church-verified spaces.
+      allow read: if
+        isSignedIn() &&
+        (
+          isPublicLevel(resource.data.get('privacyLevel', 'public'))
+          || isSpaceMember(spaceId)
+        ) &&
+        // [MINOR] Minor restriction: space must be church-verified
+        (!isMinor() || resource.data.get('churchVerified', false) == true);
+
+      // Create: owner, executive admin, pastor, or leader.
+      allow create: if hasAnyClaimRole(['owner', 'executive_admin', 'pastor', 'leader']);
+
+      // Update: space leader (own spaces), pastor/owner in same church, executive admin.
+      allow update: if
+        provenanceUnchanged() &&
+        (
+          (hasClaimRole('leader') && resource.data.get('leaderId', '') == request.auth.uid) ||
+          (hasAnyClaimRole(['owner', 'pastor']) && sameChurch(resource.data.get('churchId', ''))) ||
+          hasClaimRole('executive_admin')
+        );
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+
+      // ── Space members subcollection ──────────────────────────────────────────
+      match /members/{memberId} {
+        allow read: if isSpaceMember(spaceId) || isAdminSDK();
+
+        // Self-join for public spaces; admin roles can add members.
+        // [MINOR] Minors may only join church-verified spaces.
+        allow create: if
+          isSignedIn() && !isUnderMinimum() &&
+          (
+            (request.auth.uid == memberId &&
+             get(/databases/$(database)/documents/spaces/$(spaceId)).data.get('privacyLevel', '') == 'public' &&
+             // [MINOR] Church verification check for minors
+             (!isMinor() || get(/databases/$(database)/documents/spaces/$(spaceId)).data.get('churchVerified', false) == true))
+            ||
+            hasAnyClaimRole(['owner', 'pastor', 'leader', 'executive_admin'])
+          );
+
+        allow update, delete: if
+          hasAnyClaimRole(['owner', 'pastor', 'leader', 'executive_admin']);
+      }
+    }
+
+    // =========================================================================
+    // /events/{eventId}
+    // C5 §2j — Event Resource
+    // =========================================================================
+
+    match /events/{eventId} {
+      // Read: public events for any signed-in user; private requires org/church membership.
+      // [MINOR] Minors can read events (not blocked per §2j).
+      allow read: if
+        isSignedIn() &&
+        (
+          isPublicLevel(resource.data.get('privacyLevel', 'public'))
+          || sameOrg(resource.data.get('orgId', ''))
+          || sameChurch(resource.data.get('churchId', ''))
+        );
+
+      // Create: org/church admin roles + event manager.
+      allow create: if
+        hasAnyClaimRole(['owner', 'executive_admin', 'pastor', 'leader', 'event_manager']) &&
+        !hasRawPII();
+
+      // Update: creator or org admin. Provenance immutable.
+      allow update: if
+        provenanceUnchanged() && !hasRawPII() &&
+        (
+          isOwner(resource.data.get('createdBy', '')) ||
+          (hasAnyClaimRole(['owner', 'pastor', 'executive_admin', 'event_manager']) &&
+           (sameOrg(resource.data.get('orgId', '')) ||
+            sameChurch(resource.data.get('churchId', ''))))
+        );
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /jobs/{jobId}
+    // C5 §2l — Job Resource
+    // =========================================================================
+
+    match /jobs/{jobId} {
+      // Read: signed-in adult users only.
+      // [MINOR] C-AGE: Job listings completely blocked for minors (§2l).
+      allow read: if isSignedIn() && !isMinor();
+
+      // Create: org/church admin roles. No raw PII. I-5.
+      allow create: if
+        hasAnyClaimRole(['owner', 'executive_admin', 'pastor', 'leader']) &&
+        !hasRawPII();
+
+      // Update: creator or admin. No raw PII introduced. Provenance immutable.
+      allow update: if
+        provenanceUnchanged() && !hasRawPII() &&
+        (
+          isOwner(resource.data.get('createdBy', '')) ||
+          hasAnyClaimRole(['owner', 'pastor', 'executive_admin'])
+        );
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /volunteerOpportunities/{opportunityId}
+    // C5 §2k — VolunteerOpportunity Resource
+    // =========================================================================
+
+    match /volunteerOpportunities/{opportunityId} {
+      // Read: any signed-in user (minors permitted per §2k).
+      // I-5: If a doc somehow contains raw PII, deny the read entirely.
+      allow read: if
+        isSignedIn() &&
+        !resource.data.keys().hasAny(['contactPhone', 'contactEmail', 'homeAddress', 'salaryAmount']);
+
+      // Create: admin + volunteer_lead roles. No raw PII. I-5.
+      allow create: if
+        hasAnyClaimRole(['owner', 'executive_admin', 'pastor', 'leader', 'volunteer_lead']) &&
+        !hasRawPII();
+
+      // Update: creator or admin. No raw PII. Provenance immutable.
+      allow update: if
+        provenanceUnchanged() && !hasRawPII() &&
+        (
+          isOwner(resource.data.get('createdBy', '')) ||
+          hasAnyClaimRole(['owner', 'pastor', 'volunteer_lead', 'executive_admin'])
+        );
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /mentorshipRequests/{requestId}
+    // C5 §2m — MentorshipRequest Resource
+    // =========================================================================
+
+    match /mentorshipRequests/{requestId} {
+      // Read: requestor or mentor; pastor/leader in same church/space; admins.
+      allow read: if
+        isSignedIn() &&
+        (
+          isOwner(resource.data.get('requestorId', '')) ||
+          isOwner(resource.data.get('mentorId', '')) ||
+          (hasAnyClaimRole(['pastor', 'leader']) &&
+           sameChurch(resource.data.get('churchId', ''))) ||
+          hasAnyClaimRole(['owner', 'executive_admin'])
+        );
+
+      // Create: signed in + not under minimum age.
+      // [MINOR] Minors may create mentorship requests; DM with mentor is separately gated.
+      allow create: if
+        isSignedIn() && !isUnderMinimum() &&
+        request.resource.data.get('requestorId', '') == request.auth.uid;
+
+      // Update: requestor or mentor can update status. Provenance immutable.
+      allow update: if
+        provenanceUnchanged() &&
+        (
+          isOwner(resource.data.get('requestorId', '')) ||
+          isOwner(resource.data.get('mentorId', ''))
+        );
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /conversations/{conversationId}
+    // C5 §2r — PrivateMessage / DM Resource
+    // =========================================================================
+
+    match /conversations/{conversationId} {
+      // Read: only participants.
+      allow read: if
+        isSignedIn() &&
+        request.auth.uid in resource.data.get('participantUids', []);
+
+      // Create: signed in + not under minimum age + participant in conversation.
+      // [MINOR] C-MINOR-DM: minors require mutual-follow with all participants.
+      // Visitors cannot initiate DMs (per §2r — Visitor row: create = deny).
+      allow create: if
+        isSignedIn() && !isUnderMinimum() &&
+        request.auth.uid in request.resource.data.get('participantUids', []) &&
+        // Must be at least a member (not visitor)
+        hasAnyClaimRole(['member', 'leader', 'moderator', 'volunteer_lead',
+                         'content_manager', 'event_manager', 'pastor',
+                         'owner', 'executive_admin', 'minor']) &&
+        // [MINOR] Minor DM gate: must be mutual follows with every other participant
+        (!dmRequiresMinorSafety(request.resource.data.get('participantUids', [])) ||
+          twoPersonMinorSafeDM(request.resource.data.get('participantUids', [])));
+
+      // Update: participants may update conversation metadata (e.g., lastMessage).
+      allow update: if
+        isSignedIn() &&
+        request.auth.uid in resource.data.get('participantUids', []);
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+
+      // ── Messages subcollection ──────────────────────────────────────────────
+      match /messages/{messageId} {
+        // Read: must be a participant in the parent conversation.
+        allow read: if
+          isSignedIn() &&
+          request.auth.uid in
+            get(/databases/$(database)/documents/conversations/$(conversationId))
+              .data.get('participantUids', []);
+
+        // Create: sender must be participant; under_minimum blocked.
+        allow create: if
+          isSignedIn() && !isUnderMinimum() &&
+          request.resource.data.get('senderId', '') == request.auth.uid &&
+          request.auth.uid in
+            get(/databases/$(database)/documents/conversations/$(conversationId))
+              .data.get('participantUids', []);
+
+        // Update: only sender can edit own message (soft-delete).
+        allow update: if
+          isOwner(resource.data.get('senderId', '')) && isSoftDeleteOnly();
+
+        // Delete: I-1 — set deletedAt instead.
+        allow delete: if false;
+      }
+    }
+
+    // =========================================================================
+    // /churchNotes/{noteId}
+    // C5 §2s — ChurchNote Resource
+    // =========================================================================
+
+    match /churchNotes/{noteId} {
+      function canReadChurchNote() {
+        return isSignedIn() &&
+          (
+            isOwner(get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('authorId', get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('userId', ''))) ||
+            request.auth.uid in get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaboratorUids', []) ||
+            hasAnyClaimRole(['pastor', 'leader', 'content_manager', 'owner', 'executive_admin'])
+          );
+      }
+
+      function canWriteChurchNote() {
+        return isSignedIn() &&
+          (
+            isOwner(get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('authorId', get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('userId', ''))) ||
+            (request.auth.uid in get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaboratorUids', []) &&
+             get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaborators', {})[request.auth.uid] != null &&
+             get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaborators', {})[request.auth.uid].get('role', '') in ['editor', 'owner'])
+          );
+      }
+
+      // Read: owner or explicit collaborator.
+      allow read: if canReadChurchNote();
+
+      // Create: any signed-in user except under_minimum.
+      allow create: if
+        isSignedIn() && !isUnderMinimum() &&
+        request.resource.data.get('authorId', request.resource.data.get('userId', '')) == request.auth.uid;
+
+      // Update: owner or editor-role collaborator.
+      allow update: if
+        provenanceUnchanged() &&
+        canWriteChurchNote();
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+
+      match /blocks/{blockId} {
+        allow read: if canReadChurchNote();
+        allow create, update, delete: if canWriteChurchNote();
+      }
+
+      match /collaborators/{collaboratorId} {
+        allow read: if canReadChurchNote();
+        allow create, update, delete: if false; // shareChurchNoteWithCollaborators / updateChurchNotePermissions callable only
+      }
+
+      match /comments/{commentId} {
+        allow read: if canReadChurchNote();
+        allow create: if canReadChurchNote() &&
+          request.resource.data.get('authorUid', '') == request.auth.uid;
+        allow update, delete: if false; // moderation/editing through callables only
+      }
+
+      match /actionItems/{itemId} {
+        allow read: if canReadChurchNote();
+        allow create, update, delete: if false; // generate/approve/set completion callables only
+      }
+
+      match /processingJobs/{jobId} {
+        allow read: if canReadChurchNote();
+        allow create, update, delete: if false; // Church Notes media callables only
+      }
+
+      match /transcripts/{transcriptId} {
+        allow read: if canReadChurchNote();
+        allow create, update, delete: if false; // processing callables only
+      }
+
+      match /ocrResults/{ocrId} {
+        allow read: if canReadChurchNote();
+        allow create, update, delete: if false; // processing callables only
+      }
+
+      match /reflections/{reflectionId} {
+        allow read: if canReadChurchNote();
+        allow create: if canWriteChurchNote() &&
+          request.resource.data.get('userId', request.auth.uid) == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      match /bridge/{bridgeId} {
+        allow read: if canReadChurchNote();
+        allow create, update: if canWriteChurchNote();
+        allow delete: if false;
+      }
+    }
+
+    // =========================================================================
+    // /noteShares/{shareId}
+    // NOTE_SHARE_VIEWER Wave 1
+    //
+    // Writes are callable-owned. Link-only shares are not directly readable by
+    // rules; noteShareGetViewerPayload hydrates linkToken requests server-side.
+    // No list access is granted, preventing public count/list enumeration.
+    // =========================================================================
+
+    match /noteShares/{shareId} {
+      allow get: if canReadNoteShare(resource.data);
+      allow list: if false;
+      allow create, update, delete: if false;
+
+      match /amens/{uid} {
+        allow get: if isOwner(uid);
+        allow list: if false;
+        allow create, update, delete: if false;
+      }
+
+      match /reflections/{reflectionId} {
+        allow get: if canReadNoteShareReflection(shareId) &&
+          (
+            resource.data.get('status', '') == 'published' ||
+            resource.data.get('authorUid', '') == request.auth.uid ||
+            request.auth.uid == get(/databases/$(database)/documents/noteShares/$(shareId)).data.get('authorUid', '') ||
+            hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
+          );
+        allow list: if false;
+        allow create, update, delete: if false;
+      }
+    }
+
+    // =========================================================================
+    // /bereanInsights/{insightId}
+    // C5 §2t — BereanInsight Resource
+    // I-7: CF-write-only. No client create/update/delete under any circumstances.
+    // =========================================================================
+
+    match /bereanInsights/{insightId} {
+      // Read: own insights only for members/minors; admins/pastors can read all.
+      // [MINOR] Minors can read their own insights only.
+      allow read: if
+        isSignedIn() &&
+        (
+          isOwner(resource.data.get('userId', '')) ||
+          hasAnyClaimRole(['owner', 'executive_admin', 'pastor',
+                           'leader', 'moderator', 'volunteer_lead',
+                           'content_manager', 'event_manager'])
+        );
+
+      // I-7: No client creates — CF Admin SDK only. DO NOT change to true.
+      allow create: if false;
+
+      // I-7: No client updates — CF Admin SDK only. DO NOT change to true.
+      allow update: if false;
+
+      // Delete: executive admin soft-delete only (via CF).
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /moderationQueue/{itemId}
+    // C5 §2o — ModeratorQueue Resource
+    // =========================================================================
+
+    match /moderationQueue/{itemId} {
+      // Read: moderators, pastors, owners, executive admins; leaders for their space only.
+      allow read: if
+        hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']) ||
+        (hasClaimRole('leader') &&
+         sameOrg(resource.data.get('orgId', '')) &&
+         isSpaceMember(resource.data.get('spaceId', '')));
+
+      // Create: Admin SDK only (CF-generated reports; clients escalate via CF callable).
+      allow create: if isAdminSDK();
+
+      // Update: moderators and above can action items.
+      allow update: if
+        hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']);
+
+      // Delete: owner/executive admin only (via CF + audit log). No client deletes.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /auditLog/{eventId}
+    // C5 §7 — Audit Log
+    // I-2: Absolutely no client writes, updates, or deletes. Admin SDK only.
+    // =========================================================================
+
+    match /auditLog/{eventId} {
+      // Read: owner or executive admin only.
+      allow read: if hasAnyClaimRole(['owner', 'executive_admin']);
+
+      // Create: CF Admin SDK only — no client writes ever.
+      allow create: if false;
+
+      // Audit log is append-only — no updates ever.
+      allow update: if false;
+
+      // Audit log is permanent — no deletes ever.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /age_verification_events/{eventId}
+    // Age assurance pipeline events — Admin SDK / CF only.
+    // =========================================================================
+
+    match /age_verification_events/{eventId} {
+      // Only executive admin can read verification events (not even owner).
+      allow read: if hasClaimRole('executive_admin');
+
+      // CF Admin SDK only — no client writes.
+      allow write: if false;
+    }
+
+    // =========================================================================
+    // /moderationDecisions/{decisionId}
+    // Written by moderation CFs; readable by post author + admins.
+    // =========================================================================
+
+    match /moderationDecisions/{decisionId} {
+      allow read: if
+        isSignedIn() &&
+        (isOwner(resource.data.get('targetUid', '')) ||
+         hasAnyClaimRole(['moderator', 'executive_admin']));
+      allow create, update, delete: if false; // CF only
+    }
+
+    // =========================================================================
+    // /userReports/{reportId}
+    // submitReport CF writes these; direct client writes blocked.
+    // =========================================================================
+
+    match /userReports/{reportId} {
+      allow read: if
+        isOwner(resource.data.get('reporterUid', '')) ||
+        hasAnyClaimRole(['moderator', 'executive_admin']);
+      allow create, update, delete: if false; // CF submitReport only
+    }
+
+    // =========================================================================
+    // /crisisEscalations/{uid}/{ts}
+    // Crisis escalation records — CF only; no client reads.
+    // =========================================================================
+
+    match /crisisEscalations/{uid}/{ts} {
+      allow read: if isOwner(uid) || hasAnyClaimRole(['executive_admin']);
+      allow create, update, delete: if false; // CF only
+    }
+
+    // =========================================================================
+    // /user_activity_summary/{userId}
+    // Social graph activity summaries — CF updateUserActivitySummaryOn* writes.
+    // =========================================================================
+
+    match /user_activity_summary/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF only
+    }
+
+    // =========================================================================
+    // /relationship_activity_state/{compositeId}
+    // Social graph relationship state — CF fan-out writes.
+    // =========================================================================
+
+    match /relationship_activity_state/{compositeId} {
+      allow read: if isSignedIn() &&
+        (compositeId.matches('.*' + request.auth.uid + '.*'));
+      allow create, update, delete: if false; // CF only
+    }
+
+    // =========================================================================
+    // /broadcastMessages/{messageId}
+    // C5 §2q — BroadcastMessage Resource
+    // =========================================================================
+
+    match /broadcastMessages/{messageId} {
+      // Read: any signed-in user; minors allowed (public broadcasts).
+      allow read: if
+        isSignedIn() &&
+        (isPublicLevel(resource.data.get('privacyLevel', 'public')) ||
+         sameOrg(resource.data.get('orgId', '')) ||
+         sameChurch(resource.data.get('churchId', '')));
+
+      // Create: pastor/owner/executive admin/content_manager; leaders for their space.
+      allow create: if
+        hasAnyClaimRole(['owner', 'executive_admin', 'pastor', 'content_manager']) ||
+        (hasClaimRole('leader') &&
+         sameOrg(resource.data.get('orgId', '')));
+
+      // Update: creator or admin. Provenance immutable.
+      allow update: if
+        provenanceUnchanged() &&
+        (isOwner(resource.data.get('createdBy', '')) ||
+         hasAnyClaimRole(['owner', 'executive_admin', 'pastor', 'content_manager']));
+
+      // Delete: I-1 — hard deletes denied.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /teams/{teamId}
+    // C5 §2h — Team Resource
+    // =========================================================================
+
+    match /teams/{teamId} {
+      allow read: if
+        isSignedIn() &&
+        (isPublicLevel(resource.data.get('privacyLevel', 'public')) ||
+         sameOrg(resource.data.get('orgId', '')) ||
+         sameChurch(resource.data.get('churchId', '')));
+
+      allow create: if
+        hasAnyClaimRole(['owner', 'executive_admin', 'pastor', 'leader']);
+
+      allow update: if
+        provenanceUnchanged() &&
+        (
+          (hasClaimRole('leader') && resource.data.get('leaderId', '') == request.auth.uid) ||
+          hasAnyClaimRole(['owner', 'executive_admin', 'pastor'])
+        );
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /communityHubs/{hubId}
+    // Community OS — Object Hub documents
+    // =========================================================================
+
+    match /communityHubs/{hubId} {
+      allow read: if isSignedIn();
+      allow create, update: if false; // CF createOrJoinObjectHub only
+      allow delete: if false;
+
+      match /posts/{postId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false; // CF indexPostIntoHub
+      }
+
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if false; // CF only
+      }
+    }
+
+    match /canonicalObjects/{objectId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF resolveCommunityObject
+    }
+
+    // =========================================================================
+    // /user_trust/{userId}
+    // Trust OS trust scoring documents — CF writes only.
+    // =========================================================================
+
+    match /user_trust/{userId} {
+      allow read: if isOwner(userId) || hasAnyClaimRole(['moderator', 'executive_admin']);
+      allow create, update, delete: if false; // CF computeUserTrustScore
+    }
+
+    match /userSafetyRecords/{userId} {
+      allow read: if isOwner(userId) || hasAnyClaimRole(['moderator', 'executive_admin']);
+      allow create, update, delete: if false; // CF evaluateTrustOSPolicy
+    }
+
+    // =========================================================================
+    // /humanReviewQueue/{itemId}
+    // Media moderation human review — CF only.
+    // =========================================================================
+
+    match /humanReviewQueue/{itemId} {
+      allow read: if hasAnyClaimRole(['moderator', 'executive_admin']) || isAdminSDK();
+      allow create, update, delete: if false; // CF media moderation pipeline
+    }
+
+    // =========================================================================
+    // /mediaModeration/{docId}
+    // Media moderation results — CF writes only.
+    // =========================================================================
+
+    match /mediaModeration/{docId} {
+      allow read: if
+        isOwner(resource.data.get('authorId', '')) ||
+        hasAnyClaimRole(['moderator', 'executive_admin']);
+      allow create, update, delete: if false; // CF mediaModerationPipeline
+    }
+
+    // =========================================================================
+    // /discussions/{discussionId} — Discussion OS extended subcollections
+    // =========================================================================
+
+    match /discussionContext/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF discussionContextFunctions
+    }
+
+    // =========================================================================
+    // /notificationCounts/{userId}
+    // Notification counters — CF notification pipeline writes.
+    // =========================================================================
+
+    match /notificationCounts/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false; // CF notification pipeline
+    }
+
+    // =========================================================================
+    // /adminDashboard/{docId}
+    // C5 §2p — Admin Dashboard
+    // Only owner and executive_admin have read access; no client writes.
+    // =========================================================================
+
+    match /adminDashboard/{docId} {
+      allow read: if hasAnyClaimRole(['owner', 'executive_admin']) ||
+        (hasClaimRole('moderator')); // Queue view only — CF enforces scope
+      allow create, update, delete: if false; // CF admin pipeline
+    }
+
+    // =========================================================================
+    // ONE Private Social OS collections
+    // =========================================================================
+
+    match /one_moments/{momentId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('senderUid', '')) ||
+         request.auth.uid in resource.data.get('recipientUids', []));
+      allow create, update, delete: if false; // CF one_sendMoment + one_expireMoment
+    }
+
+    match /one_repair_flows/{flowId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('initiatorUid', '')) ||
+         isOwner(resource.data.get('targetUid', '')));
+      allow create, update, delete: if false; // CF one_activateRepairFlow
+    }
+
+    // =========================================================================
+    // /bereanProjects/{projectId}
+    // Berean OS project documents
+    // =========================================================================
+
+    match /bereanProjects/{projectId} {
+      allow read: if isOwner(resource.data.get('ownerId', '')) ||
+        hasAnyClaimRole(['executive_admin']);
+      allow create, update, delete: if false; // CF bereanCreateProject + bereanUpdateProject
+    }
+
+    // =========================================================================
+    // Spiritual OS collections — CF writes only.
+    // =========================================================================
+
+    match /spiritualOS/{docId} {
+      allow read: if isOwner(resource.data.get('userId', ''));
+      allow create, update, delete: if false; // CF spiritualOS
+    }
+
+    match /unsentThoughts/{docId} {
+      allow read: if isOwner(resource.data.get('userId', ''));
+      allow create, update, delete: if false; // CF detectUnsentThoughtRisk
+    }
+
+    match /repairFlows/{flowId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('initiatorUid', '')) ||
+         isOwner(resource.data.get('targetUid', '')));
+      allow create, update, delete: if false;
+    }
+
+    // =========================================================================
+    // Church Notes media intelligence — CF writes only.
+    // =========================================================================
+
+    match /churchNotesJobs/{jobId} {
+      allow read: if isOwner(resource.data.get('ownerId', '')) ||
+        hasAnyClaimRole(['content_manager', 'pastor', 'executive_admin']);
+      allow create, update, delete: if false; // CF churchNotesProcessingJobs
+    }
+
+    // ── Intelligence Collections ──────────────────────────────────────────────
+    // Added 2026-06-05 by Living Intelligence Agent 1
+
+    match /intelligence_cards/{cardId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow write: if false; // CF Admin SDK only
+    }
+
+    match /intelligence_briefs/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // CF Admin SDK only
+    }
+
+    match /intelligence_actions/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // CF Admin SDK only
+      match /actions/{actionId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+    }
+
+    match /opportunity_graph/{nodeId} {
+      allow read, write: if false; // CF internal only
+    }
+
+    match /church_pulse/{churchId} {
+      allow read: if isSignedIn() && (
+        exists(/databases/$(database)/documents/churches/$(churchId)/members/$(request.auth.uid)) ||
+        request.auth.token.get('role', '') == 'pastor' ||
+        request.auth.token.get('admin', false) == true
+      );
+      allow write: if false; // CF Admin SDK only
+    }
+
+    // =========================================================================
+    // AMEN LIVE SESSIONS — CF writes only (startAmenLiveSession / endAmenLiveSession)
+    // Any authenticated user may read; only Admin SDK (pastor/admin CF) may write.
+    // Added 2026-06-05 by Living Intelligence Agent 6 + Verifier
+    // =========================================================================
+
+    match /amen_live_sessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF Admin SDK only (startAmenLiveSession / endAmenLiveSession)
+    }
+
+    // =========================================================================
+    // WORLD RESPONSE QUEUE — admin-populated event queue for GLOBAL cards
+    // Readable by CF Admin SDK only; no client reads or writes.
+    // Added 2026-06-05 by Living Intelligence Agent 5 + Verifier
+    // =========================================================================
+
+    match /world_response_queue/{eventId} {
+      allow read, write: if false; // CF internal only
+    }
+
+    // =========================================================================
+    // /worldResponseSources/{sourceId}
+    // Trusted source registry for GLOBAL intelligence cards — read by CF only.
+    // Seeded once via seedWorldResponseSources callable (admin only).
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /worldResponseSources/{sourceId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF Admin SDK only
+    }
+
+    // =========================================================================
+    // /needs/{needId}
+    // Community-reported needs (material, prayer, volunteer, donation, community)
+    // Clients submit via CF callable (classifyPostNeed) — never direct create.
+    // Soft-delete only (isDeleted: false → true).
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /needs/{needId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF callable only (classifyPostNeed)
+    }
+
+    // =========================================================================
+    // /church_pulse/{churchId}
+    // Computed church health metrics — CF Admin SDK writes only (refreshChurchPulses).
+    // Derived from real Firestore data only — never fabricated.
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /church_pulse/{churchId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // CF Admin SDK only (refreshChurchPulses)
+    }
+
+    // =========================================================================
+    // /users/{userId}/intelligence_brief/{briefId}
+    // Per-user intelligence brief — written by digestBuilder CF, read by owner only.
+    // Added 2026-06-06 — Living Intelligence build
+    // =========================================================================
+
+    match /users/{userId}/intelligence_brief/{briefId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create, update, delete: if false; // CF Admin SDK only (buildIntelligenceBriefs)
+    }
+
+    // =========================================================================
+    // Trust OS + Berean OS — new subcollections added 2026-06-06
+    // All owner-only: read/write gated to request.auth.uid == userId.
+    // memoryGraph and trustLedger are written by iOS SDK directly.
+    // =========================================================================
+
+    match /users/{userId}/memoryGraph/{nodeId} {
+      allow read, create, delete: if isSignedIn() && request.auth.uid == userId;
+      allow update: if false; // nodes are immutable once written
+    }
+
+    match /users/{userId}/trustLedger/{entryId} {
+      allow read, create: if isSignedIn() && request.auth.uid == userId;
+      allow update, delete: if false; // audit trail is append-only
+    }
+
+    match /users/{userId}/trustPassport/{docId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/bereanWorkspaces/{workspaceId} {
+      allow read, create, update, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/bereanArtifacts/{artifactId} {
+      allow read, create, update, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Phase 3: push-to-start APNs tokens — written by the host app for the authenticated user;
+    // read + deleted by onPrayerRequestCreated CF (admin SDK).
+    match /users/{userId}/ptsTokens/{token} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/settings/messaging {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // mentorships/{id}/signals — written by iOS SDK via MentorshipIntelligenceService
+    // Read allowed to the owner (uid stored in the node) and the mentor of the relationship.
+    match /mentorships/{mentorshipId}/signals/{signalId} {
+      allow read, create: if isSignedIn() &&
+        (request.auth.uid == resource.data.uid ||
+         get(/databases/$(database)/documents/mentorships/$(mentorshipId)).data.mentorId == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // =========================================================================
+    // /systemStatus/{docId}
+    // System-wide kill-switch flags written by Cloud Functions (Admin SDK only).
+    // Clients need read access so RemoteKillSwitch can react to SLO breaches.
+    // =========================================================================
+
+    match /systemStatus/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false; // Cloud Functions Admin SDK only
+    }
+
+    // =========================================================================
+    // CATALOG + KNOWLEDGE NETWORK — added 2026-06-06 by Agent A
+    // Collections: works, knowledgeNodes, ingestionJobs, verificationClaims,
+    //              users/{uid}/followedTopics
+    //
+    // Security invariants that apply here:
+    //   I-1: Soft-delete only — DELETE is denied on all catalog collections.
+    //        Clients set deletedAt (null → timestamp); reversal is blocked.
+    //   I-7-ext: reviewState transitions to 'published' are CF-only (server-enforced).
+    //            Clients cannot self-publish; CF callable handles the transition.
+    // =========================================================================
+
+    // ── Catalog helper functions ──────────────────────────────────────────────
+
+    // Does the requesting user follow the given creatorId?
+    // Checks for a follows document with composite key {followerUid}_{creatorId}.
+    function followsCreator(creatorId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/follows/$(request.auth.uid + '_' + creatorId));
+    }
+
+    // Does the requesting user have an active paid catalog entitlement?
+    // Entitlement is set by CF (StoreKit validation) — never client-writable.
+    function hasPaidAccess() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)/entitlements/catalog)
+          .data.get('active', false) == true;
+    }
+
+    // Does the requesting user belong to the same org as the work?
+    // Reads orgId from the user's custom claim (set by CF at org membership time).
+    function sameOrgAsWork(workOrgId) {
+      return isSignedIn() &&
+        request.auth.token.get('orgId', '') != '' &&
+        request.auth.token.get('orgId', '') == workOrgId;
+    }
+
+    // Is a deletedAt transition valid for catalog soft-delete?
+    // Clients may only set deletedAt from null/missing → a timestamp.
+    // Reversal (timestamp → null) is blocked. I-1.
+    function validCatalogSoftDelete() {
+      return resource.data.get('deletedAt', null) == null &&
+        request.resource.data.get('deletedAt', null) != null;
+    }
+
+    // Prevent clients from advancing reviewState to 'published' directly.
+    // publishedAt may only be set by CF (Admin SDK) when reviewState = 'published'.
+    // Valid client-allowed states: 'imported' → 'draft' → 'review' (and backward)
+    // The 'approved' → 'published' transition is CF-only.
+    function reviewStateNotPublishedByClient() {
+      return request.resource.data.get('reviewState', '') != 'published' &&
+        request.resource.data.get('reviewState', '') != 'approved';
+    }
+
+    // =========================================================================
+    // /works/{workId}
+    // Catalog Work documents — creator-owned media catalog entries.
+    // Visibility: public | followers | paid_members | organization | private
+    // ReviewState: imported | draft | review | approved | published (last two CF-only)
+    // Soft-delete only (I-1): clients set deletedAt; hard DELETE denied.
+    // =========================================================================
+
+    match /works/{workId} {
+      // READ: authenticated + visibility gate + not soft-deleted.
+      // public        → any signed-in user
+      // followers     → creator's followers (followsCreator check)
+      // paid_members  → users with active catalog entitlement
+      // organization  → users sharing the same orgId claim as the work
+      // private       → creator only
+      // In all cases: deletedAt must be null (not soft-deleted).
+      allow read: if
+        isSignedIn() &&
+        resource.data.get('deletedAt', null) == null &&
+        (
+          resource.data.get('visibility', '') == 'public'
+          || resource.data.get('creatorId', '') == request.auth.uid
+          || (resource.data.get('visibility', '') == 'followers' &&
+              followsCreator(resource.data.get('creatorId', '')))
+          || (resource.data.get('visibility', '') == 'paid_members' && hasPaidAccess())
+          || (resource.data.get('visibility', '') == 'organization' &&
+              sameOrgAsWork(resource.data.get('orgId', '')))
+        );
+
+      // CREATE: creator sets their own work; defaults enforced.
+      // - creatorId must match caller (no impersonation)
+      // - reviewState must be 'imported' on creation (entry point only)
+      // - visibility must be 'private' on creation (explicit publish required)
+      // - deletedAt must be null (cannot create an already-deleted doc)
+      // - publishedAt must NOT be set by client on creation
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.get('creatorId', '') == request.auth.uid &&
+        request.resource.data.get('reviewState', '') == 'imported' &&
+        request.resource.data.get('visibility', '') == 'private' &&
+        request.resource.data.get('deletedAt', null) == null &&
+        !request.resource.data.keys().hasAny(['publishedAt']);
+
+      // UPDATE: creator can update own work with the following restrictions:
+      // - creatorId is immutable (cannot be reassigned)
+      // - reviewState cannot be advanced to 'approved' or 'published' by client
+      //   (CF callable handles those transitions via Admin SDK)
+      // - publishedAt cannot be set or changed by client
+      // - deletedAt transition is soft-delete only: null → timestamp (I-1)
+      //   (if the update touches deletedAt it must be a valid soft-delete)
+      allow update: if
+        isSignedIn() &&
+        resource.data.get('creatorId', '') == request.auth.uid &&
+        // creatorId is immutable
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']) &&
+        // cannot self-publish or self-approve; CF handles those transitions
+        reviewStateNotPublishedByClient() &&
+        // publishedAt is CF-only
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['publishedAt']) &&
+        // soft-delete: if deletedAt is being changed, it must be a valid transition
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedAt']) ||
+          validCatalogSoftDelete());
+
+      // DELETE: I-1 — hard deletes denied. Use deletedAt soft-delete via update.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /knowledgeNodes/{nodeId}
+    // Knowledge graph nodes linking topics to works.
+    // Owner-only write; read is gated on ownership or full-public published refs.
+    // Soft-delete only (I-1): DELETE denied.
+    // =========================================================================
+
+    match /knowledgeNodes/{nodeId} {
+      // READ: owner always; any authenticated user if this is a public-facing node
+      // where all referenced works are published + public visibility.
+      // (Full public-ref check is expensive — CF handles list queries;
+      //  single-doc reads are allowed for owner unconditionally.)
+      allow read: if
+        isSignedIn() &&
+        (
+          resource.data.get('creatorId', '') == request.auth.uid
+          // Note: broad public access to knowledge nodes is intentionally
+          // deferred to CF queries that can join work visibility cheaply.
+          // Direct doc reads by non-owners are denied here to prevent
+          // enumeration attacks on private knowledge graphs.
+        );
+
+      // WRITE (create + update): owner only; creatorId must match caller.
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.get('creatorId', '') == request.auth.uid;
+
+      allow update: if
+        isSignedIn() &&
+        resource.data.get('creatorId', '') == request.auth.uid &&
+        // creatorId is immutable
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
+
+      // DELETE: I-1 — hard deletes denied. Use a deletedAt field or CF removal.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /ingestionJobs/{jobId}
+    // Provider ingestion job tracking. Status is advanced by CF only (server auth).
+    // Clients may create a 'pending' job; all subsequent updates are CF-only.
+    // Soft-delete only (I-1): DELETE denied.
+    // =========================================================================
+
+    match /ingestionJobs/{jobId} {
+      // READ: job creator only.
+      allow read: if
+        isSignedIn() &&
+        resource.data.get('creatorId', '') == request.auth.uid;
+
+      // CREATE: creator submits a new pending job.
+      // - creatorId must match caller
+      // - status must be 'pending' (CF advances to 'running'/'done'/'error')
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.get('creatorId', '') == request.auth.uid &&
+        request.resource.data.get('status', '') == 'pending';
+
+      // UPDATE: denied from client — CF Admin SDK advances status.
+      // This prevents clients from spoofing job completion or skipping ingestion.
+      allow update: if false;
+
+      // DELETE: I-1 — hard deletes denied. CF handles cleanup if needed.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /verificationClaims/{claimId}
+    // Ownership verification requests. Approval is CF-only (no self-approval).
+    // Clients submit 'pending' claims; admins/CF approve or reject via Admin SDK.
+    // Soft-delete only (I-1): DELETE denied.
+    // =========================================================================
+
+    match /verificationClaims/{claimId} {
+      // READ: claim owner OR platform admin (executive_admin).
+      allow read: if
+        isSignedIn() &&
+        (
+          resource.data.get('creatorId', '') == request.auth.uid ||
+          hasClaimRole('executive_admin')
+        );
+
+      // CREATE: creator submits own claim in 'pending' state only.
+      // - creatorId must match caller (no impersonation)
+      // - status must be 'pending' (CF transitions to 'approved'/'rejected')
+      // - No self-approval possible: status 'approved'/'rejected' blocked here
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.get('creatorId', '') == request.auth.uid &&
+        request.resource.data.get('status', '') == 'pending';
+
+      // UPDATE: denied from client — CF/Admin SDK handles approval/rejection.
+      // This is the critical gate preventing self-approval (no-self-approval invariant).
+      allow update: if false;
+
+      // DELETE: I-1 — hard deletes denied. Claims are permanent audit records.
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // /users/{uid}/followedTopics/{topicId}
+    // Per-user topic subscription list (CatalogSubscription).
+    // Owner-only: read, write, and delete are all gated to the owning user.
+    // Unlike works, users CAN unfollow topics (delete IS permitted here — I-1
+    // applies to content, not to user preference records).
+    // =========================================================================
+
+    match /users/{uid}/followedTopics/{topicId} {
+      // READ: owner only.
+      allow read: if isSignedIn() && request.auth.uid == uid;
+
+      // CREATE + UPDATE: owner only.
+      allow create, update: if isSignedIn() && request.auth.uid == uid;
+
+      // DELETE: owner may unfollow a topic (preference record, not content — I-1
+      // soft-delete invariant applies to social/content objects, not subscriptions).
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // =========================================================================
+    // AuditOS — append-only audit trail (GDPR/COPPA)
+    // Path: auditTrail/{uid}/events/{eventId}
+    // INVARIANT: update + delete are permanently denied — append only.
+    // =========================================================================
+
+    match /auditTrail/{uid}/events/{eventId} {
+      allow read: if isOwner(uid) || isAdminSDK();
+      allow create: if isOwner(uid);
+      allow update, delete: if false;  // INVARIANT: append-only
+    }
+
+    // =========================================================================
+    // RecoveryOS — ban appeals
+    // Path: banAppeals/{uid}
+    // Owner may create / update their own appeal; Admin SDK may delete.
+    // =========================================================================
+
+    match /banAppeals/{uid} {
+      allow read: if isOwner(uid) || isAdminSDK();
+      allow create, update: if isOwner(uid);
+      allow delete: if isAdminSDK();
+    }
+
+    // =========================================================================
+    // AI SAFETY REPORTS — C-04
+    // Collects user reports of unsafe/harmful AI responses.
+    // Any signed-in user may create a report; only Admin SDK may read/modify.
+    // =========================================================================
+
+    match /aiReports/{reportId} {
+      allow read: if isAdminSDK();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdminSDK();
+    }
+
+    // =========================================================================
+    // SABBATH MODE — added 2026-06-07 by Phase 2C Backend Agent
+    //
+    // Five Sabbath subcollections under users/{uid}.
+    // All are owner-only. Reflections are PRIVATE — never readable by others.
+    // Presence doc has a broader read grant so family members can see "resting"
+    // state (boolean only — never a count).
+    //
+    // Security invariants:
+    //   S-1: Sabbath config, sessions, reflections, and heldNotifications are
+    //        readable and writable only by the owning user (isOwner(uid)).
+    //   S-2: Reflections are permanently private — no admin read, no CF read,
+    //        no cross-user read under any circumstances.
+    //   S-3: heldNotifications are written by the notificationBatcher CF (Admin SDK);
+    //        clients may read their own held notifications to render the digest UI.
+    //   S-4: sabbathPresence.resting is a boolean signal — clients MUST display
+    //        text only (e.g. "Others are resting too"), never a count or number.
+    //   S-5: No hard deletes on session or reflection documents (I-1 applies).
+    // =========================================================================
+
+    // Sabbath configuration — user's chosen day, boundary, timezone
+    match /users/{uid}/sabbath/config {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // Per-day session records — active/steppedOut state, surfaces used, digestShown
+    match /users/{uid}/sabbathSessions/{sessionId} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // Private reflections — NEVER readable by anyone other than the author.
+    // S-2: No exceptions. Not even executive_admin or isAdminSDK().
+    match /users/{uid}/sabbathReflections/{reflectionId} {
+      allow read, write: if request.auth.uid == uid;
+      // Reflections are PRIVATE — never readable by others, including admins.
+    }
+
+    // Held notifications — written by notificationBatcher CF; read by owner for digest
+    match /users/{uid}/sabbath/heldNotifications/{notifId} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // Presence signal — "resting: true" boolean only.
+    // Read: owner only by default; family sharing is mediated by Cloud Functions.
+    // Write: owner only.
+    // S-4: Clients MUST show text only, never display a count or number.
+    match /users/{uid}/sabbath/presence {
+      allow read: if request.auth.uid == uid;
+      allow write: if request.auth.uid == uid;
+    }
+
+    // =========================================================================
+    // BEREAN PULSE — Private daily intelligence cards
+    //
+    // Cloud Functions generate cards with Admin SDK. Clients can read their own
+    // generated cards, tune preferences/permissions, save cards, hide cards, and
+    // write non-authoritative interaction events. Unknown Pulse paths fall
+    // through to the global deny-by-default catch-all.
+    // =========================================================================
+
+    match /users/{uid}/bereanPulse/main/days/{dateKey}/cards/{cardId} {
+      allow read: if isOwner(uid);
+      allow create: if false;
+      allow update: if isOwner(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['isHidden', 'isSaved', 'feedbackState', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /users/{uid}/bereanPulse/main/preferences/main {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly([
+          'enabled',
+          'preferredModes',
+          'suppressedModes',
+          'preferredTone',
+          'preferredLength',
+          'morningDeliveryEnabled',
+          'notificationsEnabled',
+          'appContextAccess',
+          'calendarAccess',
+          'locationAccess',
+          'healthAccess',
+          'contactsAccess',
+          'churchActivityAccess',
+          'prayerJournalAccess',
+          'savedPostsAccess',
+          'workModeEnabled'
+        ]);
+      allow delete: if false;
+    }
+
+    match /users/{uid}/bereanPulse/main/permissions/main {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly([
+          'amenActivity',
+          'bereanChatHistory',
+          'savedPosts',
+          'churchActivity',
+          'prayerJournal',
+          'notifications',
+          'location',
+          'health',
+          'contacts',
+          'workProjectContext',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /users/{uid}/bereanPulse/main/events/{eventId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly(['cardId', 'eventType', 'mode', 'timestamp', 'metadata']);
+      allow delete: if false;
+    }
+
+    match /users/{uid}/bereanPulse/main/savedCards/{cardId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly(['cardId', 'mode', 'title', 'savedAt']);
+      allow delete: if isOwner(uid);
+    }
+
+    // =========================================================================
+    // BEREAN v1 — AI Formation Assistant
+    // Added: 2026-06-07 (Phase 1 Contract Freeze)
+    //
+    // Security invariants:
+    //   B-1: Per-user isolation — only the owning user may read/write their berean data.
+    //   B-2: visibility enforced on shareable docs. Default 'private'.
+    //   B-3: Minor-scoped accounts: connectors denied; 'organization'/'public' writes denied.
+    //   B-4: Soft-delete only — hard deletes denied on memory/thread docs.
+    //   B-5: assistant-role messages: CF-write-only (Admin SDK). Clients write user role only.
+    //   B-6: Usage document: CF-write-only. Clients read only.
+    //   B-7: Capabilities: owner or CF may write.
+    //   B-8: config/credits + config/voice: read-only for clients; CF writes only.
+    // =========================================================================
+
+    match /berean/{uid}/memory/{memoryId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && !( request.auth.token.get('minorScoped', false) == true
+              && request.resource.data.get('visibility','private') in ['public','organization'] );
+      allow update: if isOwner(uid);
+      allow delete: if false;
+      allow write: if isAdminSDK();
+    }
+
+    match /berean/{uid}/threads/{threadId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid);
+      allow delete: if false;
+      allow write: if isAdminSDK();
+    }
+
+    match /berean/{uid}/messages/{messageId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && request.resource.data.get('role','') == 'user';
+      allow update, delete: if false;
+      allow write: if isAdminSDK();
+    }
+
+    match /berean/{uid}/usage/{periodId} {
+      allow read: if isOwner(uid);
+      allow write: if isAdminSDK();
+    }
+
+    match /berean/{uid}/capabilities {
+      allow read: if isOwner(uid);
+      allow write: if isOwner(uid) || isAdminSDK();
+    }
+
+    match /berean/{uid}/connectors/{connectorType} {
+      allow read: if isOwner(uid) && !request.auth.token.get('minorScoped', false);
+      allow write: if (isOwner(uid) || isAdminSDK()) && !request.auth.token.get('minorScoped', false);
+    }
+
+    match /config/credits {
+      allow read: if isSignedIn();
+      allow write: if isAdminSDK();
+    }
+
+    match /config/voice {
+      allow read: if isSignedIn();
+      allow write: if isAdminSDK();
+    }
+
+    // =========================================================================
+    // SELAH — Private spiritual notes and discernment checks
+    // Added: 2026-06-07 (Selah Bible Engine — Phase 2 Firestore rules)
+    //
+    // Security invariants:
+    //   SE-1: selahNotes are owner-only read/write; no hard deletes (soft-delete only).
+    //   SE-2: discernmentChecks are created-by read/write; visibility 'shared' docs are
+    //         readable by creator only at the rule level (thread-participant access is
+    //         enforced server-side by Cloud Function — not granted here).
+    //   SE-3: discernmentChecks may only be created as 'private'; visibility transitions
+    //         to 'shared' require a CF callable (not a direct client update gate here,
+    //         but update is owner-only so impersonation is blocked).
+    //   SE-4: No hard deletes on either collection — soft-delete via deletedAt.
+    // =========================================================================
+
+    // selahNotes: owner-only read/write; soft-delete only
+    match /users/{uid}/selahNotes/{noteId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      // Prevent hard delete: client cannot delete the document entirely
+      allow delete: if false;
+    }
+
+    // User settings: private owner-only preference snapshots.
+    // Cloud Functions write with Admin SDK for App Check enforcement; direct owner
+    // reads are allowed so the app can restore settings on launch.
+    match /userSettings/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly(['uid', 'values', 'updatedAt']) &&
+        request.resource.data.uid == uid &&
+        request.resource.data.values is map;
+      allow delete: if false;
+    }
+
+    // discernmentChecks: created-by read/write; shared checks readable by creator only
+    // (sharing to thread participants is enforced server-side via Cloud Function)
+    match /discernmentChecks/{checkId} {
+      allow read: if request.auth != null &&
+        resource.data.createdBy == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.visibility == 'private' &&
+        request.resource.data.deletedAt == null;
+      allow update: if request.auth != null &&
+        resource.data.createdBy == request.auth.uid;
+      allow delete: if false;  // soft-delete only; no hard delete
+    }
+
+    // =========================================================================
+    // AMEN ACTION INTELLIGENCE — commitment economy object layer
+    // Added: 2026-06-09
+    //
+    // Security invariants:
+    //   AI-1: Clients never create/update/delete action intelligence objects directly.
+    //         All writes go through App Check + Auth Cloud Functions.
+    //   AI-2: Owner may read their own commitment/memory/relationship objects.
+    //   AI-3: Knowledge graph reads are scoped to owner or matching org/church/space claim.
+    //   AI-4: Audit log is server-only.
+    // =========================================================================
+
+    match /actionIntelligenceObjects/{objectId} {
+      allow read: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create, update, delete: if isAdminSDK();
+    }
+
+    match /amenInitiatives/{initiativeId} {
+      allow read: if isSignedIn() &&
+        (
+          resource.data.ownerId == request.auth.uid ||
+          ('spaceId' in resource.data.source && resource.data.source.spaceId is string && isSpaceMember(resource.data.source.spaceId)) ||
+          ('churchId' in resource.data.source && resource.data.source.churchId is string && sameChurch(resource.data.source.churchId)) ||
+          ('organizationId' in resource.data.source && resource.data.source.organizationId is string && sameOrg(resource.data.source.organizationId))
+        );
+      allow create, update, delete: if isAdminSDK();
+
+      match /milestones/{milestoneId} {
+        allow read: if isSignedIn() &&
+          get(/databases/$(database)/documents/amenInitiatives/$(initiativeId)).data.ownerId == request.auth.uid;
+        allow create, update, delete: if isAdminSDK();
+      }
+    }
+
+    match /amenVolunteerAssignments/{assignmentId} {
+      allow read: if isSignedIn() &&
+        (resource.data.ownerId == request.auth.uid || resource.data.assigneeId == request.auth.uid);
+      allow create, update, delete: if isAdminSDK();
+    }
+
+    match /users/{uid}/amenMemoryGraph/{memoryId} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if isAdminSDK();
+    }
+
+    match /amenRelationshipSignals/{relationshipId} {
+      allow read: if isSignedIn() &&
+        (resource.data.ownerId == request.auth.uid || resource.data.targetUserId == request.auth.uid);
+      allow create, update, delete: if isAdminSDK();
+    }
+
+    match /amenKnowledgeGraph/{nodeId} {
+      allow read: if isSignedIn() &&
+        (
+          resource.data.ownerId == request.auth.uid ||
+          (resource.data.scopeType == 'space' && isSpaceMember(resource.data.scopeId)) ||
+          (resource.data.scopeType == 'church' && sameChurch(resource.data.scopeId)) ||
+          (resource.data.scopeType == 'organization' && sameOrg(resource.data.scopeId))
+        );
+      allow create, update, delete: if isAdminSDK();
+    }
+
+    match /actionIntelligenceAudit/{auditId} {
+      allow read, write: if isAdminSDK();
+    }
+
+    // =========================================================================
+    // CONNECTED INTELLIGENCE v1 — connectors, brief, notebooks, scheduled,
+    // action-sheet objects, checkpoints
+    // Added: 2026-06-09 (Connected Intelligence integration — Agent 3)
+    //
+    // Security invariants:
+    //   CI-1: Connector OAuth tokens are PRIVATE — denied to ALL clients. Only the
+    //         Cloud Functions (admin SDK) ever read/write them.
+    //   CI-2: Connector grants are minted/mutated by Cloud Functions only (minor
+    //         accounts are rejected at grant time in connectorFunctions.js). Clients
+    //         READ their own grants; client writes are denied (defense-in-depth).
+    //   CI-3: Notebooks: owner read-only; every mutation (create/ingest/query/
+    //         soft-delete/purge) goes through a callable so pineconeNamespace,
+    //         chunkCount, and sourceCount stay un-forgeable.
+    //   CI-4: briefCache: owner read-only; written exclusively by generateDailyBrief.
+    //   CI-5: scheduledActions: owner-scoped; execution fields are server-only;
+    //         minors cannot create; create is dry-run + low-write-risk only.
+    //   CI-6: Action-sheet objects + checkpoints are per-user owner-only (all carry
+    //         provenance; written by the client action service for the owner).
+    // =========================================================================
+
+    // CI-2: Connector grant docs — owner reads; only Cloud Functions write.
+    match /users/{uid}/connectorGrants/{connectorId} {
+      allow read:  if isOwner(uid);
+      allow write: if false;            // grants written by Cloud Functions only
+    }
+
+    // CI-1: Connector OAuth tokens — PRIVATE. Deny ALL client access (admin SDK only).
+    match /connectorTokens/{docId} {
+      allow read, write: if false;
+    }
+
+    // CI-3: Amen Notebooks — owner read-only; all mutations via Cloud Functions.
+    match /users/{uid}/notebooks/{notebookId} {
+      allow read:   if isOwner(uid);
+      allow create, update, delete: if isAdminSDK();
+    }
+
+    // CI-4: Daily Brief cache — owner read-only; written by generateDailyBrief (admin SDK).
+    match /users/{uid}/briefCache/{date} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
+    // Connector calendar-summary mirror read by the brief (admin SDK writes only).
+    match /users/{uid}/connectorEvents/{eventId} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
+    // CI-5: Scheduled Actions — owner-scoped; server-only execution fields; no minors.
+    match /scheduledActions/{actionId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      // Create: owner only, never a minor, must start as a low-risk dry-run.
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && !isMinor()
+        && request.resource.data.writeRisk in ['read_only', 'drafts_for_approval']
+        && request.resource.data.dryRun == true
+        && request.resource.data.status == 'dry_run';
+
+      // Update: owner only; client may NOT write any server-only execution field.
+      allow update: if isSignedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'lastRunAt', 'lastRunStatus', 'lastRunFailureReason',
+             'lastRunPreviewText', 'dryRunsCompleted', 'aegisReviewId', 'createdAt'
+           ]);
+
+      allow delete: if false;           // soft-delete via status == 'deleted'
+
+      // Run records — owner read-only; runs are written by the CF (admin SDK) only.
+      match /runs/{runId} {
+        allow read:  if isSignedIn()
+          && get(/databases/$(database)/documents/scheduledActions/$(actionId)).data.uid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    // CI-6: Continue-later checkpoints (continue_later / resume).
+    match /users/{uid}/checkpoints/{checkpointId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // CI-6: Action-sheet created objects (each carries canonical provenance).
+    match /users/{uid}/{coll}/{docId} {
+      allow read, write: if isOwner(uid)
+        && coll in ['notes', 'notebookEntries', 'prayerJournal', 'shareDrafts',
+                    'tasks', 'calendarDrafts', 'plans', 'polls', 'posts'];
+    }
+
+    // =========================================================================
+    // CATCH-ALL
+    // Any collection not explicitly listed above is denied by default.
+    // Fail closed — add new collections explicitly, never rely on this to permit.
+    // =========================================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}
