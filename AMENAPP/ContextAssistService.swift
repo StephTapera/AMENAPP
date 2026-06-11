@@ -81,8 +81,12 @@ final class ContextAssistService: ObservableObject {
             "dismissedTerms": Array(dismissedTerms),
             "updatedAt": FieldValue.serverTimestamp(),
         ]
-        try? await db.collection("users").document(uid)
-            .setData(["contextAssist": data], merge: true)
+        do {
+            try await db.collection("users").document(uid)
+                .setData(["contextAssist": data], merge: true)
+        } catch {
+            print("ContextAssistService: failed to sync context assist state — \(error.localizedDescription)")
+        }
     }
 
     /// Load user's context assist state from Firestore

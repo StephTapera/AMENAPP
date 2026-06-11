@@ -66,7 +66,11 @@ final class ChurchChemistryService: ObservableObject {
         if let uid = Auth.auth().currentUser?.uid,
            let phone = Auth.auth().currentUser?.phoneNumber {
             let hashed = sha256(normalize(phone))
-            try? await db.document("users/\(uid)").setData(["hashedPhone": hashed], merge: true)
+            do {
+                try await db.document("users/\(uid)").setData(["hashedPhone": hashed], merge: true)
+            } catch {
+                print("ChurchChemistryService: failed to store hashed phone — \(error.localizedDescription)")
+            }
         }
     }
 
@@ -98,10 +102,18 @@ final class ChurchChemistryService: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         if let phone = Auth.auth().currentUser?.phoneNumber {
             let hashed = sha256(normalize(phone))
-            try? await db.collection("churches/\(churchId)/memberHashedPhones")
-                .document(uid).setData(["hash": hashed], merge: true)
+            do {
+                try await db.collection("churches/\(churchId)/memberHashedPhones")
+                    .document(uid).setData(["hash": hashed], merge: true)
+            } catch {
+                print("ChurchChemistryService: failed to store member hashed phone — \(error.localizedDescription)")
+            }
         }
-        try? await db.document("users/\(uid)").setData(["savedChurchId": churchId], merge: true)
+        do {
+            try await db.document("users/\(uid)").setData(["savedChurchId": churchId], merge: true)
+        } catch {
+            print("ChurchChemistryService: failed to save churchId for user — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Private helpers

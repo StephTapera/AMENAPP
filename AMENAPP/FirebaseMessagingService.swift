@@ -3447,7 +3447,11 @@ public class FirebaseMessagingService: ObservableObject {
                 ],
                 "createdAt": FieldValue.serverTimestamp()
             ]
-            _ = try? await db.collection("fcmQueue").addDocument(data: queueDoc)
+            do {
+                try await db.collection("fcmQueue").addDocument(data: queueDoc)
+            } catch {
+                dlog("⚠️ FirebaseMessagingService: failed to enqueue FCM mention notification — \(error.localizedDescription)")
+            }
             dlog("📢 Mention notification queued for user \(userId)")
         }
     }

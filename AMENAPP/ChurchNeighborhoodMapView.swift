@@ -72,8 +72,12 @@ final class ChurchNeighborhoodService: ObservableObject {
     func shareZip(churchId: String) async {
         guard let uid = Auth.auth().currentUser?.uid,
               let zip = await fetchUserZip(uid: uid) else { return }
-        try? await db.collection("churches/\(churchId)/memberZips").document(zip)
-            .setData(["count": FieldValue.increment(Int64(1))], merge: true)
+        do {
+            try await db.collection("churches/\(churchId)/memberZips").document(zip)
+                .setData(["count": FieldValue.increment(Int64(1))], merge: true)
+        } catch {
+            print("ChurchNeighborhoodMapView: failed to share zip — \(error.localizedDescription)")
+        }
     }
 
     private func fetchUserZip(uid: String) async -> String? {

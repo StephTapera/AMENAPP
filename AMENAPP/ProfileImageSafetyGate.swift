@@ -272,23 +272,31 @@ final class ProfileImageSafetyGate {
     private func freezeAccount(userId: String, reason: String, context: ImageUploadContext) async {
         guard !userId.isEmpty else { return }
 
-        _ = try? await db.collection("userSafetyRecords").document(userId).setData([
-            "accountStatus": "frozen",
-            "frozenUntil": 0,
-            "frozenReason": reason,
-            "requiresManualReview": true,
-            "frozenAt": FieldValue.serverTimestamp()
-        ], merge: true)
+        do {
+            try await db.collection("userSafetyRecords").document(userId).setData([
+                "accountStatus": "frozen",
+                "frozenUntil": 0,
+                "frozenReason": reason,
+                "requiresManualReview": true,
+                "frozenAt": FieldValue.serverTimestamp()
+            ], merge: true)
+        } catch {
+            print("ProfileImageSafetyGate: failed to write userSafetyRecords freeze — \(error.localizedDescription)")
+        }
 
-        _ = try? await db.collection("moderationQueue").addDocument(data: [
-            "uploaderId": userId,
-            "decision": "freeze_account",
-            "reason": reason,
-            "mediaType": context.rawValue,
-            "priorityLevel": 5,
-            "status": "pending_review",
-            "createdAt": FieldValue.serverTimestamp()
-        ])
+        do {
+            try await db.collection("moderationQueue").addDocument(data: [
+                "uploaderId": userId,
+                "decision": "freeze_account",
+                "reason": reason,
+                "mediaType": context.rawValue,
+                "priorityLevel": 5,
+                "status": "pending_review",
+                "createdAt": FieldValue.serverTimestamp()
+            ])
+        } catch {
+            print("ProfileImageSafetyGate: failed to enqueue moderationQueue freeze — \(error.localizedDescription)")
+        }
     }
 }
 

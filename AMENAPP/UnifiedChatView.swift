@@ -3739,18 +3739,22 @@ struct UnifiedChatView: View {
                         }
                     }
                     // Write to held_messages (not the live messages collection)
-                    try? await Firestore.firestore()
-                        .collection("conversations").document(conversationId)
-                        .collection("held_messages").document(messageId)
-                        .setData([
-                            "id": messageId,
-                            "text": textToSend,
-                            "senderId": currentUserId,
-                            "recipientId": recipientId,
-                            "timestamp": FieldValue.serverTimestamp(),
-                            "safetyDecision": "hold_for_review",
-                            "status": "pending_review"
-                        ])
+                    do {
+                        try await Firestore.firestore()
+                            .collection("conversations").document(conversationId)
+                            .collection("held_messages").document(messageId)
+                            .setData([
+                                "id": messageId,
+                                "text": textToSend,
+                                "senderId": currentUserId,
+                                "recipientId": recipientId,
+                                "timestamp": FieldValue.serverTimestamp(),
+                                "safetyDecision": "hold_for_review",
+                                "status": "pending_review"
+                            ])
+                    } catch {
+                        dlog("⚠️ UnifiedChatView: failed to hold message for review — \(error.localizedDescription)")
+                    }
                     return // Do NOT deliver to recipient
 
                 case .warnRecipient(let signals, _):
@@ -3783,14 +3787,18 @@ struct UnifiedChatView: View {
                 if case .warnRecipient(let signals, let score) = gatewayDecision {
                     let signalStrings = signals.map { $0.rawValue }
                     Task.detached(priority: .background) {
-                        try? await Firestore.firestore()
-                            .collection("conversations").document(conversationId)
-                            .collection("messages").document(messageId)
-                            .updateData([
-                                "safetyWarning": true,
-                                "safetySignals": signalStrings,
-                                "safetyRiskScore": score
-                            ])
+                        do {
+                            try await Firestore.firestore()
+                                .collection("conversations").document(conversationId)
+                                .collection("messages").document(messageId)
+                                .updateData([
+                                    "safetyWarning": true,
+                                    "safetySignals": signalStrings,
+                                    "safetyRiskScore": score
+                                ])
+                        } catch {
+                            print("UnifiedChatView: failed to attach safetyWarning to message — \(error.localizedDescription)")
+                        }
                     }
                 }
 
@@ -3819,10 +3827,14 @@ struct UnifiedChatView: View {
                 // Feature 2: Increment replyCount on the parent message (fire-and-forget)
                 if let parentId = replyMessageId {
                     Task.detached(priority: .background) {
-                        try? await Firestore.firestore()
-                            .collection("conversations").document(conversationId)
-                            .collection("messages").document(parentId)
-                            .updateData(["replyCount": FieldValue.increment(Int64(1))])
+                        do {
+                            try await Firestore.firestore()
+                                .collection("conversations").document(conversationId)
+                                .collection("messages").document(parentId)
+                                .updateData(["replyCount": FieldValue.increment(Int64(1))])
+                        } catch {
+                            print("UnifiedChatView: failed to increment replyCount on \(parentId) — \(error.localizedDescription)")
+                        }
                     }
                 }
 
@@ -4546,17 +4558,21 @@ struct UnifiedChatView: View {
             // Write the user's @Berean message to Firestore
             let conversationId = conversation.id
             Task.detached(priority: .background) {
-                try? await Firestore.firestore()
-                    .collection("conversations").document(conversationId)
-                    .collection("messages").document(userMessageId)
-                    .setData([
-                        "id": userMessageId,
-                        "text": userText,
-                        "senderId": currentUID,
-                        "timestamp": FieldValue.serverTimestamp(),
-                        "isSent": true,
-                        "isDelivered": true
-                    ])
+                do {
+                    try await Firestore.firestore()
+                        .collection("conversations").document(conversationId)
+                        .collection("messages").document(userMessageId)
+                        .setData([
+                            "id": userMessageId,
+                            "text": userText,
+                            "senderId": currentUID,
+                            "timestamp": FieldValue.serverTimestamp(),
+                            "isSent": true,
+                            "isDelivered": true
+                        ])
+                } catch {
+                    print("UnifiedChatView: failed to persist @Berean user message — \(error.localizedDescription)")
+                }
             }
 
             // Stream from Claude
@@ -4618,17 +4634,21 @@ struct UnifiedChatView: View {
             // Persist Berean response to Firestore
             if !finalText.hasPrefix("__error__") {
                 Task.detached(priority: .background) {
-                    try? await Firestore.firestore()
-                        .collection("conversations").document(conversationId)
-                        .collection("messages").document(bereanResponseId)
-                        .setData([
-                            "id": bereanResponseId,
-                            "text": finalText,
-                            "senderId": "berean_ai",
-                            "timestamp": FieldValue.serverTimestamp(),
-                            "isBereanResponse": true,
-                            "triggeredBy": userMessageId
-                        ])
+                    do {
+                        try await Firestore.firestore()
+                            .collection("conversations").document(conversationId)
+                            .collection("messages").document(bereanResponseId)
+                            .setData([
+                                "id": bereanResponseId,
+                                "text": finalText,
+                                "senderId": "berean_ai",
+                                "timestamp": FieldValue.serverTimestamp(),
+                                "isBereanResponse": true,
+                                "triggeredBy": userMessageId
+                            ])
+                    } catch {
+                        print("UnifiedChatView: failed to persist Berean response — \(error.localizedDescription)")
+                    }
                 }
             }
         }

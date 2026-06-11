@@ -1634,9 +1634,13 @@ class CommentService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp(),
             "isRead": false
         ]
-        _ = try? await db.collection("users").document(parentAuthorId)
-            .collection("notifications").addDocument(data: notification)
-        dlog("📬 Reply notification sent to comment author: \(parentAuthorId)")
+        do {
+            try await db.collection("users").document(parentAuthorId)
+                .collection("notifications").addDocument(data: notification)
+            dlog("📬 Reply notification sent to comment author: \(parentAuthorId)")
+        } catch {
+            dlog("⚠️ CommentService: failed to send reply notification to \(parentAuthorId) — \(error.localizedDescription)")
+        }
     }
     
     private func createMentionNotification(
@@ -1660,8 +1664,12 @@ class CommentService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp(),
             "isRead": false
         ]
-        _ = try? await db.collection("users").document(mentionedUserId)
-            .collection("notifications").addDocument(data: notification)
-        dlog("📬 Mention notification sent to: \(mentionedUserId)")
+        do {
+            try await db.collection("users").document(mentionedUserId)
+                .collection("notifications").addDocument(data: notification)
+            dlog("📬 Mention notification sent to: \(mentionedUserId)")
+        } catch {
+            dlog("⚠️ CommentService: failed to send mention notification to \(mentionedUserId) — \(error.localizedDescription)")
+        }
     }
 }

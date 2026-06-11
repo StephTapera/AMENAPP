@@ -48,14 +48,30 @@ struct NeededThisButton: View {
         Task {
             defer { isInFlight = false }
             if newState {
-                try? await ref.setData(["postId": postId, "savedAt": Timestamp(date: Date())])
+                do {
+                    try await ref.setData(["postId": postId, "savedAt": Timestamp(date: Date())])
+                } catch {
+                    print("NeededThisButton: failed to save testimony — \(error.localizedDescription)")
+                }
                 // Increment neededCount on post for Cloud Function trigger
-                try? await db.collection("posts").document(postId)
-                    .updateData(["neededCount": FieldValue.increment(Int64(1))])
+                do {
+                    try await db.collection("posts").document(postId)
+                        .updateData(["neededCount": FieldValue.increment(Int64(1))])
+                } catch {
+                    print("NeededThisButton: failed to increment neededCount — \(error.localizedDescription)")
+                }
             } else {
-                try? await ref.delete()
-                try? await db.collection("posts").document(postId)
-                    .updateData(["neededCount": FieldValue.increment(Int64(-1))])
+                do {
+                    try await ref.delete()
+                } catch {
+                    print("NeededThisButton: failed to remove saved testimony — \(error.localizedDescription)")
+                }
+                do {
+                    try await db.collection("posts").document(postId)
+                        .updateData(["neededCount": FieldValue.increment(Int64(-1))])
+                } catch {
+                    print("NeededThisButton: failed to decrement neededCount — \(error.localizedDescription)")
+                }
             }
         }
     }

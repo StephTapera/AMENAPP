@@ -169,15 +169,23 @@ class LongitudinalViewModel: ObservableObject {
             isSharedPublicly: false
         )
         profile = p
-        try? await db.collection("longitudinalProfiles").document(uid).setData(
-            try Firestore.Encoder().encode(p)
-        )
+        do {
+            try await db.collection("longitudinalProfiles").document(uid).setData(
+                try Firestore.Encoder().encode(p)
+            )
+        } catch {
+            print("LongitudinalViewModel: failed to save longitudinal profile — \(error.localizedDescription)")
+        }
     }
 
     func togglePublicSharing() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         profile.isSharedPublicly.toggle()
-        try? await db.collection("longitudinalProfiles").document(uid)
-            .updateData(["isSharedPublicly": profile.isSharedPublicly])
+        do {
+            try await db.collection("longitudinalProfiles").document(uid)
+                .updateData(["isSharedPublicly": profile.isSharedPublicly])
+        } catch {
+            print("LongitudinalViewModel: failed to update public sharing — \(error.localizedDescription)")
+        }
     }
 }

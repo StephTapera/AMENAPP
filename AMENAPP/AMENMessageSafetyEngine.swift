@@ -408,26 +408,34 @@ final class AMENMessageSafetyEngine {
             .compactMap { String(format: "%02x", $0) }.joined()
 
         let db = FirebaseManager.shared.firestore
-        try? await db.collection("messageSafetyEvents").addDocument(data: [
-            "category":       category.rawValue,
-            "riskScore":      score,
-            "convIdHash":     hashedConvId,
-            "senderUID":      senderUID,
-            "timestamp":      Timestamp(date: Date()),
-            "requiresReview": score >= 75
-        ])
+        do {
+            try await db.collection("messageSafetyEvents").addDocument(data: [
+                "category":       category.rawValue,
+                "riskScore":      score,
+                "convIdHash":     hashedConvId,
+                "senderUID":      senderUID,
+                "timestamp":      Timestamp(date: Date()),
+                "requiresReview": score >= 75
+            ])
+        } catch {
+            print("AMENMessageSafetyEngine: failed to log safety event — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Account Review Flag
 
     private func flagAccountForReview(senderUID: String, reason: String) async {
         let db = FirebaseManager.shared.firestore
-        try? await db.collection("accountReviews").document(senderUID).setData([
-            "flaggedAt":  Timestamp(date: Date()),
-            "reason":     reason,
-            "status":     "pending",
-            "autoFlag":   true
-        ], merge: true)
+        do {
+            try await db.collection("accountReviews").document(senderUID).setData([
+                "flaggedAt":  Timestamp(date: Date()),
+                "reason":     reason,
+                "status":     "pending",
+                "autoFlag":   true
+            ], merge: true)
+        } catch {
+            print("AMENMessageSafetyEngine: failed to flag account for review — \(error.localizedDescription)")
+        }
     }
 }
 

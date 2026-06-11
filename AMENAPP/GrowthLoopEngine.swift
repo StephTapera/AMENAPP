@@ -172,10 +172,14 @@ final class GrowthLoopEngine: ObservableObject {
         )
 
         let data = encodeLoop(loop)
-        try? await db.collection("users").document(uid)
-            .collection("growthLoops")
-            .document(loop.id)
-            .setData(data)
+        do {
+            try await db.collection("users").document(uid)
+                .collection("growthLoops")
+                .document(loop.id)
+                .setData(data)
+        } catch {
+            print("GrowthLoopEngine: failed to save new growth loop — \(error.localizedDescription)")
+        }
 
         scheduleNotifications(for: loop)
         activeLoops.insert(loop, at: 0)
@@ -208,10 +212,14 @@ final class GrowthLoopEngine: ObservableObject {
         // Persist
         let updated = activeLoops[idx]
         let data = encodeLoop(updated)
-        try? await db.collection("users").document(uid)
-            .collection("growthLoops")
-            .document(loopId)
-            .setData(data)
+        do {
+            try await db.collection("users").document(uid)
+                .collection("growthLoops")
+                .document(loopId)
+                .setData(data)
+        } catch {
+            print("GrowthLoopEngine: failed to persist check-in — \(error.localizedDescription)")
+        }
 
         pendingCheckIn = nil
         await computeMetrics()
@@ -275,7 +283,11 @@ final class GrowthLoopEngine: ObservableObject {
                 "reflectionDepthScore": metrics.reflectionDepthScore,
                 "updatedAt": FieldValue.serverTimestamp()
             ]
-            try? await db.collection("users").document(uid).setData(["growthMetrics": metricsData], merge: true)
+            do {
+                try await db.collection("users").document(uid).setData(["growthMetrics": metricsData], merge: true)
+            } catch {
+                print("GrowthLoopEngine: failed to persist growth metrics — \(error.localizedDescription)")
+            }
         }
     }
 

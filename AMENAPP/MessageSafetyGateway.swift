@@ -763,10 +763,14 @@ final class MessageSafetyGateway {
                 "safetyRiskScore": score,
                 "safetyScannedAt": FieldValue.serverTimestamp()
             ]
-            try? await Firestore.firestore()
-                .collection("conversations").document(conversationId)
-                .collection("messages").document(messageId)
-                .updateData(updateData)
+            do {
+                try await Firestore.firestore()
+                    .collection("conversations").document(conversationId)
+                    .collection("messages").document(messageId)
+                    .updateData(updateData)
+            } catch {
+                print("MessageSafetyGateway: failed to flag message under_review — \(error.localizedDescription)")
+            }
 
             // Log to moderation queue if not already logged
             await self.persistSafetyEvent(

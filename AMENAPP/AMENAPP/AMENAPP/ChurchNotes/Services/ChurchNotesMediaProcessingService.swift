@@ -1,3 +1,4 @@
+// TECH-DEBT: file exceeds 400-line guideline — candidate for decomposition
 import Foundation
 import FirebaseStorage
 import FirebaseFirestore

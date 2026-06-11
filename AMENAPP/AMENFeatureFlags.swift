@@ -1,3 +1,4 @@
+// TECH-DEBT: file exceeds 400-line guideline — candidate for decomposition
 // AMENFeatureFlags.swift
 // AMEN App — Unified Feature Flag System
 //

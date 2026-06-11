@@ -62,7 +62,11 @@ class CreatorViewModel: ObservableObject {
             revenueHistory: sampleHistory()
         )
         if let data = try? Firestore.Encoder().encode(p) {
-            try? await db.collection("creatorProfiles").document(uid).setData(data)
+            do {
+                try await db.collection("creatorProfiles").document(uid).setData(data)
+            } catch {
+                print("CreatorViewModel: failed to seed creator profile — \(error.localizedDescription)")
+            }
         }
         profile = p
     }
@@ -70,15 +74,23 @@ class CreatorViewModel: ObservableObject {
     func setSubscriptionPrice(_ price: Double?) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         profile.subscriptionPrice = price
-        try? await db.collection("creatorProfiles").document(uid)
-            .updateData(["subscriptionPrice": price as Any])
+        do {
+            try await db.collection("creatorProfiles").document(uid)
+                .updateData(["subscriptionPrice": price as Any])
+        } catch {
+            print("CreatorViewModel: failed to update subscriptionPrice — \(error.localizedDescription)")
+        }
     }
 
     func toggleTips() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         profile.tipsEnabled.toggle()
-        try? await db.collection("creatorProfiles").document(uid)
-            .updateData(["tipsEnabled": profile.tipsEnabled])
+        do {
+            try await db.collection("creatorProfiles").document(uid)
+                .updateData(["tipsEnabled": profile.tipsEnabled])
+        } catch {
+            print("CreatorViewModel: failed to update tipsEnabled — \(error.localizedDescription)")
+        }
     }
 
     func refreshAIProjection() async {
@@ -101,10 +113,14 @@ class CreatorViewModel: ObservableObject {
 
         profile.aiRevenueProjection = json["projection"] as? Double ?? 0
         profile.aiNextMoveRecommendation = json["recommendation"] as? String ?? ""
-        try? await db.collection("creatorProfiles").document(uid).updateData([
-            "aiRevenueProjection": profile.aiRevenueProjection,
-            "aiNextMoveRecommendation": profile.aiNextMoveRecommendation
-        ])
+        do {
+            try await db.collection("creatorProfiles").document(uid).updateData([
+                "aiRevenueProjection": profile.aiRevenueProjection,
+                "aiNextMoveRecommendation": profile.aiNextMoveRecommendation
+            ])
+        } catch {
+            print("CreatorViewModel: failed to persist AI projection — \(error.localizedDescription)")
+        }
     }
 
     func sendTip(toCreatorId: String, amount: Double, message: String?) async throws {

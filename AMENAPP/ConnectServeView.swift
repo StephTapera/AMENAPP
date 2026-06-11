@@ -256,12 +256,20 @@ struct ConnectServeView: View {
         Task {
             lazy var db = Firestore.firestore()
             // Store signup in a subcollection to avoid unbounded in-document array.
-            try? await db.collection("serveOpportunities").document(opp.id)
-                .collection("signups").document(uid)
-                .setData(["signedUpAt": FieldValue.serverTimestamp()], merge: true)
-            try? await db.collection("serveOpportunities").document(opp.id).updateData([
-                "spotsAvailable": FieldValue.increment(Int64(-1))
-            ])
+            do {
+                try await db.collection("serveOpportunities").document(opp.id)
+                    .collection("signups").document(uid)
+                    .setData(["signedUpAt": FieldValue.serverTimestamp()], merge: true)
+            } catch {
+                print("ConnectServeView: failed to write signup — \(error.localizedDescription)")
+            }
+            do {
+                try await db.collection("serveOpportunities").document(opp.id).updateData([
+                    "spotsAvailable": FieldValue.increment(Int64(-1))
+                ])
+            } catch {
+                print("ConnectServeView: failed to decrement spotsAvailable — \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -337,7 +345,11 @@ struct CreateServeSheet: View {
             lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(opp)
             if let encoded {
-                try? await db.collection("serveOpportunities").document(opp.id).setData(encoded)
+                do {
+                    try await db.collection("serveOpportunities").document(opp.id).setData(encoded)
+                } catch {
+                    print("ConnectServeView: failed to save serve opportunity — \(error.localizedDescription)")
+                }
             }
             await MainActor.run {
                 onCreate(opp)

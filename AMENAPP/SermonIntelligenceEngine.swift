@@ -161,7 +161,11 @@ final class SermonIntelligenceEngine: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
 
-        try? await db.collection("users").document(uid).collection("churchNotes").addDocument(data: note)
+        do {
+            try await db.collection("users").document(uid).collection("churchNotes").addDocument(data: note)
+        } catch {
+            print("SermonIntelligenceEngine: failed to save church note — \(error.localizedDescription)")
+        }
         statusMessage = "Saved to Church Notes"
     }
 

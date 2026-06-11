@@ -107,10 +107,14 @@ class PrayerMatchingService: ObservableObject {
 
             // Store matches on the prayer document
             let matchIDs = topMatches.map { $0.id }
-            try? await db.collection("posts").document(prayerID).updateData([
-                "similarPrayers": matchIDs,
-                "matchedAt": FieldValue.serverTimestamp(),
-            ])
+            do {
+                try await db.collection("posts").document(prayerID).updateData([
+                    "similarPrayers": matchIDs,
+                    "matchedAt": FieldValue.serverTimestamp(),
+                ])
+            } catch {
+                print("PrayerMatchingService: failed to store prayer matches — \(error.localizedDescription)")
+            }
 
             // Cache and publish
             matchCache[prayerID] = (prayers: topMatches, cachedAt: Date())

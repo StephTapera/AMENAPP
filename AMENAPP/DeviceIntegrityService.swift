@@ -105,11 +105,15 @@ final class DeviceIntegrityService {
     private func incrementSuspiciousScore(reason: String) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         Task {
-            try? await db.collection("users").document(uid).updateData([
-                "suspiciousActivityScore": FieldValue.increment(Int64(1)),
-                "lastSuspiciousReason": reason,
-                "lastSuspiciousAt": FieldValue.serverTimestamp(),
-            ])
+            do {
+                try await db.collection("users").document(uid).updateData([
+                    "suspiciousActivityScore": FieldValue.increment(Int64(1)),
+                    "lastSuspiciousReason": reason,
+                    "lastSuspiciousAt": FieldValue.serverTimestamp(),
+                ])
+            } catch {
+                print("DeviceIntegrityService: failed to increment suspicious score — \(error.localizedDescription)")
+            }
         }
     }
 

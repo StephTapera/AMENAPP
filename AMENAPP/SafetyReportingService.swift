@@ -267,11 +267,15 @@ final class SafetyReportingService {
         guard !blockerId.isEmpty, !blockedId.isEmpty else { return }
         // The reporter's own block subcollection is client-owned — the reporter
         // can only write to their own userId path (enforced by Firestore rules).
-        _ = try? await db.collection("users").document(blockerId)
-            .collection("blocks").document(blockedId)
-            .setData([
-                "blockedUserId": blockedId,
-                "blockedAt": FieldValue.serverTimestamp()
-            ])
+        do {
+            try await db.collection("users").document(blockerId)
+                .collection("blocks").document(blockedId)
+                .setData([
+                    "blockedUserId": blockedId,
+                    "blockedAt": FieldValue.serverTimestamp()
+                ])
+        } catch {
+            print("SafetyReportingService: failed to write block record — \(error.localizedDescription)")
+        }
     }
 }

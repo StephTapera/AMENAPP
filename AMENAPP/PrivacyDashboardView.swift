@@ -193,11 +193,15 @@ struct PrivacyDashboardView: View {
         isExporting = true
         
         Task {
-            try? await Firestore.firestore().collection("dataExportRequests").document().setData([
-                "userId": userId,
-                "requestedAt": FieldValue.serverTimestamp(),
-                "status": "pending"
-            ])
+            do {
+                try await Firestore.firestore().collection("dataExportRequests").document().setData([
+                    "userId": userId,
+                    "requestedAt": FieldValue.serverTimestamp(),
+                    "status": "pending"
+                ])
+            } catch {
+                print("PrivacyDashboardView: failed to write dataExportRequest — \(error.localizedDescription)")
+            }
             
             await MainActor.run {
                 isExporting = false

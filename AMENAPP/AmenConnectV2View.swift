@@ -162,7 +162,9 @@ struct AmenConnectV2RootView: View {
     // MARK: W1: Workspace button (presence indicator + long-press switcher)
 
     private var workspaceButton: some View {
-        Button {} label: {
+        Button {
+            // TODO(wiring): navigate to workspace / presence switcher
+        } label: {
             ZStack(alignment: .bottomTrailing) {
                 Circle()
                     .fill(Color(.systemGray5))

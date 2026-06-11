@@ -322,7 +322,11 @@ final class MediaModerationPipeline {
             "requestedAt": FieldValue.serverTimestamp(),
             "scanned": false
         ]
-        try? await db.collection("media_scan_requests").document(mediaId).setData(scanRequest)
+        do {
+            try await db.collection("media_scan_requests").document(mediaId).setData(scanRequest)
+        } catch {
+            print("MediaModerationPipeline: failed to enqueue scan request — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Stage 6: Listen for Scan Result

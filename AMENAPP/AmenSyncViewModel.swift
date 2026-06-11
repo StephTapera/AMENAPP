@@ -201,7 +201,11 @@ final class AmenSyncViewModel: ObservableObject {
         assets.removeAll { $0.id == asset.id }
         if let id = asset.id {
             Task {
-                try? await db.collection("amenSyncAssets").document(id).delete()
+                do {
+                    try await db.collection("amenSyncAssets").document(id).delete()
+                } catch {
+                    print("AmenSyncViewModel: failed to delete asset \(id) — \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -238,7 +242,11 @@ final class AmenSyncViewModel: ObservableObject {
                 errorMessage: nil,
                 resultPayload: ["platform": platform.rawValue]
             )
-            try? db.collection("amenSyncJobs").addDocument(from: job)
+            do {
+                try db.collection("amenSyncJobs").addDocument(from: job)
+            } catch {
+                print("AmenSyncViewModel: failed to enqueue crop job — \(error.localizedDescription)")
+            }
         }
 
         // Caption job
@@ -247,7 +255,11 @@ final class AmenSyncViewModel: ObservableObject {
             jobType: .generateCaption, status: .queued, progress: 0,
             startedAt: nil, completedAt: nil, errorMessage: nil, resultPayload: nil
         )
-        try? db.collection("amenSyncJobs").addDocument(from: captionJob)
+        do {
+            try db.collection("amenSyncJobs").addDocument(from: captionJob)
+        } catch {
+            print("AmenSyncViewModel: failed to enqueue caption job — \(error.localizedDescription)")
+        }
 
         // Moderation job
         let modJob = AmenSyncJob(
@@ -255,7 +267,11 @@ final class AmenSyncViewModel: ObservableObject {
             jobType: .moderateContent, status: .queued, progress: 0,
             startedAt: nil, completedAt: nil, errorMessage: nil, resultPayload: nil
         )
-        try? db.collection("amenSyncJobs").addDocument(from: modJob)
+        do {
+            try db.collection("amenSyncJobs").addDocument(from: modJob)
+        } catch {
+            print("AmenSyncViewModel: failed to enqueue moderation job — \(error.localizedDescription)")
+        }
 
         // Simulate preparation locally (real work done by Cloud Functions)
         await simulateVariantGeneration(projectId: projectId)
@@ -282,7 +298,11 @@ final class AmenSyncViewModel: ObservableObject {
                 errorMessage: nil,
                 updatedAt: Date()
             )
-            try? db.collection("amenSyncVariants").addDocument(from: variant)
+            do {
+                try db.collection("amenSyncVariants").addDocument(from: variant)
+            } catch {
+                print("AmenSyncViewModel: failed to create variant placeholder — \(error.localizedDescription)")
+            }
         }
 
         // After 2 seconds, mark variants as ready (real: Cloud Functions trigger)
@@ -297,16 +317,24 @@ final class AmenSyncViewModel: ObservableObject {
             .getDocuments()
 
         for doc in snap?.documents ?? [] {
-            try? await doc.reference.updateData(["status": "ready"])
+            do {
+                try await doc.reference.updateData(["status": "ready"])
+            } catch {
+                print("AmenSyncViewModel: failed to mark variant ready — \(error.localizedDescription)")
+            }
         }
 
         projectState = .ready
         isPreparing = false
-        try? await db.collection("amenSyncProjects").document(projectId).updateData([
-            "status": "ready",
-            "moderationStatus": "approved",
-            "updatedAt": FieldValue.serverTimestamp(),
-        ])
+        do {
+            try await db.collection("amenSyncProjects").document(projectId).updateData([
+                "status": "ready",
+                "moderationStatus": "approved",
+                "updatedAt": FieldValue.serverTimestamp(),
+            ])
+        } catch {
+            print("AmenSyncViewModel: failed to mark project ready — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Caption Generation
@@ -357,10 +385,14 @@ final class AmenSyncViewModel: ObservableObject {
 
         // Update Firestore
         if let projectId = project?.id {
-            try? await db.collection("amenSyncProjects").document(projectId).updateData([
-                "moderationStatus": moderationStatus.rawValue,
-                "moderationScore": result.score,
-            ])
+            do {
+                try await db.collection("amenSyncProjects").document(projectId).updateData([
+                    "moderationStatus": moderationStatus.rawValue,
+                    "moderationScore": result.score,
+                ])
+            } catch {
+                print("AmenSyncViewModel: failed to update moderation status — \(error.localizedDescription)")
+            }
         }
     }
 
@@ -410,10 +442,14 @@ final class AmenSyncViewModel: ObservableObject {
             platformResults: results
         )
 
-        try? await db.collection("amenSyncProjects").document(projectId).updateData([
-            "status": "published",
-            "publishedAt": FieldValue.serverTimestamp(),
-        ])
+        do {
+            try await db.collection("amenSyncProjects").document(projectId).updateData([
+                "status": "published",
+                "publishedAt": FieldValue.serverTimestamp(),
+            ])
+        } catch {
+            print("AmenSyncViewModel: failed to mark project published — \(error.localizedDescription)")
+        }
 
         projectState = .published
         isPublishing = false
@@ -452,15 +488,19 @@ final class AmenSyncViewModel: ObservableObject {
     }
 
     private func updateProjectMeta(projectId: String) async {
-        try? await db.collection("amenSyncProjects").document(projectId).updateData([
-            "title":            title.isEmpty ? "Untitled" : title,
-            "description":      caption,
-            "selectedPlatforms": Array(selectedDestinations).map { $0.rawValue },
-            "tags":             tags,
-            "scriptureRef":     scriptureRef,
-            "status":           "processing",
-            "updatedAt":        FieldValue.serverTimestamp(),
-        ])
+        do {
+            try await db.collection("amenSyncProjects").document(projectId).updateData([
+                "title":            title.isEmpty ? "Untitled" : title,
+                "description":      caption,
+                "selectedPlatforms": Array(selectedDestinations).map { $0.rawValue },
+                "tags":             tags,
+                "scriptureRef":     scriptureRef,
+                "status":           "processing",
+                "updatedAt":        FieldValue.serverTimestamp(),
+            ])
+        } catch {
+            print("AmenSyncViewModel: failed to update project meta — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Platform Selection
@@ -478,7 +518,11 @@ final class AmenSyncViewModel: ObservableObject {
               let idx = variants.firstIndex(where: { $0.id == id }) else { return }
         variants[idx].caption = caption
         Task {
-            try? await db.collection("amenSyncVariants").document(id).updateData(["caption": caption])
+            do {
+                try await db.collection("amenSyncVariants").document(id).updateData(["caption": caption])
+            } catch {
+                print("AmenSyncViewModel: failed to update variant caption — \(error.localizedDescription)")
+            }
         }
     }
 

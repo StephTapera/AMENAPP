@@ -131,9 +131,13 @@ final class DataImportService: ObservableObject {
         }
 
         // Mark batch complete
-        try? await db.collection("importBatches")
-            .document(batchId)
-            .updateData(["status": "completed"])
+        do {
+            try await db.collection("importBatches")
+                .document(batchId)
+                .updateData(["status": "completed"])
+        } catch {
+            print("DataImportService: failed to mark import batch completed — \(error.localizedDescription)")
+        }
 
         progress.phase = .completed(importedCount: importedCount, skippedCount: skippedCount)
         cleanup()

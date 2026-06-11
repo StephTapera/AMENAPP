@@ -164,7 +164,11 @@ final class AMENConnectAIMatchEngine {
             signal.confidence = match.confidence
             signal.sourcePostID = postID
             if let encoded = try? Firestore.Encoder().encode(signal) {
-                try? await db.collection("amenConnectIntentSignals").document(signal.id).setData(encoded)
+                do {
+                    try await db.collection("amenConnectIntentSignals").document(signal.id).setData(encoded)
+                } catch {
+                    print("AMENConnectAIMatchEngine: failed to write intent signal — \(error.localizedDescription)")
+                }
             }
         }
 

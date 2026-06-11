@@ -108,13 +108,17 @@ class SpacesViewModel: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ])
         // Auto-join creator
-        try? await db.collection("spaceMemberships")
-            .document("\(uid)_\(ref.documentID)")
-            .setData([
-                "userId": uid, "spaceId": ref.documentID,
-                "joinedAt": FieldValue.serverTimestamp(),
-                "notificationsEnabled": true, "role": "member"
-            ])
+        do {
+            try await db.collection("spaceMemberships")
+                .document("\(uid)_\(ref.documentID)")
+                .setData([
+                    "userId": uid, "spaceId": ref.documentID,
+                    "joinedAt": FieldValue.serverTimestamp(),
+                    "notificationsEnabled": true, "role": "member"
+                ])
+        } catch {
+            print("SpacesViewModel: failed to auto-join creator to space — \(error.localizedDescription)")
+        }
         await MainActor.run {
             joinedSpaceIds.insert(ref.documentID)
         }
@@ -200,8 +204,12 @@ class SpaceFeedViewModel: ObservableObject {
             "likes": 0, "comments": 0,
             "createdAt": FieldValue.serverTimestamp()
         ])
-        try? await db.collection("spaces").document(spaceId)
-            .updateData(["postCount": FieldValue.increment(Int64(1))])
+        do {
+            try await db.collection("spaces").document(spaceId)
+                .updateData(["postCount": FieldValue.increment(Int64(1))])
+        } catch {
+            print("SpacesViewModel: failed to increment space postCount — \(error.localizedDescription)")
+        }
     }
 
     func stopListening() { listener?.remove(); listener = nil }

@@ -819,15 +819,19 @@ class AntiHarassmentEngine {
                 expiresAfterDays: 30
             )
             // Flag for immediate human review
-            _ = try? await db.collection("moderationQueue").addDocument(data: [
-                "type": "minor_safety_pattern",
-                "offenderId": pattern.userId,
-                "targetId": pattern.targetUserId,
-                "priority": "immediate",
-                "incidentCount": pattern.incidentCount,
-                "createdAt": FieldValue.serverTimestamp(),
-                "policyVersion": AntiHarassmentEngine.currentPolicyVersion
-            ])
+            do {
+                try await db.collection("moderationQueue").addDocument(data: [
+                    "type": "minor_safety_pattern",
+                    "offenderId": pattern.userId,
+                    "targetId": pattern.targetUserId,
+                    "priority": "immediate",
+                    "incidentCount": pattern.incidentCount,
+                    "createdAt": FieldValue.serverTimestamp(),
+                    "policyVersion": AntiHarassmentEngine.currentPolicyVersion
+                ])
+            } catch {
+                print("AntiHarassmentEngine: failed to enqueue minor_safety_pattern — \(error.localizedDescription)")
+            }
             return
         }
 

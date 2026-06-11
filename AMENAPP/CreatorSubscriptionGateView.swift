@@ -371,17 +371,25 @@ struct CreatorSubscriptionGateLegacyView: View {
                         return
                     }
                     lazy var db = Firestore.firestore()
-                    try? await db.collection("creatorSubscriptions").addDocument(data: [
-                        "subscriberId":       uid,
-                        "creatorId":          creator.id,
-                        "price":              creator.subscriptionPrice,
-                        "storeKitProductId":  transaction.productID,
-                        "storeKitTxId":       String(transaction.id),
-                        "createdAt":          FieldValue.serverTimestamp(),
-                        "status":             "active",
-                    ])
-                    try? await db.collection("creatorProfiles").document(creator.id)
-                        .updateData(["subscriberCount": FieldValue.increment(Int64(1))])
+                    do {
+                        try await db.collection("creatorSubscriptions").addDocument(data: [
+                            "subscriberId":       uid,
+                            "creatorId":          creator.id,
+                            "price":              creator.subscriptionPrice,
+                            "storeKitProductId":  transaction.productID,
+                            "storeKitTxId":       String(transaction.id),
+                            "createdAt":          FieldValue.serverTimestamp(),
+                            "status":             "active",
+                        ])
+                    } catch {
+                        print("CreatorSubscriptionGateView: failed to write subscription record — \(error.localizedDescription)")
+                    }
+                    do {
+                        try await db.collection("creatorProfiles").document(creator.id)
+                            .updateData(["subscriberCount": FieldValue.increment(Int64(1))])
+                    } catch {
+                        print("CreatorSubscriptionGateView: failed to increment subscriberCount — \(error.localizedDescription)")
+                    }
 
                     // Finish the transaction only after Firestore write succeeds.
                     await transaction.finish()

@@ -1142,13 +1142,17 @@ struct AccountSettingsViewNew: View {
         guard let user = Auth.auth().currentUser else { return }
         let db = Firestore.firestore()
         let executeAt = Date().addingTimeInterval(30 * 24 * 3600)
-        try? await db.collection("deletionRequests").document(user.uid).setData([
-            "uid": user.uid,
-            "email": user.email ?? "",
-            "requestedAt": Timestamp(date: Date()),
-            "executeAt": Timestamp(date: executeAt),
-            "status": "pending"
-        ])
+        do {
+            try await db.collection("deletionRequests").document(user.uid).setData([
+                "uid": user.uid,
+                "email": user.email ?? "",
+                "requestedAt": Timestamp(date: Date()),
+                "executeAt": Timestamp(date: executeAt),
+                "status": "pending"
+            ])
+        } catch {
+            print("AMENSettingsSystem: failed to schedule account deletion — \(error.localizedDescription)")
+        }
         try? Auth.auth().signOut()
     }
 }
@@ -2107,7 +2111,11 @@ struct BereanAISettingsViewNew: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let db = Firestore.firestore()
         Task {
-            try? await db.collection("users").document(uid).collection("bereanContext").document("memory").delete()
+            do {
+                try await db.collection("users").document(uid).collection("bereanContext").document("memory").delete()
+            } catch {
+                print("AMENSettingsSystem: failed to delete Berean context memory — \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -2486,12 +2494,16 @@ struct StorageDataSettingsView: View {
     private func requestDataExport() async {
         guard let user = Auth.auth().currentUser else { return }
         let db = Firestore.firestore()
-        try? await db.collection("dataExportRequests").document(user.uid).setData([
-            "uid": user.uid,
-            "email": user.email ?? "",
-            "requestedAt": Timestamp(date: Date()),
-            "status": "pending"
-        ], merge: true)
+        do {
+            try await db.collection("dataExportRequests").document(user.uid).setData([
+                "uid": user.uid,
+                "email": user.email ?? "",
+                "requestedAt": Timestamp(date: Date()),
+                "status": "pending"
+            ], merge: true)
+        } catch {
+            print("AMENSettingsSystem: failed to request data export — \(error.localizedDescription)")
+        }
     }
 }
 

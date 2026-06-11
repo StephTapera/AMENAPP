@@ -161,15 +161,19 @@ final class SuggestedRailFatigueManager {
     private func syncFeedbackToFirestore(targetUserId: String, action: String, surface: SuggestionSurface) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         Task {
-            try? await db.collection("users").document(uid)
-                .collection("suggestionFeedback").document(targetUserId)
-                .setData([
-                    "action": action,
-                    "surface": surface.rawValue,
-                    "timestamp": FieldValue.serverTimestamp(),
-                    "impressions": impressionCount(for: targetUserId),
-                    "ignores": ignoreCount(for: targetUserId)
-                ], merge: true)
+            do {
+                try await db.collection("users").document(uid)
+                    .collection("suggestionFeedback").document(targetUserId)
+                    .setData([
+                        "action": action,
+                        "surface": surface.rawValue,
+                        "timestamp": FieldValue.serverTimestamp(),
+                        "impressions": impressionCount(for: targetUserId),
+                        "ignores": ignoreCount(for: targetUserId)
+                    ], merge: true)
+            } catch {
+                print("SuggestedRailFatigueManager: failed to sync feedback — \(error.localizedDescription)")
+            }
         }
     }
 

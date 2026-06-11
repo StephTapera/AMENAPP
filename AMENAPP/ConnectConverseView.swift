@@ -274,7 +274,11 @@ struct CreateConversationSheet: View {
             lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(topic)
             if let encoded {
-                try? await db.collection("conversations").document(topic.id).setData(encoded)
+                do {
+                    try await db.collection("conversations").document(topic.id).setData(encoded)
+                } catch {
+                    print("ConnectConverseView: failed to create conversation topic — \(error.localizedDescription)")
+                }
             }
             await MainActor.run {
                 onCreate(topic)

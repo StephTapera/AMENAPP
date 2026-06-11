@@ -89,14 +89,18 @@ struct ReasoningThreadView: View {
         Task {
             guard let uid = Auth.auth().currentUser?.uid else { return }
             let db = Firestore.firestore()
-            try? await db.collection("reportedContent").addDocument(data: [
-                "contentType": "discussionThread",
-                "contentId": postId,
-                "reportedBy": uid,
-                "reason": reason,
-                "postText": String(postText.prefix(300)),
-                "createdAt": FieldValue.serverTimestamp()
-            ])
+            do {
+                try await db.collection("reportedContent").addDocument(data: [
+                    "contentType": "discussionThread",
+                    "contentId": postId,
+                    "reportedBy": uid,
+                    "reason": reason,
+                    "postText": String(postText.prefix(300)),
+                    "createdAt": FieldValue.serverTimestamp()
+                ])
+            } catch {
+                print("ReasoningThreadView: failed to submit report — \(error.localizedDescription)")
+            }
             await MainActor.run { reportSubmitted = true }
         }
     }

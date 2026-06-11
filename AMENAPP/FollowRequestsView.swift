@@ -428,8 +428,12 @@ class FollowRequestsViewModel: ObservableObject {
                 "createdAt": FieldValue.serverTimestamp(),
                 "isRead": false
             ]
-            _ = try? await db.collection("users").document(fromUserId)
-                .collection("notifications").addDocument(data: acceptedNotification)
+            do {
+                try await db.collection("users").document(fromUserId)
+                    .collection("notifications").addDocument(data: acceptedNotification)
+            } catch {
+                print("FollowRequestsView: failed to send follow-accepted notification — \(error.localizedDescription)")
+            }
             
             // Invalidate privacy cache so the requester's content access updates
             PrivacyAccessControl.shared.invalidate(userId: fromUserId)

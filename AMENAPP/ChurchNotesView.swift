@@ -4167,13 +4167,17 @@ struct ShareNoteToOpenTableSheet: View {
                 // Write a share event for Cloud Function fanout to followers/church members
                 if let sharerId = Auth.auth().currentUser?.uid {
                     lazy var db = Firestore.firestore()
-                    _ = try? await db.collection("churchNoteShareEvents").addDocument(data: [
-                        "noteId": note.id ?? "",
-                        "noteTitle": note.title,
-                        "sharerId": sharerId,
-                        "churchName": note.churchName ?? "",
-                        "sharedAt": FieldValue.serverTimestamp()
-                    ])
+                    do {
+                        try await db.collection("churchNoteShareEvents").addDocument(data: [
+                            "noteId": note.id ?? "",
+                            "noteTitle": note.title,
+                            "sharerId": sharerId,
+                            "churchName": note.churchName ?? "",
+                            "sharedAt": FieldValue.serverTimestamp()
+                        ])
+                    } catch {
+                        print("ChurchNotesView: failed to write share event — \(error.localizedDescription)")
+                    }
                 }
                 
                 await MainActor.run {

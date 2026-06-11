@@ -560,16 +560,20 @@ struct EnhancedQuietHoursView: View {
         defaults.set(allowDMs, forKey: "notifQuietHoursAllowDMs")
 
         if let uid = Auth.auth().currentUser?.uid {
-            try? await Firestore.firestore().document("users/\(uid)").updateData([
-                "notificationSettings.quietHoursEnabled": quietHoursEnabled,
-                "notificationSettings.quietHoursStartMinutes": startMinutes,
-                "notificationSettings.quietHoursEndMinutes": endMinutes,
-                "notificationSettings.quietHoursSource": quietHoursSource,
-                "notificationSettings.quietHoursAdaptiveLearning": adaptiveLearning,
-                "notificationSettings.quietHoursProgressiveQuieting": progressiveQuieting,
-                "notificationSettings.quietHoursAllowDMs": allowDMs,
-                "notificationSettings.quietHoursUpdatedAt": FieldValue.serverTimestamp()
-            ])
+            do {
+                try await Firestore.firestore().document("users/\(uid)").updateData([
+                    "notificationSettings.quietHoursEnabled": quietHoursEnabled,
+                    "notificationSettings.quietHoursStartMinutes": startMinutes,
+                    "notificationSettings.quietHoursEndMinutes": endMinutes,
+                    "notificationSettings.quietHoursSource": quietHoursSource,
+                    "notificationSettings.quietHoursAdaptiveLearning": adaptiveLearning,
+                    "notificationSettings.quietHoursProgressiveQuieting": progressiveQuieting,
+                    "notificationSettings.quietHoursAllowDMs": allowDMs,
+                    "notificationSettings.quietHoursUpdatedAt": FieldValue.serverTimestamp()
+                ])
+            } catch {
+                print("EnhancedQuietHoursView: failed to sync quiet hours — \(error.localizedDescription)")
+            }
         }
     }
 

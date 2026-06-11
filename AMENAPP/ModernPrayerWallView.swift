@@ -692,7 +692,11 @@ class PrayerWallViewModel: ObservableObject {
                 "lastUpdated":        Timestamp(date: Date()),
                 "pushToStartEnabled": true
             ]
-            try? await db.collection("prayerRequests").document(wallRef.documentID).setData(prayerRequestPayload)
+            do {
+                try await db.collection("prayerRequests").document(wallRef.documentID).setData(prayerRequestPayload)
+            } catch {
+                print("ModernPrayerWallView: failed to write prayerRequest — \(error.localizedDescription)")
+            }
 
             await PrayerRequestLiveActivityManager.shared.startActivity(
                 for: wallRef.documentID,

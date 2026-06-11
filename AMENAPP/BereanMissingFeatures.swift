@@ -682,15 +682,19 @@ struct VerseDetailView: View {
     private func saveVerse() {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         Task {
-            _ = try? await Firestore.firestore()
-                .collection("users").document(userId)
-                .collection("savedVerses")
-                .addDocument(data: [
-                    "reference": verseReference,
-                    "text": verseText,
-                    "translation": selectedTranslation,
-                    "savedAt": FieldValue.serverTimestamp()
-                ])
+            do {
+                try await Firestore.firestore()
+                    .collection("users").document(userId)
+                    .collection("savedVerses")
+                    .addDocument(data: [
+                        "reference": verseReference,
+                        "text": verseText,
+                        "translation": selectedTranslation,
+                        "savedAt": FieldValue.serverTimestamp()
+                    ])
+            } catch {
+                print("BereanMissingFeatures: failed to save verse — \(error.localizedDescription)")
+            }
         }
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
@@ -821,13 +825,17 @@ struct BereanReportIssueView: View {
         isSubmitting = true
         Task {
             lazy var db = Firestore.firestore()
-            _ = try? await db.collection("bereanFeedback").addDocument(data: [
-                "userId": Auth.auth().currentUser?.uid ?? "anonymous",
-                "messageContent": message.content,
-                "issueType": issueType.rawValue,
-                "description": description,
-                "submittedAt": FieldValue.serverTimestamp()
-            ])
+            do {
+                try await db.collection("bereanFeedback").addDocument(data: [
+                    "userId": Auth.auth().currentUser?.uid ?? "anonymous",
+                    "messageContent": message.content,
+                    "issueType": issueType.rawValue,
+                    "description": description,
+                    "submittedAt": FieldValue.serverTimestamp()
+                ])
+            } catch {
+                print("BereanMissingFeatures: failed to submit report — \(error.localizedDescription)")
+            }
             await MainActor.run {
                 isSubmitting = false
                 isPresented = false

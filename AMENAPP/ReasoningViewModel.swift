@@ -214,8 +214,12 @@ class ReasoningViewModel: ObservableObject {
         ])
 
             if type == .viewUpdate {
-                try? await db.collection("discussions").document(discussionId)
-                    .updateData(["viewUpdateCount": FieldValue.increment(Int64(1))])
+                do {
+                    try await db.collection("discussions").document(discussionId)
+                        .updateData(["viewUpdateCount": FieldValue.increment(Int64(1))])
+                } catch {
+                    print("ReasoningViewModel: failed to increment viewUpdateCount — \(error.localizedDescription)")
+                }
             }
 
             let result: SubmissionState = manipulationFlags.isEmpty ? .success(nodeId: doc.documentID) : .pendingModeration
@@ -237,8 +241,12 @@ class ReasoningViewModel: ObservableObject {
     // MARK: - Upvote
 
     func upvote(nodeId: String) async {
-        try? await db.collection("discussionNodes").document(nodeId)
-            .updateData(["votes": FieldValue.increment(Int64(1))])
+        do {
+            try await db.collection("discussionNodes").document(nodeId)
+                .updateData(["votes": FieldValue.increment(Int64(1))])
+        } catch {
+            print("ReasoningViewModel: failed to upvote discussionNode — \(error.localizedDescription)")
+        }
     }
 
     func resetSubmissionState() {

@@ -385,7 +385,11 @@ final class StudioDataService: ObservableObject {
         Task {
             let docId = UUID().uuidString
             guard let encoded = try? Firestore.Encoder().encode(event) else { return }
-            try? await db.collection("studioAnalyticsEvents").document(docId).setData(encoded)
+            do {
+                try await db.collection("studioAnalyticsEvents").document(docId).setData(encoded)
+            } catch {
+                print("StudioService: failed to log analytics event — \(error.localizedDescription)")
+            }
         }
     }
 
@@ -445,7 +449,11 @@ final class StudioDataService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
         if let relatedId = relatedId { data["relatedId"] = relatedId }
-        _ = try? await db.collection("studioNotifications").addDocument(data: data)
+        do {
+            try await db.collection("studioNotifications").addDocument(data: data)
+        } catch {
+            print("StudioService: failed to send studio notification — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Earnings

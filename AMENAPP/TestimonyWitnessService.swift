@@ -79,9 +79,13 @@ final class TestimonyWitnessService: ObservableObject {
               let data = userDoc.data() else { return }
         let name = data["displayName"] as? String ?? data["username"] as? String ?? ""
         let photo = data["profileImageURL"] as? String ?? ""
-        try? await db.collection("witnesses").document(postId)
-            .collection("active").document(uid)
-            .setData(["uid": uid, "timestamp": Timestamp(date: Date()),
-                      "displayName": name, "photoURL": photo], merge: true)
+        do {
+            try await db.collection("witnesses").document(postId)
+                .collection("active").document(uid)
+                .setData(["uid": uid, "timestamp": Timestamp(date: Date()),
+                          "displayName": name, "photoURL": photo], merge: true)
+        } catch {
+            print("TestimonyWitnessService: failed to enrich presence doc — \(error.localizedDescription)")
+        }
     }
 }

@@ -340,7 +340,11 @@ struct CreateMarketplaceSheet: View {
             lazy var db = Firestore.firestore()
             let encoded = try? Firestore.Encoder().encode(listing)
             if let encoded {
-                try? await db.collection("marketplace").document(listing.id).setData(encoded)
+                do {
+                    try await db.collection("marketplace").document(listing.id).setData(encoded)
+                } catch {
+                    print("ConnectMarketplaceView: failed to save marketplace listing — \(error.localizedDescription)")
+                }
             }
             await MainActor.run {
                 onCreate(listing)

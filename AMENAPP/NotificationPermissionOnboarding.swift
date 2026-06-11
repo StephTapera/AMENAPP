@@ -409,12 +409,16 @@ struct NotificationPermissionOnboardingSheet: View {
 
         // Persist to Firestore for cross-device sync
         if let uid = Auth.auth().currentUser?.uid {
-            try? await Firestore.firestore().document("users/\(uid)").updateData([
-                "notificationSettings.quietHoursEnabled":      quietEnabled,
-                "notificationSettings.quietHoursStartMinutes": start,
-                "notificationSettings.quietHoursEndMinutes":   end,
-                "notificationSettings.quietHoursSource":       quietHoursSource
-            ])
+            do {
+                try await Firestore.firestore().document("users/\(uid)").updateData([
+                    "notificationSettings.quietHoursEnabled":      quietEnabled,
+                    "notificationSettings.quietHoursStartMinutes": start,
+                    "notificationSettings.quietHoursEndMinutes":   end,
+                    "notificationSettings.quietHoursSource":       quietHoursSource
+                ])
+            } catch {
+                print("NotificationPermissionOnboarding: failed to persist quiet hours — \(error.localizedDescription)")
+            }
         }
 
         if let suggestion = appliedSuggestion {

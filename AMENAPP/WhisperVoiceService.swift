@@ -367,13 +367,17 @@ actor WhisperVoiceService {
         let today = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
         let docId = "\(uid)_\(Int(today))"
 
-        try? await db.collection("whisperUsage").document(docId).setData([
-            "userId": uid,
-            "date": today,
-            "totalSeconds": FieldValue.increment(seconds),
-            "requestCount": FieldValue.increment(Int64(1)),
-            "updatedAt": FieldValue.serverTimestamp(),
-        ], merge: true)
+        do {
+            try await db.collection("whisperUsage").document(docId).setData([
+                "userId": uid,
+                "date": today,
+                "totalSeconds": FieldValue.increment(seconds),
+                "requestCount": FieldValue.increment(Int64(1)),
+                "updatedAt": FieldValue.serverTimestamp(),
+            ], merge: true)
+        } catch {
+            dlog("⚠️ WhisperVoiceService: failed to track audio usage — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Content Moderation

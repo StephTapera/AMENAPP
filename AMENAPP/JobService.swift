@@ -354,9 +354,13 @@ final class JobService: ObservableObject {
     }
 
     func markApplicationRead(_ applicationId: String) async {
-        try? await db.collection(JobCollections.jobApplications).document(applicationId).updateData([
-            "isRead": true
-        ])
+        do {
+            try await db.collection(JobCollections.jobApplications).document(applicationId).updateData([
+                "isRead": true
+            ])
+        } catch {
+            print("JobService: failed to mark application read — \(error.localizedDescription)")
+        }
     }
 
     func fetchApplicationsForJob(_ jobId: String) async -> [JobApplication] {
@@ -392,9 +396,13 @@ final class JobService: ObservableObject {
         try await db.collection(JobCollections.savedJobs).addDocument(data: encoded)
 
         // Increment save count on job
-        try? await db.collection(JobCollections.jobListings).document(jobId).updateData([
-            "saveCount": FieldValue.increment(Int64(1))
-        ])
+        do {
+            try await db.collection(JobCollections.jobListings).document(jobId).updateData([
+                "saveCount": FieldValue.increment(Int64(1))
+            ])
+        } catch {
+            print("JobService: failed to increment job saveCount — \(error.localizedDescription)")
+        }
     }
 
     func unsaveJob(_ savedJobId: String) async throws {
@@ -644,7 +652,11 @@ final class JobService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
         if let relatedId = relatedId { data["relatedId"] = relatedId }
-        try? await db.collection(JobCollections.notifications).addDocument(data: data)
+        do {
+            try await db.collection(JobCollections.notifications).addDocument(data: data)
+        } catch {
+            print("JobService: failed to send job notification — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Proximity Search (Geohash)

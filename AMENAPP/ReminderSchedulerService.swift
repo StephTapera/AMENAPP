@@ -303,7 +303,11 @@ final class ReminderSchedulerService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
         let docId = "reminder_\(userId)_\(eventId)"
-        try? await db.collection(CalendarCollections.reminderSchedules).document(docId).setData(data, merge: true)
+        do {
+            try await db.collection(CalendarCollections.reminderSchedules).document(docId).setData(data, merge: true)
+        } catch {
+            print("ReminderSchedulerService: failed to save reminder schedule — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Smart Reminder Suggestions

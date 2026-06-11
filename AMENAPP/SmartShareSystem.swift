@@ -229,7 +229,11 @@ final class ShareAnalyticsTracker {
         ]
 
         Task {
-            try? await db.collection("shareEvents").addDocument(data: payload)
+            do {
+                try await db.collection("shareEvents").addDocument(data: payload)
+            } catch {
+                print("SmartShareSystem: failed to log shareEvent — \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -849,17 +853,21 @@ final class SmartShareSheetViewModel: ObservableObject {
             text: messageText,
             clientMessageId: messageId
         )
-        try? await Firestore.firestore()
-            .collection("conversations")
-            .document(conversation.id)
-            .collection("messages")
-            .document(messageId)
-            .updateData([
-                "postId": post.firestoreId,
-                "messageType": "postShare",
-                "deepLink": payload().deepLink.absoluteString,
-                "shareContextMode": contextMode.rawValue
-            ])
+        do {
+            try await Firestore.firestore()
+                .collection("conversations")
+                .document(conversation.id)
+                .collection("messages")
+                .document(messageId)
+                .updateData([
+                    "postId": post.firestoreId,
+                    "messageType": "postShare",
+                    "deepLink": payload().deepLink.absoluteString,
+                    "shareContextMode": contextMode.rawValue
+                ])
+        } catch {
+            print("SmartShareSystem: failed to tag message metadata (conversation share) — \(error.localizedDescription)")
+        }
     }
 
     private func sendToPerson(_ target: SmartShareTarget) async throws {
@@ -878,17 +886,21 @@ final class SmartShareSheetViewModel: ObservableObject {
             text: messageText,
             clientMessageId: messageId
         )
-        try? await Firestore.firestore()
-            .collection("conversations")
-            .document(conversationId)
-            .collection("messages")
-            .document(messageId)
-            .updateData([
-                "postId": post.firestoreId,
-                "messageType": "postShare",
-                "deepLink": payload().deepLink.absoluteString,
-                "shareContextMode": contextMode.rawValue
-            ])
+        do {
+            try await Firestore.firestore()
+                .collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+                .updateData([
+                    "postId": post.firestoreId,
+                    "messageType": "postShare",
+                    "deepLink": payload().deepLink.absoluteString,
+                    "shareContextMode": contextMode.rawValue
+                ])
+        } catch {
+            print("SmartShareSystem: failed to tag message metadata (user share) — \(error.localizedDescription)")
+        }
     }
 
     private func noteSuffix() -> String {

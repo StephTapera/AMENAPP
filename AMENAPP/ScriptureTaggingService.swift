@@ -73,10 +73,14 @@ class ScriptureTaggingService: ObservableObject {
                         "theme": tag.theme,
                     ]
                 }
-                try? await db.collection("posts").document(postID).updateData([
-                    "scriptureTags": tagsDict,
-                    "scriptureTaggedAt": FieldValue.serverTimestamp(),
-                ])
+                do {
+                    try await db.collection("posts").document(postID).updateData([
+                        "scriptureTags": tagsDict,
+                        "scriptureTaggedAt": FieldValue.serverTimestamp(),
+                    ])
+                } catch {
+                    print("ScriptureTaggingService: failed to write scripture tags — \(error.localizedDescription)")
+                }
             }
 
             return tags

@@ -25,10 +25,14 @@ func exampleBasicSetup() async {
 
     // Save to Firestore
     guard let userId = Auth.auth().currentUser?.uid else { return }
-    try? await Firestore.firestore()
-        .collection("users").document(userId)
-        .collection("settings").document("notifications")
-        .setData(["quietHours": quietHours], merge: true)
+    do {
+        try await Firestore.firestore()
+            .collection("users").document(userId)
+            .collection("settings").document("notifications")
+            .setData(["quietHours": quietHours], merge: true)
+    } catch {
+        print("SMART_QUIET_HOURS_EXAMPLES: failed to write quiet hours — \(error.localizedDescription)")
+    }
 
     print("✅ Basic quiet hours configured")
 }
