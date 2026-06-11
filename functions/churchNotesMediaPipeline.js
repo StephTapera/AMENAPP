@@ -486,7 +486,7 @@ exports.processChurchNoteAudio = onCall(
  * Output: { status: "completed", jobId }
  */
 exports.processChurchNoteImageOCR = onCall(
-    {region: REGION, timeoutSeconds: 120},
+    {region: REGION, timeoutSeconds: 120, enforceAppCheck: true},
     async (request) => {
         const {noteId, jobId} = request.data;
 
@@ -495,6 +495,7 @@ exports.processChurchNoteImageOCR = onCall(
         }
 
         const {jobRef, jobData} = await requireAuthAndJobOwnership(request, noteId, jobId);
+        await enforceRateLimit(request.auth.uid, "church_notes_image_ocr_process", 10, 3600);
 
         await jobRef.update({
             status: "processing",
@@ -530,7 +531,7 @@ exports.processChurchNoteImageOCR = onCall(
  * Output: { status: "completed", jobId }
  */
 exports.processChurchNoteVideo = onCall(
-    {region: REGION, timeoutSeconds: 540, memory: "512MiB"},
+    {region: REGION, timeoutSeconds: 540, memory: "512MiB", enforceAppCheck: true},
     async (request) => {
         const {noteId, jobId} = request.data;
 
@@ -539,6 +540,7 @@ exports.processChurchNoteVideo = onCall(
         }
 
         const {jobRef, jobData} = await requireAuthAndJobOwnership(request, noteId, jobId);
+        await enforceRateLimit(request.auth.uid, "church_notes_video_process", 5, 3600);
 
         await jobRef.update({
             status: "processing",
@@ -591,7 +593,7 @@ exports.processChurchNoteVideo = onCall(
  * Output: { status: "completed", jobId }
  */
 exports.processChurchNoteDocumentPDF = onCall(
-    {region: REGION, timeoutSeconds: 300},
+    {region: REGION, timeoutSeconds: 300, enforceAppCheck: true},
     async (request) => {
         const {noteId, jobId} = request.data;
 
@@ -600,6 +602,7 @@ exports.processChurchNoteDocumentPDF = onCall(
         }
 
         const {jobRef, jobData} = await requireAuthAndJobOwnership(request, noteId, jobId);
+        await enforceRateLimit(request.auth.uid, "church_notes_pdf_ocr_process", 5, 3600);
 
         await jobRef.update({
             status: "processing",

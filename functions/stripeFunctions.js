@@ -12,19 +12,21 @@
  *   stripeCreatePaymentIntent — Create payment intent for studio purchase
  *   stripeRequestPayout — Request payout to creator's bank
  */
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
-
-
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
+
+// ─── Secret ───────────────────────────────────────────────────────────────────
+// Provision once: firebase functions:secrets:set STRIPE_SECRET_KEY --project amen-5e359
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 
 const db = () => admin.firestore();
 
-// Lazy-init Stripe client
+// Lazy-init Stripe client — key read via .value() after Firebase injects the secret.
 let stripeClient = null;
 function getStripe() {
   if (!stripeClient) {
-    const secretKey = process.env.STRIPE_SECRET_KEY;
+    const secretKey = STRIPE_SECRET_KEY.value();
     if (!secretKey) {
       throw new HttpsError("failed-precondition", "Stripe not configured");
     }
@@ -39,7 +41,7 @@ const PLATFORM_FEE_PERCENT = 5;
 // ─── Create Connected Account ────────────────────────────────────────────────
 
 const stripeCreateConnectedAccount = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {region: "us-central1", secrets: [STRIPE_SECRET_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -96,7 +98,7 @@ const stripeCreateConnectedAccount = onCall(
 // ─── Get Account Status ──────────────────────────────────────────────────────
 
 const stripeGetAccountStatus = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {region: "us-central1", secrets: [STRIPE_SECRET_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -139,7 +141,7 @@ const stripeGetAccountStatus = onCall(
 // ─── Create Payment Intent ───────────────────────────────────────────────────
 
 const stripeCreatePaymentIntent = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {region: "us-central1", secrets: [STRIPE_SECRET_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
@@ -195,7 +197,7 @@ const stripeCreatePaymentIntent = onCall(
 // ─── Request Payout ──────────────────────────────────────────────────────────
 
 const stripeRequestPayout = onCall(
-    {region: "us-central1", secrets: ["STRIPE_SECRET_KEY"]},
+    {region: "us-central1", secrets: [STRIPE_SECRET_KEY]},
     async (request) => {
       const uid = request.auth?.uid;
       if (!uid) throw new HttpsError("unauthenticated", "Sign in required");

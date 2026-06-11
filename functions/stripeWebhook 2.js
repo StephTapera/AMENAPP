@@ -1,6 +1,5 @@
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
-// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
 // stripeWebhook.js — v1 Cloud Function (avoids Cloud Run quota)
+// STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are injected via runWith({ secrets: [...] }) — Gen1 Secret Manager pattern.
 // Stripe webhook endpoint with mandatory signature verification.
 // Every event is verified with stripe.webhooks.constructEvent() before processing.
 // STRIPE_WEBHOOK_SECRET must be set:

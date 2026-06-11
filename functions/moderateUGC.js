@@ -1,6 +1,5 @@
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
-// TODO: MIGRATE_TO_V2 — still using Gen1 runWith() pattern
 // moderateUGC.js — v1 Cloud Functions (avoids Cloud Run quota)
+// NVIDIA_API_KEY is injected via runWith({ secrets: ["NVIDIA_API_KEY"] }) — Gen1 Secret Manager pattern.
 // Server-side onCreate moderation triggers for Sanctuary messages, prayer requests,
 // and DM messages. Reuses the same NVIDIA NeMo Guard pipeline as moderatePost.js.
 // All three triggers fail closed: if the NIM call errors, the document is hidden

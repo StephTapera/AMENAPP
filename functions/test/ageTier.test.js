@@ -44,10 +44,10 @@ describe("computeAgeTier (real production helper)", () => {
     it("classifies an 18-year-old as tierD", () => {
       expect(computeAgeTier(2008, CURRENT_YEAR)).toBe("tierD");
     });
-    it("defaults missing/invalid birthYear to tierD (conservative adult)", () => {
-      expect(computeAgeTier(undefined, CURRENT_YEAR)).toBe("tierD");
-      expect(computeAgeTier(null, CURRENT_YEAR)).toBe("tierD");
-      expect(computeAgeTier("2000", CURRENT_YEAR)).toBe("tierD");
+    it("defaults missing/invalid birthYear to blocked (fail closed)", () => {
+      expect(computeAgeTier(undefined, CURRENT_YEAR)).toBe("blocked");
+      expect(computeAgeTier(null, CURRENT_YEAR)).toBe("blocked");
+      expect(computeAgeTier("2000", CURRENT_YEAR)).toBe("blocked");
     });
   });
 

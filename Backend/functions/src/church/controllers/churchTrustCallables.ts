@@ -1,3 +1,23 @@
+/**
+ * churchTrustCallables.ts
+ *
+ * DEPLOY DECISION (P1 GAP_BOARD 2026-06-11):
+ *   This file was flagged as "deleted" in the safety-hardening branch audit snapshot.
+ *   Audit confirmed the file is intact and actively called by:
+ *     - BereanChurchGroundingService.swift  → generateGroundedChurchAnswer
+ *     - ChurchTrustSafetyService.swift      → submitChurchVerificationRequest,
+ *                                             submitChurchProfileUpdate,
+ *                                             reviewChurchModerationItem,
+ *                                             refreshChurchLivestreamState,
+ *                                             moderateChurchMediaUpload,
+ *                                             onChurchVerificationReviewed
+ *   Decision: KEEP + DEPLOY. No stub required. All callables are exported from
+ *   Backend/functions/src/index.ts and must be included in the next CF deploy.
+ *   No secrets are consumed here; all auth is enforced via requireAuth() / assertChurchAccess().
+ *
+ *   Deploy: firebase deploy --only functions --project amen-5e359
+ */
+
 import * as admin from "firebase-admin";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";

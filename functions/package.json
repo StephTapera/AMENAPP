@@ -8,7 +8,8 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "build:context": "node -e \"const ts=require(\"typescript\"),fs=require(\"fs\"),path=require(\"path\"),opts={module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true,skipLibCheck:true,strict:false};fs.readdirSync(\"context\").filter(f=>f.endsWith(\".ts\")).forEach(f=>{const r=ts.transpileModule(fs.readFileSync(path.join(\"context\",f),\"utf8\"),{compilerOptions:opts,fileName:f});fs.writeFileSync(path.join(\"context\",f.replace(\".ts\",\".js\")),r.outputText)})\""
   },
   "jest": {
     "preset": "ts-jest",
@@ -16,7 +17,9 @@
     "testMatch": [
       "**/src/discussion/**/*.test.ts",
       "**/test/ageTier.test.js",
-      "**/test/phoneAuthPii.test.js"
+      "**/test/phoneAuthPii.test.js",
+      "**/test/safety-rules.test.js",
+      "**/test/moderation-safety.test.js"
     ],
     "moduleFileExtensions": [
       "ts",

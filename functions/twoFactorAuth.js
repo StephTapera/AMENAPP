@@ -2,15 +2,22 @@
  * Two-Factor Authentication Cloud Functions
  * Handles OTP generation, delivery via email/SMS, and verification
  */
-// TODO: USE_DEFINE_SECRET — migrate this secret to defineSecret() for Functions v2
-
 
 const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const crypto = require("crypto");
 const {checkRateLimit: sharedCheckRateLimit} = require("./rateLimiter");
+
+// ─── Secrets ──────────────────────────────────────────────────────────────────
+// Provision once: firebase functions:secrets:set TWILIO_ACCOUNT_SID
+//                 firebase functions:secrets:set TWILIO_AUTH_TOKEN
+//                 firebase functions:secrets:set TWILIO_PHONE_NUMBER
+const TWILIO_ACCOUNT_SID  = defineSecret("TWILIO_ACCOUNT_SID");
+const TWILIO_AUTH_TOKEN    = defineSecret("TWILIO_AUTH_TOKEN");
+const TWILIO_PHONE_NUMBER  = defineSecret("TWILIO_PHONE_NUMBER");
 
 // OTP Configuration
 const OTP_LENGTH = 6;
@@ -377,6 +384,7 @@ exports.send2FASMS = onDocumentCreated(
     {
       document: "twoFactorOTP/{otpId}",
       region: "us-central1",
+      secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER],
     },
     async (event) => {
       const snapshot = event.data;
@@ -398,12 +406,12 @@ exports.send2FASMS = onDocumentCreated(
         //   firebase functions:secrets:set TWILIO_ACCOUNT_SID
         //   firebase functions:secrets:set TWILIO_AUTH_TOKEN
         //   firebase functions:secrets:set TWILIO_PHONE_NUMBER
-        const accountSid = process.env.TWILIO_ACCOUNT_SID;
-        const authToken = process.env.TWILIO_AUTH_TOKEN;
-        const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+        const accountSid = TWILIO_ACCOUNT_SID.value();
+        const authToken  = TWILIO_AUTH_TOKEN.value();
+        const fromNumber = TWILIO_PHONE_NUMBER.value();
 
         if (!accountSid || !authToken || !fromNumber) {
-          logger.warn("Twilio credentials not configured — SMS not sent. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER via firebase functions:secrets:set");
+          logger.warn("Twilio credentials not configured — SMS not sent. Provision via: firebase functions:secrets:set TWILIO_ACCOUNT_SID && firebase functions:secrets:set TWILIO_AUTH_TOKEN && firebase functions:secrets:set TWILIO_PHONE_NUMBER");
           await snapshot.ref.update({
             sent: false,
             sendError: "SMS provider not configured",

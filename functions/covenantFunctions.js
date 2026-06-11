@@ -14,16 +14,20 @@
  */
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+
+// ─── Secret ───────────────────────────────────────────────────────────────────
+// Provision once: firebase functions:secrets:set STRIPE_SECRET_KEY --project amen-5e359
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 
 const db = getFirestore();
 
-// Lazy-init Stripe client (same pattern as stripeFunctions.js)
+// Lazy-init Stripe client — key read via .value() after Firebase injects the secret.
 let stripeClient = null;
 function getStripe() {
   if (!stripeClient) {
-    // TODO: USE_DEFINE_SECRET — migrate to defineSecret() for this secret
-    const secretKey = process.env.STRIPE_SECRET_KEY;
+    const secretKey = STRIPE_SECRET_KEY.value();
     if (!secretKey) throw new HttpsError("failed-precondition", "Stripe not configured.");
     stripeClient = require("stripe")(secretKey);
   }
@@ -33,7 +37,7 @@ function getStripe() {
 // ── createCovenantCheckoutSession ────────────────────────────────────────────
 
 exports.createCovenantCheckoutSession = onCall(
-  { enforceAppCheck: true }, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
+  { enforceAppCheck: true, secrets: [STRIPE_SECRET_KEY] },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -95,7 +99,7 @@ exports.createCovenantCheckoutSession = onCall(
 // ── verifyCovenantMembership ─────────────────────────────────────────────────
 
 exports.verifyCovenantMembership = onCall(
-  { enforceAppCheck: true }, // requires App Check token; disable locally via FUNCTIONS_EMULATOR
+  { enforceAppCheck: true, secrets: [STRIPE_SECRET_KEY] },
   async (request) => {
     const userId = request.auth?.uid;
     if (!userId) throw new HttpsError("unauthenticated", "Must be signed in.");
