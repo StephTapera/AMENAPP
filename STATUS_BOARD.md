@@ -1,7 +1,7 @@
 # STATUS BOARD
 
-Generated: 2026-06-11 09:02:51 MST
-Workspace HEAD at refresh: `12d149ea`
+Generated: 2026-06-11 09:28:43 MST
+Workspace HEAD at refresh: `5e98b922`
 Evidence bundle HEADs cited: `4526d792` where proof bundles were generated before this refresh
 Refresh commit: pending
 
@@ -12,10 +12,10 @@ Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11
 | Metric | Current |
 |---|---|
 | Tests passing/total | `1848/1857 executable discovered`, `9 notRun`, `0 failed` from `STEP5_PROOF_BUNDLE_2026-06-11.md` |
-| P0/P1/P2 open counts | `0/0/0` from `GAP_BOARD_CLOSED.md`; safety follow-ons still list `5 OPEN + 3 HUMAN-DECISION` in `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` |
-| Lanes DONE vs total | `7/16` board rows are `✅ DONE-PROVEN`; remaining rows are human-pending, in-flight, parked, blocked, or deferred |
-| Deploys completed vs pending | `0/14` human checklist items have deploy/console proof in this workspace |
-| Last green build sha+time | `4526d792` at `2026-06-11T06:15:18 -07:00`; current workspace HEAD is `12d149ea` and has not been rebuilt in this harness |
+| P0/P1/P2 open counts | `0/0/0` from `GAP_BOARD_CLOSED.md`; safety follow-ons are explicit rows below: `5` machine-work rows and `3` human-decision rows |
+| Lanes DONE vs total | `7/24` board rows are `✅ DONE-PROVEN`; remaining rows are human-pending, in-flight, parked, blocked, or deferred |
+| Deploys completed vs pending | `0/16` human checklist items have deploy/console proof in this workspace |
+| Last green build sha+time | `5e98b922` at `2026-06-11T09:28:35-07:00`; `BuildProject` succeeded in `7.3s`, log `BuildProject-Log-20260611-092835.txt` |
 
 ## SECTION 1 - FEATURES & SYSTEMS
 
@@ -23,6 +23,14 @@ Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11
 |---|---|---|---|---|---|---|---|---|
 | Gap Audit + P0 Fix Wave 1 | Gap Audit + P0 Fix Wave 1 | ✅ DONE-PROVEN | `9bbfe47f`, `7af3204b`, `248df4ac`, `41bdf467` in `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` | Deploy package: `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` | Firestore emulator `18/18`; functions Jest `84/84` | No runtime flag; deploy package only | No | Human deploy: pepper secret, Firestore rules, index, 3 phone functions |
 | Safety Wave 3 package | Safety hardening | 🧍 HUMAN-PENDING (Group A safety decisions + NCMEC/Storage/rules verification) | Prepared in `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md` | Consolidated package: `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | `ageTier.test.js` `11/11`; Xcode diagnostics pass; focused Swift tests blocked by simulator wall | Safety flags already listed in Step 5 proof; production enablement gated | No | Answer `DECISION_DOC_SAFETY.md` Group A, legalReviewer claim, NCMEC registration, Storage/rules console verification |
+| NCMEC registration and live submission | Safety/legal | 🧍 HUMAN-PENDING (A-01 counsel/registration) | Queue-only per `DECISION_DOC_SAFETY.md` and `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | Decision links: `DECISION_DOC_SAFETY.md` A-01, deploy finding #10 | Not testable until counsel/credentials exist | `NCMEC_SUBMISSION_ENABLED=false` | No | Engage counsel, obtain ESP ID/API key, store secrets; do not enable live HTTP submission |
+| NCMEC credential placeholders | Safety/legal | 🧍 HUMAN-PENDING (A-01 Secret Manager credentials) | Placeholder gap tracked in `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` finding #33 | Decision links: `DECISION_DOC_SAFETY.md` A-01 | Not testable until credentials exist | `NCMEC_SUBMISSION_ENABLED=false` | No | Replace `TODO_ESP_ID` / `TODO_ESP_API_KEY` only after registration |
+| Age verification and COPPA vendor | Safety/legal | 🧍 HUMAN-PENDING (A-02/A-05 age policy/vendor) | Decision required in `DECISION_DOC_SAFETY.md` A-02/A-05; finding #11 | Decision links: `DECISION_DOC_SAFETY.md` A-02/A-05 | Not testable until policy/vendor selected | Registration/age gates remain conservative | N/A | Select minimum age floor and age verification model |
+| Stripe webhook secret migration | Payments backend | 🔧 IN-FLIGHT | Open finding #30 in `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | No cert yet | No named test yet | Payment/giving flags OFF | No | Migrate legacy `stripeWebhook` to canonical secret handling |
+| Guardian email verification CF | Safety backend | 🔧 IN-FLIGHT | Open finding #44 in `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | No cert yet | No named test yet | Guardian/minor safety gates remain conservative | No | Implement/verify guardian email verification callable |
+| Stripe webhook idempotency | Payments backend | 🔧 IN-FLIGHT | Open finding #47 in `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | No cert yet | No named test yet | Payment/giving flags OFF | No | Add idempotency storage and replay-safe webhook handling |
+| Server-side RBAC org/church mutations | CommunityOS/RBAC backend | 🔧 IN-FLIGHT | Open finding #48 in `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | No cert yet | No named test yet | Admin/org mutation paths remain gated | No | Move privileged org/church mutations behind server-side RBAC checks |
+| Phone auth Gen2 migration | Auth/Safety backend | 🔧 IN-FLIGHT | Open finding #51 in `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | P0 phone hashing package exists; Gen2 migration not certified | Existing phone PII Jest `3/3` in P0 package; Gen2 tests still owed | Phone auth deployment still human-gated | No | Migrate phone auth functions to Gen2 with App Check/Auth/rate-limit posture |
 | Safety A3 callables | Safety P0 Wave 3 | ✅ DONE-PROVEN | `STEP5_PROOF_BUNDLE_2026-06-11.md` at `4526d792` | Stage-3 package Step 2: `STAGE3_DEPLOY_PACKAGE_2026-06-11.md` | Build proof `0 errors`; A3 callable fail-closed wiring cited in Step 5 proof | Safety callables gated by App Check/Auth/rate limit, no client flip | No | Deploy `evaluateDmRisk`, `reportDmAbuse`, `contentSafetyScreen`, `analyzeRelationshipRisk`, `assessDogpileRisk`; verify active |
 | Connect V2 UI polish and gates | Connect lane | ✅ DONE-PROVEN | `STEP5_PROOF_BUNDLE_2026-06-11.md` at `4526d792` | Cert index in `STEP5_PROOF_BUNDLE_2026-06-11.md` | `ConnectOfflineQueueTests` `5` tests; build proof `0 errors`, `0 failures` | `connect_layout_v2_enabled=false`, `connect_polish_v2_enabled=false`, `connect_empty_states_enabled=false`, `connect_smart_berean_enabled=false` | No | Human deploy Step 3/6; in-app capture owed |
 | Connect offline queue callable | Connect lane | ✅ DONE-PROVEN | `Backend/functions/src/connectQueue/processConnectQueuedDraft.ts` cited in Step 5 proof | Stage-3 package Step 3 | Idempotency and callable-owned write proof cited in `STEP5_PROOF_BUNDLE_2026-06-11.md` | `connect_offline_queue_enabled=false` | No | Deploy callable; enable TTL on `connect_idempotency.processedAt`; smoke test |
@@ -97,6 +105,19 @@ Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11
 | AIL accessibility flags | `false` | `ailTransform` deployed and UI verification complete | Parked on gate | N |
 
 ## SECTION 4 - RISKS & OPEN DECISIONS
+
+### SAFETY FOLLOW-ON RECONCILIATION
+
+| Source finding | Board disposition | Owner lane |
+|---|---|---|
+| `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` #30 legacy Stripe webhook secret | 🔧 row: Stripe webhook secret migration | Payments backend |
+| `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` #44 Guardian email verification CF | 🔧 row: Guardian email verification CF | Safety backend |
+| `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` #47 Stripe webhook idempotency | 🔧 row: Stripe webhook idempotency | Payments backend |
+| `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` #48 Server-side RBAC org/church mutations | 🔧 row: Server-side RBAC org/church mutations | CommunityOS/RBAC backend |
+| `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` #51 Phone auth Gen2 migration | 🔧 row: Phone auth Gen2 migration | Auth/Safety backend |
+| `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` #10 NCMEC CyberTipline stub | 🧍 row: NCMEC registration and live submission | Safety/legal |
+| `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` #11 Age verification/COPPA | 🧍 row: Age verification and COPPA vendor | Safety/legal |
+| `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` #33 NCMEC hardcoded TODO credentials | 🧍 row: NCMEC credential placeholders | Safety/legal |
 
 ### ANSWER-NOW
 
