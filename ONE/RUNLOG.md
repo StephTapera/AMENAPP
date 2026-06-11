@@ -139,6 +139,7 @@
 [ ] HUMAN: Switch Firebase console App Check (amen-5e359): "debug" → "enforce"
 [ ] firebase deploy --only functions:one_expireMoment  (must check evidenceLocked before decay)
 [ ] firebase deploy --only functions:one_sendMoment    (must enforce ConsentDNA mergedConsentDNA logic on relay)
+[ ] firebase deploy --only functions:one_relayMoment   FLAG-FLIP PREREQUISITE: enforce forwardAllowed server-side (SECURITY.md 8.3); stub at Backend/functions/src/one/oneRelayMoment.ts
 [ ] firebase deploy --only functions:one_verifyEntitlement  (StoreKit receipt check, not Stripe)
 [ ] firebase deploy --only functions:one_activateLegacy  (trustee identity verification)
 [ ] firebase deploy --only firestore:rules  (add privacy mirror sealed/opaque read restriction)

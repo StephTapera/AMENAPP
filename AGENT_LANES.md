@@ -308,3 +308,53 @@ Every lane certifies its surfaces in this shape: **surface → control → desti
 (WIRED / fail-closed / INERT-BY-DESIGN / FIXED / REMOVED) + screenshot column pending green. Full template
 + Pulse reference matrix: `TOTAL_CONTROL_WIRING_TEMPLATE.md` (committed d8c7d3dc). An enabled, tappable, inert
 control is a P1 by definition. Filed with each lane's DONE; gates the finish line.
+
+## ✅ FLEET ALL-CLEAR — BUILD SUCCEEDED (2026-06-10, claude/ONE-audit lane)
+
+```
+Command : Xcode MCP BuildProject (equivalent: xcodebuild build-for-testing -scheme AMENAPP
+          -destination 'generic/platform=iOS Simulator'
+          -clonedSourcePackagesDirPath ./SourcePackages.nosync
+          -derivedDataPath ./DerivedData.nosync
+          -packageCachePath ./PackageCache.nosync
+          CODE_SIGNING_ALLOWED=NO)
+Result  : The project built successfully.
+Errors  : 0
+Warnings: 0 (new)
+Time    : 18.259s
+SHA     : ca2a0d63  (includes 4e9ddceb and all ONE-audit lane edits)
+Dirty   : false (ONE-audit lane files committed; 31 untracked = other lanes in-flight)
+```
+
+This all-clear is the `.nosync` capable-lane handoff artifact required by:
+- AGENT_LANES.md "Manifest task" (Harness Package-Graph Limit section)
+- PACKAGE-FIX TAKEOVER consolidation note
+
+**What this green unlocks fleet-wide (each lane fulfils its own item):**
+- Every lane's owed screenshots (Pulse tap-through, AIL surfaces, NoteShare viewer, Church Notes lifecycle,
+  Testimonies, Settings, Ambient entry, ONE relay-disabled state)
+- Total Control Wiring matrices — each lane posts its surface→control→destination→disposition cert
+- Build-stamp proof for Step-5 proof bundle assembly: SHA=ca2a0d63, dirty=false
+- Spiritual OS Phase 2 ungating check (its remaining gates: P0 Firestore rules deploy + Wave-2 items)
+- ContextStoreAdversarialTests `#if canImport(XCTest)` one-liner (any lane may apply; declared here)
+
+**Pathspec discipline note:** 4e9ddceb was a full-working-tree absorption commit — accepted under
+the consolidation precedent. All future commits are pathspec-scoped to own-lane files only.
+
+---
+
+## 🚩 FLAG-FLIP PRECONDITIONS (grows with each lane's server-side obligations)
+
+This section lists server-side requirements that MUST be deployed before the named feature flag
+is ever set to `true`. Flipping a flag before its server gate ships is a security defect.
+
+| Flag | Precondition before flip | CF / rule | Status |
+|------|--------------------------|-----------|--------|
+| `one_*` (any ONE feature flag) | `one_relayMoment` CF enforces `forwardAllowed=false` rejection server-side (SECURITY.md §8.3, audit H-1). Client enforcement is live but advisory only — CF is the authoritative gate. | `Backend/functions/src/one/oneRelayMoment.ts` → `firebase deploy --only functions:one_relayMoment` | **STUB WRITTEN** — must deploy before flip |
+| `one_*` (any ONE feature flag) | `one_sendMoment` CF enforces `mergedConsentDNA` relay logic (SECURITY.md §8.3, RUNLOG P5 gate) | stub — needs full logic | **PENDING** |
+| `one_*` (any ONE feature flag) | `one_expireMoment` CF checks `evidenceLocked` before decay (SECURITY.md §8.2, §4) | stub — needs full logic | **PENDING** |
+| `one_*` (any ONE feature flag) | App Check enforce mode (Firebase Console: "debug" → "enforce") | human console step | **PENDING** |
+| *(any flag whose CF uses the relay route)* | `firestore.rules` — `one_reach/**` client no-write; `one_evidence/**` client no-read | CONTRACTS.md §14 rules draft | **PENDING** |
+
+> To add a flag precondition: append a row above with the flag name, what must ship first, the file/command, and status.
+
