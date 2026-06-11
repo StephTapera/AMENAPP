@@ -150,6 +150,29 @@ exports.moderateUploadedImage = onObjectFinalized({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
 
+        // ── Church Notes moderation write-back ───────────────────────────────
+        // For churchNotes/ uploads, write the final moderation verdict back to the
+        // processing job document so the iOS client can gate display on safetyStatus.
+        // Path shape: churchNotes/{uid}/{noteId}/images/{filename}
+        //             pathParts[0] = "churchNotes"
+        //             pathParts[2] = noteId
+        // We query churchNoteProcessingJobs where storagePath == filePath to find the
+        // exact job (one job per upload, so the query returns at most one document).
+        let churchNoteJobRef = null;
+        if (context === "churchNotes" && pathParts.length >= 4) {
+            try {
+                const jobsSnap = await db.collection("churchNoteProcessingJobs")
+                    .where("storagePath", "==", filePath)
+                    .limit(1)
+                    .get();
+                if (!jobsSnap.empty) {
+                    churchNoteJobRef = jobsSnap.docs[0].ref;
+                }
+            } catch (queryErr) {
+                console.warn("[IMAGE MOD] Church Notes job query failed:", queryErr.message);
+            }
+        }
+
         // Take action based on decision
         if (decision.action === "blocked") {
             console.log(`[IMAGE MOD] BLOCKING image: ${decision.reasons.join(", ")}`);
@@ -216,6 +239,14 @@ exports.moderateUploadedImage = onObjectFinalized({
                 });
             }
 
+            // Write-back: mark processing job as moderation-blocked so iOS blocks display.
+            if (churchNoteJobRef) {
+                await churchNoteJobRef.update({
+                    safetyStatus: "blocked",
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }).catch((e) => console.warn("[IMAGE MOD] Church Notes job blocked write-back failed:", e.message));
+            }
+
             return {action: "blocked", filePath};
         } else if (decision.action === "review") {
             console.log(`[IMAGE MOD] Flagging for review: ${decision.reasons.join(", ")}`);
@@ -253,6 +284,14 @@ exports.moderateUploadedImage = onObjectFinalized({
                 }).catch((e) => console.warn(`Could not update post ${postId}:`, e.message));
             }
 
+            // Write-back: mark processing job as pending human review so iOS shows pending skeleton.
+            if (churchNoteJobRef) {
+                await churchNoteJobRef.update({
+                    safetyStatus: "pending_moderation",
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }).catch((e) => console.warn("[IMAGE MOD] Church Notes job review write-back failed:", e.message));
+            }
+
             return {action: "review", filePath};
         }
 
@@ -273,6 +312,14 @@ exports.moderateUploadedImage = onObjectFinalized({
                     console.log(`[IMAGE MOD] Post ${postId} approved after image review`);
                 }
             }
+        }
+
+        // Write-back: mark processing job as moderation-approved so iOS can display OCR content.
+        if (churchNoteJobRef) {
+            await churchNoteJobRef.update({
+                safetyStatus: "approved",
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }).catch((e) => console.warn("[IMAGE MOD] Church Notes job approved write-back failed:", e.message));
         }
 
         console.log(`[IMAGE MOD] Image approved: ${filePath}`);

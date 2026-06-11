@@ -1,6 +1,16 @@
 {
   "indexes": [
     {
+      "collectionGroup": "churchNoteProcessingJobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "storagePath",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "securityEvents",
       "queryScope": "COLLECTION",
       "fields": [

@@ -102,14 +102,23 @@ function buildGcsUri(storagePath) {
 /**
  * Write the "completed" outcome back to the job and note documents.
  * Also persists the final transcript to the note even if downstream AI steps fail.
+ *
+ * For image and document jobs, safetyStatus is set to "pending_moderation" rather
+ * than "approved" — the Storage-triggered moderateUploadedImage function writes the
+ * final verdict once Cloud Vision SafeSearch + Vision LLM complete. The iOS client
+ * reads ChurchNoteProcessingJob.safetyStatus and gates display on it.
  */
-async function markJobCompleted(jobRef, noteId, transcript) {
+async function markJobCompleted(jobRef, noteId, transcript, opts = {}) {
     const db = getFirestore();
     const now = FieldValue.serverTimestamp();
+    // Image/document jobs must wait for the Storage-triggered image moderation pass.
+    // Audio and video jobs contain no imagery so they are approved immediately.
+    const safetyStatus = opts.requiresImageModeration ? "pending_moderation" : "approved";
 
     await jobRef.update({
         status: "completed",
         transcribedText: transcript,
+        safetyStatus,
         updatedAt: now,
     });
 
@@ -509,7 +518,11 @@ exports.processChurchNoteImageOCR = onCall(
 
             const transcript = (result.fullTextAnnotation?.text || "").trim();
 
-            await markJobCompleted(jobRef, noteId, transcript);
+            // Image OCR jobs require a subsequent image moderation pass before content
+            // is shown to the user. safetyStatus is set to "pending_moderation" here;
+            // the Storage-triggered moderateUploadedImage function updates it to
+            // "approved" or "blocked" once SafeSearch + Vision LLM complete.
+            await markJobCompleted(jobRef, noteId, transcript, {requiresImageModeration: true});
 
             console.log(`[processChurchNoteImageOCR] Completed job ${jobId}, ${transcript.length} chars`);
 
@@ -654,7 +667,8 @@ exports.processChurchNoteDocumentPDF = onCall(
 
             const transcript = textParts.join("\n").trim();
 
-            await markJobCompleted(jobRef, noteId, transcript);
+            // PDF uploads contain rendered page images; require moderation before display.
+            await markJobCompleted(jobRef, noteId, transcript, {requiresImageModeration: true});
 
             console.log(`[processChurchNoteDocumentPDF] Completed job ${jobId}, ${transcript.length} chars`);
 

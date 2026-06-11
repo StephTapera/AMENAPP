@@ -182,6 +182,13 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var churchNotesSmartObjectsEnabled: Bool = false
     // Kill switch: set true in Remote Config to block all new processing jobs instantly.
     @Published private(set) var churchNotesProcessingKillSwitch: Bool = false
+    // Per-media-type kill switches — allow emergency rollback of one pipeline without
+    // touching the others. Each defaults false (pipeline active) and is overridden by
+    // Remote Config. A true value blocks only that media type; the master kill switch
+    // above blocks all types simultaneously.
+    @Published private(set) var churchNotesAudioProcessingKillSwitch: Bool = false
+    @Published private(set) var churchNotesImageModerationKillSwitch: Bool = false
+    @Published private(set) var churchNotesVideoProcessingKillSwitch: Bool = false
     @Published private(set) var trustedContactsEnabled: Bool = true
     @Published private(set) var helpingSomeoneElseEnabled: Bool = true
     @Published private(set) var supportFollowupsEnabled: Bool = true
@@ -986,6 +993,9 @@ final class AMENFeatureFlags: ObservableObject {
             "feature_note_share_viewer": false as NSObject,
             "church_notes_smart_objects_enabled": false as NSObject,
             "church_notes_processing_kill_switch": false as NSObject,
+            "church_notes_audio_processing_kill_switch": false as NSObject,
+            "church_notes_image_moderation_kill_switch": false as NSObject,
+            "church_notes_video_processing_kill_switch": false as NSObject,
             "trusted_contacts_enabled": true as NSObject,
             "helping_someone_else_enabled": true as NSObject,
             "support_followups_enabled": true as NSObject,
@@ -1593,6 +1603,9 @@ final class AMENFeatureFlags: ObservableObject {
         noteShareViewerEnabled = config["feature_note_share_viewer"].boolValue
         churchNotesSmartObjectsEnabled = config["church_notes_smart_objects_enabled"].boolValue
         churchNotesProcessingKillSwitch = config["church_notes_processing_kill_switch"].boolValue
+        churchNotesAudioProcessingKillSwitch = config["church_notes_audio_processing_kill_switch"].boolValue
+        churchNotesImageModerationKillSwitch = config["church_notes_image_moderation_kill_switch"].boolValue
+        churchNotesVideoProcessingKillSwitch = config["church_notes_video_processing_kill_switch"].boolValue
 
         churchNotesStudyGuideEnabled = churchNotesStudyGuideEnabled || churchNotesStudyGuideGenerationEnabled
         trustedContactsEnabled = config["trusted_contacts_enabled"].boolValue
