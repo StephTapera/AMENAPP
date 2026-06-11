@@ -56,7 +56,14 @@ import WebKit
 import AuthenticationServices
 import CryptoKit
 import Security
-import os
+
+private struct ConnectorOAuthLog: Sendable {
+    func error(_ message: String) {
+        #if DEBUG
+        debugPrint("ConnectorOAuthBridge: \(message)")
+        #endif
+    }
+}
 
 // MARK: - ConnectorOAuthBridge
 
@@ -72,9 +79,8 @@ final class ConnectorOAuthBridge: NSObject {
     /// `window.webkit.messageHandlers.connectorOAuth.postMessage(req)`.
     static let handlerName = "connectorOAuth"
 
-    /// nonisolated so it is callable from the (non-MainActor) ASWebAuthenticationSession
-    /// completion handler without an actor hop. Logger is Sendable.
-    nonisolated static let log = Logger(subsystem: "com.amenapp", category: "ConnectorOAuthBridge")
+    /// Nonisolated so it is callable from the ASWebAuthenticationSession completion handler.
+    nonisolated private static let log = ConnectorOAuthLog()
 
     /// Supplies the window that the system web-auth sheet is anchored to.
     private let anchorProvider: () -> ASPresentationAnchor

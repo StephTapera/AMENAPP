@@ -50,14 +50,14 @@ final class AmenPulseViewModel: ObservableObject {
     private let service: PulseService
     private var observeTask: Task<Void, Never>?
 
-    // nonisolated so the View's (nonisolated) init can use AmenPulseViewModel()
-    // as a default argument. Body only assigns stored properties — safe.
-    nonisolated init(service: PulseService = .shared, previewDigest: PulseDigest? = nil) {
+    init(service: PulseService, previewDigest: PulseDigest? = nil) {
         self.service = service
-        if let previewDigest {
-            self.digest = previewDigest
-            self.phase = previewDigest.cards.isEmpty ? .empty : .loaded
-        }
+        _digest = Published(initialValue: previewDigest)
+        _phase = Published(initialValue: previewDigest.map { $0.cards.isEmpty ? .empty : .loaded } ?? .loading)
+    }
+
+    convenience init(previewDigest: PulseDigest? = nil) {
+        self.init(service: PulseService.shared, previewDigest: previewDigest)
     }
 
     deinit { observeTask?.cancel() }
@@ -114,8 +114,9 @@ struct AmenPulseSurfaceView: View {
     @State private var showArchive = false
     @State private var showPrefs = false
 
-    init(viewModel: AmenPulseViewModel = AmenPulseViewModel()) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+    @MainActor
+    init(viewModel: AmenPulseViewModel? = nil) {
+        _viewModel = StateObject(wrappedValue: viewModel ?? AmenPulseViewModel())
     }
 
     private var ambientTint: Color {

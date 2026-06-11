@@ -215,7 +215,7 @@ struct SuggestedAccountPeekSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func signalIcon(for type: ContextSignalType) -> String {
+    private func signalIcon(for type: MutualContextSignalType) -> String {
         switch type {
         case .mutualFollowers: return "person.2.fill"
         case .sharedChurch:    return "building.columns.fill"
@@ -223,7 +223,7 @@ struct SuggestedAccountPeekSheet: View {
         }
     }
 
-    private func signalLabel(for type: ContextSignalType) -> String {
+    private func signalLabel(for type: MutualContextSignalType) -> String {
         switch type {
         case .mutualFollowers(let connections, let totalCount):
             if let first = connections.first {
