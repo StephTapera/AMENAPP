@@ -98,6 +98,10 @@ final class PrivacyAccessControl: ObservableObject {
         }
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: - Main API
 
     /// Compute and cache the full access relationship between the current viewer and `targetUserId`.

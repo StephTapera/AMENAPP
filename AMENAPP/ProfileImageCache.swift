@@ -35,6 +35,10 @@ class ProfileImageCache {
         )
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     @objc private func handleMemoryWarning() {
         cache.removeAllObjects()
     }

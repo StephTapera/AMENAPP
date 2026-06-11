@@ -166,6 +166,10 @@ final class WorshipMusicService {
         Task { @MainActor in stopPlayback() }
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     private func startElapsedTimer(duration: Int) {
         let start = Date()
         elapsedTimer = Task { [weak self] in

@@ -24,6 +24,10 @@ final class AudioPlaybackManager: ObservableObject {
         )
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     private func configureAudioSession() {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
         try? AVAudioSession.sharedInstance().setActive(true)

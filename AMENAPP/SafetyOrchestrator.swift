@@ -99,6 +99,7 @@ final class SafetyOrchestrator: ObservableObject {
     private var evaluationTask: Task<Void, Never>?
 
     private var cancellables = Set<AnyCancellable>()
+    private var notificationTokens: [NSObjectProtocol] = []
 
     private init() {
         // Roll up behavioral state changes into support state
@@ -109,7 +110,7 @@ final class SafetyOrchestrator: ObservableObject {
             }
             .store(in: &cancellables)
 
-        NotificationCenter.default.addObserver(
+        let token = NotificationCenter.default.addObserver(
             forName: .amenOSFormationStreakActive,
             object: nil,
             queue: .main
@@ -121,6 +122,11 @@ final class SafetyOrchestrator: ObservableObject {
                 self?.supportState = .normal
             }
         }
+        notificationTokens.append(token)
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     // MARK: - Pre-submission safety gate

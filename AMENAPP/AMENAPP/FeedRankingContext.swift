@@ -5,14 +5,21 @@ import SwiftUI
 final class FeedRankingContextManager: ObservableObject {
     static let shared = FeedRankingContextManager()
     @Published private(set) var context: FeedRankingContext = .default
+    private var notificationTokens: [NSObjectProtocol] = []
+
     private init() {
-        NotificationCenter.default.addObserver(
+        let token = NotificationCenter.default.addObserver(
             forName: .feedIntelligenceDidUpdate,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
+        notificationTokens.append(token)
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     func refresh() {

@@ -444,6 +444,7 @@ final class AMENAnalyticsService {
     private var eventBuffer: [(name: String, props: [String: Any], ts: Date)] = []
     private static let maxBufferSize = 200
     private var flushTask: Task<Void, Never>?
+    private var notificationTokens: [NSObjectProtocol] = []
 
     // MARK: - User Opt-Out (GDPR Article 21)
 
@@ -476,7 +477,7 @@ final class AMENAnalyticsService {
         // Previously, events batched just before backgrounding were lost if the
         // process was terminated. Firebase Analytics events are already durable
         // (the SDK queues them), so this only applies to the Firestore secondary write.
-        NotificationCenter.default.addObserver(
+        let bgToken = NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
             queue: .main
@@ -485,6 +486,11 @@ final class AMENAnalyticsService {
                 await self?.flush()
             }
         }
+        notificationTokens.append(bgToken)
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     // MARK: - Track

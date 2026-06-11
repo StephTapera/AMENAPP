@@ -48,6 +48,7 @@ struct SavedPostsView: View {
     @State private var errorMessage = ""
     @State private var refreshTrigger = false
     @State private var selectedFolder: SavedFolder = .all
+    @State private var notificationTokens: [NSObjectProtocol] = []
     
     private var displayedPosts: [Post] {
         guard selectedFolder != .all else { return savedPosts }
@@ -114,6 +115,8 @@ struct SavedPostsView: View {
                 // RealtimeSavedPostsService.shared is a global singleton; removing its
                 // listener from this view breaks saved-post state and badges throughout
                 // the app. The listener is only cleaned up on sign-out.
+                notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+                notificationTokens.removeAll()
             }
             .refreshable {
                 await refreshSavedPosts()
@@ -324,7 +327,7 @@ struct SavedPostsView: View {
         // Listen for individual unsave actions — remove the post locally without
         // replacing the entire array. Replacing the array destroys all PostCard
         // @State (isSaved, isSaveInFlight, etc.) making every card flash unsaved.
-        NotificationCenter.default.addObserver(
+        let token = NotificationCenter.default.addObserver(
             forName: Notification.Name("postUnsaved"),
             object: nil,
             queue: .main
@@ -337,6 +340,7 @@ struct SavedPostsView: View {
                 savedPosts.removeAll { $0.firestoreId == postIdStr }
             }
         }
+        notificationTokens.append(token)
 
         // Only do a full reload when a new post is added to saved
         // (count increased) — not on removal, which is handled above.

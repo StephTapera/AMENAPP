@@ -24,6 +24,7 @@ class ImageCache {
 
     // Background queue for image resizing
     private let resizeQueue = DispatchQueue(label: "com.amen.imageResize", qos: .userInitiated)
+    private var notificationTokens: [NSObjectProtocol] = []
 
     private init() {
         // Configure cache limits
@@ -31,7 +32,7 @@ class ImageCache {
         cache.totalCostLimit = 75 * 1024 * 1024  // 75MB memory limit
 
         // Clear cache on memory warning
-        NotificationCenter.default.addObserver(
+        let token = NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification,
             object: nil,
             queue: .main
@@ -42,6 +43,11 @@ class ImageCache {
                 self?.cache.removeAllObjects()
             }
         }
+        notificationTokens.append(token)
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     /// Load image from URL with caching and automatic resizing

@@ -55,6 +55,7 @@ struct LiquidGlassMessagesView: View {
     @State private var quotedMessage: AMENMessage?
     @State private var scrollProxy: ScrollViewProxy?
     @State private var keyboardHeight: CGFloat = 0
+    @State private var keyboardObserverTokens: [NSObjectProtocol] = []
     @State private var showConversationInfo = false
     @State private var showVideoCallAlert = false
     @State private var pendingMessageType: AMENMessage.MessageType = .standard
@@ -132,6 +133,9 @@ struct LiquidGlassMessagesView: View {
         .onAppear {
             setupKeyboardObservers()
             loadMockMessages()
+        }
+        .onDisappear {
+            removeKeyboardObservers()
         }
         .alert("Video Calls Coming Soon", isPresented: $showVideoCallAlert) {
             Button("OK", role: .cancel) {}
@@ -338,19 +342,24 @@ struct LiquidGlassMessagesView: View {
     }
 
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
+        let showToken = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
             if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
                 withAnimation(.easeOut(duration: 0.25)) {
                     keyboardHeight = frame.height
                 }
             }
         }
-
-        NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
+        let hideToken = NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
             withAnimation(.easeOut(duration: 0.25)) {
                 keyboardHeight = 0
             }
         }
+        keyboardObserverTokens.append(contentsOf: [showToken, hideToken])
+    }
+
+    private func removeKeyboardObservers() {
+        keyboardObserverTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        keyboardObserverTokens.removeAll()
     }
 }
 

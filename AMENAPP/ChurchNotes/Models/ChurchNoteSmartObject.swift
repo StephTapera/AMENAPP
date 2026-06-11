@@ -1,3 +1,4 @@
+// TECH-DEBT: file exceeds 400-line guideline — candidate for decomposition
 // FROZEN — Wave 0 contract. Changes require orchestrator approval.
 //
 // ╔══════════════════════════════════════════════════════════════════╗

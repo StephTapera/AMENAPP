@@ -83,6 +83,7 @@ struct ChurchNotesPremiumEditor: View {
 
     // Keyboard
     @State private var keyboardHeight: CGFloat = 0
+    @State private var keyboardObserverTokens: [NSObjectProtocol] = []
     @FocusState private var focusedField: EditorField?
 
     enum EditorField {
@@ -248,6 +249,9 @@ struct ChurchNotesPremiumEditor: View {
                 contentAppeared = true
             }
             observeKeyboard()
+        }
+        .onDisappear {
+            removeKeyboardObservers()
         }
     }
 
@@ -1324,7 +1328,7 @@ struct ChurchNotesPremiumEditor: View {
     // MARK: - Keyboard
 
     private func observeKeyboard() {
-        NotificationCenter.default.addObserver(
+        let showToken = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillShowNotification,
             object: nil, queue: .main
         ) { notification in
@@ -1334,8 +1338,7 @@ struct ChurchNotesPremiumEditor: View {
                 }
             }
         }
-
-        NotificationCenter.default.addObserver(
+        let hideToken = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillHideNotification,
             object: nil, queue: .main
         ) { _ in
@@ -1344,6 +1347,12 @@ struct ChurchNotesPremiumEditor: View {
                 showFormattingBar = false
             }
         }
+        keyboardObserverTokens.append(contentsOf: [showToken, hideToken])
+    }
+
+    private func removeKeyboardObservers() {
+        keyboardObserverTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        keyboardObserverTokens.removeAll()
     }
 }
 

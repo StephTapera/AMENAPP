@@ -130,6 +130,10 @@ final class AmenSettingsPersistenceService: ObservableObject {
         }
     }
 
+    deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+    }
+
     func load() async {
         guard let uid = Auth.auth().currentUser?.uid else {
             loadedUserID = nil

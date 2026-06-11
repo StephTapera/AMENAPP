@@ -8,21 +8,28 @@ final class LiquidGlassMaterialManager: ObservableObject {
     @Published private(set) var lowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled
     @Published private(set) var reduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
 
+    private var notificationTokens: [NSObjectProtocol] = []
+
     private init() {
-        NotificationCenter.default.addObserver(
+        let powerToken = NotificationCenter.default.addObserver(
             forName: .NSProcessInfoPowerStateDidChange,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             self?.lowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled
         }
-        NotificationCenter.default.addObserver(
+        let motionToken = NotificationCenter.default.addObserver(
             forName: UIAccessibility.reduceMotionStatusDidChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             self?.reduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
         }
+        notificationTokens.append(contentsOf: [powerToken, motionToken])
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 }
 

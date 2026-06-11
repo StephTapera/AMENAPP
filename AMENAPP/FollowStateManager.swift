@@ -38,6 +38,10 @@ final class FollowStateManager: ObservableObject {
         )
     }
     
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: - Follow State Enum
     
     enum FollowState: Equatable {
