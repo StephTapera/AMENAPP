@@ -581,13 +581,30 @@ exports.safeMessageGateway = onCall(async (request) => {
         // STEP 2: Quick reject gates
         // ================================================================
 
-        // Check if sender is banned
-        if (senderData.isBanned) {
-            return {
-                decision: 'blocked',
-                reason: 'sender_banned',
-                userFacingReason: 'Your account has been restricted from sending messages.'
-            };
+        // Check if sender is banned — live Firestore read (not stale batch data).
+        // Fail closed per Amen safety policy: if the read fails, treat as restricted.
+        {
+            let acctState = "active";
+            try {
+                const liveDoc = await db.collection("users").doc(senderId).get();
+                const liveData = liveDoc.data();
+                if (liveData && liveData.accountStatus && liveData.accountStatus.state) {
+                    acctState = liveData.accountStatus.state;
+                } else if (liveData && liveData.isBanned) {
+                    // Legacy field fallback
+                    acctState = "banned";
+                }
+            } catch (banCheckErr) {
+                console.error("[safeMessageGateway] Live ban check failed — restricting:", banCheckErr.message);
+                acctState = "restricted"; // Fail closed: cannot verify, so block
+            }
+            if (acctState !== "active") {
+                return {
+                    decision: 'blocked',
+                    reason: 'sender_banned',
+                    userFacingReason: 'Your account has been restricted from sending messages.'
+                };
+            }
         }
 
         // Check if conversation is blocked

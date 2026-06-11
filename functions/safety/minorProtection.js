@@ -166,7 +166,28 @@ async function checkAdultMinorInteraction(db, senderUid, recipientUid, contentTy
   }
 
   if (eitherUnknown) {
-    // Age is not yet confirmed for at least one user — queue for review.
+    // Fail closed per Amen safety policy: unknown age = treated as minor.
+    // An unverified user may be a child; we must not allow them into adult DM flows.
+    // For DMs, block immediately. For other content types, queue for human review.
+    if (contentType === "dm") {
+      const alertId2 = _alertId();
+      await db.collection("safetyAlerts").doc(alertId2).set({
+        id: alertId2,
+        senderUid,
+        recipientUid,
+        contentType,
+        action: "blocked",
+        reason: "age_unknown_dm_blocked_fail_closed",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return {
+        allowed: false,
+        blocked: true,
+        reason: "age_unknown_dm_blocked",
+        requiresReview: true,
+      };
+    }
+    // Non-DM content types: allow but always queue for review.
     return {
       allowed: true,
       blocked: false,
