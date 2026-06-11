@@ -54,6 +54,13 @@ final class AmenConnectViewModel: ObservableObject {
             self.tiers = snapshot.tiers
             self.boards = snapshot.boards
             self.activityItems = snapshot.activityItems
+            // C: ConnectBadgeStore feed — count action-required activity per section
+            let activityBadge = snapshot.activityItems.filter { $0.requiresAction }.count
+            ConnectBadgeStore.shared.setBadge(activityBadge, for: .activity)
+            let spacesBadge  = snapshot.spaces.filter { $0.unreadCount > 0 }.count
+            ConnectBadgeStore.shared.setBadge(spacesBadge, for: .spaces)
+            if activityBadge == 0 { ConnectBadgeStore.shared.clearBadge(for: .activity) }
+            if spacesBadge  == 0 { ConnectBadgeStore.shared.clearBadge(for: .spaces) }
             if isFromCache && !snapshot.hasContent {
                 self.loadState = .offline
             } else {

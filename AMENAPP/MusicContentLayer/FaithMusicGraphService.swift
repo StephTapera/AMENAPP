@@ -7,7 +7,7 @@ import SwiftUI
 
 // MARK: - Graph Types
 
-enum FaithGraphNodeType: String, Codable, Sendable {
+enum FaithMusicGraphNodeType: String, Codable, Sendable {
     case song, album, artist, church, pastor, sermon, sermonSeries
     case scripture, topic, mood, community, post, event, playlist, prayerTheme
 
@@ -52,9 +52,9 @@ enum FaithGraphNodeType: String, Codable, Sendable {
     }
 }
 
-struct FaithGraphNode: Codable, Sendable, Identifiable {
+struct FaithMusicGraphNode: Codable, Sendable, Identifiable {
     let id: String
-    let type: FaithGraphNodeType
+    let type: FaithMusicGraphNodeType
     let title: String
     let subtitle: String?
     let artworkURL: URL?
@@ -62,7 +62,7 @@ struct FaithGraphNode: Codable, Sendable, Identifiable {
     let weight: Double         // engagement/relevance score
 }
 
-struct FaithGraphEdge: Codable, Sendable, Identifiable {
+struct FaithMusicGraphEdge: Codable, Sendable, Identifiable {
     let id: String
     let fromNodeID: String
     let toNodeID: String
@@ -75,11 +75,11 @@ struct FaithGraphEdge: Codable, Sendable, Identifiable {
 @MainActor
 final class FaithMusicGraphService: ObservableObject {
 
-    @Published private(set) var recommendedNodes: [FaithGraphNode] = []
+    @Published private(set) var recommendedNodes: [FaithMusicGraphNode] = []
     @Published private(set) var isLoading = false
 
-    private var nodes: [String: FaithGraphNode] = [:]
-    private var edges: [FaithGraphEdge] = []
+    private var nodes: [String: FaithMusicGraphNode] = [:]
+    private var edges: [FaithMusicGraphEdge] = []
 
     init() {
         seedMockData()
@@ -87,7 +87,7 @@ final class FaithMusicGraphService: ObservableObject {
 
     // MARK: - Public API
 
-    func loadRelated(for nodeID: String, type: FaithGraphNodeType) async {
+    func loadRelated(for nodeID: String, type: FaithMusicGraphNodeType) async {
         isLoading = true
 
         // Simulate lightweight async work (graph traversal)
@@ -106,7 +106,7 @@ final class FaithMusicGraphService: ObservableObject {
             strengthMap[targetID] = max(strengthMap[targetID] ?? 0, edge.strength)
         }
 
-        let results: [FaithGraphNode] = connectedNodeIDs
+        let results: [FaithMusicGraphNode] = connectedNodeIDs
             .compactMap { nodes[$0] }
             .sorted { lhs, rhs in
                 let lScore = (strengthMap[lhs.id] ?? 0) * lhs.weight
@@ -118,15 +118,15 @@ final class FaithMusicGraphService: ObservableObject {
         isLoading = false
     }
 
-    func addNode(_ node: FaithGraphNode) {
+    func addNode(_ node: FaithMusicGraphNode) {
         nodes[node.id] = node
     }
 
-    func addEdge(_ edge: FaithGraphEdge) {
+    func addEdge(_ edge: FaithMusicGraphEdge) {
         edges.append(edge)
     }
 
-    func search(query: String) async -> [FaithGraphNode] {
+    func search(query: String) async -> [FaithMusicGraphNode] {
         await Task.yield()
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return Array(nodes.values)
@@ -142,7 +142,7 @@ final class FaithMusicGraphService: ObservableObject {
 
     private func seedMockData() {
         // 10 Song nodes
-        let songs: [FaithGraphNode] = [
+        let songs: [FaithMusicGraphNode] = [
             .init(id: "song-1",  type: .song, title: "Way Maker",          subtitle: "Sinach",                    artworkURL: nil, deepLink: "amen://music/song-1",  weight: 0.95),
             .init(id: "song-2",  type: .song, title: "Goodness of God",    subtitle: "Bethel Music",              artworkURL: nil, deepLink: "amen://music/song-2",  weight: 0.92),
             .init(id: "song-3",  type: .song, title: "Oceans",             subtitle: "Hillsong United",           artworkURL: nil, deepLink: "amen://music/song-3",  weight: 0.90),
@@ -156,7 +156,7 @@ final class FaithMusicGraphService: ObservableObject {
         ]
 
         // 5 Sermon nodes
-        let sermons: [FaithGraphNode] = [
+        let sermons: [FaithMusicGraphNode] = [
             .init(id: "sermon-1", type: .sermon, title: "Walking in Faith",       subtitle: "Pastor James Merritt", artworkURL: nil, deepLink: "amen://sermon/sermon-1", weight: 0.91),
             .init(id: "sermon-2", type: .sermon, title: "The Power of Praise",    subtitle: "Pastor Sarah Jakes",   artworkURL: nil, deepLink: "amen://sermon/sermon-2", weight: 0.89),
             .init(id: "sermon-3", type: .sermon, title: "Grace Abounding",        subtitle: "Charles Spurgeon",     artworkURL: nil, deepLink: "amen://sermon/sermon-3", weight: 0.88),
@@ -165,7 +165,7 @@ final class FaithMusicGraphService: ObservableObject {
         ]
 
         // 4 Church nodes
-        let churches: [FaithGraphNode] = [
+        let churches: [FaithMusicGraphNode] = [
             .init(id: "church-1", type: .church, title: "Elevation Church",      subtitle: "Charlotte, NC",        artworkURL: nil, deepLink: "amen://church/church-1", weight: 0.94),
             .init(id: "church-2", type: .church, title: "Hillsong Church",        subtitle: "Sydney, AU",           artworkURL: nil, deepLink: "amen://church/church-2", weight: 0.92),
             .init(id: "church-3", type: .church, title: "Bethel Church",          subtitle: "Redding, CA",          artworkURL: nil, deepLink: "amen://church/church-3", weight: 0.91),
@@ -173,7 +173,7 @@ final class FaithMusicGraphService: ObservableObject {
         ]
 
         // 5 Scripture topic nodes
-        let scriptureTopics: [FaithGraphNode] = [
+        let scriptureTopics: [FaithMusicGraphNode] = [
             .init(id: "scripture-1", type: .scripture, title: "Psalm 23",       subtitle: "The Lord is my shepherd", artworkURL: nil, deepLink: "amen://scripture/psalm-23",    weight: 0.97),
             .init(id: "scripture-2", type: .scripture, title: "Isaiah 40:31",   subtitle: "Those who hope in the Lord", artworkURL: nil, deepLink: "amen://scripture/isaiah-40-31", weight: 0.95),
             .init(id: "scripture-3", type: .scripture, title: "Philippians 4:13", subtitle: "I can do all things",   artworkURL: nil, deepLink: "amen://scripture/phil-4-13",   weight: 0.96),
@@ -186,7 +186,7 @@ final class FaithMusicGraphService: ObservableObject {
         }
 
         // Seed edges
-        let seedEdges: [FaithGraphEdge] = [
+        let seedEdges: [FaithMusicGraphEdge] = [
             .init(id: "e-1",  fromNodeID: "song-1",    toNodeID: "scripture-1", relationLabel: "scriptureRef",  strength: 0.9),
             .init(id: "e-2",  fromNodeID: "song-2",    toNodeID: "scripture-4", relationLabel: "scriptureRef",  strength: 0.85),
             .init(id: "e-3",  fromNodeID: "song-3",    toNodeID: "sermon-1",   relationLabel: "featuredIn",     strength: 0.8),
@@ -210,9 +210,9 @@ final class FaithMusicGraphService: ObservableObject {
 // MARK: - Faith Music Recommendation Row
 
 struct FaithMusicRecommendationRow: View {
-    let nodes: [FaithGraphNode]
+    let nodes: [FaithMusicGraphNode]
     let title: String
-    let onNodeTap: (FaithGraphNode) -> Void
+    let onNodeTap: (FaithMusicGraphNode) -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -227,7 +227,7 @@ struct FaithMusicRecommendationRow: View {
                 Spacer()
                 Button("See all") {}
                     .font(.subheadline)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                     .accessibilityLabel("See all \(title)")
             }
             .padding(.horizontal, 20)
@@ -282,7 +282,7 @@ struct FaithMusicRecommendationRow: View {
 // MARK: - Node Card
 
 private struct NodeCard: View {
-    let node: FaithGraphNode
+    let node: FaithMusicGraphNode
     let reduceTransparency: Bool
 
     var body: some View {
@@ -319,7 +319,7 @@ private struct NodeCard: View {
                 .padding(.vertical, 2)
                 .background(Color.accentColor.opacity(0.15))
                 .clipShape(Capsule())
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
         }
         .padding(10)
         .background {
@@ -344,7 +344,7 @@ private struct NodeCard: View {
             Color.accentColor.opacity(0.12)
             Image(systemName: node.type.fallbackIcon)
                 .font(.title2)
-                .foregroundStyle(.accentColor.opacity(0.7))
+                .foregroundStyle(Color.accentColor.opacity(0.7))
         }
     }
 }
@@ -353,15 +353,15 @@ private struct NodeCard: View {
 
 #Preview("Faith Music Recommendations") {
     let service = FaithMusicGraphService()
-    return ScrollView {
+    ScrollView {
         VStack(spacing: 24) {
             FaithMusicRecommendationRow(
                 nodes: Array(
                     [
-                        FaithGraphNode(id: "s1", type: .song,    title: "Way Maker",           subtitle: "Sinach",           artworkURL: nil, deepLink: "", weight: 0.9),
-                        FaithGraphNode(id: "s2", type: .sermon,  title: "Walking in Faith",    subtitle: "Pastor James",     artworkURL: nil, deepLink: "", weight: 0.88),
-                        FaithGraphNode(id: "s3", type: .church,  title: "Elevation Church",    subtitle: "Charlotte, NC",    artworkURL: nil, deepLink: "", weight: 0.92),
-                        FaithGraphNode(id: "s4", type: .scripture, title: "Psalm 23",          subtitle: "The Lord is my shepherd", artworkURL: nil, deepLink: "", weight: 0.97),
+                        FaithMusicGraphNode(id: "s1", type: .song,    title: "Way Maker",           subtitle: "Sinach",           artworkURL: nil, deepLink: "", weight: 0.9),
+                        FaithMusicGraphNode(id: "s2", type: .sermon,  title: "Walking in Faith",    subtitle: "Pastor James",     artworkURL: nil, deepLink: "", weight: 0.88),
+                        FaithMusicGraphNode(id: "s3", type: .church,  title: "Elevation Church",    subtitle: "Charlotte, NC",    artworkURL: nil, deepLink: "", weight: 0.92),
+                        FaithMusicGraphNode(id: "s4", type: .scripture, title: "Psalm 23",          subtitle: "The Lord is my shepherd", artworkURL: nil, deepLink: "", weight: 0.97),
                     ]
                 ),
                 title: "Related Content",

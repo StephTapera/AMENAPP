@@ -541,9 +541,10 @@ export * from "./churchNotes/churchNotesExtendedCallables";
 export * from "./churchNotes/churchNotesPrivacyAudit";
 
 // Social OS — Media Provenance and Authenticity
-// registerMediaProvenance, createMediaSession, completeMediaSession, saveToMediaQueue,
-// updateMediaProgress, reportMedia, and getMediaTrustContext are all owned by the
-// default codebase (functions/index.js). No re-exports here.
+// reportMedia source lives in ./media/createMediaSession.ts (Backend TS codebase).
+// Comment "owned by default codebase" was stale after commit f3db8fe8 removed it from
+// functions/index.js. Re-exporting here so the Backend codebase deploys it correctly.
+export { reportMedia } from "./media/createMediaSession";
 
 // In-App Giving — server-side Stripe charge (Apple Pay + card tokenization)
 export * from "./giving/processGivingCharge";
@@ -641,6 +642,17 @@ export * from "./prayer/generatePrayerRecap";
 // ONE Private Social OS — P5 gate CFs (deploy before any one_* flag flips on)
 export * from "./one/oneRelayMoment";
 export * from "./one/oneSendMoment";
+
+// A3 Safety Callables — Stage-3 deploy (evaluateDmRisk, reportDmAbuse,
+// contentSafetyScreen, analyzeRelationshipRisk, assessDogpileRisk)
+// Client-side callers: DmRiskFirewallService, SuspiciousRelationshipDetectorService,
+// SafetyServiceImpl, DogpileDetectionService
+export * from "./safety/a3Callables";
+
+// Connect Offline Queue — Stage-3 deploy
+// Idempotent: UUID idempotencyKey prevents duplicate sends on retry.
+// Called by ConnectOfflineQueueManager.swift (Wave 5) when connectivity restores.
+export * from "./connectQueue/processConnectQueuedDraft";
 export * from "./one/oneExpireMoment";
 export * from "./one/oneVerifyEntitlement";
 export * from "./one/oneActivateLegacy";
