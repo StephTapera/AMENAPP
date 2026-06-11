@@ -389,10 +389,91 @@ exports.moderateDMMessage = ugcFunctions.firestore
     const authorId = message.senderId || null;
 
     if (!text) {
+      // SECURITY (C2 fix 2026-06-11): Run vision moderation on image-only DMs so CSAM
+      // in direct messages reaches the mandatory escalation pipeline rather than
+      // silently sitting in pending_image_review with no legalHold or NCMEC entry.
+      const imageUrl = message.imageUrl || message.mediaUrl || null;
+      let dmImgResult = null;
+      if (imageUrl) {
+        try {
+          dmImgResult = await moderateImage(imageUrl, process.env.NVIDIA_API_KEY);
+        } catch (imgErr) {
+          console.warn(`[moderateDMMessage] moderateImage failed (${imgErr.message}) — failing closed`);
+          dmImgResult = null;
+        }
+      }
+
+      const dmImgCategories = dmImgResult ? dmImgResult.categories : [];
+      const dmImgHasCSAM = dmImgCategories.some((c) => IMAGE_CSAM_CATEGORIES_UGC.has(c));
+
+      if (dmImgHasCSAM) {
+        // Mandatory escalation: hide + legalHold + childSafetyEscalations + NCMEC queue.
+        const db = getFirestore();
+        const holdId = `hold_dm_${snap.id}_${Date.now()}`;
+        const holdRef = db.collection("legalHolds").doc(holdId);
+        const escRef = db.collection("childSafetyEscalations").doc();
+        const csamBatch = db.batch();
+
+        csamBatch.update(snap.ref, {
+          visible: false,
+          moderation: {
+            status: "blocked",
+            categories: dmImgCategories,
+            provider: "nvidia-vision-llm",
+            checkedAt: FieldValue.serverTimestamp(),
+            childSafetyEscalated: true,
+          },
+        });
+
+        csamBatch.set(holdRef, {
+          contentRef: snap.ref.path,
+          authorId: authorId ?? null,
+          contentSnapshot: message,
+          categories: dmImgCategories,
+          createdAt: FieldValue.serverTimestamp(),
+          status: "active",
+        });
+
+        csamBatch.set(escRef, {
+          contentRef: snap.ref.path,
+          authorId: authorId ?? null,
+          categories: dmImgCategories,
+          status: "new",
+          severity: "critical",
+          legalHold: true,
+          legalHoldRef: holdRef.path,
+          externalReport: {
+            required: true,
+            provider: "NCMEC_CYBERTIPLINE",
+            submitted: false,
+          },
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        await csamBatch.commit();
+
+        await fileNCMECReport({
+          contentRef: snap.ref.path,
+          contentType: "dm_image",
+          contentUrl: imageUrl,
+          authorId: authorId ?? null,
+          detectedCategories: dmImgCategories,
+          detectedBy: "nvidia-vision-llm",
+        }).catch((e) => console.error("[moderateDMMessage] fileNCMECReport error (CSAM):", e.message));
+
+        console.warn(
+          `[moderateDMMessage] DM IMAGE CSAM ESCALATED — msg ${snap.id} categories: ${dmImgCategories.join(", ")}`,
+        );
+        return;
+      }
+
+      // Non-CSAM image-only DM: route to pending_image_review as before.
       await snap.ref.update({
         visible: false,
         moderation: {
           status: "pending_image_review",
+          categories: dmImgCategories,
+          provider: dmImgResult ? "nvidia-vision-llm" : "image-review-pending",
           checkedAt: FieldValue.serverTimestamp(),
         },
       });
