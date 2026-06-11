@@ -479,6 +479,7 @@ function requireBereanAuth(request) {
 exports.bereanChat = onCallV2(
   {
     region: "us-central1",
+    enforceAppCheck: true,
     timeoutSeconds: 60,
     secrets: [BEREAN_ANTHROPIC_KEY, BEREAN_NVIDIA_KEY, BEREAN_PINECONE_KEY, BEREAN_PINECONE_HOST],
   },
@@ -551,6 +552,7 @@ exports.bereanChat = onCallV2(
 exports.bereanMemory = onCallV2(
   {
     region: "us-central1",
+    enforceAppCheck: true,
     timeoutSeconds: 45,
     secrets: [BEREAN_ANTHROPIC_KEY, BEREAN_NVIDIA_KEY],
   },
@@ -607,6 +609,7 @@ exports.bereanMemory = onCallV2(
 exports.bereanCrisisDetect = onCallV2(
   {
     region: "us-central1",
+    enforceAppCheck: true,
     timeoutSeconds: 20,
     secrets: [BEREAN_NVIDIA_KEY],
   },
