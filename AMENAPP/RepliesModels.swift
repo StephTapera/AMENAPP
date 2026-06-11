@@ -165,7 +165,8 @@ class RepliesViewModel: ObservableObject {
             
             hasMoreData = snapshot.documents.count == 50
             
-            print("✅ Loaded \(limitedThreads.count) reply threads for user \(userId)")
+            // Do not log userId — UID is PII; payload-free per GAP_BOARD P1.
+            dlog("✅ Loaded \(limitedThreads.count) reply threads")
             
         } catch {
             self.error = "Failed to load replies: \(error.localizedDescription)"

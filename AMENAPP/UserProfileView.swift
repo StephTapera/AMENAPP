@@ -5366,7 +5366,7 @@ extension UserProfileView {
         guard !AMENAnalyticsService.shared.isUserOptedOut else { return }
         Analytics.logEvent("user_profile_loaded", parameters: [
             "load_ms": Int(loadTime * 1000),
-            "viewed_user_id": userId,
+            // Do not include viewed_user_id — UID is PII; payload-free per GAP_BOARD P1.
             "session_id": AMENAnalyticsService.shared.sessionId
         ])
     }

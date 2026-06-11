@@ -66,12 +66,16 @@ final class SafeZoneService: ObservableObject {
     }
 
     /// Adds a new safe zone at the user's consented current location.
+    // Real location wired per GAP_BOARD P1 Safe Zone
     @discardableResult
     func addSafeZoneAtCurrentLocation(
         name: String,
         radiusMeters: Double,
         triggerExtraReview: Bool
     ) async throws -> CameraSafeZone {
+        // Uses CoreLocationSafeZoneLocationProvider (CLLocationManager).
+        // Throws SafeZoneLocationError.authorizationDenied if the user has denied
+        // location access — callers must handle this gracefully (unknown zone, no crash).
         let location = try await locationProvider.requestCurrentLocation()
         return addSafeZone(
             name: name,
