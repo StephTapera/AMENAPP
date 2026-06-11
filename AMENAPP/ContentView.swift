@@ -44,6 +44,9 @@ struct ContentView: View {
     // ── SabbathMode: Additive wiring (extends existing ShabbatModeService/RestModeGate) ──
     // SabbathModeService drives the Sabbath gate. Does NOT replace SundayChurchFocusManager.
     @ObservedObject private var sabbathService = SabbathModeService.shared
+    // GAP P0-7: observe the kill switch so feedEnabled/messagingEnabled/createPostEnabled/
+    // maintenanceMode actually gate their surfaces. Previously only isAppVersionValid was read.
+    @ObservedObject private var killSwitch = RemoteKillSwitch.shared
     @State private var sabbathCurrentDest: SabbathNavDestination?
     private var shouldShowAccountTypeOnboarding: Bool {
         // ✅ DISABLED: All users get Personal account by default (like Instagram/Threads)
@@ -606,6 +609,10 @@ struct ContentView: View {
             SundayChurchFocusGateView(selectedTab: $viewModel.selectedTab)
                 .id("shabbatModeGate")
                 .animation(nil, value: viewModel.selectedTab)
+        } else if killSwitch.maintenanceMode {
+            // GAP P0-7: maintenance mode — overlay a full-screen notice instead of any tab.
+            KillSwitchMaintenanceView(message: killSwitch.maintenanceMessage)
+                .id("maintenanceGate")
         } else {
             allTabsZStack
         }
@@ -617,17 +624,22 @@ struct ContentView: View {
     private var allTabsZStack: some View {
         ZStack {
                 keepMountedTab(isActive: viewModel.selectedTab == 0) {
-                    HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu, selectedPostCategory: $selectedPostCategory)
-                        .onAppear {
-                            if viewModel.selectedTab == 0 {
-                                NotificationAggregationService.shared.updateCurrentScreen(.home)
+                    // GAP P0-7: feed kill switch — RC key kill_feed_enabled=false hides content.
+                    if killSwitch.feedEnabled {
+                        HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu, selectedPostCategory: $selectedPostCategory)
+                            .onAppear {
+                                if viewModel.selectedTab == 0 {
+                                    NotificationAggregationService.shared.updateCurrentScreen(.home)
+                                }
                             }
-                        }
-                        .onChange(of: viewModel.selectedTab) { _, tab in
-                            if tab == 0 {
-                                NotificationAggregationService.shared.updateCurrentScreen(.home)
+                            .onChange(of: viewModel.selectedTab) { _, tab in
+                                if tab == 0 {
+                                    NotificationAggregationService.shared.updateCurrentScreen(.home)
+                                }
                             }
-                        }
+                    } else {
+                        KillSwitchUnavailableView(feature: "Feed")
+                    }
                 }
 
                 keepMountedTab(isActive: viewModel.selectedTab == 1) {
@@ -639,17 +651,22 @@ struct ContentView: View {
                 }
 
                 keepMountedTab(isActive: viewModel.selectedTab == 2) {
-                    Group {
-                        if #available(iOS 26.0, *) {
-                            ONENavigationShell()
-                        } else {
-                            SpiritualInboxView()
+                    // GAP P0-7: messaging kill switch — RC key kill_messaging_enabled=false.
+                    if killSwitch.messagingEnabled {
+                        Group {
+                            if #available(iOS 26.0, *) {
+                                ONENavigationShell()
+                            } else {
+                                SpiritualInboxView()
+                            }
                         }
-                    }
-                    .id("hub")
-                    .task {
-                        NotificationAggregationService.shared.updateCurrentScreen(.messages)
-                        BadgeCountManager.shared.clearMessages()
+                        .id("hub")
+                        .task {
+                            NotificationAggregationService.shared.updateCurrentScreen(.messages)
+                            BadgeCountManager.shared.clearMessages()
+                        }
+                    } else {
+                        KillSwitchUnavailableView(feature: "Messages")
                     }
                 }
 
@@ -942,8 +959,12 @@ struct ContentView: View {
         // Contextual glass sheet — emerges from the compose button with staged content reveal.
         // CreatePostView receives the audience-informed category. selectedAudience + metadata
         // are stored on ContentView for downstream wiring into the Firestore post document.
+        // GAP P0-7: createPost kill switch — only open the sheet when enabled.
         .glassContextualSheet(
-            isPresented: $showCreatePost,
+            isPresented: Binding(
+                get: { showCreatePost && killSwitch.createPostEnabled },
+                set: { showCreatePost = $0 }
+            ),
             sourceId: "composeButton",
             namespace: createPostNamespace
         ) {
@@ -1082,6 +1103,8 @@ struct ContentView: View {
             setupDiscoverTabObserver()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCreatePost)) { _ in
+            // GAP P0-7: respect the createPost kill switch.
+            guard killSwitch.createPostEnabled else { return }
             withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.8))) {
                 showCreatePost = true
             }
@@ -1839,6 +1862,50 @@ private struct AccountSuspendedWallView: View {
 
 #Preview("ContentView") {
     ContentView()
+}
+
+// MARK: - GAP P0-7 Kill-switch gate views
+
+/// Full-screen maintenance notice shown when `RemoteKillSwitch.maintenanceMode == true`.
+private struct KillSwitchMaintenanceView: View {
+    let message: String
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "wrench.and.screwdriver")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("Scheduled Maintenance")
+                .font(.title2.bold())
+            Text(message.isEmpty ? "AMEN is temporarily unavailable for maintenance. Please check back shortly." : message)
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
+    }
+}
+
+/// Tab-level replacement shown when a feature kill switch is false.
+private struct KillSwitchUnavailableView: View {
+    let feature: String
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+            Text("\(feature) Temporarily Unavailable")
+                .font(.headline)
+            Text("This feature is temporarily disabled. Please check back soon.")
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
+    }
 }
 
 // Environment keys are defined in ContentViewEnvironmentKeys.swift
