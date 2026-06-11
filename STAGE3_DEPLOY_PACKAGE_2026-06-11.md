@@ -118,6 +118,83 @@ are live and that the age-tier custom claims sync is running without errors.
 
 ---
 
+## Step 10 — Find Church 2.0 (append-only diffs — ship after Steps 1–9)
+
+### 10a — Firestore rules (append-only, folded into safety rules deploy)
+
+The four new `findChurch2_*` collections are guarded in `firestore.rules` with deny-by-default
+catch-all still in place. Deploy as part of Step 1's `firebase deploy --only firestore:rules`:
+
+```
+/gatherings/{gatheringId}   — read: isSignedIn + isPublic==true; write: Admin SDK only
+/seekerProfiles/{uid}       — read/write: isSignedIn + auth.uid == uid; Admin SDK bypass
+/visitPlans/{planId}        — read: owner; create: owner with required fields; delete: false
+/claimRequests/{claimId}    — create: owner + status==submitted; read: owner or Admin; update/delete: false
+```
+
+No new rules file needed — diffs are already committed to `firestore.rules` on this branch.
+
+### 10b — Find Church 2.0 Cloud Functions
+
+Auth + App Check + rate-limit confirmed at:
+- `requireAuth()` — `ingestion.ts:107-113` (throws `unauthenticated` when `auth.uid` absent)
+- `requireAppCheck()` — `ingestion.ts:115-120` (throws `failed-precondition` when `app.appId` absent; emulator-exempt)
+- Rate limit — `ingestion.ts:122-125` via `_systemLocks/ingestChurches` Firestore lock, 5000 ms minimum
+
+```bash
+firebase deploy --only \
+  functions:ingestChurchesFromGooglePlaces,\
+  functions:computeAvailabilityStatus,\
+  functions:scheduleAvailabilityRefresh,\
+  functions:detectChurchMedia \
+  --project amen-5e359
+```
+
+**Prerequisite:** Set `GOOGLE_PLACES_API_KEY` before deploying ingestion:
+```bash
+firebase functions:config:set places.api_key="YOUR_KEY" --project amen-5e359
+```
+
+### 10c — Remote Config (all default OFF — flip individually after verification)
+
+Upload the `remoteconfig.template.json` diff (10 new keys):
+```
+findChurch2_onboarding        false   3-phase LG onboarding
+findChurch2_matchExplain      false   MatchExplanation drawer
+findChurch2_gatherings        false   Gatherings surface
+findChurch2_visitPlanner      false   Visit Planner
+findChurch2_claimPortal       false   Claim flow + admin portal
+findChurch2_concierge         false   Berean concierge (local-only)
+findChurch2_mapHybrid         false   Map/list toggle
+findChurch2_availability      false   AvailabilityStatus pills
+findChurch2_trustSignals      false   Trust signals section
+findChurch2_designRefresh     false   Full UI refresh (header, cards, profile expansion)
+```
+
+### 10d — Seed Phoenix metro corpus (after 10b is live)
+
+```bash
+# Call via Firebase console or a Cloud Shell authenticated curl:
+curl -X POST https://us-central1-amen-5e359.cloudfunctions.net/ingestChurchesFromGooglePlaces \
+  -H "Content-Type: application/json" \
+  -d '{"data": {"location": {"lat": 33.4484, "lng": -112.0740}, "radiusMeters": 50000}}'
+```
+
+### 10e — Flag-flip preconditions
+
+| Flag | Precondition |
+|---|---|
+| `findChurch2_availability` | `computeAvailabilityStatus` + `scheduleAvailabilityRefresh` deployed and ACTIVE |
+| `findChurch2_gatherings` | `gatherings/` Firestore rules live (Step 10a) |
+| `findChurch2_visitPlanner` | `seekerProfiles/` + `visitPlans/` rules live; EventKit + UNNotification plist entries confirmed present |
+| `findChurch2_claimPortal` | `claimRequests/` rules live; Aegis review queue handler confirmed in place |
+| `findChurch2_concierge` | No CF dependency — local-only; can flip independently |
+| `findChurch2_matchExplain` | No CF dependency — local-only; can flip independently |
+| `findChurch2_designRefresh` | `findChurch2_matchExplain` already ON; test on smallest + largest device |
+| `findChurch2_onboarding` | `seekerProfiles/` rules live; Privacy policy updated to describe SeekerProfile |
+
+---
+
 ## Post-deploy smoke test checklist
 
 - [ ] `firebase functions:log --only evaluateDmRisk` — no cold-start errors
