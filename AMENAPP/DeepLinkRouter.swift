@@ -121,6 +121,10 @@ class DeepLinkRouter: ObservableObject {
             let section = pathComponents.first
             return .settings(section: section)
 
+        case "guardian":
+            // What's New "Guardian Family Safe Sharing" CTA → Settings (Guardian section).
+            return .settings(section: "guardian")
+
         case "comment":
             // amen://comment?postId=...&commentId=...&prefill=...
             let postId    = queryItems?.first(where: { $0.name == "postId" })?.value ?? ""

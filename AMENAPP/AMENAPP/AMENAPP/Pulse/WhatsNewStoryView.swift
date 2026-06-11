@@ -88,7 +88,9 @@ struct WhatsNewStoryView: View {
             pageDots(count: story.pages.count)
 
             HStack(spacing: 12) {
-                if let tryAction = story.tryAction {
+                // Fail-closed: only show "Try It" when its deeplink resolves to a
+                // real destination — never an enabled button that does nothing.
+                if let tryAction = story.tryAction, canOpen(tryAction.deeplink) {
                     Button {
                         openDeeplink(tryAction.deeplink)
                     } label: {
@@ -180,9 +182,30 @@ struct WhatsNewStoryView: View {
         }
     }
 
+    /// Whether the story's Try-It deeplink resolves to a real destination.
+    @MainActor
+    private func canOpen(_ deeplink: String) -> Bool {
+        guard let url = URL(string: deeplink) else { return false }
+        switch url.scheme?.lowercased() {
+        case "amen", "amenapp": return DeepLinkRouter.shared.parse(url: url) != nil
+        case "http", "https":   return true
+        default:                return false
+        }
+    }
+
+    @MainActor
     private func openDeeplink(_ deeplink: String) {
         guard let url = URL(string: deeplink) else { return }
-        UIApplication.shared.open(url)
+        switch url.scheme?.lowercased() {
+        case "amen", "amenapp":
+            guard let route = DeepLinkRouter.shared.parse(url: url) else { return }
+            dismiss()
+            DeepLinkRouter.shared.navigate(to: route)
+        case "http", "https":
+            UIApplication.shared.open(url)
+        default:
+            return
+        }
     }
 
     // MARK: - Page
