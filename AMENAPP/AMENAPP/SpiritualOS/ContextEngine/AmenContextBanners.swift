@@ -33,7 +33,10 @@ struct DrivingModeBanner: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    // Glass-on-glass fixed per seam sweep: button sits inside a
+                    // livingGlassMaterial banner — use tinted solid fill instead.
+                    .background(Capsule().fill(Color.white.opacity(0.20)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }
@@ -84,7 +87,10 @@ struct SundayModeCalloutBanner: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    // Glass-on-glass fixed per seam sweep: button sits inside a
+                    // livingGlassMaterial banner — use tinted solid fill instead.
+                    .background(Capsule().fill(Color.white.opacity(0.20)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }
@@ -143,7 +149,10 @@ struct EventCheckInBanner: View {
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
-                        .glassEffect(.regular.interactive(), in: Capsule())
+                        // Glass-on-glass fixed per seam sweep: button sits inside a
+                        // livingGlassMaterial banner — use tinted solid fill instead.
+                        .background(Capsule().fill(Color.white.opacity(0.20)))
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
@@ -208,7 +217,10 @@ struct TravelModeBanner: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    // Glass-on-glass fixed per seam sweep: button sits inside a
+                    // livingGlassMaterial banner — use tinted solid fill instead.
+                    .background(Capsule().fill(Color.white.opacity(0.20)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.30), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }

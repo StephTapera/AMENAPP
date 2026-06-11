@@ -152,7 +152,7 @@ private struct TierCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             Button {
-                withAnimation(.spring(response: 0.3)) { isExpanded.toggle() }
+                withAnimation(Motion.adaptive(.spring(response: 0.3))) { isExpanded.toggle() }
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {

@@ -38,7 +38,7 @@ struct ConnectForYouView: View {
         }
         .task {
             await loadRecentEvents()
-            withAnimation(.easeOut(duration: 0.4)) { appeared = true }
+            withAnimation(Motion.adaptive(.easeOut(duration: 0.4))) { appeared = true }
         }
     }
 

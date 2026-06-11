@@ -28,6 +28,7 @@ struct AMENLoadingIndicator: View {
     @State private var dot1Up = false
     @State private var dot2Up = false
     @State private var dot3Up = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: spacing) {
@@ -44,12 +45,13 @@ struct AMENLoadingIndicator: View {
             .frame(width: dotSize, height: dotSize)
             .offset(y: isUp ? -bounceHeight : 0)
             .animation(
-                .easeInOut(duration: animDuration).repeatForever(autoreverses: true),
+                reduceMotion ? .easeInOut(duration: 0) : .easeInOut(duration: animDuration).repeatForever(autoreverses: true),
                 value: isUp
             )
     }
 
     private func startBouncing() {
+        guard !reduceMotion else { return }
         let stagger = animDuration * 0.55
         withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
             dot1Up = true

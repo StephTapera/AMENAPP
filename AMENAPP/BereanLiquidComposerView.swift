@@ -46,13 +46,13 @@ struct BereanLiquidComposerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
             if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(Motion.adaptive(.easeOut(duration: 0.25))) {
                     keyboardHeight = keyboardFrame.height
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(Motion.adaptive(.easeOut(duration: 0.25))) {
                 keyboardHeight = 0
             }
         }
@@ -137,7 +137,7 @@ struct BereanLiquidComposerView: View {
     
     private var plusButton: some View {
         Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.7))) {
                 showActions.toggle()
                 composerVM.setState(showActions ? .expandedActions : .idle)
             }
@@ -190,7 +190,7 @@ struct BereanLiquidComposerView: View {
                 actionPillButton(action)
                     .transition(.scale.combined(with: .opacity))
                     .animation(
-                        .spring(response: 0.4, dampingFraction: 0.7)
+                        Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.7))
                             .delay(Double(index) * 0.05),
                         value: showActions
                     )
@@ -210,7 +210,7 @@ struct BereanLiquidComposerView: View {
     
     private func actionPillButton(_ action: BereanLiquidAction) -> some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 showActions = false
                 composerVM.setState(.idle)
             }
@@ -289,7 +289,7 @@ struct BereanLiquidComposerView: View {
         .onPreferenceChange(TextHeightPreferenceKey.self) { measuredHeight in
             let clamped = min(max(40, measuredHeight), maxHeight)
             if abs(clamped - textHeight) > 1 {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(Motion.adaptive(.easeOut(duration: 0.15))) {
                     textHeight = clamped
                 }
             }
@@ -347,7 +347,7 @@ struct BereanLiquidComposerView: View {
     private var micButton: some View {
         Button {
             onVoice()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 composerVM.setState(.voiceReady)
             }
             HapticManager.impact(style: .light)
@@ -453,7 +453,7 @@ private struct VoiceWaveformBar: View {
                 if active {
                     startAnimating()
                 } else {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(Motion.adaptive(.easeOut(duration: 0.2))) {
                         height = minHeight
                     }
                 }

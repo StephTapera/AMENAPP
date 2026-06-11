@@ -132,7 +132,7 @@ struct BereanMenuSheet: View {
     private var trailingButtons: some View {
         HStack(spacing: 6) {
             Button {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+                withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.76))) {
                     showSearchField.toggle()
                     if !showSearchField { searchText = "" }
                 }

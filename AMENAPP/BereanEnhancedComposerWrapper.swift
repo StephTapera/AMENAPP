@@ -95,7 +95,7 @@ struct BereanEnhancedComposerWrapper: View {
     
     private func modeButton(_ mode: BereanResponseMode) -> some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
                 responseMode = mode
             }
             HapticManager.impact(style: .light)
@@ -151,7 +151,7 @@ struct BereanEnhancedComposerWrapper: View {
         Button {
             messageText = item.prompt
             isInputFocused = true
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(Motion.adaptive(.easeOut(duration: 0.2))) {
                 showFollowUps = false
             }
             HapticManager.impact(style: .light)

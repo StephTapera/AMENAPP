@@ -221,7 +221,7 @@ struct AmenMediaReflectionSheet: View {
     private func visibilityButton(_ option: MediaReflectionVisibility) -> some View {
         let isSelected = visibility == option
         return Button {
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.82)) {
+            withAnimation(Motion.adaptive(.spring(response: 0.2, dampingFraction: 0.82))) {
                 visibility = option
             }
         } label: {
