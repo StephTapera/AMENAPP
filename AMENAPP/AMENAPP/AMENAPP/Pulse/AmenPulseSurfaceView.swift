@@ -139,7 +139,7 @@ struct AmenPulseSurfaceView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "F2F2F7").ignoresSafeArea()
+            Color(.systemGroupedBackground).ignoresSafeArea()
             ambientWash
 
             Group {
@@ -169,7 +169,7 @@ struct AmenPulseSurfaceView: View {
 
     private var ambientWash: some View {
         VStack {
-            RadialGradient(colors: [ambientTint.opacity(0.55), Color(hex: "F2F2F7").opacity(0)],
+            RadialGradient(colors: [ambientTint.opacity(0.55), Color(.systemGroupedBackground).opacity(0)],
                            center: .top, startRadius: 0, endRadius: 320)
                 .frame(height: 280)
                 .animation(.easeInOut(duration: 0.9), value: ambientTint)
@@ -208,7 +208,7 @@ struct AmenPulseSurfaceView: View {
                     .foregroundColor(Color(hex: "8A8A8E"))
                 Text("Pulse")
                     .font(.system(size: 34, weight: .heavy))
-                    .foregroundColor(Color(hex: "1C1C1E"))
+                    .foregroundColor(Color(.label))
             }
             Spacer()
             HStack(spacing: 10) {
@@ -227,9 +227,9 @@ struct AmenPulseSurfaceView: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(Color(hex: "1C1C1E"))
+                .foregroundColor(Color(.label))
                 .frame(width: 38, height: 38)
-                .background(Circle().fill(Color.white.opacity(0.62)))
+                .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
                 .background(Circle().fill(.ultraThinMaterial))
                 .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
@@ -247,11 +247,11 @@ struct AmenPulseSurfaceView: View {
                     } label: {
                         Text(chip.title)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(active ? .white : Color(hex: "1C1C1E"))
+                            .foregroundColor(active ? .white : Color(.label))
                             .padding(.horizontal, 16).padding(.vertical, 9)
                             .background(
                                 Capsule()
-                                    .fill(active ? Color(hex: "1C1C1E").opacity(0.86) : Color.white.opacity(0.62))
+                                    .fill(active ? Color(.label).opacity(0.86) : Color(.secondarySystemGroupedBackground))
                                     .background(Capsule().fill(.ultraThinMaterial))
                             )
                             .overlay(Capsule().stroke(Color.white.opacity(active ? 0 : 0.7), lineWidth: 0.5))
@@ -288,10 +288,10 @@ struct AmenPulseSurfaceView: View {
                 .font(.system(size: 16, weight: .regular))
                 .foregroundColor(Color(hex: "8A8A8E"))
                 .frame(width: 34, height: 34)
-                .background(Circle().fill(Color(hex: "1C1C1E").opacity(0.05)))
+                .background(Circle().fill(Color(.label).opacity(0.05)))
             Text("That’s everything for today.")
                 .font(.system(size: 19, weight: .bold))
-                .foregroundColor(Color(hex: "1C1C1E"))
+                .foregroundColor(Color(.label))
             Text("Be still. Go be with people.")
                 .font(.system(size: 14.5))
                 .foregroundColor(Color(hex: "8A8A8E"))
@@ -300,7 +300,7 @@ struct AmenPulseSurfaceView: View {
         .padding(.vertical, 44).padding(.horizontal, 28)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(LinearGradient(colors: [Color.white, Color(hex: "F7F6F3")], startPoint: .top, endPoint: .bottom))
+                .fill(Color(.secondarySystemGroupedBackground))
                 .shadow(color: .black.opacity(0.06), radius: 10, y: 6)
         )
         .padding(.top, 14)
@@ -330,7 +330,7 @@ struct AmenPulseSurfaceView: View {
         VStack(spacing: 10) {
             Image(systemName: "wind").font(.system(size: 26)).foregroundColor(Color(hex: "8A8A8E"))
             Text("Nothing needs you right now.")
-                .font(.system(size: 18, weight: .bold)).foregroundColor(Color(hex: "1C1C1E"))
+                .font(.system(size: 18, weight: .bold)).foregroundColor(Color(.label))
             Text("Pulse will be here tomorrow morning.")
                 .font(.system(size: 14.5)).foregroundColor(Color(hex: "8A8A8E"))
         }
@@ -341,7 +341,7 @@ struct AmenPulseSurfaceView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle").font(.system(size: 24)).foregroundColor(Color(hex: "8A8A8E"))
-            Text("Pulse couldn’t load.").font(.system(size: 17, weight: .bold)).foregroundColor(Color(hex: "1C1C1E"))
+            Text("Pulse couldn’t load.").font(.system(size: 17, weight: .bold)).foregroundColor(Color(.label))
             Text(message).font(.system(size: 13)).foregroundColor(Color(hex: "8A8A8E")).multilineTextAlignment(.center)
             Button("Try Again") { Task { await viewModel.load() } }
                 .font(.system(size: 14, weight: .semibold)).padding(.top, 4)

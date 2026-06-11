@@ -32,7 +32,7 @@ struct PulsePrefsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(hex: "F2F2F7").ignoresSafeArea()
+                Color(.systemGroupedBackground).ignoresSafeArea()
 
                 Form {
                     styleSection
@@ -131,10 +131,10 @@ struct PulsePrefsView: View {
             } icon: {
                 Image(systemName: systemImage)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color(hex: "1C1C1E"))
+                    .foregroundColor(Color(.label))
             }
         }
-        .tint(Color(hex: "1C1C1E"))
+        .tint(Color(.label))
         .onChange(of: value.wrappedValue) { _, _ in save() }
     }
 
@@ -146,7 +146,7 @@ struct PulsePrefsView: View {
                     in: PulseConfig.minUserCards...PulseConfig.defaultMaxCards) {
                 Text("Show up to \(capBinding.wrappedValue) cards a day.")
                     .font(.system(size: 16, weight: .regular))
-                    .foregroundColor(Color(hex: "1C1C1E"))
+                    .foregroundColor(Color(.label))
             }
             .onChange(of: capBinding.wrappedValue) { _, _ in save() }
         } header: {
@@ -210,12 +210,12 @@ private struct FlowChips: View {
                 } label: {
                     Text(label(item))
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(selected ? .white : Color(hex: "1C1C1E"))
+                        .foregroundColor(selected ? .white : Color(.label))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(
                             Capsule()
-                                .fill(selected ? Color(hex: "1C1C1E").opacity(0.86) : Color.white.opacity(0.62))
+                                .fill(selected ? Color(.label).opacity(0.86) : Color(.secondarySystemGroupedBackground))
                                 .background(Capsule().fill(.ultraThinMaterial))
                         )
                         .overlay(Capsule().stroke(Color.white.opacity(selected ? 0 : 0.7), lineWidth: 0.5))

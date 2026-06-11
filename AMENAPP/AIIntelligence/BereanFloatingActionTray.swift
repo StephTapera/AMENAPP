@@ -26,7 +26,7 @@ struct BereanFloatingActionTray: View {
                             )
                     )
             } else {
-                // iOS 26 native glass — GlassEffectContainer gives the tray one
+                // custom glass shim (GlassEffectModifiers.swift) — GlassEffectContainer gives the tray one
                 // shared blur surface with a specular rim. .amenGlassEffect() is the
                 // LAST modifier on each chip so it renders above all other layers.
                 GlassEffectContainer {

@@ -78,8 +78,16 @@ struct PulseHeroCardView: View {
         .onTapGesture(perform: onOpen)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
-                .onChanged { _ in if !pressed { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { pressed = true } } }
-                .onEnded { _ in withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { pressed = false } }
+                .onChanged { _ in
+                    if !pressed {
+                        if reduceMotion { pressed = true }
+                        else { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { pressed = true } }
+                    }
+                }
+                .onEnded { _ in
+                    if reduceMotion { pressed = false }
+                    else { withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { pressed = false } }
+                }
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(card.eyebrow). \(card.title)")

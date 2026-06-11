@@ -1,6 +1,6 @@
 // ONENavigationShell.swift
 // ONE — Three Zone Navigation (People · Moments · World)
-// P0-I | Requires iOS 26 for glassEffect dock.
+// P0-I | uses custom GlassEffectContainer shim
 //
 // Design rules enforced here:
 //   • Feed content is always matte — no glassEffect on cells.
