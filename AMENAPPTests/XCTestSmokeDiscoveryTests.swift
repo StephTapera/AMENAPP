@@ -4,5 +4,6 @@ import XCTest
 final class XCTestSmokeDiscoveryTests: XCTestCase {
     func testDiscoverySmoke() {
         XCTAssertTrue(true)
+        XCTAssertNotNil(AMENFeatureFlags.shared, "AMENFeatureFlags singleton must be accessible")
     }
 }

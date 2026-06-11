@@ -12,12 +12,12 @@ change was required** (deps already declared + installed).
 | **AI / Action Intelligence** (other lane's suite — run, not authored by claude) | `Backend/actionIntelligenceRules.test.js` | **26/26 PASS** ✅ |
 | **[MINOR] DM safety matrix** | `Backend/rules-tests/minor-safe-dm.rules.test.ts` | **8/8 PASS** ✅ |
 | **NoteShare access + Settings owner-only** | `Backend/verification/noteShareAccess.rules.test.js` | **15/15 PASS** ✅ |
-| **ConnectSpaces prepared-ground** | `Backend/verification/connectSpacesAccess.rules.test.js` | **5/7 PASS + 2 EXPECTED-RED** ⏳ |
+| **ConnectSpaces prepared-ground** | `Backend/verification/connectSpacesAccess.rules.test.js` | **5/7 PASS + 2 BLOCKED: waiting on spaces/{spaceId}/files rule to be written** ⏳ |
 | Presence fail-closed + Comment enforcement | `AMENAPPTests/PresenceAndCommentEnforcementTests.swift` | Swift (Xcode), not emulator: 1 model test + 4 named `.disabled` seams |
 
 **Total emulator: 54 green + 2 expected-red.**
 
-The 2 ConnectSpaces RED cases are the **TDD signal**, not failures:
+The 2 ConnectSpaces RED cases are **BLOCKED: waiting on spaces/{spaceId}/files rule to be written**, not failures:
 `spaceFiles_member_canRead` / `spaceFiles_member_canUpload_ownFile` stay RED until the
 `spaces/{spaceId}/files` rule is appended (the rule is in the file header). The 3
 discovery cases + 4 negative file cases pass against the existing `spaces` rule.
