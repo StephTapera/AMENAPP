@@ -815,6 +815,32 @@ struct ContentView: View {
         // NotificationDeepLinkRouter.shared publishes activeDestination whenever
         // a push is tapped. This modifier observes it and switches selectedTab.
         .handleNotificationNavigation(selectedTab: $viewModel.selectedTab)
+        // A2-P1: Bridge DeepLinkRouter.activeRoute → viewModel.selectedTab.
+        // DeepLinkRouter.navigate() already sets selectedTab on the router's own
+        // property; this observer mirrors it onto ContentView's viewModel so
+        // the keep-mounted tab ZStack responds, then clears the route.
+        .onChange(of: DeepLinkRouter.shared.activeRoute) { _, newRoute in
+            guard let route = newRoute else { return }
+            switch route {
+            case .post, .userProfile, .category, .church, .comment:
+                viewModel.selectedTab = 0
+            case .search:
+                viewModel.selectedTab = 1
+            case .conversation, .chat, .messages, .groupJoin, .prayer, .churchNote:
+                viewModel.selectedTab = 3
+            case .notification, .notifications:
+                viewModel.selectedTab = 4
+            case .settings:
+                viewModel.selectedTab = 5
+            case .space:
+                viewModel.selectedTab = 6
+            case .intelligence:
+                viewModel.selectedTab = 7
+            case .event:
+                viewModel.selectedTab = 3
+            }
+            DeepLinkRouter.shared.clearRoute()
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             // Reserve the exact floating chrome footprint so content never sits under it.
             Color.clear

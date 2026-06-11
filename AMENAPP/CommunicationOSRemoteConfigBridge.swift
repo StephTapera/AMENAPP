@@ -58,6 +58,7 @@ struct CommunicationOSRemoteConfigBridge {
 
     // Keys to fetch from Remote Config.
     // All flags default ON in code; set to false in Firebase Console to disable remotely.
+    // GAP A5-P1 removed dead RC keys: smartThreadMiniSummaryEnabled, nvidiaSafetyProviderEnabled
     static let allFlagKeys: [String] = [
         "smartMessageContextEnabled",
         "conversationMemoryEnabled",
@@ -70,8 +71,6 @@ struct CommunicationOSRemoteConfigBridge {
         "smartPostContextEnabled",
         "textModerationEnabled",
         "imageModerationEnabled",
-        "smartThreadMiniSummaryEnabled",
-        "nvidiaSafetyProviderEnabled",
         "ragSearchEnabled",
     ]
 }

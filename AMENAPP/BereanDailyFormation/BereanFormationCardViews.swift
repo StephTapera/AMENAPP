@@ -438,8 +438,8 @@ struct BereanMemoryCard: View {
             HStack {
                 FormationSectionLabel(icon: "brain", text: "Memory Verse")
                 Spacer()
-                Text("🔥 \(mv.streak)-day streak")
-                    .font(.systemScaled(11)).foregroundStyle(Color.white.opacity(0.30))
+                Text("Completed")
+                    .font(.systemScaled(11)).foregroundStyle(.secondary)
             }
 
             Text(mv.verseRef)

@@ -92,7 +92,7 @@ struct BereanDailyFormationFeedView: View {
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: whyCard == nil)
         .task(id: cards.map(\.id).joined()) {
             guard let uid = Auth.auth().currentUser?.uid else { return }
-            let streakDay = await FormationOSIntegrationService.shared.currentStreakDay(uid: uid)
+            // A7-P1: streak counter removed — record completion without incrementing streakDay
             for card in cards {
                 let kind: FormationCardKind
                 switch card.cardType {
@@ -100,7 +100,7 @@ struct BereanDailyFormationFeedView: View {
                 case .prayer: kind = .prayer
                 case .sanctuary, .seasonal: kind = .reflection
                 }
-                var entry = BereanFormationEntry(uid: uid, cardKind: kind, streakDay: streakDay + 1)
+                var entry = BereanFormationEntry(uid: uid, cardKind: kind, streakDay: 0)
                 entry.completedAt = Date().timeIntervalSince1970
                 await FormationOSIntegrationService.shared.recordCardCompletion(uid: uid, entry: entry)
             }
