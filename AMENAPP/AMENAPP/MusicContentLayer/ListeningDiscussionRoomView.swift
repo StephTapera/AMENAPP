@@ -248,7 +248,7 @@ struct ListeningRoomCard: View {
         .padding(.vertical, 12)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(reduceTransparency ? Color(.systemBackground) : AnyShapeStyle(.ultraThinMaterial))
+                .fill(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(Material.ultraThin))
                 .overlay {
                     if !reduceTransparency {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -428,7 +428,7 @@ struct LiveDiscussionRoomView: View {
         .padding(.vertical, 12)
         .background {
             Rectangle()
-                .fill(reduceTransparency ? Color(.systemBackground) : AnyShapeStyle(.ultraThinMaterial))
+                .fill(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(Material.ultraThin))
         }
     }
 
@@ -487,8 +487,8 @@ struct LiveDiscussionRoomView: View {
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(reduceTransparency
-                          ? Color(.secondarySystemBackground)
-                          : AnyShapeStyle(.ultraThinMaterial))
+                          ? AnyShapeStyle(Color(.secondarySystemBackground))
+                          : AnyShapeStyle(Material.ultraThin))
                     .overlay {
                         if !reduceTransparency {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -520,7 +520,9 @@ struct LiveDiscussionRoomView: View {
                         Text(option)
                             .font(.subheadline)
                         Spacer(minLength: 0)
-                        Text("\(poll.votes[option, default: 0])")
+                        let voteCount = poll.votes[option, default: 0]
+                        let _ = voteCount  // break expression for type-checker
+                        Text("\(voteCount)")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -608,7 +610,7 @@ struct LiveDiscussionRoomView: View {
             .padding(.vertical, 10)
             .background {
                 Rectangle()
-                    .fill(reduceTransparency ? Color(.systemBackground) : AnyShapeStyle(.ultraThinMaterial))
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(Material.ultraThin))
                     .ignoresSafeArea(edges: .bottom)
             }
         }
@@ -656,7 +658,7 @@ struct LiveDiscussionRoomView: View {
             .padding(28)
             .background {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(reduceTransparency ? Color(.systemBackground) : AnyShapeStyle(.ultraThinMaterial))
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(.systemBackground)) : AnyShapeStyle(Material.ultraThin))
                     .overlay {
                         if !reduceTransparency {
                             RoundedRectangle(cornerRadius: 22, style: .continuous)
