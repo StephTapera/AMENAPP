@@ -309,6 +309,13 @@ service cloud.firestore {
     // =========================================================================
 
     match /users/{userId} {
+      // FIX #29 (HIGH — UID enumeration block):
+      // Listing the /users collection is denied for all clients.
+      // Individual get() calls are still gated by the read rule below.
+      // This prevents any client from paginating or scanning all user UIDs,
+      // which could be used to build shadow-user lists or discover minor accounts.
+      allow list: if false;
+
       // Read: signed-in users may read public profile data, with minor-protection gate.
       // Unauthenticated access is denied (all PII lives in subcollections).
       //
@@ -346,10 +353,18 @@ service cloud.firestore {
       // Update: owner may update own profile; protected fields frozen.
       // ageTier / ageCategory / dateOfBirth / ageVerified are CF/Admin SDK only.
       // Premium entitlement fields are CF/Admin SDK only.
+      //
+      // FIX #3 (CRITICAL — users field-level locks):
+      // Clients must NEVER be able to write safety.isMinor, safety.ageTier, roles,
+      // customClaims, or accountStatus — these are exclusively managed by Cloud
+      // Functions via Admin SDK.  Prevents privilege escalation (e.g. a client
+      // self-setting roles or clearing accountStatus:'suspended').
       allow update: if isOwner(userId) &&
         premiumFieldsUnchanged() &&
         ageTierUnchanged() &&
-        provenanceUnchanged();
+        provenanceUnchanged() &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(["safety","roles","customClaims","accountStatus"]);
 
       // Delete: hard delete denied — I-1. Use soft-delete (set deletedAt).
       allow delete: if false;
@@ -536,9 +551,18 @@ service cloud.firestore {
       // Update: owner can update own post; moderators/admins can soft-delete.
       // Provenance must never change. isDeleted can only go false → true.
       // ownerUidEncrypted must never be touched by client.
+      //
+      // FIX #4 (CRITICAL — CSAM soft-delete server-only):
+      // If a post has already been escalated to a terminal safety state
+      // (escalated / csam_suspected / removed), ALL client updates are blocked.
+      // Only CF Admin SDK may transition these documents further (e.g. finalise
+      // NCMEC report, move to legalHold). This closes the window where an owner
+      // could overwrite content or metadata on a flagged post mid-investigation.
       allow update: if
         !request.resource.data.keys().hasAny(['ownerUidEncrypted']) &&
         provenanceUnchanged() &&
+        // FIX #4: Block any client update when the document is in a terminal safety status.
+        !(resource.data.get("moderation",{}).get("status","") in ["escalated","csam_suspected","removed"]) &&
         (
           // Owner updates own post (non-soft-delete fields)
           isOwner(resource.data.get('authorId', ''))
@@ -1321,31 +1345,21 @@ service cloud.firestore {
     // =========================================================================
 
     match /moderationQueue/{itemId} {
-      // Read: moderators, pastors, owners, executive admins; leaders for their space only.
-      allow read: if
-        hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']) ||
-        (hasClaimRole('leader') &&
-         sameOrg(resource.data.get('orgId', '')) &&
-         isSpaceMember(resource.data.get('spaceId', '')));
+      // FIX #8 (CRITICAL — moderationQueue client reports):
+      // Clients may only CREATE a report document with a restricted field set.
+      // All other operations (read, update, delete) are CF/Admin SDK only.
+      //
+      // Read:   moderation dashboard reads via Admin SDK (CF callable) only.
+      //         Previously: any moderator could query this collection directly — now
+      //         only the server-side callable returns data, preventing enumeration.
+      // Update: CF Admin SDK only (status transitions, verdict writes).
+      // Delete: CF Admin SDK only.
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(["contentRef","reportCategory","reportNotes","reporterUid","createdAt"])
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.get("reportNotes","").size() < 500;
 
-      // Create: Admin SDK only (CF-generated reports; clients escalate via CF callable).
-      allow create: if isAdminSDK();
-
-      // Update: moderators and above can action items, BUT only for their own org/church context.
-      // SECURITY FIX (HIGH 2026-06-11): Previously any moderator could update any item regardless
-      // of which church or org the report belongs to — cross-context moderation was possible.
-      // Now: moderator/pastor/owner are scoped to their own org or church.
-      // executive_admin retains global cross-context access.
-      // Items with no orgId/churchId (platform-level reports) require executive_admin.
-      allow update: if
-        hasClaimRole('executive_admin') ||
-        (hasAnyClaimRole(['moderator', 'pastor', 'owner']) && (
-          sameOrg(resource.data.get('orgId', '__no_org__')) ||
-          sameChurch(resource.data.get('churchId', '__no_church__'))
-        ));
-
-      // Delete: owner/executive admin only (via CF + audit log). No client deletes.
-      allow delete: if false;
+      allow read, update, delete: if false;
     }
 
     // =========================================================================
@@ -1362,11 +1376,15 @@ service cloud.firestore {
     // =========================================================================
 
     match /legalHolds/{holdId} {
-      // Read: legalReviewer or executive_admin only.
-      allow read: if hasClaimRole('legalReviewer') || hasClaimRole('executive_admin');
+      // FIX #15 (CRITICAL — legalHolds protection):
+      // Read is gated on the legalReviewer custom claim ONLY.
+      // executive_admin removed from read — legal hold documents are need-to-know
+      // for the legal review function exclusively; platform admins access via
+      // legalReviewer-claim service account.
+      allow read: if request.auth != null && request.auth.token.legalReviewer == true;
 
-      // Create, update, delete: CF Admin SDK with legalReviewer authorization only.
-      allow create, update, delete: if false;
+      // Write: CF Admin SDK only. No client may create, update, or delete legal holds.
+      allow write: if false;
     }
 
     // =========================================================================

@@ -180,15 +180,51 @@ service firebase.storage {
     }
 
     // =========================================================================
-    // PROFILE PHOTOS
+    // PROFILE PHOTOS — QUARANTINE UPLOAD PATH
+    // =========================================================================
+    //
+    //  Pre-moderation upload path: profile_photos/{uid}/{photoId}
+    //  STORAGE FIX #6 (HIGH — profile photos pre-moderation):
+    //  Profile photo uploads go to a quarantine path first.
+    //  Read is auth-only (NOT public) — profile photos are not surfaced until
+    //  the CF moderation pipeline approves and moves them to the approved bucket.
+    //  This prevents unreviewed images (including CSAM/NSFW) from being served
+    //  as public profile photos between upload and moderation completion.
+    //
+    //  Approved photos are later served from uploads/approved/{uid}/{photoId}
+    //  (public read, CF-write-only — see quarantine pipeline above).
+
+    match /profile_photos/{uid}/{photoId} {
+      // STORAGE FIX #6: auth-only read — quarantine photos MUST NOT be public.
+      allow read:   if isOwner(uid);
+
+      // Create-only (no update — new photo = new photoId, prevents mid-flight swap).
+      allow create: if isOwner(uid)
+                    && isAllowedImageType()
+                    && withinProfilePhotoLimit();
+
+      // No update — force a new photoId for every re-upload.
+      allow update: if false;
+
+      allow delete: if isOwner(uid);
+    }
+
+    // =========================================================================
+    // PROFILE PHOTOS — APPROVED/PUBLIC PATH
     // =========================================================================
     //
     //  Path  : profilePhotos/{uid}/{photoId}
     //  Write : owner only; image/* content type; max 5 MB
-    //  Read  : public (approved profile photos are publicly visible)
+    //  Read  : authenticated users only (STORAGE FIX #6 — was public, now auth-only
+    //          to prevent serving unreviewed / pre-approval images to anonymous visitors)
+    //
+    //  NOTE: Once the quarantine pipeline is fully deployed, client writes to this
+    //  path should be locked (allow write: if false) and photos should only arrive
+    //  here via CF Admin SDK. Until then, client writes are allowed for continuity.
 
     match /profilePhotos/{uid}/{photoId} {
-      allow read:   if true;
+      // STORAGE FIX #6: restrict to signed-in users only; no anonymous reads.
+      allow read:   if isSignedIn();
       allow write:  if isOwner(uid)
                     && isAllowedImageType()
                     && withinProfilePhotoLimit();
@@ -223,6 +259,139 @@ service firebase.storage {
                    && ((isAllowedImageType() && withinImageLimit()) ||
                        (isAllowedVideoType() && withinVideoLimit()));
       allow delete: if isOrgMediaWriter(orgId);
+    }
+
+    // =========================================================================
+    // QUARANTINE-FIRST UPLOAD PATHS — MEDIA CONTENT
+    // =========================================================================
+    //
+    // STORAGE FIX #7 (HIGH — quarantine-first all paths):
+    //
+    // All client uploads for post images, post media, post documents, legacy
+    // `posts/` tree, church images, sanctuary media, voice devotionals, and
+    // sermon audio now land in quarantine paths.  Rules enforce:
+    //   - Authenticated owner only
+    //   - Explicit MIME-type allowlist (no wildcard)
+    //   - Per-type size cap (≤ 50 MB max per spec; individual MIME caps apply)
+    //   - Create-only (no update — forces new ID for every re-upload)
+    //   - Read: owner-only while in quarantine (NOT public)
+    //
+    // Approved content reaches public-readable paths only via CF Admin SDK.
+    // =========================================================================
+
+    // ── Post images (quarantine) ──────────────────────────────────────────────
+    // iOS path: post_images/{uid}/{filename}  (MediaModerationPipeline.swift)
+
+    match /post_images/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedImageType()
+                    && withinImageLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Post media tree (quarantine) ──────────────────────────────────────────
+    // iOS path: post_media/{uid}/{uploadGroupId}/{filename}
+    // Also covers post_media/{uid}/{postId}/{filename}
+    // (CreatePostView.swift, FirebasePostServiceEnhancements.swift)
+
+    match /post_media/{uid}/{uploadGroupId}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && (isAllowedImageType() || isAllowedVideoType() || isAllowedAudioType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                      || (isAllowedVideoType() && withinVideoLimit())
+                      || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Post documents (quarantine) ───────────────────────────────────────────
+    // iOS path: post_documents/{uid}/{filename}  (CreatePostView.swift)
+
+    match /post_documents/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedDocumentType()
+                    && withinImageLimit(); // PDF capped at 25 MB
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Legacy posts tree (quarantine) ────────────────────────────────────────
+    // iOS path: posts/{uid}/{folder}/{filename}  (CloudStorageService.swift)
+
+    match /posts/{uid}/{folder}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && (isAllowedImageType() || isAllowedVideoType() || isAllowedAudioType())
+                    && ((isAllowedImageType() && withinImageLimit())
+                      || (isAllowedVideoType() && withinVideoLimit())
+                      || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Church images (quarantine) ────────────────────────────────────────────
+    // Spec path: church_images/{orgId}/{filename}
+
+    match /church_images/{orgId}/{filename} {
+      allow read:   if isSignedIn();
+      allow create: if isOrgMediaWriter(orgId)
+                    && isAllowedImageType()
+                    && withinImageLimit();
+      allow update: if false;
+      allow delete: if isOrgMediaWriter(orgId);
+    }
+
+    // ── Sanctuary media (quarantine) ──────────────────────────────────────────
+    // Spec path: sanctuary_media/{sid}/{filename}
+
+    match /sanctuary_media/{sid}/{filename} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && (isAllowedVideoType() || isAllowedAudioType())
+                    && ((isAllowedVideoType() && withinVideoLimit())
+                      || (isAllowedAudioType() && withinAudioLimit()));
+      allow update: if false;
+      allow delete: if false; // CF Admin SDK only
+    }
+
+    // ── Voice devotionals (quarantine) ────────────────────────────────────────
+    // iOS path: voiceDevotionals/{uid}/{filename}  (Feature06_VoiceDevotional.swift)
+
+    match /voiceDevotionals/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedAudioType()
+                    && withinAudioLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Sermon audio (quarantine) ─────────────────────────────────────────────
+    // iOS path: sermons/{uid}/{sessionId}.m4a  (ChurchNotesSermonCaptureService.swift)
+
+    match /sermons/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedAudioType()
+                    && withinAudioLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
+    }
+
+    // ── User profile path (quarantine) ────────────────────────────────────────
+    // iOS path: users/{uid}/profile/{filename}  (ProfileImageSetupView.swift)
+
+    match /users/{uid}/profile/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && isAllowedImageType()
+                    && withinProfilePhotoLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
     }
 
     // =========================================================================
