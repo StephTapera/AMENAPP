@@ -923,7 +923,7 @@ struct SelahView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
                 .foregroundStyle(.primary)
-                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14))
+                .amenInteractiveGlassEffect(in: RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
@@ -1251,7 +1251,7 @@ struct SelahSectionView: View {
                             .font(.systemScaled(11, weight: .bold))
                             .foregroundStyle(.primary)
                             .frame(width: 20, height: 20)
-                            .glassEffect(.regular, in: Circle())
+                            .amenRegularGlassEffect(in: Circle())
                             .padding(.top, 1)
                     } else {
                         Circle()

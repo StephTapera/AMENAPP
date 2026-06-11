@@ -468,7 +468,8 @@ struct SignInView: View {
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            // SECURITY FIX (MEDIUM 2026-06-11): Guarded via amenInteractiveGlassEffect shim.
+            .amenInteractiveGlassEffect(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .animation(.amenEaseQuick, value: viewModel.isLoading)
         }
         .disabled(viewModel.isLoading || !isFormValid)
@@ -1820,7 +1821,8 @@ struct PasswordResetSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    // SECURITY FIX (MEDIUM 2026-06-11): Guarded via amenInteractiveGlassEffect shim.
+                    .amenInteractiveGlassEffect(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                 }
                 .disabled(!canSend)
                 .opacity(canSend ? 1.0 : 0.6)
@@ -1948,7 +1950,8 @@ struct PasswordlessSignInSheet: View {
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        // SECURITY FIX (MEDIUM 2026-06-11): Guarded via amenInteractiveGlassEffect shim.
+                        .amenInteractiveGlassEffect(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                 }
                 .disabled(!isValidEmail)
                 .opacity(isValidEmail ? 1.0 : 0.65)
@@ -2337,7 +2340,8 @@ struct OTPVerificationView: View {
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 25, style: .continuous))
+                    // SECURITY FIX (MEDIUM 2026-06-11): Guarded via amenInteractiveGlassEffect shim.
+                    .amenInteractiveGlassEffect(in: RoundedRectangle(cornerRadius: 25, style: .continuous))
                 }
                 .disabled(otpCode.count != 6 || viewModel.isLoading)
                 .opacity(otpCode.count == 6 && !viewModel.isLoading ? 1.0 : 0.5)

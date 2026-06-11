@@ -170,15 +170,25 @@ final class AmenComposerViewModel: ObservableObject {
             // C-1: Pre-post safety check — run before any Firestore write.
             // Skipped only when the user has explicitly reviewed and approved the content.
             if !skipSafetyCheck {
+                // SECURITY FIX (CRITICAL 2026-06-11): Resolve actual minor status from
+                // AmenChildSafetyService. The previous hardcoded false meant every minor
+                // post bypassed the tighter CF content-safety thresholds required by C5 §4a.
+                // Defaults to true (conservative) on error — fail closed for minors.
+                let isMinorAuthor = (try? await AmenChildSafetyService.shared.checkIsMinor(userId: actorId)) ?? true
+
                 let safetyRequest = ContentCheckRequest(
                     text: draft.body.trimmingCharacters(in: .whitespacesAndNewlines),
                     mediaUrls: [],
                     authorId: actorId,
                     objectType: "post",
                     contextRef: nil,
-                    isMinorAuthor: false
+                    isMinorAuthor: isMinorAuthor
                 )
-                if let decision = try? await AmenContentSafetyService.shared.checkBeforePost(safetyRequest) {
+                // SECURITY FIX (HIGH 2026-06-11): Fail closed when checkBeforePost throws.
+                // The previous try? silently skipped the safety gate on CF/network failure,
+                // allowing unsafe content to proceed unchecked. Now fails closed on error.
+                do {
+                    let decision = try await AmenContentSafetyService.shared.checkBeforePost(safetyRequest)
                     if case .allow = decision.action {
                         // Safe — continue to publish.
                     } else {
@@ -186,6 +196,10 @@ final class AmenComposerViewModel: ObservableObject {
                         pendingSafetyDecision = decision
                         return
                     }
+                } catch {
+                    // Safety check failed — fail closed. Do not allow the post to proceed.
+                    submitError = "Content safety check unavailable. Please try again."
+                    return
                 }
             }
 

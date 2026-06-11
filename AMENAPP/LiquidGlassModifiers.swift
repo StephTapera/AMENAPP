@@ -289,4 +289,35 @@ extension View {
             self
         }
     }
+
+    // SECURITY FIX (MEDIUM 2026-06-11): Added shims for .glassEffect(.regular, in:) and
+    // .glassEffect(.regular.interactive(), in:) variants used across SignInView, HomeView,
+    // EmptyFeedView, AppUsageTracker, and SelahView. Without these guards the views crash
+    // at launch on iOS 17/18 (deployment target). Falls back to .background(.thinMaterial).
+    @ViewBuilder
+    func amenRegularGlassEffect<S: Shape>(in shape: S) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular, in: shape)
+        } else {
+            self.background(.thinMaterial, in: shape)
+        }
+    }
+
+    @ViewBuilder
+    func amenInteractiveGlassEffect<S: Shape>(in shape: S) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular.interactive(), in: shape)
+        } else {
+            self.background(.thinMaterial, in: shape)
+        }
+    }
+
+    @ViewBuilder
+    func amenProminentGlassEffect<S: Shape>(in shape: S) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.prominent, in: shape)
+        } else {
+            self.background(.regularMaterial, in: shape)
+        }
+    }
 }

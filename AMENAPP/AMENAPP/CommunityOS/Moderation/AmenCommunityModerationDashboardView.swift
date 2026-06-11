@@ -27,6 +27,9 @@ struct AmenCommunityModerationDashboardView: View {
     @StateObject private var service = AmenModerationService()
     @State private var loadError: String?
     @State private var selectedTab: ModDashTab = .queue
+    // SECURITY FIX (CRITICAL 2026-06-11): Error state for moderation action failures.
+    // Moderators must know if their action (remove, ban, escalate) or appeal review failed.
+    @State private var actionError: String?
 
     // MARK: - Tab
 
@@ -74,6 +77,14 @@ struct AmenCommunityModerationDashboardView: View {
             }
             .refreshable {
                 await loadQueue()
+            }
+            .alert("Action Failed", isPresented: Binding(
+                get: { actionError != nil },
+                set: { if !$0 { actionError = nil } }
+            )) {
+                Button("OK") { actionError = nil }
+            } message: {
+                Text(actionError ?? "An error occurred.")
             }
         }
     }
@@ -141,12 +152,18 @@ struct AmenCommunityModerationDashboardView: View {
                         ForEach(active) { item in
                             AmenModerationQueueRow(item: item) { action, note in
                                 Task {
-                                    try? await service.takeAction(
-                                        itemId: item.id,
-                                        action: action,
-                                        note: note,
-                                        moderatorId: moderatorId
-                                    )
+                                    do {
+                                        try await service.takeAction(
+                                            itemId: item.id,
+                                            action: action,
+                                            note: note,
+                                            moderatorId: moderatorId
+                                        )
+                                    } catch {
+                                        await MainActor.run {
+                                            actionError = "Action failed: \(error.localizedDescription)"
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -195,12 +212,18 @@ struct AmenCommunityModerationDashboardView: View {
                         ForEach(pending) { appeal in
                             AmenAppealRow(appeal: appeal) { status, note in
                                 Task {
-                                    try? await service.reviewAppeal(
-                                        appealId: appeal.id,
-                                        status: status,
-                                        note: note,
-                                        reviewerId: moderatorId
-                                    )
+                                    do {
+                                        try await service.reviewAppeal(
+                                            appealId: appeal.id,
+                                            status: status,
+                                            note: note,
+                                            reviewerId: moderatorId
+                                        )
+                                    } catch {
+                                        await MainActor.run {
+                                            actionError = "Appeal review failed: \(error.localizedDescription)"
+                                        }
+                                    }
                                 }
                             }
                         }

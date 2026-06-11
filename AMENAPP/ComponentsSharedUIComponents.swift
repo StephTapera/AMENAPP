@@ -56,14 +56,20 @@ struct AMENLoadingIndicator: View {
         withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
             dot1Up = true
         }
+        // SECURITY FIX (MEDIUM 2026-06-11): Re-check reduceMotion inside each Task body.
+        // The outer guard can become stale if reduceMotion changes between creation and execution.
         Task { @MainActor in
+            guard !reduceMotion else { return }
             try? await Task.sleep(for: .seconds(stagger))
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
                 dot2Up = true
             }
         }
         Task { @MainActor in
+            guard !reduceMotion else { return }
             try? await Task.sleep(for: .seconds(stagger * 2))
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
                 dot3Up = true
             }

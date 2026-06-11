@@ -1340,6 +1340,8 @@ struct FeaturedBanner: View {
     @State private var shimmerPhase: CGFloat = 0
     @State private var isHovered = false
     @State private var isVisible = false
+    // SECURITY FIX (MEDIUM 2026-06-11): Added reduce-motion support.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1467,7 +1469,8 @@ struct FeaturedBanner: View {
             isVisible = true
             // P1 FIX: Only run shimmer while visible. The previous unconditional
             // repeatForever kept the animation alive even off-screen, wasting CPU.
-            guard isVisible else { return }
+            // SECURITY FIX (MEDIUM 2026-06-11): Also gate on reduceMotion.
+            guard isVisible, !reduceMotion else { return }
             withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
                 shimmerPhase = 400
             }
@@ -2151,6 +2154,8 @@ struct ResourcesSegmentButtonStyle: ButtonStyle {
 struct FeaturedCommunityBanner: View {
     @State private var isAnimating = false
     @State private var shimmerPhase: CGFloat = 0
+    // SECURITY FIX (MEDIUM 2026-06-11): Added reduce-motion support for infinite animations.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         VStack(spacing: 0) {
@@ -2174,10 +2179,10 @@ struct FeaturedCommunityBanner: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                .hueRotation(.degrees(isAnimating ? 15 : 0))
+                // SECURITY FIX (MEDIUM 2026-06-11): Gate infinite hue-rotation on reduceMotion.
+                .hueRotation(.degrees(isAnimating && !reduceMotion ? 15 : 0))
                 .animation(
-                    Animation.easeInOut(duration: 3)
-                        .repeatForever(autoreverses: true),
+                    reduceMotion ? .none : Animation.easeInOut(duration: 3).repeatForever(autoreverses: true),
                     value: isAnimating
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -2730,8 +2735,10 @@ struct IntelligentSupportActionCard: View {
 struct ShiningBorderView: View {
     let isActive: Bool
     var color: Color = .white
-    
+
     @State private var rotation: Double = 0
+    // SECURITY FIX (MEDIUM 2026-06-11): Added reduce-motion guard for infinite rotation animation.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     var body: some View {
         GeometryReader { geometry in
@@ -2772,7 +2779,8 @@ struct ShiningBorderView: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .onAppear {
-                if isActive {
+                // SECURITY FIX (MEDIUM 2026-06-11): Gate infinite rotation on reduceMotion.
+                if isActive && !reduceMotion {
                     withAnimation(
                         .linear(duration: 4)
                         .repeatForever(autoreverses: false)

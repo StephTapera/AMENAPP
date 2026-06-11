@@ -168,7 +168,7 @@ struct AmenScamShieldAlertView: View {
             reviewedByHuman: false,
             flaggedAt: Date()
         ),
-        onReport: {},
+        onReport: { print("[Preview] AmenScamShieldAlertView onReport called") },
         onDismiss: {}
     )
     .padding()
@@ -188,7 +188,7 @@ struct AmenScamShieldAlertView: View {
             reviewedByHuman: false,
             flaggedAt: Date()
         ),
-        onReport: {},
+        onReport: { print("[Preview] AmenScamShieldAlertView onReport called") },
         onDismiss: {}
     )
     .padding()

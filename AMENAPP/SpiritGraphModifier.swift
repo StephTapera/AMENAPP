@@ -33,8 +33,11 @@ struct SpiritGraphModifier: ViewModifier {
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
+            // SECURITY FIX (MEDIUM 2026-06-11): Add dismiss action to "Got it" button.
+            // The empty closure trapped users in the modal — the alert's system behavior
+            // auto-dismisses it, but using @Environment(\.dismiss) is the correct pattern.
             .alert("Why this reached you", isPresented: $showAlert) {
-                Button("Got it") { }
+                Button("Got it") { showAlert = false }
             } message: {
                 Text(reason)
             }

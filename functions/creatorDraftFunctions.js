@@ -140,7 +140,10 @@ async function moderateDraft(text, apiKey) {
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!res.ok) return { safe: true, categories: [] }; // fail open for moderation
+    // SECURITY FIX (HIGH 2026-06-11): Fail closed on HTTP error.
+    // The previous return { safe: true } allowed unsafe draft content to reach the
+    // onCreate trigger with no client-side warning, weakening defense-in-depth.
+    if (!res.ok) return { safe: false, categories: ["http_error"] };
 
     const data = await res.json();
     const raw  = data.choices?.[0]?.message?.content ?? "";
@@ -171,8 +174,10 @@ async function moderateDraft(text, apiKey) {
 
     return { safe, categories };
   } catch {
-    // Moderation fetch failed — fail open (don't block the creator)
-    return { safe: true, categories: [] };
+    // SECURITY FIX (HIGH 2026-06-11): Fail closed on outer catch.
+    // The previous return { safe: true } allowed unsafe draft content through when the
+    // moderation fetch itself failed. Defense-in-depth requires failing closed here.
+    return { safe: false, categories: ["moderation_fetch_failed"] };
   }
 }
 

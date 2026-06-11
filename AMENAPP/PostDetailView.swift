@@ -35,6 +35,8 @@ struct PostDetailView: View {
     @State private var highlightedCommentIDs: Set<String> = []
     @State private var highlightResetTask: Task<Void, Never>?
     @FocusState private var isCommentFocused: Bool
+    // SECURITY FIX (HIGH 2026-06-11): Error state for block failures.
+    @State private var blockError: String?
 
     // CommentService uses the full firestoreId as the Realtime Database key.
     // Truncating to prefix(8) produces a path that doesn't exist, resulting in empty comments.
@@ -517,8 +519,16 @@ struct PostDetailView: View {
         .confirmationDialog("Block this user?", isPresented: $showBlockConfirm, titleVisibility: .visible) {
             Button("Block", role: .destructive) {
                 Task {
-                    try? await BlockService.shared.blockUser(userId: blockTargetId ?? "")
-                    dismiss()
+                    // SECURITY FIX (HIGH 2026-06-11): Replace try? with do-catch.
+                    // Silent failure means the user believes they blocked someone who is not blocked.
+                    do {
+                        try await BlockService.shared.blockUser(userId: blockTargetId ?? "")
+                        dismiss()
+                    } catch {
+                        await MainActor.run {
+                            blockError = "Block could not be applied. Please try again."
+                        }
+                    }
                 }
             }
             Button("Cancel", role: .cancel) { }

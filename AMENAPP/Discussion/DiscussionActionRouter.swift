@@ -106,8 +106,14 @@ final class DiscussionActionRouter {
                     reversible: false,
                     createdAt: Date().timeIntervalSince1970
                 )
-                try? await db.collection("users").document(reporterUID)
-                    .collection("trustLedger").addDocument(data: entry.toFirestore())
+                // SECURITY FIX (MEDIUM 2026-06-11): Replace try? with do-catch.
+                // Trust-ledger entries are audit evidence; silent loss undermines moderation appeals.
+                do {
+                    try await db.collection("users").document(reporterUID)
+                        .collection("trustLedger").addDocument(data: entry.toFirestore())
+                } catch {
+                    print("[DiscussionActionRouter] Trust ledger write failed for \(reporterUID): \(error)")
+                }
             }
             return true
 

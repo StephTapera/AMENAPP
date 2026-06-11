@@ -285,24 +285,28 @@ final class AmenPrivacyEngine: ObservableObject {
         let senderRef = privacyDocRef(for: senderId)
         let senderSnapshot = try await senderRef.getDocument()
         let senderIsMinor: Bool
-        if senderSnapshot.exists, let data = senderSnapshot.data(),
-           let settings = try? decodeSettings(from: data) {
-            senderIsMinor = settings.isMinor
+        if senderSnapshot.exists, let data = senderSnapshot.data() {
+            // SECURITY FIX (MEDIUM 2026-06-11): Log decode errors so silent schema drift
+            // is detectable. The try? swallowed errors making decode failures invisible.
+            do {
+                let settings = try decodeSettings(from: data)
+                senderIsMinor = settings.isMinor
+            } catch {
+                print("[AmenPrivacyEngine] Privacy settings decode error for sender \(senderId): \(error)")
+                senderIsMinor = try await fetchIsMinor(userId: senderId)
+            }
         } else {
             // Fall back to RBAC age check
             senderIsMinor = try await fetchIsMinor(userId: senderId)
         }
 
         // [MINOR] C5 §4b: If recipient is a minor, sender MUST be a mutual follow.
-        // The mutual-follow verification itself is enforced by the CF checkContentSafety gate.
-        // At this layer: hard-block any non-mutual relationship. Since we cannot resolve
-        // the social graph on-device without an extra lookup, we return `true` here and
-        // rely on the CF gate for the mutual-follow check — consistent with AmenRBACService.allowDM().
+        // SECURITY FIX (HIGH 2026-06-11): Replace unconditional return true with
+        // AmenChildSafetyService.shared.canDM(), which performs the mutual-follow check
+        // and fails closed on error. The comment "cannot resolve the social graph on-device"
+        // was incorrect — areMutualFollows() in AmenChildSafetyService does exactly this.
         if recipIsMinor {
-            // Non-minor adults sending to a minor: allowed only if CF mutual-follow gate passes.
-            // senderIsMinor-to-minor: also requires mutual follow (CF gate).
-            // We signal intent; CF enforces.
-            return true
+            return await AmenChildSafetyService.shared.canDM(from: senderId, to: recipientId)
         }
 
         // [MINOR] If sender is a minor, they can only DM mutual follows (CF gate enforces).
@@ -335,12 +339,16 @@ final class AmenPrivacyEngine: ObservableObject {
     }
 
     private func defaultSettings(for userId: String) -> PrivacySettings {
+        // SECURITY FIX (MEDIUM 2026-06-11): Default to isMinor: true (conservative) when
+        // no privacy_settings document exists. A new account receives protective defaults
+        // until the age-assurance pipeline writes the real settings. The previous isMinor: false
+        // treated new minor accounts as adults in the DM path before settings were written.
         PrivacySettings(
             userId: userId,
             preset: .balanced,
             locationSharingLevel: .none,
             profileVisibility: .partial,
-            isMinor: false,
+            isMinor: true,
             allowedDMSenders: .mutualFollows,
             delayedPostingEnabled: false,
             delayMinutes: 10

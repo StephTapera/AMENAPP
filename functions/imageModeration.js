@@ -125,7 +125,15 @@ exports.moderateUploadedImage = onObjectFinalized({
                     console.log("[IMAGE MOD] LLM overrode SafeSearch approved -> blocked");
                 }
             } catch (llmErr) {
-                console.warn("[IMAGE MOD] Vision LLM check failed, using SafeSearch verdict only:", llmErr.message);
+                // SECURITY FIX (LOW 2026-06-11): Treat Vision LLM error as 'review' when
+                // SafeSearch approved the image. Previously, a LLM failure would silently
+                // pass the SafeSearch-approved decision through, skipping the faith-context
+                // override (e.g., mockery of Scripture). Route to human queue instead.
+                console.warn("[IMAGE MOD] Vision LLM check failed — routing to review queue:", llmErr.message);
+                if (decision.action === "approved") {
+                    decision = { action: "review", reasons: ["llm_check_failed"] };
+                    console.log("[IMAGE MOD] LLM error downgraded SafeSearch approved -> review");
+                }
             }
         }
 

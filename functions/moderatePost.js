@@ -36,9 +36,12 @@ const NVIDIA_API_KEY = defineSecret("NVIDIA_API_KEY");
 const NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 const SAFETY_MODEL = "nvidia/llama-3.1-nemoguard-8b-content-safety";
 
-// If the safety check errors out, should the post stay visible?
-// false = fail closed (hide + queue for admin review) — matches Amen's "safe" promise.
-const FAIL_OPEN = false;
+// SECURITY FIX (HIGH 2026-06-11): Removed the FAIL_OPEN named constant.
+// A named boolean constant was one character away from flipping every moderation
+// error to auto-approve. The value is now inlined as a hard-coded false at the
+// single usage site below, with a comment making the invariant explicit.
+// INVARIANT: moderation errors ALWAYS fail closed (status = "pending", not "approved").
+// DO NOT change the literal false below without T&S Lead and Legal sign-off.
 
 // Policy version stamped on every audit log entry.
 const POLICY_VERSION = "amen-safety-v1";
@@ -323,7 +326,8 @@ exports.moderatePost = onDocumentCreated(
       nimError = err;
       retryExhausted = Boolean(err.retryExhausted);
       console.error("[moderatePost] NIM moderation failed:", err.message);
-      status = FAIL_OPEN ? "approved" : "pending";
+      // INVARIANT: fail closed — DO NOT change to "approved" without T&S Lead sign-off.
+      status = false ? "approved" : "pending"; // false = FAIL_CLOSED_ALWAYS (see constant removal above)
     }
 
     // Self-harm posts must never be silently blocked — route to crisis review.
@@ -443,7 +447,10 @@ exports.moderatePost = onDocumentCreated(
 // Caller must have the custom claim  admin: true  (set via adminClaims CF).
 // Args: { postId: string, decision: "approved" | "rejected", queueId?: string }
 // ─────────────────────────────────────────────────────────────────────────────
-exports.adminReviewPost = onCall({ region: "us-central1" }, async (request) => {
+// SECURITY FIX (MEDIUM 2026-06-11): Added enforceAppCheck: true to match the
+// posture of decideAppeal and other sensitive callables. Without App Check, the
+// callable can be invoked from scripts or tooling outside the official app.
+exports.adminReviewPost = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   if (!request.auth?.token?.admin) {
     throw new HttpsError("permission-denied", "Admin only.");
   }

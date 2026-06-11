@@ -32,6 +32,11 @@ struct AmenMinorExperienceView: View {
     @State private var guardianLinked: Bool = false
     @State private var isCheckingGuardian: Bool = true
     @State private var showSafetyGuide = false
+    // SECURITY FIX (CRITICAL + MEDIUM 2026-06-11): Added error state for guardian request failures.
+    // Guardian contact writes are a COPPA-required parental-notification path —
+    // silent failure is not acceptable.
+    @State private var requestFailed: Bool = false
+    @State private var requestSent: Bool = false
 
     // MARK: - Computed
 
@@ -187,6 +192,9 @@ struct AmenMinorExperienceView: View {
         // settings where they can approve/deny the request.
         // This is a CF-mediated action; the iOS client writes a contact request
         // and the CF delivers it — no direct contact info is exchanged.
+        // SECURITY FIX (CRITICAL 2026-06-11): Replace try? with explicit do-catch.
+        // A failed guardian-contact write must never be silently dropped — it is a
+        // COPPA-required parental-notification path.
         Task {
             let db = Firestore.firestore()
             let request: [String: Any] = [
@@ -195,7 +203,13 @@ struct AmenMinorExperienceView: View {
                 "requestType": "guardian_unlock_request",
                 "createdAt": FieldValue.serverTimestamp()
             ]
-            try? await db.collection("guardianContactRequests").addDocument(data: request)
+            do {
+                try await db.collection("guardianContactRequests").addDocument(data: request)
+                await MainActor.run { requestSent = true }
+            } catch {
+                await MainActor.run { requestFailed = true }
+                print("[AmenMinorExperienceView] Guardian contact request failed: \(error)")
+            }
         }
     }
 }

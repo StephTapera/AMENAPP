@@ -329,12 +329,20 @@ struct UnifiedChatView: View {
                         },
                         onReport: {
                             Task {
-                                try? await messagingService.reportSpam(
-                                    conversation.id,
-                                    reason: "Message request report"
-                                )
-                                await MainActor.run {
-                                    toastManager.showSuccess("Reported")
+                                // SECURITY FIX (HIGH 2026-06-11): Replace try? with do-catch.
+                                // Show error toast on failure so user is not falsely told report succeeded.
+                                do {
+                                    try await messagingService.reportSpam(
+                                        conversation.id,
+                                        reason: "Message request report"
+                                    )
+                                    await MainActor.run {
+                                        toastManager.showSuccess("Reported")
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        toastManager.showError("Could not send report — try again")
+                                    }
                                 }
                             }
                         },
@@ -364,12 +372,20 @@ struct UnifiedChatView: View {
                     onReport: {
                         // Report the conversation
                         Task {
-                            try? await messagingService.reportSpam(
-                                conversation.id,
-                                reason: "Message request report"
-                            )
-                            await MainActor.run {
-                                toastManager.showSuccess("Reported")
+                            // SECURITY FIX (HIGH 2026-06-11): Replace try? with do-catch.
+                            // Show error toast on failure so user is not falsely told report succeeded.
+                            do {
+                                try await messagingService.reportSpam(
+                                    conversation.id,
+                                    reason: "Message request report"
+                                )
+                                await MainActor.run {
+                                    toastManager.showSuccess("Reported")
+                                }
+                            } catch {
+                                await MainActor.run {
+                                    toastManager.showError("Could not send report — try again")
+                                }
                             }
                         }
                     }

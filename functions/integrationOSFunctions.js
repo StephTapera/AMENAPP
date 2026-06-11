@@ -747,10 +747,21 @@ exports.moderateMediaTransform = onCall(
     }
 
     const data = await response.json();
-    const reply = (data.choices?.[0]?.message?.content ?? "").toLowerCase();
+    const rawReply = data.choices?.[0]?.message?.content ?? "";
 
-    // Simple safe/unsafe classification from the guard response
-    const isSafe = !reply.includes("unsafe") && !reply.includes("harmful") && !reply.includes("violat");
+    // SECURITY FIX (HIGH 2026-06-11): Replace negation-based substring classifier with
+    // exact-match JSON parser. The previous !reply.includes('unsafe') pattern is bypassable
+    // by responses like "this is not unsafe content" which would classify as safe=true.
+    // Now uses the same JSON parse + exact-match pattern as moderationGateway.js/nvidiaClient.js.
+    let isSafe = false;
+    try {
+      const parsed = JSON.parse(rawReply);
+      isSafe = String(parsed["User Safety"] ?? "").trim().toLowerCase() === "safe";
+    } catch {
+      // Non-JSON response from guard model — fail closed.
+      isSafe = false;
+      logger.warn("moderateMediaTransform: guard model returned non-JSON — failing closed", { uid });
+    }
     const decision = isSafe ? "approved" : "review";
 
     if (mediaObjectId) {

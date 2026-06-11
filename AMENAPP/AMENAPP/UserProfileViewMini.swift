@@ -63,11 +63,17 @@ struct UserProfileViewMini: View {
                     case .falseInfo:     moderationReason = .falseInformation
                     case .other:         moderationReason = .other
                     }
-                    try? await ModerationService.shared.reportUser(
-                        userId: vm.model.id,
-                        reason: moderationReason,
-                        additionalDetails: description.isEmpty ? nil : description
-                    )
+                    // SECURITY FIX (HIGH 2026-06-11): Replace try? with do-catch.
+                    // Silent failure of a report write means harmful content goes unreported.
+                    do {
+                        try await ModerationService.shared.reportUser(
+                            userId: vm.model.id,
+                            reason: moderationReason,
+                            additionalDetails: description.isEmpty ? nil : description
+                        )
+                    } catch {
+                        print("[UserProfileViewMini] Report user failed: \(error)")
+                    }
                 }
             }
         }

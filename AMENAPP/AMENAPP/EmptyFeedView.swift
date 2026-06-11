@@ -58,7 +58,7 @@ struct EmptyFeedView: View {
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .amenInteractiveGlassEffect(in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -74,7 +74,7 @@ struct EmptyFeedView: View {
                 .font(.system(size: 30, weight: .medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 80, height: 80)
-                .glassEffect(.regular, in: Circle())
+                .amenRegularGlassEffect(in: Circle())
                 .padding(.bottom, 32)
 
             Text("Nothing here yet")
@@ -101,7 +101,7 @@ struct EmptyFeedView: View {
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .amenInteractiveGlassEffect(in: Capsule())
             }
             .buttonStyle(.plain)
 
@@ -116,7 +116,7 @@ struct EmptyFeedView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 22)
                     .padding(.vertical, 11)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .amenInteractiveGlassEffect(in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -136,7 +136,7 @@ struct EmptyFeedView: View {
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Color(.tertiaryLabel))
                     .frame(width: 50, height: 50)
-                    .glassEffect(.regular, in: Circle())
+                    .amenRegularGlassEffect(in: Circle())
                     .offset(x: -36, y: 8)
 
                 // Right orb
@@ -144,7 +144,7 @@ struct EmptyFeedView: View {
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Color(.tertiaryLabel))
                     .frame(width: 50, height: 50)
-                    .glassEffect(.regular, in: Circle())
+                    .amenRegularGlassEffect(in: Circle())
                     .offset(x: 36, y: 8)
 
                 // Centre orb — larger, elevated
@@ -152,7 +152,7 @@ struct EmptyFeedView: View {
                     .font(.system(size: 24, weight: .medium))
                     .foregroundStyle(Color(.secondaryLabel))
                     .frame(width: 64, height: 64)
-                    .glassEffect(.regular, in: Circle())
+                    .amenRegularGlassEffect(in: Circle())
                     .zIndex(1)
             }
             .frame(width: 140, height: 80)

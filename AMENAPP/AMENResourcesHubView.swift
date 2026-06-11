@@ -909,6 +909,8 @@ private struct StackingMediaCard: View {
 
 private struct DarkShimmerModifier: ViewModifier {
     @State private var phase: CGFloat = -1
+    // SECURITY FIX (MEDIUM 2026-06-11): Added reduce-motion guard for infinite shimmer animation.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content.overlay(
@@ -928,6 +930,7 @@ private struct DarkShimmerModifier: ViewModifier {
         )
         .clipped()
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 1.6).repeatForever(autoreverses: false)) {
                 phase = 1
             }

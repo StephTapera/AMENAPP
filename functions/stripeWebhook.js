@@ -56,6 +56,27 @@ exports.stripeWebhook = onRequest(
       return res.status(400).send(`Webhook signature verification failed: ${err.message}`);
     }
 
+    // SECURITY FIX (HIGH 2026-06-11): Idempotency guard — check if this Stripe event
+    // has already been processed before dispatching to handlers. Duplicate Stripe
+    // deliveries (retries on network errors) would otherwise double-write entitlements.
+    // Ported from the canonical functions/stripe/stripeWebhook.js idempotency pattern.
+    try {
+      const eventRef = db().collection("processedStripeEvents").doc(event.id);
+      const existing = await eventRef.get();
+      if (existing.exists) {
+        console.log(`[Stripe] Duplicate event skipped: ${event.id}`);
+        return res.status(200).send({ received: true, duplicate: true });
+      }
+      await eventRef.set({
+        eventId: event.id,
+        eventType: event.type,
+        processedAt: serverTimestamp(),
+      });
+    } catch (idempotencyErr) {
+      console.error("[Stripe] Idempotency check failed — aborting to prevent double-write:", idempotencyErr.message);
+      return res.status(500).send("Idempotency check failed");
+    }
+
     try {
       switch (event.type) {
         case "payment_intent.succeeded":

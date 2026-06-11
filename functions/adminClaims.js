@@ -28,7 +28,11 @@ exports.grantAdminRole = regionalFunctions.https.onCall(async (data, context) =>
     throw new functions.https.HttpsError('invalid-argument', 'targetUid required');
   }
 
-  await admin.auth().setCustomUserClaims(targetUid, { admin: true });
+  // SECURITY FIX (MEDIUM 2026-06-11): Read existing claims before overwriting so
+  // other claims (ageTier, moderator, orgAdmin) are not silently wiped.
+  const existingUser = await admin.auth().getUser(targetUid);
+  const existingClaims = existingUser.customClaims || {};
+  await admin.auth().setCustomUserClaims(targetUid, { ...existingClaims, admin: true });
 
   await admin.firestore().collection('users').doc(targetUid).update({
     isAdmin: true,
@@ -65,7 +69,11 @@ exports.revokeAdminRole = regionalFunctions.https.onCall(async (data, context) =
     throw new functions.https.HttpsError('invalid-argument', 'Admins cannot revoke their own admin role');
   }
 
-  await admin.auth().setCustomUserClaims(targetUid, { admin: false });
+  // SECURITY FIX (MEDIUM 2026-06-11): Read existing claims before overwriting so
+  // other claims (ageTier, moderator, orgAdmin) are not silently wiped.
+  const existingRevokeUser = await admin.auth().getUser(targetUid);
+  const existingRevokeClaims = existingRevokeUser.customClaims || {};
+  await admin.auth().setCustomUserClaims(targetUid, { ...existingRevokeClaims, admin: false });
 
   await admin.firestore().collection('users').doc(targetUid).update({
     isAdmin: false,
@@ -97,11 +105,19 @@ exports.bootstrapFirstAdmin = regionalFunctions.https.onCall(async (data, contex
     throw new functions.https.HttpsError('permission-denied', 'Not in ADMIN_UIDS bootstrap list');
   }
 
-  await admin.auth().setCustomUserClaims(callerUid, { admin: true });
+  // SECURITY FIX (LOW 2026-06-11): Read existing claims before overwriting.
+  const bootstrapUser = await admin.auth().getUser(callerUid);
+  const bootstrapExistingClaims = bootstrapUser.customClaims || {};
+  await admin.auth().setCustomUserClaims(callerUid, { ...bootstrapExistingClaims, admin: true });
   await admin.firestore().collection('users').doc(callerUid).update({
     isAdmin: true,
     adminBootstrappedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+
+  // SECURITY FIX (LOW 2026-06-11): Revoke refresh tokens so the new admin claim takes
+  // effect immediately. Without this, the bootstrapped admin may not see the claim
+  // reflected until the session token expires. grantAdminRole already does this.
+  await admin.auth().revokeRefreshTokens(callerUid);
 
   console.log(`[adminClaims] Bootstrapped admin: ${callerUid}`);
   return { success: true, message: 'Admin claim set. Force-refresh token to take effect.' };
@@ -154,7 +170,11 @@ exports.auditAdminClaims = regionalFunctions.pubsub
     for (const doc of snap.docs) {
       const { targetUid } = doc.data();
       try {
-        await admin.auth().setCustomUserClaims(targetUid, { admin: false });
+        // SECURITY FIX (MEDIUM 2026-06-11): Read existing claims before overwriting so
+        // other claims (ageTier, moderator, orgAdmin) are not silently wiped.
+        const auditUser = await admin.auth().getUser(targetUid);
+        const auditExistingClaims = auditUser.customClaims || {};
+        await admin.auth().setCustomUserClaims(targetUid, { ...auditExistingClaims, admin: false });
         console.warn(`[AdminClaims] Expired admin claim revoked for ${targetUid}`);
         await doc.ref.update({
           revokedAt: admin.firestore.FieldValue.serverTimestamp(),

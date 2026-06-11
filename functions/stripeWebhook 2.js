@@ -1,4 +1,13 @@
-// stripeWebhook.js — v1 Cloud Function (avoids Cloud Run quota)
+// stripeWebhook 2.js — Gen1 Cloud Function DUPLICATE
+// SECURITY FIX (HIGH 2026-06-11): This file is a Gen1 duplicate of the canonical
+// functions/stripeWebhook.js. The canonical file uses defineSecret() for proper Gen2
+// secret isolation and has idempotency guards. This file uses process.env directly.
+//
+// TODO(gate: HUMAN-MACHINE): RETIRE_DUPLICATE — Verify in Firebase Console that no
+// clients call this Gen1 endpoint directly, then remove this file and its export from
+// index.js in favor of the canonical functions/stripeWebhook.js.
+//
+// Original header:
 // STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are injected via runWith({ secrets: [...] }) — Gen1 Secret Manager pattern.
 // Stripe webhook endpoint with mandatory signature verification.
 // Every event is verified with stripe.webhooks.constructEvent() before processing.

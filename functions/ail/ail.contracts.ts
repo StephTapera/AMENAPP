@@ -27,7 +27,7 @@
  * ── THREE DISTINCT FAILURE BEHAVIORS (do not conflate) ────────────────────────
  *   moderation  → FAIL_CLOSED  (NeMo; content does not pass on guard failure)
  *   usage caps  → DEGRADE      (graceful reduction)
- *   AIL transforms → FAIL_OPEN_TO_ORIGINAL  (show original + quiet "unavailable")
+ *   AIL transforms → DEGRADE_TO_ORIGINAL  (show original + quiet "unavailable"; safe behavior, NOT a security fail-open)
  * In amenRouting.config.js terms, AIL fail-open is expressed as fail:"degrade"
  * with a degradeResult of { failOpen: true } — the caller then renders the
  * ORIGINAL content. The single exception is explain_scripture (cite-or-refuse,

@@ -12,6 +12,7 @@ final class AmenCovenantRoomDetailViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var isSending: Bool = false
     @Published var error: String?
+    @Published var reportError: String?
 
     private let db = Firestore.firestore()
     private let functions = Functions.functions()
@@ -122,7 +123,14 @@ final class AmenCovenantRoomDetailViewModel: ObservableObject {
             "status": CovenantReport.ReportStatus.submitted.rawValue,
             "createdAt": Timestamp(date: Date())
         ]
-        try? await db.collection("covenantReports").addDocument(data: data)
+        // SECURITY FIX (HIGH 2026-06-11): Replace try? with explicit do-catch.
+        // A silently dropped covenant report means harmful content goes unreported.
+        do {
+            try await db.collection("covenantReports").addDocument(data: data)
+        } catch {
+            reportError = "Report could not be submitted — please try again."
+            print("[AmenCovenantRoomDetailViewModel] Report write failed: \(error)")
+        }
     }
 
     // MARK: - Grouped Message Accessors

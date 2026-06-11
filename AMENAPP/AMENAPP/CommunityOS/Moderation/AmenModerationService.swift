@@ -252,12 +252,15 @@ final class AmenModerationService: ObservableObject {
         try await db.collection("moderationQueue").document(itemId).updateData(queueUpdate)
 
         // Step 2: Soft-delete content if action is .remove (Invariant I-1 — NO hard deletes).
+        // SECURITY FIX (HIGH 2026-06-11): Replace try? with throwing try. The outer function
+        // already throws; callers wrapped in try? at the UI layer. Making the write throw
+        // gives the caller a real failure signal so the moderator knows the remove failed.
         if action == .remove, !contentRef.isEmpty {
             let pathComponents = contentRef.split(separator: "/").map(String.init)
             if pathComponents.count == 2 {
                 let collection = pathComponents[0]
                 let documentId = pathComponents[1]
-                try? await db.collection(collection).document(documentId).updateData([
+                try await db.collection(collection).document(documentId).updateData([
                     "isDeleted": true,
                     "deletedAt": FieldValue.serverTimestamp(),
                     "deletionReason": "moderation_action",
@@ -267,8 +270,10 @@ final class AmenModerationService: ObservableObject {
         }
 
         // Step 3: Suspend account if action is .ban.
+        // SECURITY FIX (HIGH 2026-06-11): Replace try? with throwing try. A silent failure
+        // leaves a banned user fully active.
         if action == .ban, let uid = authorId {
-            try? await db.collection("users").document(uid).updateData([
+            try await db.collection("users").document(uid).updateData([
                 "suspended": true,
                 "suspendedAt": FieldValue.serverTimestamp(),
                 "suspendedBy": moderatorId,

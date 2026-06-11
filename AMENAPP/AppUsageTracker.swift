@@ -502,7 +502,7 @@ struct DailyLimitReachedDialog: View {
         }
         // Canonical Liquid Glass surface (shared GlassEffectStyle system) — replaces the
         // hand-rolled .ultraThinMaterial card so the surface reads as true liquid glass.
-        .glassEffect(.prominent, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .amenProminentGlassEffect(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .shadow(color: .black.opacity(0.08), radius: 32, y: 12)
     }
 
@@ -529,7 +529,7 @@ struct DailyLimitReachedDialog: View {
                             .padding(.vertical, 10)
                             // Snooze pills sit on the ambient background (not on glass),
                             // so they use the canonical liquid-glass capsule surface.
-                            .glassEffect(.regular, in: Capsule())
+                            .amenRegularGlassEffect(in: Capsule())
                             .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                     }
                 }

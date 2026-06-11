@@ -42,9 +42,18 @@ private enum BUI {
     static let pillBorder   = Color(red: 0.84, green: 0.82, blue: 0.80)
 
     // Springs
-    static func snap() -> Animation { .spring(response: 0.42, dampingFraction: 0.76) }
-    static func bounce() -> Animation { .spring(response: 0.52, dampingFraction: 0.70) }
-    static func settle() -> Animation { .spring(response: 0.62, dampingFraction: 0.82) }
+    // SECURITY FIX (MEDIUM 2026-06-11): Added reduceMotion parameter to snap/bounce/settle.
+    // Call sites should pass the @Environment(\.accessibilityReduceMotion) value.
+    // Defaults to false to preserve backward compatibility for call sites not yet updated.
+    static func snap(reduceMotion: Bool = false) -> Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.76)
+    }
+    static func bounce(reduceMotion: Bool = false) -> Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.52, dampingFraction: 0.70)
+    }
+    static func settle(reduceMotion: Bool = false) -> Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.62, dampingFraction: 0.82)
+    }
 
     // Typography
     static let displayFont  = Font.custom("Georgia", size: 34).weight(.light)

@@ -619,7 +619,8 @@ struct FollowingFeedView: View {
                             .font(.system(size: 26, weight: .medium))
                             .foregroundStyle(.secondary)
                             .frame(width: 72, height: 72)
-                            .glassEffect(.regular, in: Circle())
+                            // SECURITY FIX (MEDIUM 2026-06-11): Guarded via amenRegularGlassEffect shim.
+                            .amenRegularGlassEffect(in: Circle())
                             .padding(.bottom, 28)
 
                         Text("No posts from people you follow")
@@ -646,7 +647,8 @@ struct FollowingFeedView: View {
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 15)
-                                .glassEffect(.regular.interactive(), in: Capsule())
+                                // SECURITY FIX (MEDIUM 2026-06-11): Guarded via amenInteractiveGlassEffect shim.
+                                .amenInteractiveGlassEffect(in: Capsule())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Find people to follow")
@@ -697,7 +699,8 @@ struct QuietFeedView: View {
                             .font(.system(size: 26, weight: .medium))
                             .foregroundStyle(.secondary)
                             .frame(width: 72, height: 72)
-                            .glassEffect(.regular, in: Circle())
+                            // SECURITY FIX (MEDIUM 2026-06-11): Guarded via amenRegularGlassEffect shim.
+                            .amenRegularGlassEffect(in: Circle())
                             .padding(.bottom, 28)
 
                         Text("All quiet for now")
@@ -724,7 +727,8 @@ struct QuietFeedView: View {
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 15)
-                                .glassEffect(.regular.interactive(), in: Capsule())
+                                // SECURITY FIX (MEDIUM 2026-06-11): Guarded via amenInteractiveGlassEffect shim.
+                                .amenInteractiveGlassEffect(in: Capsule())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Share something")

@@ -256,21 +256,23 @@ private struct SafetyOptionButton: View {
             }
 
         case .redirectConversation:
-            withAnimation {
+            // SECURITY FIX (MEDIUM 2026-06-11): Use Motion.adaptive to respect reduce-motion.
+            // The .dismiss case above already uses Motion.adaptive — these five cases were missed.
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }
             dlog("[BereanOverlay] redirect conversation selected conv=\(conversationId)")
 
         case .pauseChat(let minutes):
-            withAnimation {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }
             dlog("[BereanOverlay] pause chat \(minutes)min conv=\(conversationId)")
 
         case .sendBoundaryMessage:
-            withAnimation {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 showBoundaryPicker = true
                 isExpanded = false
             }
@@ -279,7 +281,7 @@ private struct SafetyOptionButton: View {
             Task {
                 await BereanAccountabilityService.shared.recordSignal(.flaggedConversation)
             }
-            withAnimation {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }
@@ -292,7 +294,7 @@ private struct SafetyOptionButton: View {
                     in: conversationId
                 )
             }
-            withAnimation {
+            withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 BereanConversationSafetyService.shared.dismissIntervention()
                 isExpanded = false
             }

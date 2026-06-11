@@ -430,32 +430,51 @@ final class MediaSafetyGateway {
     ) async {
         guard !senderId.isEmpty else { return }
 
-        // Freeze account
-        _ = try? await db.collection("userSafetyRecords").document(senderId).setData(
-            [
-                "accountStatus": "frozen",
-                "frozenUntil": 0,  // Indefinite
-                "frozenReason": reason,
-                "requiresManualReview": true,
-                "frozenAt": FieldValue.serverTimestamp()
-            ],
-            merge: true
-        )
+        // SECURITY FIX (CRITICAL 2026-06-11): Replace try? with explicit do-catch.
+        // An account freeze that fails silently leaves a potentially dangerous account active.
+        // On failure, log a critical-severity audit entry and surface an admin alert.
+        do {
+            try await db.collection("userSafetyRecords").document(senderId).setData(
+                [
+                    "accountStatus": "frozen",
+                    "frozenUntil": 0,  // Indefinite
+                    "frozenReason": reason,
+                    "requiresManualReview": true,
+                    "frozenAt": FieldValue.serverTimestamp()
+                ],
+                merge: true
+            )
+        } catch {
+            print("[MediaSafetyGateway] CRITICAL: Account freeze write failed for \(senderId): \(error)")
+            // Write a critical audit log entry so the failure is visible in audit trail
+            _ = try? await db.collection("safetyAuditLog").addDocument(data: [
+                "event": "account_freeze_write_failed",
+                "authorId": senderId,
+                "detectionSource": "client_safety_fallback",
+                "source": "MediaSafetyGateway.freezeSenderAccount",
+                "clientTimestamp": FieldValue.serverTimestamp(),
+                "createdAt": FieldValue.serverTimestamp()
+            ])
+        }
 
         // Preserve evidence
         await MinorSafetyService.shared.preserveEvidenceForFrozenAccount(senderId)
 
         // Log to moderation queue as highest priority
-        _ = try? await db.collection("moderationQueue").addDocument(data: [
-            "senderId": senderId,
-            "conversationId": conversationId,
-            "decision": "freeze_account",
-            "reason": reason,
-            "mediaType": "image",
-            "priorityLevel": 5,  // Highest priority
-            "status": "pending_review",
-            "createdAt": FieldValue.serverTimestamp()
-        ])
+        do {
+            try await db.collection("moderationQueue").addDocument(data: [
+                "senderId": senderId,
+                "conversationId": conversationId,
+                "decision": "freeze_account",
+                "reason": reason,
+                "mediaType": "image",
+                "priorityLevel": 5,  // Highest priority
+                "status": "pending_review",
+                "createdAt": FieldValue.serverTimestamp()
+            ])
+        } catch {
+            print("[MediaSafetyGateway] CRITICAL: Moderation queue entry failed for \(senderId): \(error)")
+        }
     }
 
     // MARK: - Async Deep Scan (post-delivery)

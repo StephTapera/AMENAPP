@@ -182,10 +182,12 @@ async function callNvidiaGuard(text) {
       const isSafe = (parsed["User Safety"] ?? "").toLowerCase() === "safe";
       return { safe: isSafe, categories: parsed["Safety Categories"] ?? "" };
     } catch {
-      // Plain-text fallback: look for "safe" / "unsafe"
-      const lower = raw.toLowerCase();
-      const isSafe = lower.includes("safe") && !lower.includes("unsafe");
-      return { safe: isSafe, categories: raw.slice(0, 120) };
+      // SECURITY FIX (MEDIUM 2026-06-11): Fail closed on non-JSON response.
+      // The previous plain-text fallback (lower.includes('safe') && !lower.includes('unsafe'))
+      // is bypassable: a model response like "this is not unsafe content" would return safe=true.
+      // Any non-JSON response is now treated as unsafe (fail closed), consistent with
+      // moderationGateway.js and nvidiaClient.js.
+      return { safe: false, categories: "parse_error" };
     }
   } catch (err) {
     logger.error("callModel: NVIDIA guard threw", { error: err.message });

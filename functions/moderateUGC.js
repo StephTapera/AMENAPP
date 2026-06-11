@@ -219,7 +219,15 @@ exports.moderateSanctuaryMessage = ugcFunctions.firestore
       status = "pending";
     }
 
-    await snap.ref.update({
+    // SECURITY FIX (LOW 2026-06-11): Use a Firestore batch for the moderation-status
+    // update and moderationQueue.add to make them atomic. The previous separate awaits
+    // could leave the message with its moderation status set but without a queue entry
+    // if the function timed out between the two writes, making it invisible to the
+    // admin review panel. Batch ensures both succeed or both are not written.
+    const db = getFirestore();
+    const batch = db.batch();
+
+    batch.update(snap.ref, {
       visible: status === "approved",
       removed: status === "blocked",
       moderation: {
@@ -230,19 +238,9 @@ exports.moderateSanctuaryMessage = ugcFunctions.firestore
       },
     });
 
-    // Persist to moderationDecisions/ and (if self-harm) crisisEscalations/
-    await persistUGCDecision(
-      authorId,
-      "sanctuary_message",
-      snap.ref.path,
-      status,
-      categories,
-      selfHarm,
-      text
-    );
-
     if (status !== "approved") {
-      await getFirestore().collection("moderationQueue").add({
+      const queueRef = db.collection("moderationQueue").doc();
+      batch.set(queueRef, {
         contentRef: snap.ref.path,
         contentType: "sanctuary_message",
         sanctuaryId: context.params.sanctuaryId,
@@ -254,6 +252,20 @@ exports.moderateSanctuaryMessage = ugcFunctions.firestore
         expireAt: new Date(Date.now() + TTL_PENDING_MS),
       });
     }
+
+    await batch.commit();
+
+    // Persist to moderationDecisions/ and (if self-harm) crisisEscalations/ — outside
+    // the batch because persistUGCDecision handles its own writes and error handling.
+    await persistUGCDecision(
+      authorId,
+      "sanctuary_message",
+      snap.ref.path,
+      status,
+      categories,
+      selfHarm,
+      text
+    );
   });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -446,8 +446,12 @@ exports.checkContentSafety = onCall(
       await enforceRateLimit(uid);
     } catch (err) {
       if (err instanceof HttpsError) throw err;
-      // Firestore rate-limiter itself failed — don't block the user, log and continue
-      console.error("[checkContentSafety] Rate-limiter error (non-fatal):", err.message);
+      // SECURITY FIX (MEDIUM 2026-06-11): A persistent Firestore outage previously
+      // silently disabled rate-limiting, allowing unlimited NVIDIA NIM endpoint calls.
+      // Now returns a 'review' decision when the rate-limiter itself is broken so the
+      // request is routed to human review rather than silently bypassing the limit.
+      console.error("[checkContentSafety] Rate-limiter error — routing to review:", err.message);
+      return { decision: "review", categories: ["rate_limiter_unavailable"], safe: false };
     }
 
     // ── 4. Local phrase pre-checks (synchronous, zero network) ───────────────

@@ -740,11 +740,18 @@ struct UserProfileSheet: View {
         .confirmationDialog("Report this user?", isPresented: $showReportConfirm, titleVisibility: .visible) {
             Button("Report", role: .destructive) {
                 Task {
-                    try? await ModerationService.shared.reportUser(
-                        userId: user.id,
-                        reason: .inappropriateContent,
-                        additionalDetails: nil
-                    )
+                    // SECURITY FIX (HIGH 2026-06-11): Replace try? with do-catch.
+                    // Silent failure of a report write means harmful content goes unreported.
+                    do {
+                        try await ModerationService.shared.reportUser(
+                            userId: user.id,
+                            reason: .inappropriateContent,
+                            additionalDetails: nil
+                        )
+                    } catch {
+                        print("[ContactSearchView] Report user failed: \(error)")
+                        // NOTE: No toast available here — caller should add error state if needed
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}

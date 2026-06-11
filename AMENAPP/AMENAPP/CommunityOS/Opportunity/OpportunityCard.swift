@@ -29,6 +29,8 @@ struct OpportunityCard: View {
 
     @State private var isSaved = false
     @State private var showFlagMenu = false
+    // SECURITY FIX (MEDIUM 2026-06-11): Error state for flag report failures.
+    @State private var flagError: String?
 
     // MARK: Body
 
@@ -65,12 +67,18 @@ struct OpportunityCard: View {
                     Task {
                         let db = Firestore.firestore()
                         let uid = Auth.auth().currentUser?.uid ?? "anonymous"
-                        _ = try? await db.collection("opportunityFlags").addDocument(data: [
+                        // SECURITY FIX (MEDIUM 2026-06-11): Replace try? with do-catch.
+                    // Silent failure of a safety flag write means scam reports go unreported.
+                    do {
+                        try await db.collection("opportunityFlags").addDocument(data: [
                             "opportunityId": post.id,
                             "reportedBy": uid,
                             "flagType": flag.rawValue,
                             "createdAt": Timestamp(date: Date())
                         ])
+                    } catch {
+                        await MainActor.run { flagError = "Report could not be submitted — please try again." }
+                    }
                     }
                 }
             }
