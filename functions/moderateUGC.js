@@ -9,6 +9,13 @@ const functions = require("firebase-functions/v1");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { withRetry } = require("./retryHelper");
 
+// SECURITY (C2 fix 2026-06-11): Image-only messages (DMs, sanctuary messages) must
+// also run vision moderation so CSAM images in those surfaces reach the same
+// escalation pipeline as post images.
+const { moderateImage } = require("./moderation/imageModeration");
+const { fileNCMECReport } = require("./ncmecReporter");
+const IMAGE_CSAM_CATEGORIES_UGC = new Set(["cs_csam_suspected", "cs_child_exploitation"]);
+
 // Shared moderation decision persistence + self-harm escalation.
 // Lazy-require to avoid circular dependency issues at module load time.
 function getGateway() {

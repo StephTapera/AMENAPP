@@ -533,6 +533,73 @@ exports.adminReviewPost = onCall({ region: "us-central1", enforceAppCheck: true 
     throw new HttpsError("not-found", `Post ${postId} not found.`);
   }
 
+  // SECURITY (C2 fix 2026-06-11): Before any human decision on an image-review post,
+  // check if the vision model has already flagged CSAM categories on the post.
+  // If stored moderation.categories contain CSAM, or if the image has not yet been
+  // vision-moderated, run moderateImage now. A human reviewer must never be able to
+  // approve or even view the queue entry without the legalHold + NCMEC pipeline firing.
+  const postDataForCSAMCheck = postSnap.data();
+  const existingCategories = postDataForCSAMCheck?.moderation?.categories ?? [];
+  const existingCSAM = existingCategories.some((c) => IMAGE_CSAM_CATEGORIES.has(c));
+
+  const isImageReviewPost =
+    postDataForCSAMCheck?.moderation?.status === "pending_image_review" ||
+    postDataForCSAMCheck?.moderation?.imageReviewRequired === true;
+
+  if (isImageReviewPost) {
+    let csamCategories = existingCSAM ? existingCategories.filter((c) => IMAGE_CSAM_CATEGORIES.has(c)) : [];
+
+    // If vision has not yet run (no stored categories from vision), run it now.
+    if (!existingCSAM) {
+      const imageUrl = postDataForCSAMCheck?.imageUrl || postDataForCSAMCheck?.mediaUrl || null;
+      if (imageUrl) {
+        let imgResult = null;
+        try {
+          imgResult = await moderateImage(imageUrl, process.env.NVIDIA_API_KEY);
+        } catch (imgErr) {
+          console.warn(`[adminReviewPost] moderateImage failed (${imgErr.message}) — blocking decision until vision check can run`);
+          throw new HttpsError(
+            "aborted",
+            "Image safety check is temporarily unavailable. Please retry — decision is blocked until the vision model confirms no CSAM content.",
+          );
+        }
+
+        const imgCategories = imgResult ? imgResult.categories : [];
+        if (imgCategories.some((c) => IMAGE_CSAM_CATEGORIES.has(c))) {
+          csamCategories = imgCategories.filter((c) => IMAGE_CSAM_CATEGORIES.has(c));
+        }
+      }
+    }
+
+    if (csamCategories.length > 0) {
+      // CSAM confirmed — mandatory escalation before (and instead of) human review.
+      await escalateChildSafety(db, {
+        snap: { ref: postRef, id: postId, data: () => postDataForCSAMCheck },
+        post: postDataForCSAMCheck,
+        categories: csamCategories,
+        authorId: postDataForCSAMCheck?.authorId || postDataForCSAMCheck?.userId || null,
+      });
+
+      const imageUrl = postDataForCSAMCheck?.imageUrl || postDataForCSAMCheck?.mediaUrl || null;
+      await fileNCMECReport({
+        contentRef: `posts/${postId}`,
+        contentType: "image",
+        contentUrl: imageUrl || "",
+        authorId: postDataForCSAMCheck?.authorId || postDataForCSAMCheck?.userId || null,
+        detectedCategories: csamCategories,
+        detectedBy: "adminReviewPost-vision-gate",
+      }).catch((e) => console.error("[adminReviewPost] fileNCMECReport error (CSAM gate):", e.message));
+
+      console.warn(
+        `[adminReviewPost] CSAM GATE BLOCKED review of post ${postId} by admin ${request.auth.uid} — escalated. Categories: ${csamCategories.join(", ")}`,
+      );
+      throw new HttpsError(
+        "failed-precondition",
+        "This post has been identified as containing child safety content. It has been escalated to the mandatory reporting pipeline and cannot be manually approved.",
+      );
+    }
+  }
+
   if (decision === "approved") {
     // Collect blocked media URLs from all matching queue items so we can strip them.
     const queueSnap = await db
