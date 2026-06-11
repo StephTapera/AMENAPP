@@ -262,11 +262,18 @@ async function checkAdultMinorInteraction(db, senderUid, recipientUid, contentTy
   if (contentType === "reply") {
     // Replies are allowed but flagged for pattern-based review.
     // Count how many recent adult→minor reply events exist to detect repetition.
+    // SECURITY (H7 fix 2026-06-11): Add a time-window filter so that only
+    // alerts from the last 30 days count toward the repetition threshold.
+    // Without this filter, a single interaction 6 months ago could trip the
+    // pattern detector and either generate false positives or — if the
+    // collection grows large — cause the query to scan far too many documents.
+    const replyWindowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const recentReplies = await db
       .collection("safetyAlerts")
       .where("adultUid", "==", adultUid)
       .where("minorUid", "==", minorUid)
       .where("contentType", "==", "reply")
+      .where("timestamp", ">=", admin.firestore.Timestamp.fromDate(replyWindowStart))
       .orderBy("timestamp", "desc")
       .limit(10)
       .get();

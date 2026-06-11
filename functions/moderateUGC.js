@@ -16,6 +16,15 @@ const { moderateImage } = require("./moderation/imageModeration");
 const { fileNCMECReport } = require("./ncmecReporter");
 const IMAGE_CSAM_CATEGORIES_UGC = new Set(["cs_csam_suspected", "cs_child_exploitation"]);
 
+// SECURITY (H7 fix 2026-06-11): Wire the grooming-pattern detector so adult→minor
+// DM streams are actually analysed. Import detectGroomingRisk and the interaction
+// checker here so moderateDMMessage can invoke them on every new DM.
+const { detectGroomingRisk, checkAdultMinorInteraction } = require("./safety/minorProtection");
+
+// Number of prior messages to fetch for grooming-pattern analysis. Kept small to
+// minimise Firestore reads while still catching multi-turn patterns.
+const GROOMING_CONTEXT_WINDOW = 20;
+
 // Shared moderation decision persistence + self-harm escalation.
 // Lazy-require to avoid circular dependency issues at module load time.
 function getGateway() {
@@ -623,4 +632,136 @@ exports.moderateDMMessage = ugcFunctions.firestore
       selfHarm,
       text
     );
+
+    // ── SECURITY (H7 fix 2026-06-11): Grooming-pattern analysis ──────────────
+    // Run detectGroomingRisk on every new DM in a conversation that involves an
+    // adult↔minor pair.  This was the critical gap: the function existed and was
+    // exported but was never called, so grooming signals produced no alert.
+    //
+    // Strategy:
+    //   1. Identify whether this conversation involves a mixed adult/minor pair by
+    //      calling checkAdultMinorInteraction (which reads both users' safety docs).
+    //      We only pay the Firestore lookup cost when needed.
+    //   2. If it is mixed, fetch the last GROOMING_CONTEXT_WINDOW messages and
+    //      annotate each with isAdult / isMinorRecipient metadata.
+    //   3. Pass the annotated messages to detectGroomingRisk.
+    //   4. If risk >= "elevated" (high | critical), write a safetyAlert and a
+    //      moderationQueue entry — never weaken an existing "blocked" status.
+    if (authorId) {
+      try {
+        const groomDb = getFirestore();
+        const convData = (
+          await groomDb.collection("conversations").doc(context.params.conversationId).get()
+        ).data();
+
+        if (convData) {
+          const participantIds = convData.participantIds || [];
+          // Only analyse direct (non-group) conversations to limit scope.
+          const recipients = participantIds.filter((id) => id !== authorId);
+          if (recipients.length === 1) {
+            const recipientId = recipients[0];
+
+            // checkAdultMinorInteraction reads both safety docs and tells us
+            // whether this is a mixed adult/minor pair without us having to
+            // replicate the age-resolution logic here.
+            const interactionCheck = await checkAdultMinorInteraction(
+              groomDb,
+              authorId,
+              recipientId,
+              "dm"
+            );
+
+            // We run grooming analysis even when the DM was blocked — the pattern
+            // data is still valuable for moderation context.  We also run on
+            // age_unknown cases (fail-safe: treat as potentially minor).
+            const isMixedOrUnknown =
+              interactionCheck.reason === "adult_minor_dm_blocked" ||
+              interactionCheck.reason === "age_unknown_dm_blocked" ||
+              interactionCheck.reason === "age_unknown_pending_review";
+
+            if (isMixedOrUnknown) {
+              // Fetch the N most recent messages for pattern context.
+              const priorSnaps = await groomDb
+                .collection("conversations")
+                .doc(context.params.conversationId)
+                .collection("messages")
+                .orderBy("createdAt", "desc")
+                .limit(GROOMING_CONTEXT_WINDOW)
+                .get();
+
+              // Resolve which UID is the adult and which is the minor so we can
+              // annotate messages correctly.  When ages are unknown we treat the
+              // sender as adult (worst-case assumption for grooming detection).
+              const senderUserDoc = await groomDb.collection("users").doc(authorId).get();
+              const senderData = senderUserDoc.data() || {};
+              const senderIsAdult =
+                senderData.ageTier === "adult" ||
+                (senderData.safety && senderData.safety.isMinor === false);
+
+              const annotatedMessages = priorSnaps.docs.map((d) => {
+                const m = d.data();
+                const msgSender = m.senderId || "";
+                const isAdult = msgSender === authorId ? senderIsAdult : !senderIsAdult;
+                const isMinorRecipient = !isAdult;
+                return {
+                  senderUid: msgSender,
+                  isAdult: !!isAdult,
+                  isMinorRecipient: !!isMinorRecipient,
+                  text: (m.text || m.content || "").trim(),
+                };
+              });
+
+              const { risk, flags } = detectGroomingRisk(annotatedMessages);
+
+              if (risk === "high" || risk === "critical") {
+                const alertId = `grm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                const alertRef = groomDb.collection("safetyAlerts").doc(alertId);
+                const mqRef = groomDb.collection("moderationQueue").doc(alertId);
+
+                const groomBatch = groomDb.batch();
+
+                groomBatch.set(alertRef, {
+                  id: alertId,
+                  type: "grooming_risk_detected",
+                  conversationId: context.params.conversationId,
+                  senderUid: authorId,
+                  recipientUid: recipientId,
+                  risk,
+                  flags,
+                  triggerMessageRef: snap.ref.path,
+                  timestamp: FieldValue.serverTimestamp(),
+                });
+
+                groomBatch.set(mqRef, {
+                  type: "grooming_risk",
+                  conversationId: context.params.conversationId,
+                  senderUid: authorId,
+                  recipientUid: recipientId,
+                  risk,
+                  flags,
+                  triggerMessageRef: snap.ref.path,
+                  priority: risk === "critical" ? "critical" : "high",
+                  status: "pending",
+                  createdAt: FieldValue.serverTimestamp(),
+                  expireAt: new Date(Date.now() + TTL_PENDING_MS),
+                });
+
+                await groomBatch.commit();
+
+                console.warn(
+                  `[moderateDMMessage] GROOMING RISK ${risk.toUpperCase()} detected — ` +
+                  `conv ${context.params.conversationId} flags: ${flags.join(", ")}`
+                );
+              }
+            }
+          }
+        }
+      } catch (groomErr) {
+        // Grooming analysis must never silently swallow errors that could indicate
+        // a data integrity problem — log loudly but do not throw so the rest of
+        // the moderation pipeline is unaffected.
+        console.error("[moderateDMMessage] groomingRisk analysis error:", groomErr.message);
+      }
+    }
+    // ── End grooming-pattern analysis ────────────────────────────────────────
   });
