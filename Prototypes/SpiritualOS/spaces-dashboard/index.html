@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaces Dashboard HeroCard</title>
+    <style>
+        :root {
+            --amen-gold: #D4AF37;
+            --amen-purple: #6B5BFF;
+            --amen-blue: #4A90D9;
+            --amen-black: #1A1A2E;
+            --amen-cream: #FFF8F0;
+            --amen-warm: #F5E6C8;
+            --matte: #FFF8F0;
+            --matte-deep: #F7E8CF;
+            --ink: #211D2C;
+            --muted: rgba(33, 29, 44, 0.62);
+            --glass: rgba(255, 252, 245, 0.38);
+            --glass-strong: rgba(255, 250, 238, 0.58);
+            --glass-border-top: rgba(255, 255, 255, 0.74);
+            --glass-border-bottom: rgba(55, 38, 20, 0.16);
+            --shadow-warm: rgba(124, 79, 21, 0.25);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(circle at 18% 14%, rgba(212, 175, 55, 0.24), transparent 30%),
+                radial-gradient(circle at 82% 28%, rgba(107, 91, 255, 0.14), transparent 28%),
+                linear-gradient(145deg, #251D25 0%, #624628 45%, #F5E6C8 100%);
+            color: var(--ink);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Helvetica, Arial, sans-serif;
+            letter-spacing: 0;
+        }
+
+        button {
+            font: inherit;
+        }
+
+        .phone {
+            width: min(393px, calc(100vw - 28px));
+            height: min(852px, calc(100vh - 28px));
+            position: relative;
+            overflow: hidden;
+            border-radius: 46px;
+            background:
+                linear-gradient(180deg, rgba(255, 248, 240, 0.96), rgba(245, 230, 200, 0.94)),
+                var(--amen-cream);
+            box-shadow:
+                0 38px 90px rgba(14, 9, 5, 0.46),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.52),
+                inset 0 -1px 0 rgba(51, 33, 17, 0.18);
+        }
+
+        .phone::before {
+            content: "";
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            z-index: 10;
+            width: 118px;
+            height: 34px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background: #0C0B12;
+            box-shadow: inset 0 -1px 3px rgba(255, 255, 255, 0.08);
+        }
+
+        .screen {
+            height: 100%;
+            overflow-y: auto;
+            padding: 58px 16px 24px;
+            scrollbar-width: none;
+        }
+
+        .screen::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-bar {
+            height: 44px;
+            display: grid;
+            grid-template-columns: 92px 1fr 92px;
+            align-items: center;
+            margin-bottom: 14px;
+            padding: 0 2px;
+        }
+
+        .back {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+            min-width: 0;
+            color: rgba(26, 26, 46, 0.74);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .back-icon {
+            font-size: 27px;
+            line-height: 1;
+            transform: translateY(-1px);
+        }
+
+        .nav-title {
+            overflow: hidden;
+            text-align: center;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .hero-card {
+            position: relative;
+            min-height: 468px;
+            overflow: hidden;
+            border-radius: 24px;
+            isolation: isolate;
+            background:
+                linear-gradient(160deg, rgba(255, 255, 255, 0.34), rgba(255, 248, 240, 0.14)),
+                rgba(255, 255, 255, 0.22);
+            border-top: 1px solid var(--glass-border-top);
+            border-right: 1px solid rgba(255, 255, 255, 0.28);
+            border-bottom: 1px solid var(--glass-border-bottom);
+            border-left: 1px solid rgba(255, 255, 255, 0.28);
+            box-shadow:
+                0 20px 54px var(--shadow-warm),
+                inset 0 1px 0 rgba(255, 255, 255, 0.54),
+                inset 0 -1px 0 rgba(60, 37, 16, 0.12);
+            backdrop-filter: blur(24px) saturate(1.34);
+            -webkit-backdrop-filter: blur(24px) saturate(1.34);
+        }
+
+        .hero-cover {
+            position: absolute;
+            inset: 0;
+            z-index: -3;
+            background:
+                radial-gradient(circle at 20% 18%, rgba(255, 245, 215, 0.9) 0 7%, transparent 17%),
+                linear-gradient(140deg, rgba(26, 26, 46, 0.42) 0%, rgba(26, 26, 46, 0.1) 36%, rgba(107, 91, 255, 0.28) 100%),
+                linear-gradient(34deg, #674C2A 0%, #B5833D 42%, #E7C567 64%, #5D5D87 100%);
+        }
+
+        .hero-cover::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0.52;
+            background:
+                linear-gradient(90deg, transparent 0 18%, rgba(255, 248, 240, 0.18) 18% 19%, transparent 19% 46%, rgba(255, 248, 240, 0.14) 46% 47%, transparent 47%),
+                repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.08) 0 2px, transparent 2px 21px);
+        }
+
+        .hero-scrim {
+            position: absolute;
+            inset: 0;
+            z-index: -2;
+            background:
+                linear-gradient(180deg, rgba(255, 248, 240, 0.02) 0%, rgba(26, 26, 46, 0.16) 28%, rgba(39, 27, 20, 0.68) 100%),
+                radial-gradient(circle at 50% 100%, rgba(245, 230, 200, 0.55), transparent 48%);
+        }
+
+        .hero-body {
+            position: absolute;
+            left: 14px;
+            right: 14px;
+            bottom: 106px;
+            padding: 16px;
+            border-radius: 20px;
+            background:
+                linear-gradient(180deg, rgba(255, 248, 240, 0.98), rgba(250, 238, 218, 0.96)),
+                var(--matte);
+            box-shadow:
+                0 16px 34px rgba(37, 25, 14, 0.22),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        .hero-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: flex-start;
+            margin-bottom: 14px;
+        }
+
+        .eyebrow {
+            color: rgba(33, 29, 44, 0.52);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            max-width: 245px;
+            margin: 4px 0 4px;
+            font-size: 28px;
+            line-height: 1.03;
+            font-weight: 750;
+            letter-spacing: 0;
+        }
+
+        .subtitle {
+            max-width: 250px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.32;
+        }
+
+        .prayer-badge {
+            width: 40px;
+            height: 40px;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            border-radius: 999px;
+            color: #FFFFFF;
+            font-size: 19px;
+            background:
+                linear-gradient(145deg, rgba(74, 144, 217, 0.95), rgba(107, 91, 255, 0.82));
+            box-shadow:
+                0 8px 18px rgba(74, 144, 217, 0.28),
+                inset 0 1px 0 rgba(255, 255, 255, 0.34);
+        }
+
+        .member-row,
+        .info-grid {
+            display: flex;
+            align-items: center;
+        }
+
+        .member-row {
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .avatars {
+            display: flex;
+            padding-left: 2px;
+        }
+
+        .avatar {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            margin-left: -8px;
+            border: 2px solid var(--matte);
+            border-radius: 999px;
+            color: #FFFFFF;
+            font-size: 11px;
+            font-weight: 800;
+            box-shadow: 0 5px 10px rgba(33, 29, 44, 0.14);
+        }
+
+        .avatar:first-child {
+            margin-left: 0;
+        }
+
+        .a1 { background: linear-gradient(145deg, #5BA8E8, #315D9E); }
+        .a2 { background: linear-gradient(145deg, #D4AF37, #9A631B); }
+        .a3 { background: linear-gradient(145deg, #6B5BFF, #3B2D97); }
+        .a4 { background: linear-gradient(145deg, #C96A42, #873A2E); }
+        .a5 { background: linear-gradient(145deg, #6A7251, #343922); }
+
+        .member-count {
+            color: rgba(33, 29, 44, 0.56);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .info-grid {
+            gap: 8px;
+        }
+
+        .info-card {
+            min-width: 0;
+            flex: 1;
+            padding: 10px;
+            border-radius: 14px;
+            background: rgba(245, 230, 200, 0.64);
+            box-shadow: inset 0 0 0 1px rgba(84, 55, 20, 0.08);
+        }
+
+        .info-label {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-bottom: 4px;
+            color: rgba(33, 29, 44, 0.52);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .info-title {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 750;
+        }
+
+        .info-subtitle {
+            margin-top: 2px;
+            color: rgba(33, 29, 44, 0.58);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .action-bar {
+            position: absolute;
+            left: 14px;
+            right: 14px;
+            bottom: 14px;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 6px;
+            padding: 8px;
+            border-radius: 20px;
+            background: var(--glass-strong);
+            border-top: 1px solid var(--glass-border-top);
+            border-bottom: 1px solid var(--glass-border-bottom);
+            box-shadow:
+                0 16px 38px rgba(37, 25, 14, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.54);
+            backdrop-filter: blur(22px) saturate(1.35);
+            -webkit-backdrop-filter: blur(22px) saturate(1.35);
+        }
+
+        .action {
+            min-width: 0;
+            height: 70px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border: 0;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.22);
+            color: var(--ink);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.26);
+        }
+
+        .action-icon {
+            width: 26px;
+            height: 26px;
+            display: grid;
+            place-items: center;
+            border-radius: 999px;
+            color: #FFFFFF;
+            font-size: 14px;
+        }
+
+        .gold { background: linear-gradient(145deg, #E8C84A, #B8861C); }
+        .blue { background: linear-gradient(145deg, #5BA8E8, #397CC1); }
+        .cream { background: linear-gradient(145deg, #7D6B51, #4C3D2E); }
+        .purple { background: linear-gradient(145deg, #8B7FFF, #5A45D6); }
+
+        .action-label {
+            max-width: 62px;
+            color: rgba(33, 29, 44, 0.78);
+            font-size: 10.5px;
+            line-height: 1.08;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .section-title {
+            margin: 22px 2px 10px;
+            font-size: 17px;
+            font-weight: 750;
+        }
+
+        .matte-card {
+            padding: 14px;
+            border-radius: 18px;
+            background: var(--matte);
+            box-shadow:
+                0 10px 26px rgba(80, 55, 22, 0.12),
+                inset 0 0 0 1px rgba(93, 58, 18, 0.08);
+        }
+
+        .feed-row {
+            display: grid;
+            grid-template-columns: 36px 1fr;
+            gap: 10px;
+            align-items: start;
+        }
+
+        .feed-row + .feed-row {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(84, 55, 20, 0.1);
+        }
+
+        .feed-icon {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            background: rgba(245, 230, 200, 0.75);
+        }
+
+        .feed-title {
+            margin-bottom: 2px;
+            font-size: 14px;
+            font-weight: 750;
+        }
+
+        .feed-copy {
+            color: rgba(33, 29, 44, 0.62);
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .profile-strip {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .profile-chip {
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 11px;
+            border-radius: 999px;
+            background: var(--glass);
+            border-top: 1px solid var(--glass-border-top);
+            border-bottom: 1px solid var(--glass-border-bottom);
+            color: rgba(33, 29, 44, 0.7);
+            font-size: 12px;
+            font-weight: 750;
+            backdrop-filter: blur(18px) saturate(1.25);
+            -webkit-backdrop-filter: blur(18px) saturate(1.25);
+        }
+
+        @media (max-height: 760px) {
+            .phone {
+                height: calc(100vh - 20px);
+            }
+
+            .hero-card {
+                min-height: 448px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="phone" aria-label="iPhone preview">
+        <div class="screen">
+            <nav class="nav-bar" aria-label="Space detail navigation">
+                <div class="back" aria-label="Back to Spaces">
+                    <span class="back-icon" aria-hidden="true">‹</span>
+                    <span>Spaces</span>
+                </div>
+                <div class="nav-title">Covenant Study</div>
+                <div></div>
+            </nav>
+
+            <article class="hero-card" aria-label="Covenant Men's Study Space">
+                <div class="hero-cover" aria-hidden="true"></div>
+                <div class="hero-scrim" aria-hidden="true"></div>
+
+                <section class="hero-body">
+                    <div class="hero-meta">
+                        <div>
+                            <div class="eyebrow">Church Space</div>
+                            <h1>Covenant Men's Study</h1>
+                            <p class="subtitle">A weekly room for prayer, Scripture, and notes from First Baptist Church.</p>
+                        </div>
+                        <div class="prayer-badge" aria-label="Active prayer requests">🙏</div>
+                    </div>
+
+                    <div class="member-row" aria-label="Space members">
+                        <div class="avatars" aria-hidden="true">
+                            <div class="avatar a1">JT</div>
+                            <div class="avatar a2">MR</div>
+                            <div class="avatar a3">DA</div>
+                            <div class="avatar a4">SP</div>
+                            <div class="avatar a5">KB</div>
+                        </div>
+                        <div class="member-count">17 members</div>
+                    </div>
+
+                    <div class="info-grid">
+                        <div class="info-card" aria-label="Next event Romans 12 Roundtable tonight at 7 PM">
+                            <div class="info-label"><span aria-hidden="true">📅</span><span>Next Event</span></div>
+                            <div class="info-title">Romans 12 Roundtable</div>
+                            <div class="info-subtitle">Tonight · 7:00 PM</div>
+                        </div>
+                        <div class="info-card" aria-label="Current study Sermon on the Mount">
+                            <div class="info-label"><span aria-hidden="true">📖</span><span>Current Study</span></div>
+                            <div class="info-title">Sermon on the Mount</div>
+                            <div class="info-subtitle">Week 4 · Matthew 6</div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="action-bar" aria-label="Space actions">
+                    <button class="action" type="button" aria-label="Pray Together">
+                        <span class="action-icon gold" aria-hidden="true">🙏</span>
+                        <span class="action-label">Pray Together</span>
+                    </button>
+                    <button class="action" type="button" aria-label="Schedule">
+                        <span class="action-icon blue" aria-hidden="true">＋</span>
+                        <span class="action-label">Schedule</span>
+                    </button>
+                    <button class="action" type="button" aria-label="Open Notes">
+                        <span class="action-icon cream" aria-hidden="true">▤</span>
+                        <span class="action-label">Open Notes</span>
+                    </button>
+                    <button class="action" type="button" aria-label="Ask Berean">
+                        <span class="action-icon purple" aria-hidden="true">✦</span>
+                        <span class="action-label">Ask Berean</span>
+                    </button>
+                </div>
+            </article>
+
+            <div class="profile-strip" aria-label="Profile contexts">
+                <div class="profile-chip"><span aria-hidden="true">⌂</span> Space</div>
+                <div class="profile-chip"><span aria-hidden="true">✚</span> Church</div>
+                <div class="profile-chip"><span aria-hidden="true">◇</span> Org</div>
+            </div>
+
+            <section aria-labelledby="feed-title">
+                <div class="section-title" id="feed-title">Today in this Space</div>
+                <div class="matte-card">
+                    <div class="feed-row">
+                        <div class="feed-icon" aria-hidden="true">🕯</div>
+                        <div>
+                            <div class="feed-title">Prayer wall opened</div>
+                            <div class="feed-copy">Members are gathering around care requests before tonight's study.</div>
+                        </div>
+                    </div>
+                    <div class="feed-row">
+                        <div class="feed-icon" aria-hidden="true">📝</div>
+                        <div>
+                            <div class="feed-title">Church notes attached</div>
+                            <div class="feed-copy">Sunday's sermon notes are ready for the Matthew 6 discussion.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amen Daily - Home Digest Prototype</title>
+    <style>
+        :root {
+            --amen-gold: #D4AF37;
+            --amen-purple: #6B5BFF;
+            --amen-blue: #4A90D9;
+            --amen-black: #1A1A2E;
+            --amen-cream: #FFF8F0;
+            --amen-warm: #F5E6C8;
+            --amen-charcoal: #2C2C3E;
+            --ink: #211B16;
+            --ink-soft: rgba(33, 27, 22, 0.66);
+            --ink-faint: rgba(33, 27, 22, 0.42);
+            --matte: #FFF8F0;
+            --matte-warm: #F8EDDA;
+            --glass: rgba(255, 255, 255, 0.34);
+            --glass-strong: rgba(255, 255, 255, 0.48);
+            --glass-border: rgba(255, 255, 255, 0.62);
+            --shadow: 0 24px 70px rgba(88, 55, 18, 0.24);
+            --gold-glow: rgba(212, 175, 55, 0.34);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 28px 14px;
+            color: var(--ink);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at 48% 12%, rgba(255, 232, 166, 0.72) 0, transparent 32%),
+                radial-gradient(circle at 82% 28%, rgba(212, 175, 55, 0.22) 0, transparent 26%),
+                linear-gradient(155deg, #23160f 0%, #6b4a27 45%, #e7d2a8 100%);
+        }
+
+        .stage {
+            width: min(100%, 430px);
+        }
+
+        .prototype-label {
+            margin: 0 0 14px;
+            color: rgba(255, 248, 240, 0.78);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .phone {
+            position: relative;
+            width: min(100%, 393px);
+            height: 852px;
+            margin: 0 auto;
+            overflow: hidden;
+            border: 1px solid rgba(255, 248, 240, 0.38);
+            border-radius: 46px;
+            background:
+                linear-gradient(180deg, rgba(255, 246, 226, 0.96) 0%, rgba(244, 220, 177, 0.9) 100%),
+                var(--amen-warm);
+            box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.62);
+        }
+
+        .phone::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 50% 0%, rgba(255, 247, 209, 0.7), transparent 32%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.38), transparent 14%);
+        }
+
+        .status-bar {
+            position: relative;
+            z-index: 2;
+            height: 46px;
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            padding: 0 28px 8px;
+            color: rgba(33, 27, 22, 0.78);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .sensor {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            width: 86px;
+            height: 24px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background: rgba(25, 18, 14, 0.86);
+        }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            height: calc(100% - 46px);
+            overflow: hidden;
+            padding: 0 14px 92px;
+        }
+
+        .glass-nav {
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 8px 0 12px;
+            border: 1px solid var(--glass-border);
+            border-radius: 26px;
+            background: var(--glass);
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.7), 0 12px 36px rgba(120, 78, 30, 0.14);
+            -webkit-backdrop-filter: blur(24px) saturate(1.35);
+            backdrop-filter: blur(24px) saturate(1.35);
+        }
+
+        .nav-title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .glass-icon {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.54);
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+            color: rgba(33, 27, 22, 0.72);
+            font-size: 15px;
+            -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+        }
+
+        .digest {
+            margin-top: 16px;
+            padding: 18px 16px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.64);
+            border-radius: 28px;
+            background: rgba(255, 255, 255, 0.32);
+            box-shadow: 0 18px 48px rgba(112, 77, 31, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.74);
+            -webkit-backdrop-filter: blur(30px) saturate(1.35);
+            backdrop-filter: blur(30px) saturate(1.35);
+        }
+
+        .eyebrow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .source-chip,
+        .private-chip,
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 30px;
+            padding: 7px 11px;
+            border: 1px solid rgba(255, 255, 255, 0.58);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.32);
+            color: rgba(33, 27, 22, 0.68);
+            font-size: 12px;
+            font-weight: 650;
+            -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+        }
+
+        .private-chip {
+            color: rgba(86, 63, 14, 0.9);
+            background: rgba(255, 239, 187, 0.44);
+        }
+
+        .greeting {
+            margin: 0 0 16px;
+            font-size: 28px;
+            font-weight: 300;
+            line-height: 1.08;
+            letter-spacing: 0;
+        }
+
+        .pulse-card {
+            padding: 14px;
+            border-radius: 20px;
+            background: var(--matte);
+            box-shadow: inset 0 0 0 1px rgba(77, 47, 12, 0.08), 0 8px 22px rgba(102, 65, 24, 0.08);
+        }
+
+        .pulse-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .pulse-kicker {
+            color: var(--amen-purple);
+            font-size: 12px;
+            font-weight: 760;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .pulse-route {
+            color: var(--ink-faint);
+            font-size: 12px;
+            font-weight: 650;
+        }
+
+        .verse {
+            margin: 0;
+            color: #2b2018;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 18px;
+            line-height: 1.45;
+        }
+
+        .reference {
+            margin-top: 10px;
+            color: var(--ink-soft);
+            font-size: 13px;
+            font-weight: 650;
+        }
+
+        .glass-action-strip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 12px;
+            padding: 9px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.34);
+            -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+        }
+
+        .strip-label {
+            color: rgba(33, 27, 22, 0.68);
+            font-size: 12px;
+            font-weight: 650;
+        }
+
+        .strip-button {
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(212, 175, 55, 0.22);
+            color: #5b4512;
+            font-size: 12px;
+            font-weight: 760;
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+            overflow: hidden;
+        }
+
+        .filter-chip.active {
+            color: #4a370e;
+            background: rgba(212, 175, 55, 0.24);
+            box-shadow: 0 0 18px rgba(212, 175, 55, 0.18);
+        }
+
+        .section-title {
+            margin: 18px 2px 10px;
+            font-size: 17px;
+            font-weight: 760;
+        }
+
+        .timeline {
+            position: relative;
+            padding: 2px 0;
+        }
+
+        .timeline::before {
+            content: "";
+            position: absolute;
+            top: 16px;
+            bottom: 18px;
+            left: 18px;
+            width: 1px;
+            background: linear-gradient(180deg, rgba(212, 175, 55, 0.48), rgba(74, 144, 217, 0.18));
+        }
+
+        .timeline-item {
+            position: relative;
+            display: grid;
+            grid-template-columns: 38px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .timeline-dot {
+            position: relative;
+            z-index: 1;
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.44);
+            color: #6b5015;
+            font-size: 15px;
+            box-shadow: 0 8px 16px rgba(91, 58, 20, 0.12);
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+        }
+
+        .timeline-copy {
+            min-width: 0;
+            padding: 10px 12px;
+            border-radius: 16px;
+            background: var(--matte-warm);
+            box-shadow: inset 0 0 0 1px rgba(77, 47, 12, 0.07);
+        }
+
+        .timeline-title {
+            overflow: hidden;
+            color: var(--ink);
+            font-size: 14px;
+            font-weight: 730;
+            line-height: 1.2;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .timeline-subtitle {
+            margin-top: 3px;
+            overflow: hidden;
+            color: var(--ink-soft);
+            font-size: 12px;
+            line-height: 1.25;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .timeline-time {
+            color: var(--ink-faint);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .formation-hint {
+            margin-top: 14px;
+            padding: 13px 14px;
+            border-radius: 20px;
+            background: var(--matte);
+            box-shadow: inset 0 0 0 1px rgba(77, 47, 12, 0.08);
+        }
+
+        .hint-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 7px;
+        }
+
+        .hint-title {
+            color: #6f5317;
+            font-size: 13px;
+            font-weight: 780;
+        }
+
+        .hint-dismiss {
+            color: var(--ink-faint);
+            font-size: 12px;
+            font-weight: 720;
+        }
+
+        .hint-body {
+            margin: 0;
+            color: var(--ink-soft);
+            font-size: 13px;
+            line-height: 1.38;
+        }
+
+        .existing-feed {
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 22px;
+            background: rgba(255, 248, 240, 0.54);
+            box-shadow: inset 0 0 0 1px rgba(77, 47, 12, 0.07);
+        }
+
+        .feed-title {
+            color: var(--ink-soft);
+            font-size: 13px;
+            font-weight: 760;
+        }
+
+        .feed-lines {
+            margin-top: 10px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .feed-line {
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(96, 66, 32, 0.14);
+        }
+
+        .feed-line:nth-child(2) {
+            width: 76%;
+        }
+
+        .feed-line:nth-child(3) {
+            width: 58%;
+        }
+
+        .tab-bar {
+            position: absolute;
+            z-index: 3;
+            right: 14px;
+            bottom: 18px;
+            left: 14px;
+            height: 64px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            align-items: center;
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.62);
+            border-radius: 32px;
+            background: rgba(255, 255, 255, 0.36);
+            box-shadow: 0 18px 42px rgba(74, 44, 18, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.7);
+            -webkit-backdrop-filter: blur(26px) saturate(1.4);
+            backdrop-filter: blur(26px) saturate(1.4);
+        }
+
+        .tab {
+            display: grid;
+            place-items: center;
+            gap: 3px;
+            min-width: 0;
+            color: rgba(33, 27, 22, 0.5);
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .tab span {
+            font-size: 17px;
+        }
+
+        .tab.active {
+            color: #6b5015;
+        }
+
+        .handoff {
+            margin: 14px auto 0;
+            max-width: 393px;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 248, 240, 0.34);
+            border-radius: 18px;
+            background: rgba(28, 19, 14, 0.35);
+            color: rgba(255, 248, 240, 0.82);
+            font-size: 12px;
+            line-height: 1.45;
+            -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+        }
+
+        @media (max-width: 420px) {
+            body {
+                padding: 0;
+                background: #ead4aa;
+            }
+
+            .stage {
+                width: 100%;
+            }
+
+            .prototype-label,
+            .handoff {
+                display: none;
+            }
+
+            .phone {
+                width: 100vw;
+                height: 100vh;
+                border: 0;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="stage" aria-label="Amen Daily prototype">
+        <p class="prototype-label">Phase 1 HTML Prototype - Amen Daily Home Top Section</p>
+
+        <section class="phone" aria-label="iPhone sized Home preview">
+            <div class="sensor" aria-hidden="true"></div>
+            <div class="status-bar" aria-hidden="true">
+                <span>9:41</span>
+                <span>5G 100%</span>
+            </div>
+
+            <div class="app">
+                <nav class="glass-nav" aria-label="Home chrome">
+                    <div class="nav-title">Home</div>
+                    <div class="nav-actions" aria-hidden="true">
+                        <div class="glass-icon">+</div>
+                        <div class="glass-icon">bell</div>
+                    </div>
+                </nav>
+
+                <section class="digest" aria-labelledby="daily-heading">
+                    <div class="eyebrow">
+                        <span class="source-chip">Pulse / BereanPulse</span>
+                        <span class="private-chip">Private</span>
+                    </div>
+
+                    <h1 class="greeting" id="daily-heading">Good morning, Steph.<br>Start gently.</h1>
+
+                    <article class="pulse-card" aria-label="Pulse card">
+                        <div class="pulse-header">
+                            <span class="pulse-kicker">Today's Pulse</span>
+                            <span class="pulse-route">amen://daily</span>
+                        </div>
+                        <p class="verse">"Let the morning bring me word of your unfailing love, for I have put my trust in you."</p>
+                        <div class="reference">Psalm 143:8 - Berean study ready</div>
+                        <div class="glass-action-strip" aria-label="Pulse actions">
+                            <span class="strip-label">Continue in shipped Pulse</span>
+                            <span class="strip-button">Open Berean</span>
+                        </div>
+                    </article>
+
+                    <div class="filters" aria-label="Digest filters">
+                        <span class="filter-chip active">Today</span>
+                        <span class="filter-chip">Prayer</span>
+                        <span class="filter-chip">Spaces</span>
+                        <span class="filter-chip">Study</span>
+                    </div>
+
+                    <h2 class="section-title">Today</h2>
+
+                    <div class="timeline" aria-label="Today's timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-dot" aria-hidden="true">sun</div>
+                            <div class="timeline-copy">
+                                <div class="timeline-title">Morning scripture</div>
+                                <div class="timeline-subtitle">Psalm 143 opened from Pulse</div>
+                            </div>
+                            <div class="timeline-time">6:40</div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <div class="timeline-dot" aria-hidden="true">pray</div>
+                            <div class="timeline-copy">
+                                <div class="timeline-title">Pray for Marcus</div>
+                                <div class="timeline-subtitle">Recovery request saved privately</div>
+                            </div>
+                            <div class="timeline-time">Now</div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <div class="timeline-dot" aria-hidden="true">read</div>
+                            <div class="timeline-copy">
+                                <div class="timeline-title">Romans 8 reflection</div>
+                                <div class="timeline-subtitle">BereanPulse can continue the study</div>
+                            </div>
+                            <div class="timeline-time">12:30</div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <div class="timeline-dot" aria-hidden="true">home</div>
+                            <div class="timeline-copy">
+                                <div class="timeline-title">Covenant group tonight</div>
+                                <div class="timeline-subtitle">Space event, no public counts shown</div>
+                            </div>
+                            <div class="timeline-time">7:00</div>
+                        </div>
+                    </div>
+
+                    <aside class="formation-hint" aria-label="Private formation hint">
+                        <div class="hint-top">
+                            <div class="hint-title">Gentle formation hint</div>
+                            <div class="hint-dismiss">Dismiss</div>
+                        </div>
+                        <p class="hint-body">You usually pause after evening study. Consider saving one sentence from Romans before the group starts.</p>
+                    </aside>
+                </section>
+
+                <section class="existing-feed" aria-label="Existing Home feed continues">
+                    <div class="feed-title">Existing Home feed remains below</div>
+                    <div class="feed-lines" aria-hidden="true">
+                        <div class="feed-line"></div>
+                        <div class="feed-line"></div>
+                        <div class="feed-line"></div>
+                    </div>
+                </section>
+            </div>
+
+            <nav class="tab-bar" aria-label="Existing tab bar chrome">
+                <div class="tab active"><span>home</span>Home</div>
+                <div class="tab"><span>find</span>Discover</div>
+                <div class="tab"><span>chat</span>Messages</div>
+                <div class="tab"><span>book</span>Resources</div>
+                <div class="tab"><span>me</span>Profile</div>
+            </nav>
+        </section>
+
+        <div class="handoff">
+            Contract notes: Amen Daily is shown as the Home top-section presentation of shipped Pulse/BereanPulse, not a separate product. Content bodies use matte surfaces; navigation, chips, and action chrome use warm candlelight glass. The prototype avoids public metrics, ranking language, and infinite scroll.
+        </div>
+    </main>
+</body>
+</html>

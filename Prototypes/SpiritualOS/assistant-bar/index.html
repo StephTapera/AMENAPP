@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Berean Assistant Bar Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --cream: #fff8f0;
+      --paper: #fffdf8;
+      --matte: #fbf2e6;
+      --ink: #201b17;
+      --muted: #756d64;
+      --line: rgba(48, 34, 20, 0.13);
+      --gold: #c99735;
+      --gold-soft: rgba(221, 171, 78, 0.24);
+      --sage: #6f8d73;
+      --plum: #7d5f8b;
+      --clay: #b66f4a;
+      --blue: #547fa1;
+      --glass: rgba(255, 255, 255, 0.58);
+      --glass-strong: rgba(255, 255, 255, 0.78);
+      --glass-line: rgba(255, 255, 255, 0.74);
+      --shadow: 0 24px 70px rgba(91, 63, 31, 0.18);
+      --phone-w: 390px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 14% 10%, rgba(255, 214, 132, 0.55), transparent 25%),
+        radial-gradient(circle at 88% 20%, rgba(157, 185, 164, 0.36), transparent 25%),
+        radial-gradient(circle at 52% 96%, rgba(184, 129, 86, 0.20), transparent 34%),
+        linear-gradient(145deg, #fffaf3 0%, #f7ecdd 50%, #edf2ea 100%);
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    main {
+      width: min(1160px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 34px 0 44px;
+    }
+
+    .page-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      margin: 0 0 7px;
+      color: #805f20;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 5vw, 54px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .summary {
+      max-width: 560px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .contract-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 8px 13px;
+      border: 1px solid var(--glass-line);
+      border-radius: 999px;
+      background: var(--glass);
+      color: #5a4a37;
+      box-shadow: 0 10px 34px rgba(82, 57, 28, 0.12);
+      backdrop-filter: blur(22px) saturate(1.25);
+      -webkit-backdrop-filter: blur(22px) saturate(1.25);
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .showcase {
+      display: grid;
+      grid-template-columns: var(--phone-w) minmax(270px, 1fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: 844px;
+      border-radius: 44px;
+      padding: 12px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.85), rgba(218,205,186,0.42)),
+        #12100e;
+      box-shadow: 0 38px 90px rgba(73, 52, 32, 0.32);
+      position: relative;
+    }
+
+    .screen {
+      height: 100%;
+      overflow: hidden;
+      border-radius: 34px;
+      background:
+        linear-gradient(180deg, rgba(255, 250, 242, 0.96), rgba(244, 235, 222, 0.98)),
+        var(--cream);
+      position: relative;
+    }
+
+    .status {
+      height: 48px;
+      padding: 15px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      color: #2b241d;
+      font-size: 13px;
+      font-weight: 800;
+      position: relative;
+      z-index: 5;
+    }
+
+    .notch {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      width: 118px;
+      height: 31px;
+      transform: translateX(-50%);
+      border-radius: 0 0 18px 18px;
+      background: #0e0d0c;
+    }
+
+    .feed {
+      height: calc(100% - 48px);
+      padding: 10px 18px 188px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .surface-label {
+      margin: 0 0 4px;
+      color: #8a6230;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .today {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.04;
+      letter-spacing: 0;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #896845, #d7a95a);
+      color: white;
+      font-size: 13px;
+      font-weight: 850;
+      box-shadow: 0 10px 25px rgba(86, 54, 22, 0.22);
+    }
+
+    .matte-card {
+      border: 1px solid rgba(62, 44, 24, 0.10);
+      border-radius: 18px;
+      background: rgba(255, 252, 246, 0.92);
+      box-shadow: 0 12px 34px rgba(89, 64, 36, 0.08);
+    }
+
+    .verse-card {
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+
+    .verse-kicker {
+      margin: 0 0 9px;
+      color: var(--sage);
+      font-size: 12px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .verse-text {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 20px;
+      line-height: 1.35;
+    }
+
+    .ref {
+      margin: 11px 0 0;
+      color: #8b6938;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .digest-row {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 12px;
+      padding: 13px;
+      margin-bottom: 10px;
+    }
+
+    .digest-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      color: white;
+      background: linear-gradient(135deg, var(--sage), #4e7358);
+      font-size: 19px;
+    }
+
+    .digest-title {
+      margin: 0 0 3px;
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .digest-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.38;
+    }
+
+    .assistant-overlay {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 84px;
+      padding: 0 14px;
+      z-index: 6;
+    }
+
+    .quick-prompts {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 9px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .quick-prompts::-webkit-scrollbar { display: none; }
+
+    .glass-chip,
+    .glass-button,
+    .assistant-bar,
+    .tabbar,
+    .glass-panel {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.77), rgba(255,255,255,0.43)),
+        var(--glass);
+      border: 1px solid var(--glass-line);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.85),
+        inset 0 -1px 0 rgba(82,50,18,0.06),
+        0 18px 42px rgba(91, 63, 31, 0.14);
+      backdrop-filter: blur(24px) saturate(1.28);
+      -webkit-backdrop-filter: blur(24px) saturate(1.28);
+    }
+
+    .glass-chip {
+      flex: 0 0 auto;
+      min-height: 34px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: #5c5248;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .glass-chip.active {
+      color: #4c3512;
+      background:
+        linear-gradient(180deg, rgba(255, 241, 203, 0.88), rgba(255, 255, 255, 0.46)),
+        rgba(216, 168, 69, 0.16);
+      border-color: rgba(196, 144, 45, 0.30);
+    }
+
+    .assistant-bar {
+      display: grid;
+      grid-template-columns: 32px 1fr auto auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 58px;
+      padding: 9px 9px 9px 13px;
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .assistant-bar::before {
+      content: "";
+      position: absolute;
+      inset: 0 18px auto;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.98), rgba(209,157,55,0.60), transparent);
+      opacity: 0.9;
+    }
+
+    .spark {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(255, 245, 220, 0.84);
+      color: #9a681d;
+      font-size: 16px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    .prompt-copy {
+      min-width: 0;
+    }
+
+    .prompt-input {
+      width: 100%;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #3e332a;
+      font-size: 14px;
+      font-weight: 780;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .prompt-input::placeholder {
+      color: #3e332a;
+      opacity: 1;
+    }
+
+    .route-note {
+      margin: 3px 0 0;
+      color: #82766b;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .glass-button {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #4c4036;
+      font-size: 17px;
+    }
+
+    .tabbar {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 18px;
+      height: 58px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      align-items: center;
+      border-radius: 999px;
+      z-index: 5;
+    }
+
+    .tab {
+      display: grid;
+      place-items: center;
+      gap: 2px;
+      color: #8a7c70;
+      font-size: 10px;
+      font-weight: 750;
+    }
+
+    .tab span:first-child {
+      font-size: 18px;
+    }
+
+    .tab.active {
+      color: #8d6321;
+    }
+
+    .side-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .glass-panel {
+      border-radius: 24px;
+      padding: 18px;
+    }
+
+    .panel-title {
+      margin: 0 0 11px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    .surface-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .surface-card {
+      min-height: 84px;
+      padding: 12px;
+      border: 1px solid rgba(68, 48, 24, 0.10);
+      border-radius: 14px;
+      background: rgba(255, 252, 246, 0.76);
+    }
+
+    .surface-card strong {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 13px;
+    }
+
+    .surface-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .embed-shell {
+      padding: 14px;
+      border: 1px solid rgba(58, 42, 25, 0.11);
+      border-radius: 19px;
+      background: rgba(255, 252, 246, 0.86);
+    }
+
+    .embed-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 11px;
+      color: #685d53;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .embed-bar {
+      grid-template-columns: 32px 1fr auto;
+      min-height: 54px;
+    }
+
+    .state-panel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .state-row {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 11px;
+      border-radius: 16px;
+      background: rgba(255, 252, 246, 0.72);
+      border: 1px solid rgba(68, 48, 24, 0.10);
+    }
+
+    .state-icon {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--gold-soft);
+      color: #895d18;
+      font-size: 18px;
+    }
+
+    .state-title {
+      margin: 0 0 2px;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .state-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .driving {
+      height: 228px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 14px;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(221, 171, 78, 0.30), transparent 35%),
+        linear-gradient(180deg, rgba(255,255,255,0.70), rgba(255,255,255,0.40));
+      border: 1px solid rgba(255,255,255,0.76);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(24px) saturate(1.2);
+      -webkit-backdrop-filter: blur(24px) saturate(1.2);
+      text-align: center;
+    }
+
+    .voice-orb {
+      width: 86px;
+      height: 86px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255,255,255,0.96), rgba(255,255,255,0.18) 35%),
+        linear-gradient(135deg, rgba(214, 159, 59, 0.58), rgba(111, 141, 115, 0.42));
+      color: #4b3214;
+      font-size: 30px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.86),
+        0 20px 42px rgba(111, 83, 41, 0.24);
+    }
+
+    .driving h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .driving p {
+      max-width: 250px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.42;
+    }
+
+    .contract-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .contract-item {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 9px;
+      color: #5d534a;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .check {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(111, 141, 115, 0.18);
+      color: #536f55;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .code-chip {
+      display: inline;
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.66);
+      color: #614319;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+    }
+
+    @media (max-width: 1040px) {
+      .layout,
+      .showcase {
+        grid-template-columns: 1fr;
+      }
+
+      .phone {
+        margin: 0 auto;
+      }
+    }
+
+    @media (max-width: 480px) {
+      main {
+        width: min(100vw - 18px, 430px);
+        padding-top: 18px;
+      }
+
+      .page-head {
+        display: block;
+      }
+
+      .contract-pill {
+        margin-top: 14px;
+      }
+
+      .phone {
+        width: min(var(--phone-w), 100%);
+        height: 810px;
+      }
+
+      .surface-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-head">
+      <div>
+        <p class="eyebrow">Agent G · Phase 1 HTML Prototype</p>
+        <h1>Berean Assistant Bar</h1>
+        <p class="summary">A shared prompt bar that can float globally above the tab bar or embed inside a Spiritual OS surface. Chrome uses warm Liquid Glass; scripture and formation content stay on matte surfaces.</p>
+      </div>
+      <div class="contract-pill">AI route: getAssistantResponse only</div>
+    </header>
+
+    <section class="layout" aria-label="Berean assistant prototype">
+      <div class="showcase">
+        <div class="phone" aria-label="iPhone preview with global AssistantBar overlay">
+          <div class="screen">
+            <div class="notch"></div>
+            <div class="status">
+              <span>9:41</span>
+              <span>5G 100%</span>
+            </div>
+
+            <div class="feed">
+              <div class="top-row">
+                <div>
+                  <p class="surface-label">Home · Daily Digest</p>
+                  <h2 class="today">Good morning, Steph</h2>
+                </div>
+                <div class="avatar">ST</div>
+              </div>
+
+              <article class="matte-card verse-card">
+                <p class="verse-kicker">Verse of the day</p>
+                <p class="verse-text">"Let the word of Christ dwell in you richly, teaching and admonishing one another in all wisdom."</p>
+                <p class="ref">Colossians 3:16 · ESV</p>
+              </article>
+
+              <article class="matte-card digest-row">
+                <div class="digest-icon">☀</div>
+                <div>
+                  <p class="digest-title">Morning practice</p>
+                  <p class="digest-copy">Seven minutes of stillness, then send encouragement to your small group.</p>
+                </div>
+              </article>
+
+              <article class="matte-card digest-row">
+                <div class="digest-icon" style="background: linear-gradient(135deg, var(--blue), #395f7c);">✎</div>
+                <div>
+                  <p class="digest-title">Planner nudge</p>
+                  <p class="digest-copy">Romans study tonight at 6:30 PM. Notes are ready for review.</p>
+                </div>
+              </article>
+
+              <article class="matte-card digest-row">
+                <div class="digest-icon" style="background: linear-gradient(135deg, var(--clay), #8e5135);">♡</div>
+                <div>
+                  <p class="digest-title">Prayer thread</p>
+                  <p class="digest-copy">Marcus asked for prayer after group. Berean can help draft a gentle reply.</p>
+                </div>
+              </article>
+            </div>
+
+            <div class="assistant-overlay" aria-label="Global AssistantBar overlay">
+              <div class="quick-prompts" aria-label="Home quick prompts">
+                <button class="glass-chip active">Today&apos;s verse</button>
+                <button class="glass-chip">Pray for Marcus</button>
+                <button class="glass-chip">Romans 12 intro</button>
+              </div>
+
+              <div class="assistant-bar" role="search">
+                <div class="spark">✦</div>
+                <div class="prompt-copy">
+                  <input class="prompt-input" aria-label="Ask Berean" placeholder="Ask Berean about this moment...">
+                  <p class="route-note">surfaceContext: home · queryType: text</p>
+                </div>
+                <button class="glass-button" aria-label="Open camera for vision query" title="Camera · OCR verse detection">📷</button>
+                <button class="glass-button" aria-label="Start voice query" title="Mic · voice query">🎙</button>
+              </div>
+            </div>
+
+            <nav class="tabbar" aria-label="App tabs">
+              <div class="tab active"><span>⌂</span><span>Home</span></div>
+              <div class="tab"><span>◇</span><span>Hub</span></div>
+              <div class="tab"><span>＋</span><span>Post</span></div>
+              <div class="tab"><span>□</span><span>Plan</span></div>
+              <div class="tab"><span>○</span><span>Me</span></div>
+            </nav>
+          </div>
+        </div>
+
+        <div class="side-stack">
+          <section class="glass-panel">
+            <h2 class="panel-title">Quick Prompts by Surface</h2>
+            <div class="surface-grid">
+              <div class="surface-card">
+                <strong>Home</strong>
+                <p>Today&apos;s verse · Pray for a friend · Explain this digest</p>
+              </div>
+              <div class="surface-card">
+                <strong>Hub</strong>
+                <p>Summarize thread · Draft reply · Find church note</p>
+              </div>
+              <div class="surface-card">
+                <strong>Planner</strong>
+                <p>Prepare devotion · Schedule practice · Review next step</p>
+              </div>
+              <div class="surface-card">
+                <strong>Space</strong>
+                <p>Group prayer · Study guide · Pastoral check-in</p>
+              </div>
+              <div class="surface-card">
+                <strong>Command Center</strong>
+                <p>Formation recap · Streak context · Private reflection</p>
+              </div>
+              <div class="surface-card">
+                <strong>Assistant Bar</strong>
+                <p>Open query · Voice mode · Vision verse detection</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="glass-panel">
+            <h2 class="panel-title">Embeddable Component Intent</h2>
+            <div class="embed-shell">
+              <div class="embed-header">
+                <span>Inside a Space discussion</span>
+                <span>stateless</span>
+              </div>
+              <div class="quick-prompts">
+                <button class="glass-chip">Group prayer</button>
+                <button class="glass-chip active">Study guide</button>
+              </div>
+              <div class="assistant-bar embed-bar">
+                <div class="spark">✦</div>
+                <div class="prompt-copy">
+                  <input class="prompt-input" aria-label="Ask Berean inside this space" placeholder="Ask Berean for this space...">
+                  <p class="route-note">surfaceContext: space</p>
+                </div>
+                <button class="glass-button" aria-label="Start embedded voice query">🎙</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <aside class="side-stack">
+        <section class="driving" aria-label="Driving voice-only state">
+          <div class="voice-orb">●</div>
+          <h2>Driving Voice Only</h2>
+          <p>Camera and typing are suppressed. Berean listens, confirms aloud, and submits <span class="code-chip">queryType: voice</span>.</p>
+        </section>
+
+        <section class="glass-panel state-panel">
+          <h2 class="panel-title">Input States</h2>
+          <div class="state-row">
+            <div class="state-icon">⌘</div>
+            <div>
+              <p class="state-title">Camera</p>
+              <p class="state-copy">Vision query captures scripture or notes, then sends image data through the Cloud Function.</p>
+            </div>
+          </div>
+          <div class="state-row">
+            <div class="state-icon">●</div>
+            <div>
+              <p class="state-title">Mic</p>
+              <p class="state-copy">Voice input routes as text after transcription; no model work happens client-side.</p>
+            </div>
+          </div>
+          <div class="state-row">
+            <div class="state-icon">↗</div>
+            <div>
+              <p class="state-title">Deep Link</p>
+              <p class="state-copy"><span class="code-chip">amen://berean</span> expands the overlay; query links prefill the prompt.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="glass-panel">
+          <h2 class="panel-title">Contract Notes</h2>
+          <div class="contract-list">
+            <div class="contract-item"><span class="check">✓</span><span>Global overlay mounts between main content and tab bar.</span></div>
+            <div class="contract-item"><span class="check">✓</span><span>Embeddable rendering uses the same AssistantBar shape and stateless prompt injection.</span></div>
+            <div class="contract-item"><span class="check">✓</span><span>All AI requests route through <span class="code-chip">getAssistantResponse</span>; no client-side model calls.</span></div>
+            <div class="contract-item"><span class="check">✓</span><span>Matte surfaces hold scripture and prayer text; glass is limited to chrome, chips, and bars.</span></div>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>
