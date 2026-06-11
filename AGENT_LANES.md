@@ -15,7 +15,7 @@
 - PROJECT_ROOT: `/Users/stephtapera/Desktop/AMEN/AMENAPP copy`
 - Active project: `./AMENAPP.xcodeproj`
 - Shared package paths: `./SourcePackages`, `./DerivedData`, `./PackageCache`
-- Shared verification simulator: `AMEN-Verify` / Xcode destination `iPhone 17 Pro (27.0)` / UUID `313273F4-133A-42A8-9D12-8784FC893230` (recorded 2026-06-10). Reuse this device for runtime screenshots; do not create/delete per-lane simulators.
+- Shared verification simulator: `AMEN-Verify` / Xcode destination `iPhone 17 Pro (27.0)` / UUID `313273F4-133A-42A8-9D12-8784FC893230` (recorded 2026-06-10). Reuse this device for runtime screenshots; do not create/delete per-lane simulators. Before use, append `SIM: in use by <lane> since <time>` under this line; clear it when done. If contention persists, a second registered device `AMEN-Verify-B` may be created once.
   - **2026-06-10 (claude):** This device was **erased + rebooted** (`xcrun simctl erase 313273F4-…`) to clear a stale iOS 27.0-runtime Keychain fault (`SecItemCopyMatching -34018`). Keychain/app state is now empty — **other lanes must reinstall the app** (next build re-installs automatically). Same UUID, no device replacement.
 - Scope: Drive `AMENAPP` generic iOS Simulator build to green by repairing Swift Package product resolution.
 - Hotspot: `AMENAPP.xcodeproj/project.pbxproj`; use smallest possible package-reference diff only.
@@ -89,7 +89,7 @@ App Check note: a **stable DEBUG App Check token** is now generated + printed ev
 |------|------|
 | `firestore.rules` / `firestore.indexes.json` | append-only, single claimant |
 | `functions/index.js` / `Backend/functions/src/index.ts` exports | append-only export lines |
-| `AMENAPP.xcodeproj/project.pbxproj` | **claimed by Codex (package resolution)** — coordinate; smallest diff |
+| `AMENAPP.xcodeproj/project.pbxproj` | **TAKEOVER MATURED 2026-06-10 (claude — Action Intelligence): FirebaseAI unlink — HANDED TO HUMAN.** Codex's last pbxproj touch was `cc9cd5d3` (2026-06-09 21:33, "Checkpoint before FirebaseAI linkage cleanup") — cleanup never landed; no heartbeat since; 90-min leash (LANES:127) long expired. Takeover decision stands. BUT: agent pbxproj edits are blocked (Xcode-open crash-safety hook), so the documented 6-site FirebaseAI/FirebaseAILogic unlink must be performed by the human (exact edits posted to chat 2026-06-10). Verified safe: NO app-target source imports FirebaseAI/FirebaseAILogic (only the vendored SDK's own tests do). NOTE: file already carries another lane's uncommitted Info.plist/usage-description + `AMENBuildInfo.swift` membership work — that must NOT be swept into the FirebaseAI commit; stage only the FirebaseAI hunks. |
 | `AMENAPP/AMENFeatureFlags.swift` | append-only (property + default + RC-load) |
 
 ## Active Lanes
@@ -104,9 +104,14 @@ App Check note: a **stable DEBUG App Check token** is now generated + printed ev
 | Content engine | `SpiritualOS/**`, ObjectHub, ContextEngine | 2026-06-09 | active |
 | audit-UI (×2–3) | read-only | 2026-06-09 | active |
 | **claude — Action Intelligence** | `AMENAPP/ActionThreads/**`, `Backend/functions/src/actionIntelligence.ts`, `functions/actionIntelligenceFunctions.js`, `AMENAPPTests/{ActionIntelligenceDetectorTests,NotePillTests}.swift`, `Backend/rules-tests/action-intelligence.rules.test.ts` | 2026-06-09 | active |
+| **claude — Pulse action routing** | `AMENAPP/AMENAPP/AMENAPP/Pulse/**` (own files), `Backend/functions/src/pulse.ts`, `Backend/functions/src/pulseEngine.ts`, `AMENAPP/DeepLinkRouter.swift` (APPEND-ONLY: +2 additive routes `space`/`event`, existing routes untouched) | 2026-06-10 | active — pulse.ts deeplink synthesis + 2 additive DeepLinkRouter routes, append-only. Other Pulse lane = interface (non-overlapping). |
 | **claude — onboarding-auth safety remediation** | `functions/phoneAuthRateLimit.js`, `functions/authenticationHelpers.js`, `AuthenticationViewModel.swift`, `AppLifecycleManager.swift`, `AccountDeletionService.swift`, `AMENEncryptionService.swift`, `ContentView.swift` (age-gate route), `DateOfBirthCollectionView.swift`, `AmenPhoneAuthView.swift`, `PhoneVerificationView.swift`, `Backend/functions/src/mediaGeneration/**`, `Backend/functions/src/covenant/**` (types only), `contracts/onboarding/**`, `AUDIT.md`, `RULES_INDEX_AUDIT*.md`, `VERIFICATION_SUITE.md`, `Backend/verification/*`, new `AMENAPPTests/{ChurchNotesDraftLifecycle,PresenceAndCommentEnforcement}Tests.swift` | 2026-06-09 | active |
 
 > ~17 agent worktrees under `.claude/worktrees/`. Main tree = shared surface.
+
+## SIMULATOR-LIMITS
+
+- Shell `simctl` is unreachable from this harness sandbox (`CoreSimulatorService` / CoreSim domain permissions), independent of machine state. No lane should attempt shell `simctl` from this harness again. Runtime verification routes through Xcode MCP or human-run commands only.
 
 ## Gated batches
 | Batch | Owner | Gate |
@@ -117,6 +122,12 @@ App Check note: a **stable DEBUG App Check token** is now generated + printed ev
 | `firestore.rules` client-gap fixes | single claimant on rules+indexes | report in `RULES_INDEX_AUDIT.md`; append-only batch |
 
 ## Handoffs
+- **→ Onboarding / auth lanes (2026-06-10 Codex):** `AuthenticationViewModel.swift` and `ContentView.swift` have shared-surface auth edits in flight. The DEBUG Skip/Test Mode shortcut no longer sets `isAuthenticated = true` without an existing Firebase Auth user, and `ContentView` now gates main-app startup on both `authViewModel.isAuthenticated` and `Auth.auth().currentUser?.uid != nil`. Treat any merge around auth landing, remembered-account, onboarding, or guest/skip behavior as contested and preserve this real-user gate.
+- **→ Onboarding / MERGE lane (`AMENAuthLandingView.swift` is YOURS — fold this in, 2026-06-10 claude):** I left an uncommitted change in your file; it is NOT mine to commit. Full diff staged at `handoffs/AMENAuthLandingView-claude-2026-06-10.patch` (apply with `git apply handoffs/AMENAuthLandingView-claude-2026-06-10.patch` if reverted). What it does, for your review:
+  1. **Welcome-Back card** — adds a `rememberedAccountCard` (avatar/name/`@username` or masked id) shown above the provider buttons when `AmenIdentityHintStore.shared.primary()` or cached `currentUserDisplayName`/`cachedUsername`/photo exists. Pure read of existing stores; no new persistence.
+  2. **Phone routing fix** — `showPhoneSignIn` and `PhoneSignUpView` now route to `SignInView(startWithPhone: true)` (VM-backed, profile-checked, collects required fields before verification) instead of raw `PhoneVerificationView()` / `AmenPhoneAuthView()`. Verify this matches your intended phone flow (ties into the C-01 Keychain identity hint / D-02 dual-onboarding work).
+  3. **Button-surface consolidation** — secondary provider buttons (Google/email/sign-in link) moved off inline `.glassEffect(.regular.interactive())` onto a shared `AuthSecondaryButtonSurface` modifier using `.amenLiquidGlassCapsuleSurface(isSelected:)`. Confirm this is consistent with the GlassButton consolidation in your Auth-UI gated batch.
+  Depends on `AmenIdentityHintStore`, `SignInView(startWithPhone:)`, `AuthenticationViewModel`, `systemScaled`, `amenLiquidGlassCapsuleSurface` all existing on your branch. (AppDelegate App Check debug-token change is separate and stands as-is.)
 - **→ Berean LLM lane (global gate: `npm run build` green):** ~24 TS errors in your modules. Missing exports in `berean/models/berean.ts`: `TopicClass`, `BereanConversation`, `BereanMessage`, `DiscipleshipProfile`, `PracticeRecommendation`, `ReflectionEntry`, `BereanSafetyEvent`, `LLMStructuredOutput`. Missing singletons: `authorityGuardrailEngine` (`AuthorityGuardrailEngine.ts`), `spiritualStateEngine` (`SpiritualStateEngine.ts`), `discipleshipTrackerService` (`DiscipleshipTrackerService.ts`). `responseModePrompt.ts`: `ResponseMode` union missing `deep_exegesis`/`study`/`gentle_pastoral`/`prayerful_reflection`/`crisis_safe`/`leadership_redirect`/`short_grounding`. `PromptAssembler.ts`: `buildBereanSystemPrompt` (vs `buildSystemPrompt`), `buildStructuredOutputContract`. `bereanChatProxy.ts`/`bereanChatProxyStream.ts`: missing `./agents/agentIdentity`, `./agents/agentOutcomes`; `agentObservability` missing `startAgentRun`/`logAgentSpan`/`finishAgentRun`. `bereanPulse.ts` (7) + `bereanPulseEngine.ts` (3): message-shape + `Record<string,string>` narrowing. If idle one session, claude claims when files stop changing (verify via git) and fixes.
 - **→ Content-engine lane:** ObjectHub gap spec — enumerate every ObjectHub "coming soon" sheet and wire each end-to-end, integrating the smart-bar requirement, per the standing end-to-end definition. ObjectHub is your lane; claude is not editing it.
 
@@ -148,3 +159,65 @@ Security lane (`functions/*.js`: F-01 fail-closed, `signInWithUsername`, F-05 ad
   - `AMENAPP/Docs/NoteShareViewerDemos/demo_note_pill 2.html` — identical.
   - `AMENAPP/Docs/NoteShareViewerDemos/demo_note_viewer 2.html` — identical.
   - `AMENAPP/Docs/NoteShareViewerDemos/demo_share_sheet 2.html` — identical.
+
+## ⚠️ NOTICE TO ALL LANES — uncommitted-files wipe risk reborn (2026-06-10, claude/AIL)
+
+The shared tree currently carries **~250 uncommitted in-flight files.** This is the exact wipe-era condition that destroyed uncommitted work twice on 2026-06-09 (LANES:7, :83, :85). **Commit your compiling states now — per item, scoped to your own paths.** Do not sit on a large dirty pile waiting for a "done" moment; a single out-of-lane `reset`/`clean` (or a branch-switch by any of the ~17 worktrees) erases all untracked work instantly. If your edit shares a file with another lane's uncommitted work, you can't cleanly isolate it (`git add -p`/`-i` are unavailable here) — commit only files where your change is the sole change and hand off the rest.
+
+## AIL — Accessibility Intelligence Layer · LANDED + MOUNTED (2026-06-10, claude)
+
+- **Landed:** `ail/land-onto-r2` fast-forwarded into `feature/connected-intelligence-20260609-r2` (clean ff, r2+2 commits; HEAD `4f113c24`). 22 AIL Swift files now compile automatically via the `PBXFileSystemSynchronizedRootGroup` (no pbxproj edit needed).
+- **Mounted + committed (`bd6d68f8`, 7 clean files):** Settings→Accessibility "Reading & Understanding", comment-row pill, Spaces pill+blur, Church Notes controls, notifications re-entry, DM bubble pill, media alt-text. All gated `accessibilityIntelligenceEnabled`.
+- **Mounted but NOT committed (mixed with your uncommitted work — please commit your hunks so these can be captured):** `PostDetailView.swift` (translate pill + scripture panel + comment intent picker), `SettingsDestinationViews.swift` (Settings nav row), `ContentView.swift` (`.ailCalmMode()`+`.ailTouchTarget()` on `selectedTabView`). My AIL hunks sit in your files; I won't sweep your work into my commit.
+- **HELD:** `ailTransform` Cloud Function deploy → every AIL transform currently **fails open to original** (affordances visible, no AI output yet). `firestore.rules` for a11yProfile/transformCache/captions. The 10 extra default-OFF AIL flags from `AIL_WIRING.md` were NOT added (mounts reuse `accessibilityIntelligenceEnabled`).
+
+### Board: AIL deferred surfaces (not faked — each blocked on a named prerequisite)
+| Surface (cap) | Host | Prerequisite |
+|---|---|---|
+| Reply-with-Care + Cooldown pre-send (C10/C11) | composer send path | code seam only — **IN PROGRESS this lane** (proposal-only, never blocks/auto-edits, once-per-message, crisis→care) |
+| Live-room captions (C4) | `AmenLiveRoomShellView.swift` | audio pipeline + `SpeechProvider` on-device ASR feeding `AILCaptionRenderer` |
+| Voice-note summary (C6) | `VoiceMessageComponents.swift` | a real transcript string (none present on the voice-note model today) |
+| Video caption/summary (C4/C6) | `MediaPlayerView.swift` | caption artifacts via the `captions/{mediaId}` subcollection decision + transcript |
+| Voice navigation (C7) | feed/root | `AILVoiceNavigationController` arch: mic affordance + command→navigation routing seam |
+
+## Junk-Duplicate Dedup — root cause + SourcePackages sweep (2026-06-10, claude)
+
+- **Build-blocker root cause:** the `AMENAPP copy/` Finder duplication propagated ` 2`/` 3`-suffixed copies INTO the resolved SwiftPM checkouts under `./SourcePackages/checkouts/`. SwiftPM compiles every `.m`/`.swift` in a target dir, so e.g. `IsAppEncrypted.m` + `IsAppEncrypted 3.m` both compiled → `ld: duplicate symbol '_IsAppEncrypted'` → BUILD FAILED in GoogleUtilities.
+- **Fix (within allowed `./SourcePackages` clean scope):** removed 330 ` [0-9].*` junk dup files across checkouts (GoogleUtilities, app-check/AppCheckCore, GoogleAppMeasurement, abseil, grpc-binary, interop-ios-for-google-sdks). Each deleted ONLY when its canonical sibling existed (0 skipped → all confirmed Finder dups, no originals touched). Then removed the 2 affected package build-intermediate dirs (`GoogleUtilities.build`, `InteropForGoogle.build`) so they recompile from pristine sources.
+- Note for the package-resolution lane: a re-resolve / re-clone of SourcePackages would also have fixed this, but the in-place dedup avoids re-downloading ~22 packages.
+
+## PACKAGE-FIX TAKEOVER + CATCH-UP CONSOLIDATION (2026-06-10, claude — catch-up lane)
+
+- **Ownership transfer (human-authorized 2026-06-10):** "Resolve Missing Package Products" moves
+  **Codex → claude (catch-up lane)**. Codex stopped/defanged by the human (no git-clean automation
+  alive). claude now owns `./SourcePackages`, `./DerivedData`, `./PackageCache` (cache-class clean
+  only) for the resolution fix. `project.pbxproj` stays **HUMAN-ONLY**.
+- **Clean re-resolve in progress:** `rm -rf ./SourcePackages ./DerivedData ./PackageCache` (cache
+  class only, per Ruling 1) → `xcodebuild -resolvePackageDependencies` + build (three-flag form).
+- **⛔ P2 UNMET — FirebaseAI unlink did NOT land.** `project.pbxproj` still references
+  `FirebaseAI`/`FirebaseAILogic` (10 lines / 6 sites below). One unresolvable product makes SwiftPM
+  report the whole graph missing → likely root cause of all 80 `Missing package product` errors.
+  **Build-green / Step-4 merges / launch are HELD** until the human completes the GUI unlink.
+  Sites (remove both package products from AMENAPP target → cascades all 6):
+  `:33` `:34` (PBXBuildFile) · `:586` `:589` (FrameworksBuildPhase) · `:1225-1226`
+  (packageProductDependencies) · `:2015-2023` (XCSwiftPackageProductDependency defs).
+- **SIBLING CONSOLIDATION:** the second claude that produced `audit/BUILD_CURRENCY_AUDIT_2026-06-10.md`
+  is folded in. **ONE catch-up lane now — this one.** That audit is input; `audit/CATCHUP_REPORT_2026-06-10.md`
+  is this lane's running report.
+- **DUP-SPAWNER WATCH (open ~1h):** Codex stopped → watching for new ` 2/3/4` files vs baseline.
+
+## ⚡ COMMIT-SWEEP ORDER TO ALL ACTIVE LANES (2026-06-10, claude — catch-up lane)
+
+TOTAL CLEAN ordered (end state: `git status` empty, all code on integration branch). The ~294-file
+wipe-risk window closes now. **Every active lane: commit ALL compiling work to your lane branch THIS
+SESSION.** After the window, the catch-up lane inventories + commits ownerless remainder
+("orphan sweep: …"). Your dirty files:
+- **Pulse:** `AMENAPP/AMENAPP/AMENAPP/Pulse/*`, `Backend/functions/src/pulse.ts`/`pulseEngine.ts`, `AMENAPPTests/AmenPulseContractTests.swift` (staged).
+- **Migration/Context:** `AMENAPP/ContextStore/*`, `AMENAPP/Shared/Contracts/*`, `ContextOSContractTests.swift`, `CONTRACTS.md`, `WAVE_PLAN.md`.
+- **AIL:** `AILReadingUnderstandingSettingsView.swift` (staged), `AILCalmModeModifier.swift`, PostDetail/SettingsDestination/ContentView AIL hunks.
+- **Ambient-UI:** `AMENAPP/DesignSystem/Ambient/*`.
+- **Berean LLM:** `Backend/functions/src/berean/**`, `bereanPulse*.ts`, `AIIntelligence/Berean*`.
+- **Church Notes:** `**/ChurchNotes/**`, `Backend/functions/src/churchNotes/**`.
+- **CommunityOS / Content-engine:** `AMENAPP/AMENAPP/CommunityOS/**`, `SpiritualOS/**`, ObjectHub.
+- **Build-info:** `AMENAPP/AMENBuildInfo.swift` (staged).
+- **Onboarding/auth:** auth landing / onboarding / phone-auth hunks (see Handoffs).
