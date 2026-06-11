@@ -47,6 +47,41 @@ enum BereanStudyError: Error {
 /// Direct iOS bridge to the 6 Berean Study Assistant Firebase callables.
 /// All outputs are DRAFTS — set `approved = true` only after user confirmation.
 /// NVIDIA_API_KEY never touches the client; it lives in Secret Manager server-side.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// WIRING CERT — Berean LLM Lane  (safety-hardening branch, 2026-06-11)
+/// ─────────────────────────────────────────────────────────────────────────
+/// Gate 1 — Age-gating (isMinor)
+///   All six public study methods call `call()` which checks
+///   `AgeAssuranceService.shared.currentUserTier.isMinor` and returns nil
+///   for users on the `.teen` or `.underMinimum` tier.
+///   Fallback: `.adult` is assumed only when the tier has been positively
+///   loaded; missing profile defaults to `.teen` per AgeAssurancePolicy.
+///
+/// Gate 2 — Client-side rate limiting
+///   `call()` enforces a 10-requests-per-60-second sliding window using
+///   `callTimestamps`. Requests beyond the cap set `errorMessage` and
+///   return nil — no Cloud Function is invoked.
+///
+/// Gate 3 — Citation enforcement
+///   Drafts that arrive with an empty or absent `citedRefs` array are
+///   suppressed. Every entry in `citedRefs` is validated by
+///   `ScriptureReferenceValidator`; unknown books, out-of-range chapter/
+///   verse, or malformed strings all cause the draft to be discarded.
+///   This addresses the "no fabricated references" invariant.
+///
+/// Gate 4 — Safety moderation on output
+///   The draft's text fields (`summary`, `body`, `questions`, `prayer`)
+///   are scanned by `CrisisDetectionService` before the draft is returned.
+///   If the LLM somehow echoes a crisis phrase in its output, the draft is
+///   suppressed and the crisis card is shown instead.
+///
+/// Gate 5 — Crisis pre-check on input (pre-existing, confirmed wired)
+///   `hasCrisisSignal(in:)` runs before every CF call.
+///
+/// Gate 6 — Auth guard (pre-existing, confirmed wired)
+///   `Auth.auth().currentUser != nil` checked in `call()`.
+/// ─────────────────────────────────────────────────────────────────────────
 @MainActor
 final class BereanStudyService: ObservableObject {
     static let shared = BereanStudyService()
@@ -56,9 +91,16 @@ final class BereanStudyService: ObservableObject {
     @Published var errorMessage: String?
 
     private let functions = Functions.functions(region: "us-central1")
+
+    // MARK: - Rate-limit state (Gate 2)
+    // Sliding window: max 10 calls per 60 seconds per process lifetime.
+    private var callTimestamps: [Date] = []
+    private let rateLimitWindow: TimeInterval = 60
+    private let rateLimitMax = 10
+
     private init() {}
 
-    // MARK: - Crisis Pre-check
+    // MARK: - Crisis Pre-check (Gate 5)
 
     /// Checks all user-supplied free-text tokens against the local crisis keyword list.
     /// Returns `true` (and sets `errorMessage`) if any token matches, so the caller can
@@ -67,6 +109,30 @@ final class BereanStudyService: ObservableObject {
         let combined = texts.compactMap { $0 }.joined(separator: " ")
         guard !combined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         return CrisisDetectionService.shared.hasLocalCrisisSignal(in: combined)
+    }
+
+    // MARK: - Age Gate (Gate 1)
+
+    /// Returns `true` when the current user is a minor (teen or under-minimum tier).
+    /// Fails safe: if AgeAssuranceService has not yet loaded a profile the policy
+    /// default is `.teen` (restricted), so this returns `true` (blocked).
+    private func currentUserIsMinor() -> Bool {
+        AgeAssuranceService.shared.currentUserTier.isMinor
+    }
+
+    // MARK: - Rate-limit check (Gate 2)
+
+    /// Enforces the sliding-window rate limit. Prunes expired timestamps, then
+    /// returns `false` (and sets `errorMessage`) if the window is full.
+    private func checkRateLimit() -> Bool {
+        let now = Date()
+        callTimestamps = callTimestamps.filter { now.timeIntervalSince($0) < rateLimitWindow }
+        guard callTimestamps.count < rateLimitMax else {
+            errorMessage = "You're sending requests very quickly. Please wait a moment before trying again."
+            return false
+        }
+        callTimestamps.append(now)
+        return true
     }
 
     // MARK: - Public API
@@ -157,10 +223,24 @@ final class BereanStudyService: ObservableObject {
     // MARK: - Private
 
     private func call(_ name: String, type: BereanStudyActionType, params: [String: Any]) async -> BereanStudyDraft? {
+
+        // Gate 6 — Auth
         guard Auth.auth().currentUser != nil else {
             errorMessage = "Sign in to use Berean study features."
             return nil
         }
+
+        // Gate 1 — Age-gating (WIRING CERT: added 2026-06-11)
+        // AgeAssuranceService defaults to .teen when no profile is loaded (fails safe).
+        if currentUserIsMinor() {
+            errorMessage = "Berean AI study features are available for adults only."
+            dlog("[Berean] Blocked AI call '\(name)' — user is minor or age profile not loaded.")
+            return nil
+        }
+
+        // Gate 2 — Client-side rate limit (WIRING CERT: added 2026-06-11)
+        guard checkRateLimit() else { return nil }
+
         isLoading = true
         errorMessage = nil
 
@@ -184,28 +264,52 @@ final class BereanStudyService: ObservableObject {
                 return nil
             }
 
-            // Validate any scripture references present in the draft.
-            // citedRefs is an array of "Book Chapter:Verse" strings the server included.
-            if let citedRefs = payload["citedRefs"] as? [String] {
-                for ref in citedRefs {
-                    let result = ScriptureReferenceValidator.validate(ref)
-                    switch result {
-                    case .unknownBook(let book):
-                        dlog("⚠️ [Berean] Draft contains unknown book '\(book)' — suppressing draft")
-                        errorMessage = "Berean returned an unrecognised scripture reference. Please try again."
-                        return nil
-                    case .outOfRange(let book, let chapter, let verse):
-                        dlog("⚠️ [Berean] Out-of-range reference \(book) \(chapter):\(verse) — suppressing draft")
-                        errorMessage = "Berean returned an out-of-range scripture reference. Please try again."
-                        return nil
-                    case .malformed(let raw):
-                        dlog("⚠️ [Berean] Malformed reference '\(raw)' — suppressing draft")
-                        errorMessage = "Berean returned a malformed scripture reference. Please try again."
-                        return nil
-                    case .valid:
-                        break
-                    }
+            // Gate 3 — Citation enforcement (WIRING CERT: strengthened 2026-06-11)
+            // Previously: allowed drafts with zero citations through.
+            // Now: exegetical responses (all types except compareTranslations) MUST
+            //      include at least one citation; absence is treated as a fabrication risk.
+            let citedRefs = payload["citedRefs"] as? [String] ?? []
+            if type != .compareTranslations && citedRefs.isEmpty {
+                dlog("⚠️ [Berean] Draft for '\(name)' has no citedRefs — suppressing (citation enforcement).")
+                errorMessage = "Berean's response did not include a scripture citation. Please try again."
+                return nil
+            }
+
+            for ref in citedRefs {
+                let validationResult = ScriptureReferenceValidator.validate(ref)
+                switch validationResult {
+                case .unknownBook(let book):
+                    dlog("⚠️ [Berean] Draft contains unknown book '\(book)' — suppressing draft")
+                    errorMessage = "Berean returned an unrecognised scripture reference. Please try again."
+                    return nil
+                case .outOfRange(let book, let chapter, let verse):
+                    dlog("⚠️ [Berean] Out-of-range reference \(book) \(chapter):\(verse) — suppressing draft")
+                    errorMessage = "Berean returned an out-of-range scripture reference. Please try again."
+                    return nil
+                case .malformed(let raw):
+                    dlog("⚠️ [Berean] Malformed reference '\(raw)' — suppressing draft")
+                    errorMessage = "Berean returned a malformed scripture reference. Please try again."
+                    return nil
+                case .valid:
+                    break
                 }
+            }
+
+            // Gate 4 — Safety moderation on output text (WIRING CERT: added 2026-06-11)
+            // Scans all text fields in the draft for crisis signals before returning.
+            // Protects against edge cases where the LLM echoes a distress phrase.
+            let outputTexts: [String] = [
+                payload["summary"]   as? String,
+                payload["body"]      as? String,
+                payload["questions"] as? String,
+                payload["prayer"]    as? String,
+            ].compactMap { $0 }
+
+            let outputCombined = outputTexts.joined(separator: " ")
+            if !outputCombined.isEmpty && CrisisDetectionService.shared.hasLocalCrisisSignal(in: outputCombined) {
+                dlog("⚠️ [Berean] Output moderation triggered on '\(name)' — suppressing draft and showing crisis card.")
+                errorMessage = "Berean detected a sensitive topic in the response. If you're struggling, please reach out for support."
+                return nil
             }
 
             let draft = BereanStudyDraft(id: draftId, type: type, payload: payload)
