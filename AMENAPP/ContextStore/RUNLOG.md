@@ -35,6 +35,15 @@ Policy: port nothing from the duplicate without re-verification against the froz
 Lane branch `lane/context-system`; Wave 0–2 committed as the baseline; commit-per-item;
 merge to integration only at wave gates; conflict-checked; green build required before merge.
 
+## 2026-06-10 — Wave 5 built + verified
+- `AmenExportService` + `AmenExportView`: export/import flow, visibility-filtered, Tier-P never exported.
+- `ContextQRService` + `ContextQRView`: public-projection QR, C60 minor gate enforced, resolves server-side.
+- `OperatingManualView` + `LifeCapsuleView`: projections only, no second store, Life Capsule client-side only.
+- `functions/context/exportAmenFile.ts`, `signAmenExport.ts`, `amenExclusionValidator.ts`, `resolveContextQR.ts`.
+- `demos/context-system/amen-context-v0.1.schema.json`, `amen-context-spec.html`, `migration-prompt.html`.
+- `CONTEXT_SYSTEM.md` (repo root), `DEPLOY_CHECKLIST.md` (operator steps), `CONTRACTS.md` restored.
+- Wave-5 CFs wired into `functions/index.js`; `node --check` green.
+
 ### Open honest gaps (do not silently close)
 - Wave 1 ⚠: no Firestore emulator harness in repo → rules asserted by text-invariant + unit guards.
 - Wave 2 ⚠: 10-persona bait transcripts need a LIVE model run — scheduled as the FIRST Wave 3 task.

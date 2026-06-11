@@ -238,11 +238,11 @@ struct AgeAssuranceFailClosedTests {
     // calling AgeAssuranceService (which requires Firebase). They verify
     // the tier logic that the service applies on profileNotFound.
 
-    @Test("Default tier for new service is adult — overridden to teen on profileNotFound")
+    @Test("Missing age profile fallback is teen and requires verification")
     func failClosedDocumentation() {
-        // Document that the service MUST default to .teen when no profile exists.
-        // AgeAssuranceService.loadTier() catches .profileNotFound and sets .teen.
-        // We verify the error value itself is distinguishable from other errors.
+        #expect(AgeAssurancePolicy.missingProfileFallbackTier == .teen)
+        #expect(AgeAssurancePolicy.missingProfileNeedsVerification == true)
+
         let notFound = AgeAssuranceError.profileNotFound
         let underAge = AgeAssuranceError.underMinimumAge(minimum: 13, actual: 10)
         #expect(notFound != underAge,

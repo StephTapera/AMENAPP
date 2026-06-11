@@ -8,7 +8,7 @@
 >
 > | Mission | Owner | Lane branch | Status |
 > |---|---|---|---|
-> | Universal Migration & Context System | this conversation (sole canonical builder) | `lane/context-system` | ACTIVE — Waves 0–2 done, 3–5 in worktree |
+> | Universal Migration & Context System | this conversation (sole canonical builder) | `lane/context-system` | **COMPLETE** — Waves 0–5 done; Stage-3 CF deploy + human steps in DEPLOY_CHECKLIST.md |
 > | ~~Context System (duplicate)~~ | terminated by human 2026-06-10 | — | TERMINATED (footprint quarantined; see ContextStore/RUNLOG.md) |
 > | Amen Pulse | (prior session) | — | see memory `project_amen_pulse_2026_06_10` |
 > | Gap Audit + P0 Fix Wave 1 | claude (this session) | `feature/connected-intelligence-20260609-r2` | AUDIT DONE — `GAP_BOARD.md` (86: 11 P0 / 50 P1 / 25 P2). FIX WAVE 1: P0-1/2/3/4/11 CLOSED + proven (emulator 18/18, jest 84/84); rules+PII bundled in `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` AWAITING HUMAN DEPLOY; P0-5/6/7/8/9/10 next. ⚠️ Codex row ~L118 is a duplicate of this audit mission. |
@@ -135,6 +135,7 @@ This harness class cannot run SwiftPM manifest evaluation or complete an Xcode p
 | **claude — Action Intelligence** | `AMENAPP/ActionThreads/**`, `Backend/functions/src/actionIntelligence.ts`, `functions/actionIntelligenceFunctions.js`, `AMENAPPTests/{ActionIntelligenceDetectorTests,NotePillTests}.swift`, `Backend/rules-tests/action-intelligence.rules.test.ts` | 2026-06-09 | active |
 | **claude — Pulse action routing** | `AMENAPP/AMENAPP/AMENAPP/Pulse/**` (own files), `Backend/functions/src/pulse.ts`, `Backend/functions/src/pulseEngine.ts`, `AMENAPP/DeepLinkRouter.swift` (APPEND-ONLY: +2 additive routes `space`/`event`, existing routes untouched) | 2026-06-10 | active — pulse.ts deeplink synthesis + 2 additive DeepLinkRouter routes, append-only. Other Pulse lane = interface (non-overlapping). |
 | **claude — onboarding-auth safety remediation** | `functions/phoneAuthRateLimit.js`, `functions/authenticationHelpers.js`, `AuthenticationViewModel.swift`, `AppLifecycleManager.swift`, `AccountDeletionService.swift`, `AMENEncryptionService.swift`, `ContentView.swift` (age-gate route), `DateOfBirthCollectionView.swift`, `AmenPhoneAuthView.swift`, `PhoneVerificationView.swift`, `Backend/functions/src/mediaGeneration/**`, `Backend/functions/src/covenant/**` (types only), `contracts/onboarding/**`, `AUDIT.md`, `RULES_INDEX_AUDIT*.md`, `VERIFICATION_SUITE.md`, `Backend/verification/*`, new `AMENAPPTests/{ChurchNotesDraftLifecycle,PresenceAndCommentEnforcement}Tests.swift` | 2026-06-09 | active |
+| **Codex — P0-6 age-assurance no synthetic adult** | `AMENAPP/**/AgeAssuranceService.swift` and focused tests only | 2026-06-10 | active — stop missing-age users from becoming in-memory adults |
 
 > ~17 agent worktrees under `.claude/worktrees/`. Main tree = shared surface.
 
@@ -300,7 +301,7 @@ XCTest isn't linked. After the FirebaseAI unlink landed (FirebaseAI error gone �
 build error. Owner (ContextStore/Migration lane): either move the file under `AMENAPPTests/`, exclude it from
 the app target, or guard with `#if canImport(XCTest)`. Flagged, not edited (out of lane).
 
-**Codex static recheck 2026-06-10:** app-target path is now absent and `AMENAPPTests/ContextStoreAdversarialTests.swift` exists, so the original app-target XCTest blocker appears resolved. Follow-up for the ContextStore owner: the file is gated on custom `AMENAPP_TESTS`, and a repo search finds no matching build define; confirm the test target defines it or switch the guard to `#if canImport(XCTest)` so the adversarial tests actually compile/run in `AMENAPPTests`.
+**Codex static recheck 2026-06-10:** app-target path is now absent and `AMENAPPTests/ContextStoreAdversarialTests.swift` exists, so the original app-target XCTest blocker appears resolved. **Task → ContextStore owner:** replace the custom `#if AMENAPP_TESTS` guard with `#if canImport(XCTest)` in `AMENAPPTests/ContextStoreAdversarialTests.swift`; if no owner heartbeat in 30 minutes, any active lane may apply that one-line declared fix. Manifest commit is assigned to the catch-up lane's next pathspec sweep.
 
 ## Total Control Wiring — FLEET CERT TEMPLATE (ratified 2026-06-10, claude/Pulse)
 Every lane certifies its surfaces in this shape: **surface → control → destination → disposition**

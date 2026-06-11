@@ -801,6 +801,17 @@ exports.matchCommunitiesFromContext = matchCommunitiesFromContext;
 const { generateIntroduction } = require("./context/generateIntroduction");
 exports.generateIntroduction = generateIntroduction;
 
+// Context System — Wave 5 exports (Stage-3 deploy batch, project amen-5e359, us-central1).
+// exportAmenFile  : visibility-filtered .amen export; exclusion validator gates every payload.
+// signAmenExport  : Ed25519 signature over canonical serialization; secret AMEN_EXPORT_ED25519_PRIVATE_KEY required.
+// resolveContextQR: resolves a Context QR token to current public facets (live, never stale).
+const { exportAmenFile } = require("./context/exportAmenFile");
+exports.exportAmenFile = exportAmenFile;
+const { signAmenExport } = require("./context/signAmenExport");
+exports.signAmenExport = signAmenExport;
+const { resolveContextQR } = require("./context/resolveContextQR");
+exports.resolveContextQR = resolveContextQR;
+
 // ============================================================================
 // TTS — Text-to-Speech (Google Cloud TTS, no NVIDIA key needed)
 // ============================================================================

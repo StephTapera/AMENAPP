@@ -9,6 +9,11 @@
 import Foundation
 import FirebaseFirestore
 
+enum AgeAssurancePolicy {
+    static let missingProfileFallbackTier: AMENAgeAssuranceTier = .teen
+    static let missingProfileNeedsVerification = true
+}
+
 // MARK: - Age Assurance Tier
 
 /// Age tier determines feature access and content filtering (Meta pattern)

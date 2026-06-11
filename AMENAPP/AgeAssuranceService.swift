@@ -19,7 +19,7 @@ class AgeAssuranceService: ObservableObject {
     
     // MARK: - Published Properties
     
-    @Published var currentUserTier: AMENAgeAssuranceTier = .adult
+    @Published var currentUserTier: AMENAgeAssuranceTier = AgeAssurancePolicy.missingProfileFallbackTier
     @Published var currentUserAge: Int = 0
     @Published var needsVerification: Bool = false
     @Published var isLoading: Bool = false
@@ -47,21 +47,11 @@ class AgeAssuranceService: ObservableObject {
             }
             dlog("✅ Age tier loaded: \(profile.tier.rawValue), age: \(profile.age)")
         } catch let error as AgeAssuranceError where error == .profileNotFound {
-            // MIGRATION: User pre-dates the age assurance system (existed before this
-            // feature was built) or skipped DOB entry during onboarding. We cannot
-            // fail-closed to .teen for these users because it permanently locks them
-            // out of DMs and other adult features they already had access to.
-            //
-            // Strategy: create a declared-adult stub profile so the app treats them
-            // as adult immediately, and also write ageTier:"tierD" to the main user
-            // doc so Firestore rules (callerAgeTier / callerCanUseDMs) allow DMs.
-            // The stub uses a synthetic DOB of exactly 25 years ago; actual DOB
-            // collection can happen later via the account settings flow.
-            dlog("⚠️ Age profile not found for user — migrating pre-existing user to adult tier")
-            await migrateExistingUserToAdult(userId: userId)
+            dlog("⚠️ Age profile not found for user — requiring age verification before adult access")
             await MainActor.run {
-                currentUserTier = .adult
-                needsVerification = false
+                currentUserTier = AgeAssurancePolicy.missingProfileFallbackTier
+                currentUserAge = 0
+                needsVerification = AgeAssurancePolicy.missingProfileNeedsVerification
             }
         } catch {
             dlog("⚠️ Failed to load age tier: \(error.localizedDescription)")
@@ -70,7 +60,7 @@ class AgeAssuranceService: ObservableObject {
             await MainActor.run {
                 if currentUserTier == .adult && currentUserAge == 0 {
                     // Never loaded before — fail closed
-                    currentUserTier = .teen
+                    currentUserTier = AgeAssurancePolicy.missingProfileFallbackTier
                 }
                 // Otherwise preserve existing cached tier across transient errors
             }
@@ -124,50 +114,6 @@ class AgeAssuranceService: ObservableObject {
         
         dlog("✅ Date of birth stored for user \(userId): tier=\(profile.tier.rawValue)")
     }
-    
-    /// Migrate a pre-existing user (who has no age_assurance doc) to adult tier.
-    /// Creates a stub profile with a synthetic DOB 25 years ago and writes
-    /// ageTier:"tierD" to the main user document so Firestore rules allow DMs.
-    /// Called automatically when loadTier() finds no profile.
-    private func migrateExistingUserToAdult(userId: String) async {
-        // Synthetic DOB: 25 years ago (well above the 18+ threshold).
-        let twentyFiveYearsAgo = Calendar.current.date(
-            byAdding: .year, value: -25, to: Date()
-        ) ?? Date()
-
-        let profile = UserAgeProfile(
-            dateOfBirth: twentyFiveYearsAgo,
-            countryCode: "US",
-            verificationMethod: .dateOfBirth
-        )
-
-        do {
-            // 1. Write the private age_assurance document so the app stops
-            //    showing the "profile not found" warning on every launch.
-            try await db.collection("users")
-                .document(userId)
-                .collection("private")
-                .document("age_assurance")
-                .setData(try Firestore.Encoder().encode(profile))
-
-            // 2. Write ageTier to the main user document so Firestore rules
-            //    (callerAgeTier / callerCanUseDMs) return tierD for this user.
-            try await db.collection("users")
-                .document(userId)
-                .setData(["ageTier": "tierD"], merge: true)
-
-            // Update cache so subsequent calls in this session skip the fetch.
-            ageProfileCache[userId] = (profile, Date())
-
-            await MainActor.run {
-                currentUserAge = profile.age
-            }
-            dlog("✅ Age migration complete: user \(userId) set to adult (tierD)")
-        } catch {
-            dlog("⚠️ Age migration failed (non-fatal): \(error.localizedDescription)")
-        }
-    }
-
     /// Get age profile for user
     func getAgeProfile(userId: String) async throws -> UserAgeProfile {
         // Check cache first
@@ -390,7 +336,7 @@ class AgeAssuranceService: ObservableObject {
     /// Clear cache (called on sign-out)
     func clearCache() {
         ageProfileCache.removeAll()
-        currentUserTier = .adult
+        currentUserTier = AgeAssurancePolicy.missingProfileFallbackTier
         currentUserAge = 0
         needsVerification = false
     }
