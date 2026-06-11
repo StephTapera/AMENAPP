@@ -105,7 +105,7 @@ else
 fi
 
 echo "  0b. Firebase project check…"
-ACTIVE_PROJECT="$(firebase use --project "$PROJECT" 2>&1 | tail -1)"
+ACTIVE_PROJECT="$(firebase use "$PROJECT" 2>&1 | tail -1 || true)"
 echo "      Active: $ACTIVE_PROJECT"
 firebase projects:list 2>/dev/null | grep "$PROJECT" >/dev/null \
   && pass "Project $PROJECT is accessible" \
@@ -198,32 +198,29 @@ firebase deploy --only storage \
 pass "Storage rules deployed"
 
 echo "  1d. Seven safety Cloud Functions…"
-note "  syncAgeTierClaim — writes ageTier JWT claim on user doc changes"
-note "  antiHarassmentEnforcement — server-side restriction checks on message sends"
-note "  commentModerationEnforcement — server-authoritative moderationStatus writes to RTDB"
+note "  onUserDocCreated — server-set ageTier on user doc creation"
+note "  (anti-harassment + comment moderation already live as safeMessageGateway, onMessageSafetyEvent, addComment)"
 note "  onCSAMDetected — CSAM escalation trigger"
 note "  flagForNCMECReview — NCMEC CyberTipline queue"
 note "  onModerationRequiresMandatoryReport — mandatory reporter escalation"
 note "  updateBirthYear — birth-year field sync for age-tier computation"
 
 firebase deploy \
-  --only functions:syncAgeTierClaim,\
-functions:antiHarassmentEnforcement,\
-functions:commentModerationEnforcement,\
+  --only functions:onUserDocCreated,\
 functions:onCSAMDetected,\
 functions:flagForNCMECReview,\
 functions:onModerationRequiresMandatoryReport,\
 functions:updateBirthYear \
   --project "$PROJECT" \
   || abort_with_rollback "Recovery function deploy failed." \
-       "firebase deploy --only functions:syncAgeTierClaim,functions:antiHarassmentEnforcement --project $PROJECT"
+       "firebase deploy --only functions:onUserDocCreated,functions:updateBirthYear --project $PROJECT"
 
-for FN in syncAgeTierClaim antiHarassmentEnforcement commentModerationEnforcement \
-           onCSAMDetected flagForNCMECReview onModerationRequiresMandatoryReport updateBirthYear; do
+for FN in onUserDocCreated onCSAMDetected flagForNCMECReview \
+           onModerationRequiresMandatoryReport updateBirthYear; do
   verify_functions_list "$FN"
 done
 
-pass "Stage 1 complete — 7 safety CFs + rules live"
+pass "Stage 1 complete — 5 safety CFs + rules live"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STAGE 2 — PHONE_HASH_PEPPER ROTATION
@@ -811,8 +808,8 @@ smoke_check \
   "Run Algolia query on users index; verify no tierB/tierC/blocked records appear"
 
 smoke_check \
-  "syncAgeTierClaim running — check Firebase Functions logs" \
-  "firebase functions:log --only syncAgeTierClaim --project $PROJECT | head -10"
+  "onUserDocCreated running — check Firebase Functions logs" \
+  "firebase functions:log --only onUserDocCreated --project $PROJECT | head -10"
 
 smoke_check \
   "Firestore TTL policy enabled on moderationQueue.expireAt (OQ-20)" \

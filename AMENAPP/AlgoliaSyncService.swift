@@ -348,7 +348,7 @@ class AlgoliaSyncService {
         }
     }
     
-    static func shouldExcludeFromPeopleIndex(_ data: [String: Any]) -> Bool {
+    nonisolated static func shouldExcludeFromPeopleIndex(_ data: [String: Any]) -> Bool {
         if let minorScoped = data["minorScoped"] as? Bool, minorScoped { return true }
         if let isMinor = data["isMinor"] as? Bool, isMinor { return true }
         guard let ageTier = data["ageTier"] as? String else { return true }

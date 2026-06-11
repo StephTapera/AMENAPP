@@ -2410,6 +2410,54 @@ class AuthenticationViewModel: ObservableObject {
 #endif
 }
 
+extension AuthenticationViewModel {
+    enum AuthResolutionError: Error, Equatable {
+        case timedOut
+    }
+
+    struct AuthResolutionOutcome: Equatable {
+        let isTimeout: Bool
+        let message: String
+    }
+
+    static func raceFirestoreResolution(
+        timeoutNanos: UInt64,
+        operation: @escaping () async throws -> Void
+    ) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: timeoutNanos)
+                throw AuthResolutionError.timedOut
+            }
+
+            do {
+                try await group.next()
+                group.cancelAll()
+            } catch {
+                group.cancelAll()
+                throw error
+            }
+        }
+    }
+
+    static func resolveAuthError(from error: Error) -> AuthResolutionOutcome {
+        if let authError = error as? AuthResolutionError, authError == .timedOut {
+            return AuthResolutionOutcome(
+                isTimeout: true,
+                message: "We couldn't reach our servers. Check your connection and try again."
+            )
+        }
+
+        return AuthResolutionOutcome(
+            isTimeout: false,
+            message: "We couldn't verify your account status. Please try again."
+        )
+    }
+}
+
 // MARK: - Network check latch (audit H-05)
 
 /// Thread-safe single-resume latch used by `isNetworkAvailable`. Top-level (not

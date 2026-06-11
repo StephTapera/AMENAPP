@@ -164,6 +164,7 @@ private struct AC_ScriptureCard: View {
                         }
                         Spacer()
                     }
+                    .accessibilityLabel("Translation picker")
 
                     Button {
                         // TODO: open Berean study for payload.reference
@@ -213,6 +214,7 @@ private struct AC_TranslationChip: View {
                 .frame(minWidth: 44, minHeight: 44)
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
         .accessibilityLabel("\(label) translation\(isSelected ? ", selected" : "")")
     }
 }
@@ -446,6 +448,7 @@ private struct AC_RSVPButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(label)\(isSelected ? ", selected" : "")")
+        .accessibilityHint("Tap to select \(label) as your RSVP")
     }
 }
 
@@ -650,5 +653,6 @@ private struct AC_PollOptionRow: View {
                 ? "\(option), \(percentageText)\(isVoted ? ", your vote" : "")"
                 : "Vote for \(option)"
         )
+        .accessibilityAddTraits(isVoted ? .isSelected : [])
     }
 }

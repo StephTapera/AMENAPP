@@ -747,7 +747,7 @@ private struct AmbientGlassChromeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content.glassEffect(.regular.tint(tint).interactive(), in: .rect(cornerRadius: radius))
+            content.glassEffect(Glass.regular.tint(tint).interactive(), in: .rect(cornerRadius: radius))
         } else {
             content
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))

@@ -46,6 +46,47 @@ enum BereanModelMode: String, CaseIterable, Codable, Identifiable {
     var backendValue: String { rawValue }
 }
 
+struct BereanModeAuthorityResult: Codable, Equatable {
+    var acceptedMode: String?
+    var fallbackMode: String?
+    var entitlementRequired: Bool?
+    var quotaExceeded: Bool?
+    var deepCreditsRemaining: Int?
+    var fallbackReason: String?
+
+    var wasDowngraded: Bool { fallbackMode != nil }
+}
+
+enum BereanModelAccess: Equatable {
+    case full
+    case limited
+    case locked
+}
+
+enum BereanUserTier: Equatable {
+    case free
+    case plus
+    case pro
+    case founder
+
+    func access(for mode: BereanModelMode) -> BereanModelAccess {
+        switch (self, mode) {
+        case (.free, .core):
+            return .full
+        case (.free, .deep), (.free, .adaptive):
+            return .locked
+        case (.plus, .core):
+            return .full
+        case (.plus, .deep):
+            return .limited
+        case (.plus, .adaptive):
+            return .locked
+        case (.pro, _), (.founder, _):
+            return .full
+        }
+    }
+}
+
 // MARK: - BereanModelStore
 
 @MainActor
@@ -59,10 +100,25 @@ final class BereanModelStore: ObservableObject {
             saveToFirestore(selectedMode)
         }
     }
+    @Published private(set) var deepCreditsRemaining: Int?
+    @Published private(set) var quotaExceeded: Bool = false
 
     private init() {
         let saved = UserDefaults.standard.string(forKey: Self.udKey) ?? "core"
         selectedMode = BereanModelMode(rawValue: saved) ?? .core
+    }
+
+    func updateUsageState(deepCreditsRemaining: Int?, quotaExceeded: Bool?) {
+        if let deepCreditsRemaining {
+            self.deepCreditsRemaining = deepCreditsRemaining
+        }
+        if let quotaExceeded {
+            self.quotaExceeded = quotaExceeded
+        }
+    }
+
+    func fallbackToCore() {
+        selectedMode = .core
     }
 
     private func saveToFirestore(_ mode: BereanModelMode) {

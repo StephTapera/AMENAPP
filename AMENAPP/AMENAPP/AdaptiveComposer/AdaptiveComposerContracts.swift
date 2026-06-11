@@ -139,17 +139,17 @@ struct FilePayload: Codable, Hashable {
     var downloadURL: String
 }
 
-struct ChecklistItem: Codable, Hashable, Identifiable {
+struct AdaptiveComposerChecklistItem: Codable, Hashable, Identifiable {
     var id: String
     var text: String
     var isChecked: Bool
     var assigneeUID: String?
 }
 
-struct ChecklistPayload: Codable, Hashable {
+struct AdaptiveComposerChecklistPayload: Codable, Hashable {
     var schemaVersion: Int = 1
     var title: String
-    var items: [ChecklistItem]
+    var items: [AdaptiveComposerChecklistItem]
 }
 
 struct DonationPayload: Codable, Hashable {
@@ -218,7 +218,7 @@ struct TaskPayload: Codable, Hashable {
     var spaceId: String?
 }
 
-struct ReminderPayload: Codable, Hashable {
+struct AdaptiveComposerReminderPayload: Codable, Hashable {
     var schemaVersion: Int = 1
     var title: String
     var triggerDate: Date
@@ -296,7 +296,7 @@ enum ComposerAttachment: Codable, Hashable {
     case youtube(YouTubePayload)
     case location(LocationPayload)
     case file(FilePayload)
-    case checklist(ChecklistPayload)
+    case checklist(AdaptiveComposerChecklistPayload)
     case donation(DonationPayload)
     case volunteer(VolunteerPayload)
     case voice(VoicePayload)
@@ -305,7 +305,7 @@ enum ComposerAttachment: Codable, Hashable {
     case rsvp(RSVPPayload)
     case directions(DirectionsPayload)
     case task(TaskPayload)
-    case reminder(ReminderPayload)
+    case reminder(AdaptiveComposerReminderPayload)
     case link(LinkPayload)
     case bibleStudy(BibleStudyPayload)
     case discussionThread(DiscussionThreadPayload)

@@ -143,6 +143,12 @@ enum AmenFeedContextType: String, Codable, CaseIterable {
     }
 }
 
+extension PostCard {
+    func analyticsEventName(for action: AmenFeedContextFeedbackAction) -> String {
+        "context_label_\(action.rawValue)"
+    }
+}
+
 enum AmenFeedContextDestinationType: String, Codable {
     case topicFeed
     case scriptureCluster
@@ -278,6 +284,18 @@ final class ContextLabelPreferenceStore: ObservableObject {
         await saveRemote()
     }
 
+    func replaceStateForTesting(
+        hiddenContextIds: Set<String> = [],
+        mutedContextTopicIds: Set<String> = [],
+        mutedContextTypes: Set<String> = [],
+        contextualLabelsDisabled: Bool = false
+    ) {
+        self.hiddenContextIds = hiddenContextIds
+        self.mutedContextTopicIds = mutedContextTopicIds
+        self.mutedContextTypes = mutedContextTypes
+        self.contextualLabelsDisabled = contextualLabelsDisabled
+    }
+
     private func persistLocally() {
         defaults.set(Array(hiddenContextIds), forKey: hiddenKey)
         defaults.set(Array(mutedContextTopicIds), forKey: mutedTopicsKey)
@@ -312,21 +330,40 @@ final class ContextLabelVisibilityCoordinator: ObservableObject {
     static let shared = ContextLabelVisibilityCoordinator()
 
     @Published private(set) var visiblePostIds: [String] = []
+    @Published private(set) var refreshNonce = UUID()
     let maxVisibleLabels = 2
 
-    private init() {}
+    private var pendingPostIds: [String] = []
+
+    init() {}
 
     func register(postId: String) -> Bool {
         if visiblePostIds.contains(postId) {
             return true
         }
-        guard visiblePostIds.count < maxVisibleLabels else { return false }
+        if pendingPostIds.contains(postId) {
+            return false
+        }
+        guard visiblePostIds.count < maxVisibleLabels else {
+            pendingPostIds.append(postId)
+            return false
+        }
         visiblePostIds.append(postId)
         return true
     }
 
     func unregister(postId: String) {
-        visiblePostIds.removeAll { $0 == postId }
+        if let visibleIndex = visiblePostIds.firstIndex(of: postId) {
+            visiblePostIds.remove(at: visibleIndex)
+            if !pendingPostIds.isEmpty {
+                let promoted = pendingPostIds.removeFirst()
+                visiblePostIds.append(promoted)
+                refreshNonce = UUID()
+            }
+            return
+        }
+
+        pendingPostIds.removeAll { $0 == postId }
     }
 }
 

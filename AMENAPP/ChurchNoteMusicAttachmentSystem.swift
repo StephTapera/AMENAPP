@@ -10,6 +10,20 @@ struct MusicArtworkColors: Codable, Hashable {
     let backgroundHex: String?
     let textPrimaryHex: String?
     let textSecondaryHex: String?
+
+    init(
+        dominantHex: String? = nil,
+        secondaryHex: String? = nil,
+        backgroundHex: String? = nil,
+        textPrimaryHex: String? = nil,
+        textSecondaryHex: String? = nil
+    ) {
+        self.dominantHex = dominantHex
+        self.secondaryHex = secondaryHex
+        self.backgroundHex = backgroundHex
+        self.textPrimaryHex = textPrimaryHex
+        self.textSecondaryHex = textSecondaryHex
+    }
 }
 
 enum MusicAttachmentValidationError: LocalizedError, Equatable {

@@ -151,9 +151,7 @@ public final class AdaptiveSurfaceEngine {
         keyboardObservers = []
     }
 
-    deinit {
-        keyboardObservers.forEach { NotificationCenter.default.removeObserver($0) }
-    }
+    deinit {}
 
     // MARK: - Helpers
 
@@ -246,14 +244,18 @@ public extension View {
 public struct AdaptiveSurfaceScrollDriver: ViewModifier {
     @Environment(\.adaptiveSurfaceEngine) private var engine
 
+    @ViewBuilder
     public func body(content: Content) -> some View {
-        content
-            .onScrollGeometryChange(for: ScrollGeometryProxy.self) { $0 } action: { _, geo in
-                engine?.updateScroll(
-                    offset: geo.contentOffset.y,
-                    contentHeight: geo.contentSize.height
-                )
-            }
+        if #available(iOS 18.0, *) {
+            content
+                .onScrollGeometryChange(for: CGFloat.self) { geo in
+                    geo.contentOffset.y
+                } action: { _, newOffset in
+                    engine?.updateScroll(offset: newOffset)
+                }
+        } else {
+            content
+        }
     }
 }
 

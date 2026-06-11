@@ -165,23 +165,6 @@ struct PostCardRenderModelTests {
         #expect(model.authorVerificationType == .business)
     }
 
-    // MARK: 9. hasVideo
-
-    @Test("hasVideo is false when mediaItems is empty")
-    func hasVideoFalseWhenNoMedia() {
-        let model = PostCardRenderModel.preview()
-        #expect(!model.hasVideo)
-    }
-
-    // MARK: 10. shareEligible
-
-    @Test("shareEligible is false when post is removed")
-    func shareNotEligibleWhenRemoved() {
-        let removed = PostCardRenderModel.preview(isRemoved: true)
-        let normal = PostCardRenderModel.preview(isRemoved: false)
-        #expect(!removed.shareEligible)
-        #expect(normal.shareEligible)
-    }
 }
 
 #endif

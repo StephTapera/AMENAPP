@@ -675,23 +675,32 @@ class AppReadyStateManager: ObservableObject {
     static let shared = AppReadyStateManager()
 
     /// True while the loading screen should be displayed.
-    /// Pre-set to `true` on init if a Firebase user is already cached, so the overlay
-    /// is visible from the very first ContentView render — eliminating the separate
-    /// `isResolvingAuthState` Screen 1 and the white flash that followed its exit.
     @Published var isShowingLoadingScreen: Bool
 
-    private init() {
-        // If a user session is already cached, start with the overlay visible.
-        // This means the overlay is already `true` before ContentView renders its body,
-        // so there is only ever ONE loading state — no dual-screen flicker.
-        // Guard: Auth.auth() crashes if Firebase is not configured (test host).
-        isShowingLoadingScreen = FirebaseApp.app() != nil && Auth.auth().currentUser != nil
+    private let watchdogTimeoutNanos: UInt64
+    private var watchdogTask: Task<Void, Never>?
+
+    init(initialShowing: Bool? = nil, watchdogTimeoutNanos: UInt64 = 8_000_000_000) {
+        self.watchdogTimeoutNanos = watchdogTimeoutNanos
+        if let initialShowing {
+            isShowingLoadingScreen = initialShowing
+        } else {
+            isShowingLoadingScreen = FirebaseApp.app() != nil && Auth.auth().currentUser != nil
+        }
+        if isShowingLoadingScreen {
+            armWatchdog()
+        }
+    }
+
+    deinit {
+        watchdogTask?.cancel()
     }
 
     /// Called when a user signs in (fresh install, sign-out + sign-back-in, update).
     func signalSignIn() {
         dlog("🚦 [LAUNCH] signalSignIn() → isShowingLoadingScreen = true")
         isShowingLoadingScreen = true
+        armWatchdog()
     }
 
     /// Called from ContentView.mainContent.onAppear — ensures the screen is showing
@@ -700,6 +709,7 @@ class AppReadyStateManager: ObservableObject {
         if !isShowingLoadingScreen {
             isShowingLoadingScreen = true
         }
+        armWatchdog()
     }
 
     /// Call once posts have been loaded (or after a maximum wait) to dismiss the screen.
@@ -708,9 +718,24 @@ class AppReadyStateManager: ObservableObject {
             dlog("🚦 [LAUNCH] signalReady() called but screen already hidden — no-op")
             return
         }
+        watchdogTask?.cancel()
+        watchdogTask = nil
         dlog("🚦 [LAUNCH] signalReady() → isShowingLoadingScreen = false (animating out)")
         withAnimation(.easeOut(duration: 0.2)) {
             isShowingLoadingScreen = false
+        }
+    }
+
+    private func armWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = Task { [weak self, watchdogTimeoutNanos] in
+            try? await Task.sleep(nanoseconds: watchdogTimeoutNanos)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, self.isShowingLoadingScreen else { return }
+                self.isShowingLoadingScreen = false
+                self.watchdogTask = nil
+            }
         }
     }
 }

@@ -9,7 +9,7 @@ import SwiftUI
 /// Docked rail variant for Spaces.
 /// Default tools: [Bible, Prayer, Event, Poll, File, Task, Video, More].
 /// Church-mode adds Announcement and Donation to the + sheet.
-public struct SpacesCreationRail: View {
+struct SpacesCreationRail: View {
     @StateObject private var vm: CreationRailViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -20,7 +20,7 @@ public struct SpacesCreationRail: View {
 
     private let spacesTools: [ToolID] = [.bible, .prayerRequest, .event, .poll, .file, .task, .video]
 
-    public init(currentText: Binding<String>,
+    init(currentText: Binding<String>,
                 churchContext: ChurchComposerContext? = nil,
                 spaceContext: SpaceComposerContext? = nil,
                 onToolSelected: @escaping (ToolID) -> Void,
@@ -34,7 +34,7 @@ public struct SpacesCreationRail: View {
 
     // MARK: - Body
 
-    public var body: some View {
+    var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(spacesTools, id: \.self) { toolId in
@@ -49,10 +49,10 @@ public struct SpacesCreationRail: View {
                 Button(action: { /* TODO: show expanded sheet */ }) {
                     VStack(spacing: 2) {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 16))
+                            .font(.body)
                             .frame(width: 28, height: 28)
                         Text("More")
-                            .font(.system(size: 10))
+                            .font(.caption2)
                     }
                     .frame(minWidth: 44, minHeight: 44)
                 }
@@ -61,9 +61,9 @@ public struct SpacesCreationRail: View {
             }
             .padding(.horizontal, 12)
         }
-        .frame(height: 56)
+        .frame(minHeight: 56)
         .background(railBackground)
-        .onChange(of: currentText) { text in
+        .onChange(of: currentText) { _, text in
             vm.textDidChange(text, reduceMotion: reduceMotion)
         }
         .accessibilityElement(children: .contain)
@@ -99,10 +99,10 @@ private struct SpacesRailButton: View {
         Button(action: onTap) {
             VStack(spacing: 2) {
                 Image(systemName: tool.icon)
-                    .font(.system(size: 16))
+                    .font(.body)
                     .frame(width: 28, height: 28)
                 Text(tool.title)
-                    .font(.system(size: 10))
+                    .font(.caption2)
             }
         }
         .frame(minWidth: 44, minHeight: 44)

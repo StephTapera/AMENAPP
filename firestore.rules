@@ -340,6 +340,34 @@ service cloud.firestore {
       ]);
     }
 
+    // === ADAPTIVE COMPOSER ATTACHMENT HELPERS (2026-06-11) ===
+    function isValidAttachment(attachment) {
+      return attachment is map
+        && ('type' in attachment)
+        && ('schemaVersion' in attachment)
+        && attachment.type is string
+        && attachment.schemaVersion is int
+        && attachment.schemaVersion >= 1;
+    }
+
+    function isChurchOnlyAttachmentType(type) {
+      return type in ['sermon', 'worshipSong', 'teachingSeries', 'donation',
+                      'volunteerSignup', 'ministryInterestForm'];
+    }
+
+    function attachmentsArrayIsValid(attachments) {
+      return !('attachments' in request.resource.data)
+        || (request.resource.data.attachments is list
+            && request.resource.data.attachments.size() <= 10);
+    }
+
+    function anonymousPrayerIsSafe(attachment) {
+      return attachment.get('type', '') != 'prayer'
+        || !attachment.get('isAnonymous', false)
+        || !('authorId' in attachment);
+    }
+    // === END ADAPTIVE COMPOSER ATTACHMENT HELPERS ===
+
     // =========================================================================
     // /users/{userId}
     // C5 §2a — User Resource
@@ -554,7 +582,9 @@ service cloud.firestore {
           request.resource.data.get('privacyLevel', 'private') != 'public' ||
           request.resource.data.get('publicConfirmed', false) == true) &&
         // [MINOR] ownerUidEncrypted must not be set by client (CF only)
-        !request.resource.data.keys().hasAny(['ownerUidEncrypted']);
+        !request.resource.data.keys().hasAny(['ownerUidEncrypted']) &&
+        // ATTACHMENT SECURITY (2026-06-11): validate attachments array shape + size
+        attachmentsArrayIsValid(request.resource.data);
 
       // Update: owner can update own post; moderators/admins can soft-delete.
       // Provenance must never change. isDeleted can only go false → true.

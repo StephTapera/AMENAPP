@@ -667,7 +667,8 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorId: String? = nil,
         churchNoteId: String? = nil,
         contentSource: String? = nil,
-        quote: PostQuoteMetadata? = nil
+        quote: PostQuoteMetadata? = nil,
+        feedContext: AmenFeedContextLabel? = nil
     ) {
         self.id = id
         self.firebaseId = firebaseId
@@ -713,6 +714,7 @@ struct Post: Identifiable, Codable, Equatable {
         self.churchNoteId = churchNoteId
         self.contentSource = contentSource
         self.quote = quote
+        self.feedContext = feedContext
     }
 
     var backendId: String {

@@ -296,8 +296,11 @@ const _v2TriggersMovedToV2Functions = true; // eslint-disable-line no-unused-var
 // ============================================================================
 const aiModeration = require("./aiModeration");
 
-// Content Moderation
-exports.moderateContent = aiModeration.moderateContent;
+// AI Moderation Firestore trigger (onDocumentCreated — NOT a callable).
+// Renamed from moderateContent to avoid shadowing the https.onCall callable
+// of the same name exported at line 167 from contentModeration.js.
+// C3 fix: duplicate export removed; aiModeration trigger now has a unique name.
+exports.moderateContentAI = aiModeration.moderateContent;
 
 // Crisis Detection
 // exports.detectCrisis = aiModeration.detectCrisis; // DISABLED: TypeScript version in creator codebase
@@ -1830,3 +1833,14 @@ exports.decideAppeal = moderationAppeals.decideAppeal;
 // Deploy: firebase deploy --only functions:submitSafetyReport --project amen-5e359
 // ============================================================================
 exports.submitSafetyReport = require("./safety/submitSafetyReport").submitSafetyReport;
+
+// ============================================================================
+// GUARDIAN LINK (finding #44) — email verification pipeline for minor guardian linking
+//   onGuardianLinkCreated — onDocumentCreated: sends OTP email, stamps request doc
+//   verifyGuardianLink    — onCall (enforceAppCheck): validates OTP, writes approval
+// Gate: guardian_link_enabled Remote Config flag (default false).
+// Deploy: firebase deploy --only functions:onGuardianLinkCreated,functions:verifyGuardianLink --project amen-5e359
+// ============================================================================
+const guardianLink = require("./guardianLink");
+exports.onGuardianLinkCreated = guardianLink.onGuardianLinkCreated;
+exports.verifyGuardianLink    = guardianLink.verifyGuardianLink;

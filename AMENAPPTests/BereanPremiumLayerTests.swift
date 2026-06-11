@@ -4,13 +4,13 @@ import XCTest
 final class BereanPremiumModeTests: XCTestCase {
     func testMainBereanModesExposeProductSurfaceOnly() {
         XCTAssertEqual(BereanPersonalityMode.allCases, [
-            .scriptureStudy,
-            .askBerean,
-            .prayerCompanion,
-            .discernment,
-            .mediaInsight,
-            .workLifeWisdom,
-            .safetyReview
+            .shepherd,
+            .scholar,
+            .coach,
+            .builder,
+            .strategist,
+            .creator,
+            .debater
         ])
     }
 
@@ -19,10 +19,10 @@ final class BereanPremiumModeTests: XCTestCase {
         XCTAssertEqual(BereanPersonalityMode(rawValue: "Scholar"), .scholar)
     }
 
-    func testSafetyModePromptKeepsPastoralGuardrails() {
-        let prompt = BereanPersonalityMode.safetyReview.systemPromptPrefix
-        XCTAssertTrue(prompt.contains("Do not shame the user"))
-        XCTAssertTrue(prompt.contains("self-harm"))
+    func testShepherdModePromptKeepsPastoralGuardrails() {
+        let prompt = BereanPersonalityMode.shepherd.systemPromptPrefix
+        XCTAssertTrue(prompt.contains("warm, pastoral"))
+        XCTAssertTrue(prompt.contains("Scripture"))
     }
 }
 

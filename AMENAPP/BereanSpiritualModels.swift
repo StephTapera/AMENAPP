@@ -201,6 +201,21 @@ struct StudyCard: Codable, Identifiable, Equatable {
         case leaderReferral     = "leader_referral"
         /// Crisis resource (hotlines, support links).
         case crisisResource     = "crisis_resource"
+
+        // Backend structured response block types.
+        case text = "text"
+        case verseCard = "verse_card"
+        case crossReferenceCard = "cross_reference_card"
+        case historicalContextCard = "historical_context_card"
+        case greekHebrewWordCard = "greek_hebrew_word_card"
+        case prayerCard = "prayer_card"
+        case discernmentFrameworkCard = "discernment_framework_card"
+        case summaryCard = "summary_card"
+        case cautionCard = "caution_card"
+        case actionStepCard = "action_step_card"
+        case savedInsightCard = "saved_insight_card"
+        case mediaKeyMomentCard = "media_key_moment_card"
+        case safetyNoticeCard = "safety_notice_card"
     }
 }
 

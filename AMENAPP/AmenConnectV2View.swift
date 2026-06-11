@@ -237,7 +237,7 @@ struct ConnectV2SectionBar: View {
                 HStack(spacing: 0) {
                     ForEach(ConnectSection.allCases) { s in
                         pillContent(s)
-                            .glassEffect(.regular.interactive())
+                            .amenGlassEffect()
                             .glassEffectUnion(id: "connect-section-bar", namespace: namespace)
                     }
                 }

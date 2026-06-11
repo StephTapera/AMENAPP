@@ -39,7 +39,7 @@ public struct AdaptiveGlassContainer<Content: View>: View {
                     shape.fill(palette.background)
                 } else if #available(iOS 26.0, *) {
                     shape.fill(.clear)
-                        .glassEffect(.regular.tint(effectiveTint), in: shape)
+                        .glassEffect(Glass.regular.tint(effectiveTint), in: shape)
                 } else {
                     shape.fill(.ultraThinMaterial)
                         .overlay(shape.fill(effectiveTint))

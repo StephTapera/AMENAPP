@@ -11,44 +11,8 @@ import MapKit
 private let _accGold = Color(red: 198 / 255, green: 151 / 255, blue: 63 / 255)
 
 // MARK: - AdaptiveCardContainer
-// Mirrors AC_CardContainer from AttachmentCardsA (same module — no import needed).
-// Referenced as AdaptiveCardContainer per Set B convention.
-
-struct AdaptiveCardContainer<Content: View>: View {
-    let onRemove: () -> Void
-    @ViewBuilder let content: () -> Content
-
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 0) {
-                content()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                reduceTransparency
-                    ? AnyShapeStyle(Color(.secondarySystemBackground))
-                    : AnyShapeStyle(.ultraThinMaterial),
-                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.5), lineWidth: 0.5)
-            )
-
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 44, minHeight: 44)
-            }
-            .accessibilityLabel("Remove attachment")
-            .padding(.top, 2)
-            .padding(.trailing, 2)
-        }
-    }
-}
+// Defined in AttachmentCardsB.swift (same module — no import needed).
+// Used directly here; no redeclaration.
 
 // MARK: - AC_DonationCard
 
@@ -126,7 +90,7 @@ struct AC_DonationCard: View {
                 .buttonStyle(.plain)
                 .disabled(!stripeEnabled)
                 .accessibilityLabel(stripeEnabled ? "Give to \(payload.title)" : "Payment Setup Required — giving unavailable")
-                .accessibilityHint(stripeEnabled ? "" : "Stripe payments have not been configured")
+                .accessibilityHint(stripeEnabled ? "Opens donation flow" : "Stripe payments have not been configured")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
@@ -360,6 +324,7 @@ private struct AC_C_RSVPChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(label)\(isSelected ? ", selected" : "")")
+        .accessibilityHint("Tap to RSVP as \(label)")
     }
 }
 
@@ -536,8 +501,7 @@ struct AC_VoiceCard: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .animation(.easeInOut(duration: 0.3), value: isPlaying)
-                .accessibilityLabel("Voice waveform, \(bars.count) bars")
-                .accessibilityHidden(true)
+                .accessibilityLabel("Audio waveform")
 
                 Text(durationText)
                     .font(.caption.monospacedDigit())
@@ -673,6 +637,7 @@ struct AC_TaskCard: View {
                         .strikethrough(isCompleted, color: .secondary)
                         .lineLimit(2)
                         .animation(.spring(response: 0.28, dampingFraction: 0.86), value: isCompleted)
+                        .accessibilityHidden(true)
 
                     if let due = payload.dueDate {
                         Text("Due \(AC_TaskCard.formattedDate(due))")
@@ -780,7 +745,8 @@ struct AC_LinkCard: View {
                         case .empty:
                             Rectangle()
                                 .fill(Color(.tertiarySystemFill))
-                                .frame(maxWidth: .infinity, height: 120)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 120)
                                 .overlay(ProgressView())
                         @unknown default:
                             EmptyView()

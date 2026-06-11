@@ -362,7 +362,7 @@ struct PostStreamRecapView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 22, height: 22)
-                        .glassEffect(.regular, in: Circle())
+                        .amenGlassEffect(in: Circle())
                     Text(item)
                         .font(.body)
                 }
@@ -562,7 +562,7 @@ private struct HighlightRow: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 5)
                             .foregroundStyle(.primary)
-                            .glassEffect(.regular.interactive(), in: Capsule())
+                            .amenGlassEffect(in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }

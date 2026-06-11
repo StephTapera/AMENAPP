@@ -178,10 +178,3 @@ extension CreationTool {
                      surfaces: Set(ComposerSurface.allCases), makeAttachment: nil),
     ]
 }
-
-// MARK: - OnDeviceIntentEngine stub
-// Companion file ComposerIntentEngine.swift provides the real implementation.
-// This stub ensures AdaptiveComposerCore.swift compiles standalone.
-final class OnDeviceIntentEngine: IntentEngine {
-    func detect(in text: String, context: ComposerContext) async -> [IntentSuggestion] { [] }
-}

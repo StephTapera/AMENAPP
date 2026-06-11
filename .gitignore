@@ -129,3 +129,8 @@ functions/dist-notifications/
 # Local Cloud Function secrets — never commit
 functions/.env.local
 *.env.local
+
+# Design reference assets — local only, not for version control
+/design-reference/
+AuthKey_*.p8
+generate-apple-music-token.mjs

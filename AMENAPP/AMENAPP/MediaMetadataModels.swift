@@ -59,8 +59,14 @@ struct MediaCaptionTrack: Identifiable, Codable, Equatable, Hashable {
     private let _source: MediaTrackSource
     let cues: [MediaCaptionCue]?
     let lastEditedAt: Date?
+    let status: String?
+    let approvedByUser: Bool?
 
     var effectiveSource: MediaTrackSource { _source }
+    var isPubliclyApproved: Bool {
+        if approvedByUser == true { return true }
+        return status == nil || status == "approved"
+    }
 
     init(
         id: String = UUID().uuidString,
@@ -71,7 +77,9 @@ struct MediaCaptionTrack: Identifiable, Codable, Equatable, Hashable {
         displayByDefault: Bool? = nil,
         source: MediaTrackSource = .generated,
         cues: [MediaCaptionCue]? = nil,
-        lastEditedAt: Date? = nil
+        lastEditedAt: Date? = nil,
+        status: String? = nil,
+        approvedByUser: Bool? = nil
     ) {
         self.id = id
         self.generatedTranscript = generatedTranscript
@@ -82,11 +90,13 @@ struct MediaCaptionTrack: Identifiable, Codable, Equatable, Hashable {
         self._source = source
         self.cues = cues
         self.lastEditedAt = lastEditedAt
+        self.status = status
+        self.approvedByUser = approvedByUser
     }
 
     enum CodingKeys: String, CodingKey {
         case id, generatedTranscript, editedTranscript, languageCode, style
-        case displayByDefault, _source = "source", cues, lastEditedAt
+        case displayByDefault, _source = "source", cues, lastEditedAt, status, approvedByUser
     }
 }
 

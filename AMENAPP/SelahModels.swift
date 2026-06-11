@@ -386,3 +386,46 @@ enum WorkflowAction {
     case createTestimony
     case shareToOpenTable
 }
+
+struct SelahLastReadEntry: Equatable {
+    let sessionId: String?
+    let sessionTitle: String
+    let reference: String
+    let updatedAt: Date
+}
+
+enum SelahLastReadResolver {
+    static func resolve(
+        sessions: [SelahSession],
+        excluding excludedReferences: [String] = [],
+        now: Date = Date(),
+        maxAge: TimeInterval = 30 * 24 * 60 * 60
+    ) -> SelahLastReadEntry? {
+        let excluded = Set(excludedReferences.map { normalizedReference($0) }.filter { !$0.isEmpty })
+
+        return sessions
+            .compactMap { session -> SelahLastReadEntry? in
+                guard now.timeIntervalSince(session.createdAt) <= maxAge else { return nil }
+                guard let rawReference = session.scriptureRefs.first else { return nil }
+
+                let reference = rawReference.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !reference.isEmpty else { return nil }
+                guard !excluded.contains(normalizedReference(reference)) else { return nil }
+
+                let title = session.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                return SelahLastReadEntry(
+                    sessionId: session.id,
+                    sessionTitle: title.isEmpty ? reference : title,
+                    reference: reference,
+                    updatedAt: session.createdAt
+                )
+            }
+            .max { lhs, rhs in lhs.updatedAt < rhs.updatedAt }
+    }
+
+    private static func normalizedReference(_ reference: String) -> String {
+        reference
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+}

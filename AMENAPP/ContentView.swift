@@ -869,6 +869,7 @@ struct ContentView: View {
                 profilePhotoURL: currentUserProfileImageURL.isEmpty ? nil : currentUserProfileImageURL,
                 isMinimized: tabScrollBridge.isMinimized
             )
+            .adaptiveSurface(.bottomNav)
             .offset(y: showTabBar ? 0 : 150) // Move offscreen when keyboard appears
             .animation(.easeOut(duration: 0.25), value: showTabBar)
             .onChange(of: viewModel.selectedTab) { _, _ in
@@ -1021,6 +1022,7 @@ struct ContentView: View {
 
     private var mainContent: some View {
         mainContentWithOverlays
+            .adaptiveSurfaceScene()
         // ⚡️ PERFORMANCE: Subscribe to specific state changes instead of observing entire singletons
         .onReceive(BadgeCountManager.shared.$totalBadgeCount) { count in
             totalBadgeCount = count

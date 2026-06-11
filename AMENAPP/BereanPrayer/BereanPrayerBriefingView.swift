@@ -241,7 +241,7 @@ struct BereanPrayerBriefingView: View {
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .amenGlassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .accessibilityLabel("Pray now")
         .accessibilityHint("Logs your prayer session")
@@ -322,7 +322,7 @@ struct BereanPrayerBriefingView: View {
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .glassEffect(.regular.interactive(), in: Capsule())
+                .amenGlassEffect(in: Capsule())
             }
             .accessibilityLabel("Add prayer request")
         }

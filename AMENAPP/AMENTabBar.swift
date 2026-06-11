@@ -119,6 +119,12 @@ struct AMENTabBar: View {
 
     @Namespace private var selectionNamespace
 
+    /// True when the tab bar should slide off-screen. Merges the caller-supplied
+    /// `isMinimized` flag with the adaptive engine's .hidden state (full-screen video).
+    private var effectivelyHidden: Bool {
+        isMinimized || (AMENFeatureFlags.shared.adaptiveGlassV2Enabled && effectiveState == .hidden)
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             // ── Floating compose button — centered horizontally above the pill bar ──
@@ -147,8 +153,8 @@ struct AMENTabBar: View {
         .padding(.bottom, 10)
         // Extra top padding so the floating compose button isn't clipped by the ZStack bounds
         .padding(.top, 28)
-        .offset(y: isMinimized ? 100 : 0)
-        .animation(.easeOut(duration: 0.18), value: isMinimized)
+        .offset(y: effectivelyHidden ? 100 : 0)
+        .animation(.easeOut(duration: 0.18), value: effectivelyHidden)
         // Drive the active-pill slide animation
         .animation(
             Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.72)),
@@ -158,17 +164,43 @@ struct AMENTabBar: View {
 
     // MARK: - Glass background (adaptive for light and dark mode)
 
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorScheme)        private var colorScheme
+    @Environment(\.glassSurfaceState)  private var adaptiveState
+
+    private var effectiveState: GlassSurfaceState {
+        AMENFeatureFlags.shared.adaptiveGlassV2Enabled ? adaptiveState : .frosted
+    }
 
     private var glassBackground: some View {
-        Capsule()
-            .fill(Color(.systemBackground).opacity(colorScheme == .dark ? 0.18 : 0.78))
-            .amenGlassEffect(in: Capsule())
-            .overlay {
+        Group {
+            switch effectiveState {
+            case .frostedStrong:
                 Capsule()
-                    .strokeBorder(Color(.separator).opacity(0.18), lineWidth: 0.75)
-                    .allowsHitTesting(false)
+                    .fill(Color(.systemBackground).opacity(colorScheme == .dark ? 0.08 : 0.60))
+                    .amenProminentGlassEffect(in: Capsule())
+            case .solidLight:
+                Capsule()
+                    .fill(Color(.systemBackground).opacity(0.97))
+            case .transparent, .hidden:
+                Capsule().fill(Color.clear)
+            default:
+                // .frosted, .collapsed — standard pill glass
+                Capsule()
+                    .fill(Color(.systemBackground).opacity(colorScheme == .dark ? 0.18 : 0.78))
+                    .amenGlassEffect(in: Capsule())
             }
+        }
+        .overlay {
+            Capsule()
+                .strokeBorder(Color(.separator).opacity(0.18), lineWidth: 0.75)
+                .allowsHitTesting(false)
+        }
+        .animation(
+            AMENFeatureFlags.shared.adaptiveGlassV2Enabled
+                ? Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.80))
+                : nil,
+            value: effectiveState
+        )
     }
 
     // MARK: - Tab item

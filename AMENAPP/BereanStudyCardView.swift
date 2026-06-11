@@ -97,6 +97,7 @@ extension StudyCard.StudyCardType {
         case .christConnection: return "cross.fill"
         case .leaderReferral:   return "person.fill.questionmark"
         case .crisisResource:   return "exclamationmark.shield.fill"
+        default:                return "sparkles"
         }
     }
 
@@ -112,6 +113,7 @@ extension StudyCard.StudyCardType {
         case .christConnection: return Color(red: 0.85, green: 0.60, blue: 0.15)  // Gold
         case .leaderReferral:   return Color(red: 0.40, green: 0.60, blue: 0.80)  // Steel blue
         case .crisisResource:   return Color.orange
+        default:                return Color(red: 0.46, green: 0.42, blue: 0.36)
         }
     }
 

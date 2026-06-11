@@ -130,7 +130,7 @@ struct ChurchCommunityProfileView: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
-                    .glassEffect(.regular, in: Capsule())
+                    .amenGlassEffect(in: Capsule())
                     .padding(.top, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .onAppear {
@@ -352,7 +352,7 @@ struct ChurchCommunityProfileView: View {
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12))
+                    .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
@@ -421,7 +421,7 @@ private struct SpacePlaceholderRow: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .frame(height: 30)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .amenGlassEffect(in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -463,7 +463,7 @@ struct ChurchJoinFlowView: View {
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.primary)
                             .frame(width: 26, height: 26)
-                            .glassEffect(.regular, in: Circle())
+                            .amenGlassEffect(in: Circle())
                         Text(step)
                             .font(.subheadline)
                     }
@@ -480,7 +480,7 @@ struct ChurchJoinFlowView: View {
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal)

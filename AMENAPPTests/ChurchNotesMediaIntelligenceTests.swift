@@ -1,4 +1,5 @@
 #if canImport(Testing)
+import Foundation
 import Testing
 @testable import AMENAPP
 

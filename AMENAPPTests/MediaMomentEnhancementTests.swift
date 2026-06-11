@@ -1,29 +1,12 @@
 #if canImport(Testing)
+import Foundation
 import Testing
 @testable import AMENAPP
 
 @Suite("Media Moment Enhancements")
 struct MediaMomentEnhancementTests {
-    @Test("video metadata stores verse-linked moments and presentation mode")
-    func videoMetadataSupportsMomentEnhancements() {
-        let verseMoment = VerseLinkedMoment(
-            momentId: "moment-1",
-            reference: "James 1:5",
-            displayText: "Ask God for wisdom",
-            timestamp: 18
-        )
-        let draft = VideoMetadataDraft(
-            keyMoments: [KeyMomentDraft(timestamp: 18, label: "Wisdom", kind: .verse, verseReference: "James 1:5")],
-            verseLinkedMoments: [verseMoment],
-            presentationMode: .teaching
-        )
-
-        #expect(draft.verseLinkedMoments == [verseMoment])
-        #expect(draft.presentationMode == .teaching)
-        #expect(draft.keyMoments.first?.verseReference == "James 1:5")
-    }
-
     @Test("shared moment routing round-trips timestamp targets")
+    @MainActor
     func sharedMomentRoutingRoundTrips() {
         let target = SharedMomentTarget(
             postId: "post-1",

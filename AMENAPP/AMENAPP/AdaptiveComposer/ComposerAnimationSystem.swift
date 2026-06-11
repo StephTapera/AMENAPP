@@ -1,9 +1,9 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Motion (animation namespace)
+// MARK: - ComposerMotion (animation namespace)
 
-enum Motion {
+enum ComposerMotion {
     /// Returns the animation if not in reduce-motion mode, else instant.
     static func adaptive(_ animation: Animation, reduceMotion: Bool) -> Animation {
         reduceMotion ? .linear(duration: 0) : animation
@@ -40,17 +40,15 @@ enum Motion {
 
 struct ComposerHaptics {
     static func railSnap() {
-        guard !UIAccessibility.isReduceMotionEnabled else { return }
+        // Haptics are appropriate even with Reduce Motion enabled (vestibular preference, not haptic preference)
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
     static func cardInsert() {
-        guard !UIAccessibility.isReduceMotionEnabled else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     static func postSuccess() {
-        guard !UIAccessibility.isReduceMotionEnabled else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 }

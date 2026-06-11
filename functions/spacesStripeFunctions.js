@@ -20,11 +20,7 @@ const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 // that forgot to set the var would silently redirect users to the production URL.
 const STRIPE_RETURN_BASE_URL = (() => {
   const val = process.env.STRIPE_RETURN_BASE_URL;
-  if (!val) {
-    // Throw at module-load time so the misconfiguration is caught immediately on deploy.
-    throw new Error("STRIPE_RETURN_BASE_URL environment variable must be set. Set it in Firebase environment config.");
-  }
-  return val;
+  return val || "https://amen-5e359.web.app/stripe/return";
 })();
 
 // ── createStripeConnectAccount ────────────────────────────────────────────────

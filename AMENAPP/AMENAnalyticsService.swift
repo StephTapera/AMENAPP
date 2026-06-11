@@ -60,6 +60,14 @@ enum AMENAnalyticsEvent {
     case bereanHumanSupportSuggested(context: String)
     case bereanResearchViewOpened
     case bereanTheoLensSelected(lens: String)
+    case bereanRateLimitHit(surface: String)
+    case bereanDailyQuotaHit(tier: String)
+    case bereanPremiumGateHit(requestedMode: String, surface: String)
+    case bereanModelDowngraded(requestedMode: String, grantedMode: String, tier: String)
+    case bereanCrisisEscalationDetected(surface: String)
+    case bereanTheologyBoundaryViolation(surface: String)
+    case bereanSafetyOutputRewritten(violationCount: Int)
+    case bereanAppCheckFailure(surface: String)
 
     // Spiritual Check-In
     case checkInShown(tier: Int)
@@ -74,6 +82,17 @@ enum AMENAnalyticsEvent {
     case churchDirectionsTapped
     case churchFirstVisitGuideOpened
     case churchPreferenceOnboardingCompleted
+
+    // Church Study Companion
+    case churchStudyCompanionOpened(source: String)
+    case churchNotesStartedFromChurch
+    case scriptureAddedToChurchNote(source: String)
+    case selahVerseAddedToChurchNotes
+    case churchStudySessionStarted(source: String)
+    case afterServiceReflectionStarted
+    case afterServiceReflectionSaved
+    case prayerVisibilitySelected(visibility: String)
+    case churchContextAttachedToNote
 
     // Knowledge Graph
     case relatedContentShown(nodeType: String)
@@ -217,6 +236,14 @@ enum AMENAnalyticsEvent {
         case .bereanHumanSupportSuggested: return "berean_human_support_suggested"
         case .bereanResearchViewOpened: return "berean_research_view_opened"
         case .bereanTheoLensSelected: return "berean_theo_lens_selected"
+        case .bereanRateLimitHit: return "berean_rate_limit_hit"
+        case .bereanDailyQuotaHit: return "berean_daily_quota_hit"
+        case .bereanPremiumGateHit: return "berean_premium_gate_hit"
+        case .bereanModelDowngraded: return "berean_model_downgraded"
+        case .bereanCrisisEscalationDetected: return "berean_crisis_escalation_detected"
+        case .bereanTheologyBoundaryViolation: return "berean_theology_boundary_violation"
+        case .bereanSafetyOutputRewritten: return "berean_safety_output_rewritten"
+        case .bereanAppCheckFailure: return "berean_app_check_failure"
         case .checkInShown: return "check_in_shown"
         case .checkInEngaged: return "check_in_engaged"
         case .checkInDismissed: return "check_in_dismissed"
@@ -227,6 +254,15 @@ enum AMENAnalyticsEvent {
         case .churchDirectionsTapped: return "church_directions_tapped"
         case .churchFirstVisitGuideOpened: return "church_first_visit_guide_opened"
         case .churchPreferenceOnboardingCompleted: return "church_preference_onboarding_completed"
+        case .churchStudyCompanionOpened: return "church_study_companion_opened"
+        case .churchNotesStartedFromChurch: return "church_notes_started_from_church"
+        case .scriptureAddedToChurchNote: return "scripture_added_to_church_note"
+        case .selahVerseAddedToChurchNotes: return "selah_verse_added_to_church_notes"
+        case .churchStudySessionStarted: return "church_study_session_started"
+        case .afterServiceReflectionStarted: return "after_service_reflection_started"
+        case .afterServiceReflectionSaved: return "after_service_reflection_saved"
+        case .prayerVisibilitySelected: return "prayer_visibility_selected"
+        case .churchContextAttachedToNote: return "church_context_attached_to_note"
         case .relatedContentShown: return "related_content_shown"
         case .relatedContentTapped: return "related_content_tapped"
         case .topicFollowed: return "topic_followed"
@@ -329,6 +365,14 @@ enum AMENAnalyticsEvent {
             return ["node_type": type]
         case .topicFollowed(let slug):
             return ["topic_slug": slug]
+        case .churchStudyCompanionOpened(let source):
+            return ["source": source]
+        case .scriptureAddedToChurchNote(let source):
+            return ["source": source]
+        case .churchStudySessionStarted(let source):
+            return ["source": source]
+        case .prayerVisibilitySelected(let visibility):
+            return ["visibility": visibility]
         case .accountTypeSelected(let type):
             return ["account_type": type]
         case .mediaModeSwitched(let mode):
@@ -385,6 +429,22 @@ enum AMENAnalyticsEvent {
             return ["pill": pill]
         case .bereanHumanSupportSuggested(let context):
             return ["context": context]
+        case .bereanRateLimitHit(let surface):
+            return ["surface": surface]
+        case .bereanDailyQuotaHit(let tier):
+            return ["tier": tier]
+        case .bereanPremiumGateHit(let requestedMode, let surface):
+            return ["requested_mode": requestedMode, "surface": surface]
+        case .bereanModelDowngraded(let requestedMode, let grantedMode, let tier):
+            return ["requested_mode": requestedMode, "granted_mode": grantedMode, "tier": tier]
+        case .bereanCrisisEscalationDetected(let surface):
+            return ["surface": surface]
+        case .bereanTheologyBoundaryViolation(let surface):
+            return ["surface": surface]
+        case .bereanSafetyOutputRewritten(let violationCount):
+            return ["violation_count": violationCount]
+        case .bereanAppCheckFailure(let surface):
+            return ["surface": surface]
         case .voiceCommentReacted(let postId, let reaction):
             return ["post_id": postId, "reaction": reaction]
         case .voiceCommentRecordStarted(let postId, let type):

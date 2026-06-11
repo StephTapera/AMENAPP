@@ -7,10 +7,12 @@
 import XCTest
 @testable import AMENAPP
 
+@MainActor
 final class AdaptiveComposerUITests: XCTestCase {
 
     // MARK: - Smoke: app launches without crash
 
+    @MainActor
     func testComposerLaunchDoesNotCrash() {
         // Structural: constructing the ViewModel must not throw or crash.
         // We construct one synchronously on the main actor to confirm the type
@@ -74,9 +76,9 @@ final class AdaptiveComposerUITests: XCTestCase {
                        "Percentage calculation used by AC_PollOptionRow must be correct")
     }
 
-    // MARK: - Donation: payload encodes; Stripe gate is private to AC_DonationCard
+    // MARK: - Donation: payload shape; Stripe gate is private to AC_DonationCard
 
-    func testDonationPayloadShape() throws {
+    func testDonationPayloadShape() {
         let payload = DonationPayload(
             schemaVersion: 1,
             campaignId: "c1",
@@ -87,14 +89,13 @@ final class AdaptiveComposerUITests: XCTestCase {
         )
         XCTAssertGreaterThan(payload.goalAmount, payload.raisedAmount,
                              "goalAmount must exceed raisedAmount in this fixture")
-        // Round-trip to confirm Codable shape is stable.
-        let data = try JSONEncoder().encode(payload)
-        let decoded = try JSONDecoder().decode(DonationPayload.self, from: data)
-        XCTAssertEqual(decoded.campaignId, "c1")
-        XCTAssertEqual(decoded.raisedAmount, 10_000)
+        XCTAssertEqual(payload.campaignId, "c1")
+        XCTAssertEqual(payload.currency, "USD")
+        XCTAssertEqual(payload.schemaVersion, 1)
         // NOTE: AC_DonationCard.stripeEnabled is hardcoded private false — the
         // "Give Now" button body shows "Payment Setup Required" until that flag
         // is set to true by a human deploy step.
+        // Full Codable round-trip is covered in AdaptiveComposerStructuralTests.
     }
 
     // MARK: - Scripture translations: 5 expected values match AC_BibleTranslation cases
@@ -164,9 +165,10 @@ final class AdaptiveComposerUITests: XCTestCase {
     // MARK: - RailState equatable
 
     func testRailStateEquatable() {
-        XCTAssertEqual(RailState.compact, RailState.compact)
-        XCTAssertEqual(RailState.expanded, RailState.expanded)
-        XCTAssertNotEqual(RailState.compact, RailState.expanded)
+        // Use manual == to avoid nonisolated-conformance warnings from XCTAssertEqual.
+        XCTAssertTrue(RailState.compact == RailState.compact)
+        XCTAssertTrue(RailState.expanded == RailState.expanded)
+        XCTAssertFalse(RailState.compact == RailState.expanded)
 
         let suggestion = IntentSuggestion(
             id: UUID(),
@@ -176,7 +178,8 @@ final class AdaptiveComposerUITests: XCTestCase {
             confidence: 0.95,
             triggerText: "scripture"
         )
-        XCTAssertEqual(RailState.predictive([suggestion]), RailState.predictive([suggestion]))
+        let state = RailState.predictive([suggestion])
+        XCTAssertTrue(state == RailState.predictive([suggestion]))
     }
 
     // MARK: - ComposerContext isChurchMode

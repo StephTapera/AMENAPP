@@ -53,6 +53,7 @@ __exportStar(require("./cameraOS/contextLens"), exports);
 __exportStar(require("./communityOS/core"), exports);
 __exportStar(require("./ambient/getAmbientContext"), exports);
 __exportStar(require("./ambient/summarizeAmbientContext"), exports);
+__exportStar(require("./spiritualOSPhase23"), exports);
 // Phase P1-4: server-authoritative Think-First / Tone Checker.
 // iOS ThinkFirstGuardrailsService is advisory only; the publish path
 // (CreatePost / comments / replies) MUST call validateThinkFirstCheck

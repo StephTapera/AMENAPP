@@ -10,6 +10,7 @@ import Foundation
 // MARK: - Anonymous Prayer Privacy Invariants
 
 @Suite("Anonymous Prayer Privacy Invariants")
+@MainActor
 struct PrayerPrivacyTests {
 
     @Test("Anonymous prayer payload has no authorId field")
@@ -69,6 +70,7 @@ struct PrayerPrivacyTests {
 // MARK: - Poll Vote Privacy Invariants
 
 @Suite("Poll Vote Privacy Invariants")
+@MainActor
 struct PollPrivacyTests {
 
     @Test("PollPayload totalVotes field exists")
@@ -131,6 +133,7 @@ struct PollPrivacyTests {
 // MARK: - Donation Stripe Gate
 
 @Suite("Donation Stripe Gate")
+@MainActor
 struct DonationGateTests {
 
     @Test("DonationPayload encodes and decodes correctly")
@@ -459,6 +462,7 @@ struct RailViewModelFilterTests {
 // MARK: - Payload Codable Round-Trip Tests
 
 @Suite("Payload Codable Round-Trip Tests")
+@MainActor
 struct PayloadCodableTests {
 
     @Test("ScripturePayload round-trip")

@@ -490,6 +490,12 @@ final class AMENFeatureFlags: ObservableObject {
     /// When true, feed modes (Berean, Worship, etc.) appear in FeedIntelligenceSettingsView.
     @Published private(set) var feedModesEnabled: Bool = false
 
+    // MARK: - System 30: Adaptive Glass V2
+    /// Master switch for the full-screen adaptive Liquid Glass system.
+    /// Ships default OFF. Flip via Remote Config `adaptive_glass_v2_enabled`
+    /// only after the Wave 6 verification matrix passes for all 11 screens.
+    @Published private(set) var adaptiveGlassV2Enabled: Bool = false
+
     // MARK: - System 29: Liquid Glass Intelligence Layer
     /// Master switch for all Liquid Glass intelligence features.
     @Published private(set) var liquidGlassSystemEnabled: Bool = false
@@ -795,6 +801,13 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var selahDiscernmentEnabled: Bool = false
     /// Enables sharing discernment checks to thread participants.
     @Published private(set) var selahDiscernmentSharingEnabled: Bool = false
+
+    // System N: Adaptive Composer (all default OFF — feature-flagged rollout)
+    @Published var composerAdaptiveRailEnabled: Bool = false
+    @Published var composerFloatingPillEnabled: Bool = false
+    @Published var composerOrbEnabled: Bool = false
+    @Published var composerIntentEngineEnabled: Bool = false
+    @Published var composerSmartCardsEnabled: Bool = false
 
     private init() {
         applyUITestOverrides()
@@ -1442,6 +1455,7 @@ final class AMENFeatureFlags: ObservableObject {
             "selah_stories_premium_ai_enabled": false as NSObject,
 
             // Selah Enhancement
+            "adaptive_glass_v2_enabled":      false as NSObject,
             "selah_personal_corpus_enabled": false as NSObject,
             "selah_discernment_enabled": false as NSObject,
             "selah_discernment_sharing_enabled": false as NSObject,
@@ -2043,9 +2057,18 @@ final class AMENFeatureFlags: ObservableObject {
         selahStoriesPremiumAIEnabled   = config["selah_stories_premium_ai_enabled"].boolValue
 
         // Selah Enhancement
+        // Adaptive Glass V2
+        adaptiveGlassV2Enabled          = config["adaptive_glass_v2_enabled"].boolValue
+
         selahPersonalCorpusEnabled      = config["selah_personal_corpus_enabled"].boolValue
         selahDiscernmentEnabled         = config["selah_discernment_enabled"].boolValue
         selahDiscernmentSharingEnabled  = config["selah_discernment_sharing_enabled"].boolValue
+
+        composerAdaptiveRailEnabled = config.configValue(forKey: "composer_adaptive_rail").boolValue
+        composerFloatingPillEnabled = config.configValue(forKey: "composer_floating_pill").boolValue
+        composerOrbEnabled = config.configValue(forKey: "composer_orb").boolValue
+        composerIntentEngineEnabled = config.configValue(forKey: "composer_intent_engine").boolValue
+        composerSmartCardsEnabled = config.configValue(forKey: "composer_smart_cards").boolValue
 
         // GAP A5-P1 bridge call
         let communicationOSValues = CommunicationOSRemoteConfigBridge.allFlagKeys.reduce(into: [String: Bool]()) { values, key in

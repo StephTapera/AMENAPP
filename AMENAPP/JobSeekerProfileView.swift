@@ -120,7 +120,7 @@ struct JobSeekerProfileView: View {
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
 
                 Button {
@@ -661,7 +661,7 @@ struct JobSeekerProfileView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .foregroundStyle(.primary)
-                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .amenGlassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .disabled(isSaving)
 
@@ -1052,7 +1052,7 @@ struct PostLookingForWorkView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .foregroundStyle(.primary)
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .disabled(!canProceed || isSubmitting)
                 }

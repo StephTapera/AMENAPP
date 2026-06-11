@@ -5,6 +5,7 @@ enum MediaKeyMomentKind: String, Codable, CaseIterable, Hashable {
     case keyPoint
     case worship
     case highlight
+    case prayer
     case intro
     case closing
     case mainPoint
@@ -15,6 +16,7 @@ enum MediaKeyMomentKind: String, Codable, CaseIterable, Hashable {
         case .keyPoint:   return "Key Point"
         case .worship:    return "Worship"
         case .highlight:  return "Highlight"
+        case .prayer:     return "Prayer"
         case .intro:      return "Intro"
         case .closing:    return "Closing"
         case .mainPoint:  return "Main Point"
@@ -29,6 +31,8 @@ struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
     let kind: MediaKeyMomentKind
     let source: String?
     let sortOrder: Int?
+    let status: String?
+    let approvedByUser: Bool?
 
     init(
         id: String = UUID().uuidString,
@@ -36,7 +40,9 @@ struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
         label: String,
         kind: MediaKeyMomentKind,
         source: String? = nil,
-        sortOrder: Int? = nil
+        sortOrder: Int? = nil,
+        status: String? = nil,
+        approvedByUser: Bool? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -44,6 +50,8 @@ struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
         self.kind = kind
         self.source = source
         self.sortOrder = sortOrder
+        self.status = status
+        self.approvedByUser = approvedByUser
     }
 
     var timestampLabel: String {
@@ -51,7 +59,10 @@ struct MediaKeyMoment: Identifiable, Codable, Equatable, Hashable {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
-    var isPubliclyApproved: Bool { true }
+    var isPubliclyApproved: Bool {
+        if approvedByUser == true { return true }
+        return status == nil || status == "approved"
+    }
 
     static func fallbackMoments(for duration: TimeInterval) -> [MediaKeyMoment] {
         let count = min(max(Int(duration / 15), 2), 4)

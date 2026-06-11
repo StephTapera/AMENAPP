@@ -7,7 +7,7 @@ import SwiftUI
 /// Full-width keyboard-attached creation rail for Posts, Spaces, Church Notes, Bible Studies.
 /// Presents in .compact, .expanded, or .predictive states.
 /// Guard: only shown when featureFlags.composerAdaptiveRailEnabled == true (caller responsibility).
-public struct DockedCreationRail: View {
+struct DockedCreationRail: View {
     @StateObject private var vm: CreationRailViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -18,11 +18,11 @@ public struct DockedCreationRail: View {
     let onAttachmentReady: (ComposerAttachment) -> Void
     @Binding var currentText: String
 
-    public init(surface: ComposerSurface,
-                currentText: Binding<String>,
-                churchContext: ChurchComposerContext? = nil,
-                onToolSelected: @escaping (ToolID) -> Void,
-                onAttachmentReady: @escaping (ComposerAttachment) -> Void) {
+    init(surface: ComposerSurface,
+         currentText: Binding<String>,
+         churchContext: ChurchComposerContext? = nil,
+         onToolSelected: @escaping (ToolID) -> Void,
+         onAttachmentReady: @escaping (ComposerAttachment) -> Void) {
         self._vm = StateObject(wrappedValue: CreationRailViewModel.makeForSurface(surface, churchContext: churchContext))
         self.surface = surface
         self._currentText = currentText
@@ -30,7 +30,7 @@ public struct DockedCreationRail: View {
         self.onAttachmentReady = onAttachmentReady
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(spacing: 0) {
             // Predictive suggestions row
             if case .predictive(let suggestions) = vm.railState, !suggestions.isEmpty {
@@ -50,7 +50,7 @@ public struct DockedCreationRail: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(railBackground)
-        .onChange(of: currentText) { text in
+        .onChange(of: currentText) { _, text in
             vm.textDidChange(text, reduceMotion: reduceMotion)
         }
         .accessibilityElement(children: .contain)
@@ -138,7 +138,7 @@ private struct RailToolButton: View {
                     .frame(width: 28, height: 28)
                 if !isCompact {
                     Text(tool.title)
-                        .font(.system(size: 10))
+                        .font(.caption2)
                         .lineLimit(1)
                 }
             }
@@ -153,8 +153,6 @@ private struct RailToolButton: View {
         .accessibilityHint("Adds a \(tool.title) attachment")
         .accessibilityAddTraits(.isButton)
         .accessibilityShowsLargeContentViewer()
-        .largeContentTitle(tool.title)
-        .largeContentImage(Image(systemName: tool.icon))
     }
 }
 
@@ -171,6 +169,7 @@ private struct RailExpandButton: View {
         }
         .accessibilityLabel(isExpanded ? "Collapse tools" : "More tools")
         .accessibilityHint(isExpanded ? "Collapses to compact rail" : "Shows all available creation tools")
+        .accessibilityShowsLargeContentViewer()
     }
 }
 
@@ -210,7 +209,7 @@ private struct PredictiveChip: View {
         }
         .background(Capsule().fill(Color.accentColor.opacity(0.12)))
         .overlay(Capsule().strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 0.5))
-        .frame(minWidth: 44, minHeight: 34)
+        .frame(minWidth: 44, minHeight: 44)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : (reduceMotion ? 0 : -12))
         .onAppear {
@@ -221,6 +220,7 @@ private struct PredictiveChip: View {
         }
         .accessibilityLabel(suggestion.label)
         .accessibilityHint("Tap to \(suggestion.label.lowercased())")
+        .accessibilityShowsLargeContentViewer()
     }
 
     private func toolIcon(for id: ToolID) -> String {
