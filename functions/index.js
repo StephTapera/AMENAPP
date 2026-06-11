@@ -1353,6 +1353,17 @@ exports.revokeMessagingConsent        = integrationOS.revokeMessagingConsent;
 exports.transcribeVoiceNote           = integrationOS.transcribeVoiceNote;
 exports.moderateMediaTransform        = integrationOS.moderateMediaTransform;
 
+// GAP A3-P1 Studio + Synaptic callables
+const { studioGenerateContent, studioJournalPrompt } = require('./amenStudioAI');
+exports.studioGenerateContent = studioGenerateContent;
+exports.studioJournalPrompt = studioJournalPrompt;
+const { generateStudioImage } = require('./studioImageGeneration');
+exports.generateStudioImage = generateStudioImage;
+const { exportToPDF } = require('./studioExport');
+exports.exportToPDF = exportToPDF;
+const { synapticCreate } = require('./synapticFunctions');
+exports.synapticCreate = synapticCreate;
+
 // ============================================================================
 // ACCOUNT SUBSCRIPTION — StoreKit entitlement processing
 //   processAccountSubscription — callable: records App Store subscription tier

@@ -547,6 +547,8 @@ export * from "./churchNotes/churchNotesPrivacyAudit";
 
 // In-App Giving — server-side Stripe charge (Apple Pay + card tokenization)
 export * from "./giving/processGivingCharge";
+// GAP A3-P1 processGiving alias for client compatibility
+export { processGivingCharge as processGiving } from "./giving/processGivingCharge";
 
 export * from "./giving/analyzePostTrustLogoMatch";
 
