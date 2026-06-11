@@ -16,6 +16,7 @@ export * from "./cameraOS/contextLens";
 export * from "./communityOS/core";
 export * from "./ambient/getAmbientContext";
 export * from "./ambient/summarizeAmbientContext";
+export * from "./spiritualOSPhase23";
 
 // Phase P1-4: server-authoritative Think-First / Tone Checker.
 // iOS ThinkFirstGuardrailsService is advisory only; the publish path
