@@ -151,3 +151,17 @@ calls it once a prototype-hosting WKWebView exists. Nothing fabricated.
   already live — exclude).
 - Stage 3 functions batch = `connectorFetch` + `connectorOAuthExchange` + `ailTransform`
   + the 6 CI CF modules, deployed via the v2triggers codebase, `--project amen-5e359`.
+
+## RULING 5 — FirebaseAI linkage cleanup (confirmed)
+- FirebaseAI/FirebaseAILogic permanently unlinked — app uses GoogleGenerativeAI; do not re-add.
+
+## RULING 6 — package-saga root cause = iCloud sync (2026-06-10, confirmed)
+- **Root cause:** the project lived under iCloud Desktop sync; the file-provider daemon evicted
+  SwiftPM package files mid-build (`com.apple.fileprovider.fpfs#P` xattr → `resolved source packages:`
+  empty / `"csharp_generator_unittest.cc" doesn't exist` / `dependency … missing` / codesign
+  `resource fork … not allowed`). NOT FirebaseAI, NOT stale cache, NOT junk dups.
+- **Durable fix:** `.nosync`-suffixed build dirs are iCloud-excluded. Standard build flags are now
+  `-clonedSourcePackagesDirPath ./SourcePackages.nosync -derivedDataPath ./DerivedData.nosync
+  -packageCachePath ./PackageCache.nosync` (+ `-project AMENAPP.xcodeproj`; `CODE_SIGNING_ALLOWED=NO`
+  for sim). **Post-ship the repo moves to `~/Developer`.**
+- **No lane re-diagnoses package corruption without first checking this ruling.**

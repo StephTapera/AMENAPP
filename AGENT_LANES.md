@@ -28,7 +28,13 @@
 - Claimed: 2026-06-09 America/Phoenix
 - PROJECT_ROOT: `/Users/stephtapera/Desktop/AMEN/AMENAPP copy`
 - Active project: `./AMENAPP.xcodeproj`
-- Shared package paths: `./SourcePackages`, `./DerivedData`, `./PackageCache`
+- Shared package paths (**FLEET UPDATE 2026-06-10 — iCloud-excluded `.nosync` is now MANDATORY**):
+  `./SourcePackages.nosync`, `./DerivedData.nosync`, `./PackageCache.nosync`. Standard build:
+  `xcodebuild build -project AMENAPP.xcodeproj -scheme AMENAPP -destination 'generic/platform=iOS Simulator'
+  -clonedSourcePackagesDirPath ./SourcePackages.nosync -derivedDataPath ./DerivedData.nosync
+  -packageCachePath ./PackageCache.nosync CODE_SIGNING_ALLOWED=NO`. **Root cause of the package saga =
+  iCloud Desktop sync evicting SwiftPM files mid-build** (see RUNLOG RULING 6). No lane re-diagnoses
+  package corruption without checking this first. Post-ship the repo moves to `~/Developer`.
 - Shared verification simulator: `AMEN-Verify` / Xcode destination `iPhone 17 Pro (27.0)` / UUID `313273F4-133A-42A8-9D12-8784FC893230` (recorded 2026-06-10). Reuse this device for runtime screenshots; do not create/delete per-lane simulators. Before use, append `SIM: in use by <lane> since <time>` under this line; clear it when done. If contention persists, a second registered device `AMEN-Verify-B` may be created once.
   - **2026-06-10 (claude):** This device was **erased + rebooted** (`xcrun simctl erase 313273F4-…`) to clear a stale iOS 27.0-runtime Keychain fault (`SecItemCopyMatching -34018`). Keychain/app state is now empty — **other lanes must reinstall the app** (next build re-installs automatically). Same UUID, no device replacement.
 - Scope: Drive `AMENAPP` generic iOS Simulator build to green by repairing Swift Package product resolution.
