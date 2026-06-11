@@ -44,6 +44,9 @@
       "/node_modules/",
       "/lib/"
     ],
+    "setupFiles": [
+      "<rootDir>/jest.setup.ts"
+    ],
     "transform": {
       "^.+\\.tsx?$": "ts-jest"
     },
