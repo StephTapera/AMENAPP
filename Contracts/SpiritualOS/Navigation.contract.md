@@ -1,6 +1,6 @@
-# FROZEN — Navigation Contract · Spiritual OS
-> Version 1.1 · 2026-06-02 · Lead Orchestrator (user decisions recorded, all blocked items resolved)
-> ⚠️ FROZEN. Zero buttons, controls, or views deleted. All surfaces are ADDITIVE insertions only.
+# FROZEN - Navigation Contract - Spiritual OS
+> Version 1.2 - 2026-06-11 - Lead Orchestrator
+> FROZEN. Zero buttons, controls, or views deleted. All surfaces are ADDITIVE insertions only.
 > USER CONFIRMED: "don't remove any button or anything"
 
 ---
@@ -39,14 +39,7 @@ Feature flag: `spiritualOS_hub_enabled` (Remote Config, default OFF)
 
 ---
 
-### Agent C — Amen Life Planner
-Mount: TBD
-
-> ⚠️ IMPACT NOTE B — BLOCKED PENDING USER DECISION
->
-> Option 1 — NEW TAB (moderate impact): Add Planner as a 7th tab or replace a low-usage tab.
->   Requires AMENTabBar layout review for small screen compatibility.
->
+### Agent C - Amen Life Planner
 Mount: Resources tab (index 3) — ✅ UNBLOCKED (user confirmed Option 2)
 Implementation: `AmenLifePlannerSection` inserted at the TOP of `ResourcesView`.
   All existing content (Church Notes, Find a Church, etc.) remains COMPLETELY INTACT below.
@@ -143,8 +136,6 @@ All routes extend existing `NotificationDeepLinkRouter` / `AmenContentRouter` pa
 
 ---
 
-## Blocked Items — User Must Confirm Before Code Is Written
+## Blocked Items
 
-1. Hub mount: Option 1 (section inside MessagesView) vs. Option 2 (replace MessagesView)
-2. Planner mount: Option 1 (new/replacement tab) vs. Option 2 (top of Resources) vs. Option 3 (replace Resources)
-3. Tab count change: If adding a 7th tab, AMENTabBar layout review required for small screens
+None for Phase 1 HTML prototypes. Any proposal to replace a tab, remove existing UI, add a seventh tab, or move the Assistant Bar above the tab bar must stop and escalate to the Lead.

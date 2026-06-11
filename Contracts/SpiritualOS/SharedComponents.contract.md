@@ -1,8 +1,8 @@
-# FROZEN — Shared Components Contract · Spiritual OS
-> Version 1.1 · 2026-06-02 · Lead Orchestrator (updated to match existing implementations)
-> ⚠️ FROZEN. Implementations live in `AMENAPP/AMENAPP/SpiritualOS/SharedComponents/SOSharedComponents.swift`.
-> Surface enum and context mode: `AMENAPP/AMENAPP/SpiritualOS/SOSurface.swift`
-> Color tokens: `AMENAPP/AMENAPP/SpiritualOS/SOColors.swift`
+# FROZEN - Shared Components Contract - Spiritual OS
+> Version 1.2 - 2026-06-11 - Lead Orchestrator
+> FROZEN. Implementations live in `AMENAPP/AMENAPP/AMENAPP/SpiritualOS/SharedComponents/SOSharedComponents.swift`.
+> Surface enum and context mode: `AMENAPP/AMENAPP/AMENAPP/SpiritualOS/SOSurface.swift`
+> Color tokens: `AMENAPP/AMENAPP/AMENAPP/SpiritualOS/SOColors.swift`
 > Agents use ONLY these 8 components. No new glass primitives. Escalate API gaps to Lead.
 
 ---
@@ -24,11 +24,10 @@
 
 ```swift
 struct GlassCard<Content: View>: View {
-    var cornerRadius: CGFloat = 20
-    var padding: EdgeInsets = EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
-    var shadowOpacity: Double = 0.08
-    /// true = devotional/scripture content inside → renders matte, NOT glass
-    var isContentCard: Bool = false
+    var tint: Color? = nil
+    var elevated: Bool = false
+    var isPressed: Bool = false
+    var scrollDepth: CGFloat = 0
     @ViewBuilder var content: () -> Content
 }
 ```
@@ -41,12 +40,11 @@ struct GlassCard<Content: View>: View {
 ## 2. GlassBar
 
 ```swift
+enum GlassBarPlacement { case bottom, top, floating }
+
 struct GlassBar<Content: View>: View {
-    /// true = capsule floating pill; false = edge-to-edge pinned bar
-    var floats: Bool = false
-    /// When pinned, extend safe area for this edge
-    var safeAreaEdge: VerticalEdge? = nil
-    var blurIntensity: Double = 1.0
+    var placement: GlassBarPlacement = .bottom
+    var tint: Color? = nil
     @ViewBuilder var content: () -> Content
 }
 ```
@@ -58,10 +56,8 @@ struct GlassBar<Content: View>: View {
 ```swift
 struct GlassSheet<Content: View>: View {
     var title: String
-    var subtitle: String? = nil
-    var topCornerRadius: CGFloat = 28
-    /// true = 20pt all corners (card modal); false = square bottom (full-screen)
-    var isCardStyle: Bool = false
+    var tint: Color? = nil
+    var showDismissButton: Bool = true
     var onDismiss: (() -> Void)? = nil
     @ViewBuilder var content: () -> Content
 }
@@ -75,19 +71,15 @@ struct GlassSheet<Content: View>: View {
 ## 4. GlassChip
 
 ```swift
+enum GlassChipSize { case compact, regular, large }
+
 struct GlassChip: View {
     var label: String
-    var icon: String? = nil            // SF Symbol name
-    var style: GlassChipStyle = .default
-    var isSelected: Bool = false
-    var action: (() -> Void)? = nil    // nil = display only
-}
-
-enum GlassChipStyle {
-    case small       // 28pt height
-    case `default`   // 32pt height
-    case large       // 40pt height
-    case role        // pastoral role badge — amenGold tint always
+    var icon: String? = nil
+    var tint: Color? = nil
+    var size: GlassChipSize = .regular
+    var isActive: Bool = false
+    var action: (() -> Void)? = nil
 }
 ```
 
@@ -99,24 +91,19 @@ Predefined faith-native tag labels: "Prayer", "Testimony", "Church", "Community"
 
 ```swift
 struct HeroCard: View {
-    var coverImageURL: URL?
     var title: String
     var subtitle: String? = nil
+    var coverImageURL: URL? = nil
+    var tint: Color
     var memberAvatars: [URL]
     var memberCount: Int
     var nextEvent: HeroCardEvent? = nil
-    var activePrayerCount: Int = 0
-    var actions: [HeroCardAction]      // max 4
+    var actions: [HeroCardAction]
+    var onTap: () -> Void
 }
 
-struct HeroCardEvent { var title: String; var date: Date }
-
-struct HeroCardAction {
-    var id: String
-    var icon: String                   // SF Symbol
-    var label: String
-    var action: () -> Void
-}
+struct HeroCardEvent { let title: String; let date: Date; let icon: String }
+struct HeroCardAction { let label: String; let icon: String; let action: () -> Void }
 ```
 
 Standard Space actions:
@@ -136,17 +123,18 @@ berean:   "sparkles"             "Ask Berean"
 ## 6. TimelineRow
 
 ```swift
+enum TimelineRowBadge { case tag(String, Color), count(Int), dot(Color) }
+
 struct TimelineRow: View {
+    var icon: String
+    var iconTint: Color = .accentColor
     var title: String
     var subtitle: String? = nil
     var timestamp: Date? = nil
-    var tag: TimelineTag? = nil
+    var badge: TimelineRowBadge? = nil
     var isCompleted: Bool = false
-    var leadingIcon: String? = nil     // SF Symbol
-    var action: (() -> Void)? = nil
+    var onTap: (() -> Void)? = nil
 }
-
-struct TimelineTag { var label: String; var color: Color }
 ```
 
 - Completed items: 50% opacity, strikethrough on title
@@ -158,18 +146,12 @@ struct TimelineTag { var label: String; var color: Color }
 
 ```swift
 struct AssistantBar: View {
-    var greeting: String               // "Hey {name}, how can we help?"
-    var quickPrompts: [AssistantPrompt] // max 3
-    var onTextSubmit: (String) -> Void
-    var onCameraAction: () -> Void     // AMEN Vision OCR
-    var onVoiceAction: () -> Void
-    var isExpanded: Bool = false
-}
-
-struct AssistantPrompt {
-    var id: String
-    var label: String                  // chip label, max 24 chars
-    var prompt: String                 // full prompt sent to Berean on tap
+    var placeholder: String
+    var contextSurface: SOSurface
+    var onSubmit: (String) -> Void
+    var onCamera: () -> Void
+    var onVoice: () -> Void
+    var quickPrompts: [String]
 }
 ```
 
@@ -184,10 +166,10 @@ struct AssistantPrompt {
 ```swift
 struct MemberAvatarRow: View {
     var avatarURLs: [URL]
-    var maxVisible: Int = 5
+    var memberCount: Int
     var size: CGFloat = 32
-    var memberCount: Int? = nil        // auto-computed from avatarURLs.count if nil
-    var onTap: (() -> Void)? = nil
+    var overlap: CGFloat = 10
+    var borderColor: Color = .white
 }
 ```
 
@@ -204,17 +186,4 @@ All 8 components fully implemented:
 - `AMENAPP/AMENAPP/SpiritualOS/SOSurface.swift` — `SOSurface` + `SOContextMode` enums
 - `AMENAPP/AMENAPP/SpiritualOS/SOColors.swift` — color token extensions
 
-NOTE: The actual signatures in `SOSharedComponents.swift` use slightly different parameter names
-than the contract-level API above (e.g. `GlassChipSize` instead of `GlassChipStyle`,
-`placement: GlassBarPlacement` instead of `floats: Bool`). The contract defines the INTENT;
-the implementation has equivalent semantics. Agents must use the actual signatures from
-`SOSharedComponents.swift` when writing Swift code, not the contract pseudocode above.
-
-Key signature notes for agents:
-- `GlassBar` uses `placement: GlassBarPlacement` (.bottom/.top/.floating) not `floats: Bool`
-- `GlassChip` uses `size: GlassChipSize` (.compact/.regular/.large), `tint:`, `isActive:` not `isSelected:`
-- `GlassSheet` uses `showDismissButton: Bool`, no `isCardStyle` parameter
-- `HeroCard` requires `tint: Color` and `onTap: () -> Void`
-- `AssistantBar` uses `placeholder:`, `contextSurface: SOSurface`, `onSubmit:`, `onCamera:`, `onVoice:`, `quickPrompts: [String]`
-- `MemberAvatarRow` requires `memberCount: Int` (not optional), uses `CachedAsyncImage`
-- `TimelineRow` requires `icon: String` leading icon (not optional), uses `badge: TimelineRowBadge?`
+The signatures above are the frozen Swift signatures. Agents must use these exact APIs unless the Lead re-freezes this contract.

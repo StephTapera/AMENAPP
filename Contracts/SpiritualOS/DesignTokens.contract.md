@@ -1,6 +1,6 @@
-# FROZEN — Design Tokens Contract · Spiritual OS
-> Version 1.0 · 2026-06-02 · Lead Orchestrator
-> ⚠️ FROZEN. Agents read only. Propose changes by escalating to Lead; Lead re-freezes and re-broadcasts.
+# FROZEN - Design Tokens Contract - Spiritual OS
+> Version 1.1 - 2026-06-11 - Lead Orchestrator
+> FROZEN. Agents read only. Propose changes by escalating to Lead; Lead re-freezes and re-broadcasts.
 
 ---
 
@@ -16,11 +16,12 @@
 | `amenCharcoal` | `#2C2C3E` | `#1E1E2E` | Dark-mode matte card background |
 | `amenWarm` | `#F5E6C8` | `#3D2E1A` | Warm section tint, candlelight atmosphere |
 
-All tokens live in `SpiritualOSComponents.swift` as `extension Color`. Agents do NOT define new colors.
+Canonical Spiritual OS color additions live in `AMENAPP/AMENAPP/AMENAPP/SpiritualOS/SOColors.swift`.
+Existing brand tokens (`amenGold`, `amenPurple`, `amenBlue`, `amenBlack`) are consumed from the app-wide color system. Agents do NOT define new colors.
 
 ---
 
-## 2. The Glass Rule (ABSOLUTE — zero exceptions)
+## 2. The Glass Rule (ABSOLUTE - zero exceptions)
 
 > **Content is matte. Chrome is glass.**
 
@@ -38,6 +39,8 @@ All tokens live in `SpiritualOSComponents.swift` as `extension Color`. Agents do
 ---
 
 ## 3. Canonical Glass Treatments
+
+SwiftUI Liquid Glass APIs are the iOS 26 reference: `glassEffect(_:in:)`, `Glass`, `GlassEffectContainer`, `glassEffectID(_:in:)`, `glassEffectTransition(_:)`, and `glassEffectUnion(id:namespace:)`. Existing repo wrappers may use material fallbacks for older runtimes, but the semantic rule remains the same: chrome can be glass, reading content cannot.
 
 ### GlassBar
 - Usage: tab bar, navigation bar, floating AssistantBar, sticky section headers
@@ -97,7 +100,7 @@ Warm candlelight. Parchment. Evening study lamp. Never clinical or cold.
 
 ## 6. Motion System
 
-All animations pass through `Motion.adaptive` (see `AnimationTokens.swift`).
+All animations pass through `Motion.adaptive` from `AMENAPP/AMENAPP/Motion.swift` or an existing wrapper that delegates to it.
 
 | Animation type | Normal | Reduce Motion |
 |---|---|---|

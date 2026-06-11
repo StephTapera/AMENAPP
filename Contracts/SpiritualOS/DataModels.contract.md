@@ -1,6 +1,6 @@
-# FROZEN — Data Models Contract · Spiritual OS
-> Version 1.0 · 2026-06-02 · Lead Orchestrator
-> ⚠️ FROZEN. Implement against these exact schemas. No field renames or additions without Lead sign-off.
+# FROZEN - Data Models Contract - Spiritual OS
+> Version 1.1 - 2026-06-11 - Lead Orchestrator
+> FROZEN. Implement against these exact schemas. No field renames or additions without Lead sign-off.
 
 ---
 
@@ -126,7 +126,51 @@ createdAt      Timestamp
 
 ---
 
-## Collection 6: `spaces/{spaceId}` — Additive Fields Only
+## New Collection 6: `spiritualOS_spaceCreateDrafts/{userId}/drafts/{draftId}`
+Create Space payload drafts. Client-writable by owner until submitted, then Cloud Function validates and creates/updates the real Space.
+
+```
+draftId          String
+userId           String    Owner UID
+name             String    Max 80 chars
+description      String?   Max 500 chars
+coverImageURL    String?
+privacy          String    "public" | "private" | "churchOnly"
+memberRoles      Map       { uid: "leader" | "member" | "moderator" | "pastor" }
+featureToggles   Map       { churchNotes, bereanAsMember, events, resources, prayerWall : Boolean }
+moderation       Map       { aegisEnabled, pastorReviewRequired, aiPrecheckEnabled : Boolean }
+encryptedPrayer  Boolean   Required true before private prayer wall can be enabled
+bereanMember     Map?      { enabled: Boolean, displayName: String, scope: "study" | "prayer" | "full" }
+status           String    "draft" | "submitted" | "created" | "discarded"
+createdAt        Timestamp
+updatedAt        Timestamp
+aegisFlags       Map?      Required when private prayer, pastoral role, or vulnerable-user data is present
+```
+
+---
+
+## New Collection 7: `spiritualOS_commandCenter/{userId}/aggregates/{aggregateId}`
+Private formation overview aggregates. Cloud Function-written. Client read-only except dismissing cards.
+
+```
+aggregateId       String    "overview" or server-generated card id
+userId            String    Owner UID
+type              String    "overview" | "community" | "note" | "bereanSession" | "event" | "readingProgress"
+title             String    Max 80 chars
+summary           String?   Max 240 chars
+count             Number?   Private only; never comparative
+progressValue     Number?   0.0-1.0 for private progress rings
+sourceRef         String?   Deep link route
+isDismissed       Boolean   Client-writable
+updatedAt         Timestamp
+aegisFlags        Map?
+```
+
+Formation counts in this collection are private, opt-in, and secondary. No rank, percentile, leaderboard, public badge, or guilt language may be derived from these fields.
+
+---
+
+## Collection 8: `spaces/{spaceId}` - Additive Fields Only
 Do NOT alter existing Space fields. These are NEW fields added to existing documents.
 
 ```

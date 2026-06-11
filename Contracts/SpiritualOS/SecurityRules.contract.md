@@ -1,6 +1,6 @@
-# FROZEN — Security Rules Contract · Spiritual OS
-> Version 1.0 · 2026-06-02 · Lead Orchestrator
-> ⚠️ FROZEN. Additive rules only — never weaken existing rules.
+# FROZEN - Security Rules Contract - Spiritual OS
+> Version 1.1 - 2026-06-11 - Lead Orchestrator
+> FROZEN. Additive rules only - never weaken existing rules.
 > Deploy ONLY with explicit Lead approval after diff review:
 >   firebase deploy --only firestore:rules
 
@@ -63,6 +63,36 @@ match /spiritualOS_context/{userId} {
 
 // Berean Suggestions — CF writes, owner reads, client may dismiss
 match /spiritualOS_suggestions/{userId}/items/{itemId} {
+  allow read: if request.auth != null && request.auth.uid == userId;
+  allow create: if false;
+  allow update: if request.auth != null
+    && request.auth.uid == userId
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isDismissed']);
+  allow delete: if false;
+}
+
+// Create Space Drafts - owner can manage drafts; submitted payload is validated by CF
+match /spiritualOS_spaceCreateDrafts/{userId}/drafts/{draftId} {
+  allow read: if request.auth != null && request.auth.uid == userId;
+  allow create: if request.auth != null
+    && request.auth.uid == userId
+    && request.resource.data.userId == userId
+    && request.resource.data.status in ['draft', 'submitted'];
+  allow update: if request.auth != null
+    && request.auth.uid == userId
+    && request.resource.data.userId == userId
+    && request.resource.data.status in ['draft', 'submitted', 'discarded']
+    && request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['name', 'description', 'coverImageURL', 'privacy', 'memberRoles',
+                  'featureToggles', 'moderation', 'encryptedPrayer', 'bereanMember',
+                  'status', 'updatedAt', 'aegisFlags']);
+  allow delete: if request.auth != null
+    && request.auth.uid == userId
+    && resource.data.status in ['draft', 'discarded'];
+}
+
+// Command Center Aggregates - CF writes, owner reads, client may dismiss cards
+match /spiritualOS_commandCenter/{userId}/aggregates/{aggregateId} {
   allow read: if request.auth != null && request.auth.uid == userId;
   allow create: if false;
   allow update: if request.auth != null
