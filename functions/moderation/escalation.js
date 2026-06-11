@@ -13,6 +13,7 @@
  *
  * Exports:
  *   createLegalHold(contentRef, authorUid, reporterUid, evidenceSnapshot)
+ *   escalateChildSafety(db, contentRef, authorUid, reporterUid, categories, evidenceSnapshot)
  *   reportToNcmec(holdId, caseData)
  */
 
@@ -126,4 +127,127 @@ async function reportToNcmec(holdId, caseData) { // eslint-disable-line no-unuse
   );
 }
 
-module.exports = { createLegalHold, reportToNcmec };
+/**
+ * escalateChildSafety
+ *
+ * User-report vector entry-point for child-safety escalation.
+ * Called by blockMuteReport.reportContent() when a report category matches
+ * CHILD_SAFETY_CATEGORIES.  Immediately hides the content, creates a
+ * legalHolds record, a childSafetyEscalations record, and queues for
+ * critical human review — identical guarantees to the system-detection path.
+ *
+ * Signature matches the call-site in blockMuteReport.js:
+ *   escalateChildSafety(db, contentRef, authorUid, reporterUid, categories, evidenceSnapshot)
+ *
+ * @param {FirebaseFirestore.Firestore} db
+ * @param {string}   contentRef       Firestore document path of the offending content
+ * @param {string}   authorUid        UID of the content author (may be null if unknown)
+ * @param {string}   reporterUid      UID of the reporting user
+ * @param {string[]} categories       Array of matched child-safety category strings
+ * @param {object}   evidenceSnapshot Plain-object snapshot of the content document
+ * @returns {Promise<string>} holdId
+ */
+async function escalateChildSafety(db, contentRef, authorUid, reporterUid, categories, evidenceSnapshot) {
+  if (!db)         throw new Error("[escalation] db is required");
+  if (!contentRef) throw new Error("[escalation] contentRef is required");
+
+  const holdId = crypto.randomUUID();
+  const caseId = crypto.randomUUID();
+
+  console.warn(
+    `[escalation] CHILD SAFETY ESCALATION (user-report) holdId=${holdId} caseId=${caseId} ` +
+    `contentRef=${contentRef} authorUid=${authorUid} reporterUid=${reporterUid} ` +
+    `categories=${(categories || []).join(",")}`
+  );
+
+  const batch = db.batch();
+
+  // ── Step 1: Immediately hide the content ──────────────────────────────────
+  try {
+    batch.set(
+      db.doc(contentRef),
+      {
+        visible:                     false,
+        flaggedForReview:            true,
+        hiddenReason:                "csam_suspected",
+        hiddenAt:                    FieldValue.serverTimestamp(),
+        hiddenByHoldId:              holdId,
+        "moderation.status":         "escalated",
+        "moderation.childSafetyEscalated": true,
+        "moderation.categories":     categories || [],
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    // If the batch.set itself throws (e.g. invalid path), log and continue so
+    // evidence is still preserved in the hold and escalation records.
+    console.error(
+      `[escalation] CRITICAL: failed to queue content hide for contentRef=${contentRef}:`,
+      err.message
+    );
+  }
+
+  // ── Step 2: Create the legal-hold record ──────────────────────────────────
+  batch.set(db.collection("legalHolds").doc(holdId), {
+    caseId,
+    type:             "csam_suspected",
+    sourceContentRef: contentRef,
+    sourceUserId:     authorUid ?? null,
+    reporterUserId:   reporterUid ?? "user",
+    categories:       categories || [],
+    postSnapshot:     evidenceSnapshot || {},
+    status:           "new",
+    severity:         "critical",
+    legalHold:        true,
+    externalReport: {
+      required:       true,
+      provider:       "NCMEC_CYBERTIPLINE",
+      submitted:      false,
+      submittedAt:    null,
+      confirmationId: null,
+    },
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  // ── Step 3: childSafetyEscalations record ─────────────────────────────────
+  const escRef = db.collection("childSafetyEscalations").doc(caseId);
+  batch.set(escRef, {
+    caseId,
+    holdId,
+    contentRef,
+    authorUid:   authorUid ?? null,
+    reporterUid: reporterUid ?? "user",
+    categories:  categories || [],
+    status:      "new",
+    severity:    "critical",
+    legalHold:   true,
+    legalHoldRef: `legalHolds/${holdId}`,
+    externalReport: {
+      required:  true,
+      provider:  "NCMEC_CYBERTIPLINE",
+      submitted: false,
+    },
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  // ── Step 4: Escalation queue for critical human review ────────────────────
+  batch.set(db.collection("escalationQueue").doc(caseId), {
+    caseId,
+    holdId,
+    priority:            "critical",
+    requiresHumanReview: true,
+    createdAt:           FieldValue.serverTimestamp(),
+    updatedAt:           FieldValue.serverTimestamp(),
+  });
+
+  await batch.commit();
+
+  console.warn(
+    `[escalation] CHILD SAFETY ESCALATION COMPLETE holdId=${holdId} caseId=${caseId}`
+  );
+
+  return holdId;
+}
+
+module.exports = { createLegalHold, escalateChildSafety, reportToNcmec };

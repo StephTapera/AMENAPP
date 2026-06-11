@@ -233,9 +233,34 @@ async function reportContent(db, reporterUid, contentRef, contentType, category,
         `reporter=${reporterUid} contentRef=${contentRef} category=${normCategory}`
       );
     } catch (err) {
-      // Escalation failure must not suppress the report.
-      console.error("[blockMuteReport] escalateChildSafety failed:", err);
-      // Fall through to normal queue as a safety net.
+      // Escalation failure must never be silently swallowed.
+      // Log at error severity and write an escalation-failure alert record so
+      // operators can detect and remediate missed child-safety reports.
+      console.error(
+        `[blockMuteReport] CRITICAL: escalateChildSafety failed for ` +
+        `reporter=${reporterUid} contentRef=${contentRef} category=${normCategory}:`,
+        err
+      );
+      try {
+        await db.collection("escalationFailures").add({
+          reportId,
+          reporterUid,
+          contentRef,
+          category:     normCategory,
+          errorMessage: err?.message ?? String(err),
+          errorStack:   err?.stack   ?? null,
+          createdAt:    require("firebase-admin/firestore").FieldValue.serverTimestamp(),
+        });
+      } catch (alertErr) {
+        // If even the failure record cannot be written, surface via stderr so
+        // Cloud Logging picks it up and can trigger an alert policy.
+        console.error(
+          "[blockMuteReport] CRITICAL: escalationFailures write also failed:",
+          alertErr
+        );
+      }
+      // Fall through to normal queue as a safety net — the content still gets
+      // human review, but operators are now alerted that the fast-path failed.
     }
   }
 
