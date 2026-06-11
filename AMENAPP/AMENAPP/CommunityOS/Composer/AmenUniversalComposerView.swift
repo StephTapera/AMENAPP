@@ -46,6 +46,10 @@ struct AmenUniversalComposerView: View {
     @State private var hasUserPickedIntent = false
     @State private var hasUserPickedAudience = false
 
+    // MARK: AIL pre-send gate (C10/C11)
+    // Proposal-only; zero-interference when AILPreSendInterceptor.shared.isEnabled == false (default).
+    @State private var postSendGate = AILPreSendGate(messageKey: "universal-composer")
+
     // MARK: Environment
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -234,6 +238,7 @@ struct AmenUniversalComposerView: View {
             }
         }
         .task(id: vm.draft.body) { await runDetection() }
+        .ailPreSendGate(postSendGate)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(AmenRadius.card)
@@ -255,7 +260,13 @@ struct AmenUniversalComposerView: View {
 
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                Task { await vm.submit() }
+                // Route through the AIL pre-send gate (C10/C11 — proposal-only).
+                // When the interceptor is disabled (default), this forwards straight
+                // to vm.submit() — zero interference.
+                let draft = vm.draft.body
+                postSendGate.submit(draft: draft) { _ in
+                    Task { await vm.submit() }
+                }
             } label: {
                 ZStack {
                     if vm.isSubmitting {

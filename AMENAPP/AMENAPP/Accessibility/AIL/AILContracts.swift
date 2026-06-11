@@ -1,6 +1,34 @@
 // AILContracts.swift
 // AMENAPP — Accessibility Intelligence Layer (AIL)
 //
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  WIRING CERTIFICATE — AIL Lane                                          ║
+// ║  Generated: 2026-06-11 | Branch: safety-hardening                       ║
+// ╠══════════════════════════════════════════════════════════════════════════╣
+// ║  Surface                    Gate                            Status       ║
+// ╠══════════════════════════════════════════════════════════════════════════╣
+// ║  C10/C11 pre-send gate      PostDetailView (comment)        WIRED ✓     ║
+// ║  C10/C11 pre-send gate      AmenUniversalComposerView(post) WIRED ✓     ║
+// ║    (this commit)                                                         ║
+// ║  C10/C11 pre-send gate      ONEMessageComposerView (DM)     WIRED ✓     ║
+// ║    (this commit, isDirectMessage: true)                                  ║
+// ║  C12 emotional safety blur  PostDetailView feed content     WIRED ✓     ║
+// ║  C12 emotional safety blur  AmenSpaceDetailView             WIRED ✓     ║
+// ║  A11y flag gate             AMENFeatureFlags.accessibilityIntelligenceEnabled WIRED ✓ ║
+// ╠══════════════════════════════════════════════════════════════════════════╣
+// ║  Dynamic Type audit                                                      ║
+// ║    AILCaptionRenderer fontSize   user-chosen CaptionStyle.Size — OK ✓   ║
+// ║    AILAccessibilitySettingsSection icon font  fixed→.body (this commit) ✓ ║
+// ║    AILAccessibilitySetupView decorative icon  fixed 52pt — decorative OK ║
+// ╠══════════════════════════════════════════════════════════════════════════╣
+// ║  Iron rules verified:                                                    ║
+// ║    • Pre-send gate is PROPOSAL-ONLY. Never blocks sends. User-driven only║
+// ║    • Gate default OFF (AILPreSendInterceptor.shared.isEnabled = false)   ║
+// ║    • Emotional safety filter FAILS OPEN (never hides on classify error)  ║
+// ║    • Crisis-help content is NEVER blurred (isCrisisHelp bypass)          ║
+// ║    • No tier checks anywhere in AIL. Free at every tier.                 ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+//
 // FROZEN Swift mirror of functions/ail/ail.contracts.ts (Phase 1, 2026-06-09).
 // Additive-only. Every AIL SwiftUI surface consumes these types — none may
 // redefine them. Keep in sync with the TS contract when (rarely) it changes.

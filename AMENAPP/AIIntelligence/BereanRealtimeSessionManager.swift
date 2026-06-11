@@ -27,6 +27,14 @@ final class BereanRealtimeSessionManager: ObservableObject {
         prayerRoomId: String? = nil,
         conversationId: String? = nil
     ) async throws -> BereanRealtimeClientSecret {
+        // WIRING CERT Gate 1 — Age-gating (added 2026-06-11)
+        // Voice AI sessions are adult-only; minors are blocked before any CF call.
+        // AgeAssuranceService defaults to .teen (blocked) when no profile is loaded.
+        if AgeAssuranceService.shared.currentUserTier.isMinor {
+            dlog("[BereanRealtimeSM] createSession blocked — user is minor or age profile not loaded.")
+            throw BereanRealtimeError.minorUserBlocked
+        }
+
         isConnecting = true
         defer { isConnecting = false }
 
@@ -144,11 +152,16 @@ final class BereanRealtimeSessionManager: ObservableObject {
 
 enum BereanRealtimeError: LocalizedError {
     case invalidBrokerResponse
+    /// WIRING CERT Gate 1 — thrown when the current user is on the teen or
+    /// underMinimum age tier (or when no profile has been loaded yet).
+    case minorUserBlocked
 
     var errorDescription: String? {
         switch self {
         case .invalidBrokerResponse:
             return "Realtime session broker returned an invalid response."
+        case .minorUserBlocked:
+            return "Berean AI voice features are available for adults only."
         }
     }
 }

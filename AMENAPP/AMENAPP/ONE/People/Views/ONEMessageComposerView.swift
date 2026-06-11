@@ -14,6 +14,13 @@ struct ONEMessageComposerView: View {
     @State private var overrides: ONEMomentPermissions
     @State private var isSending = false
     @State private var sendError: String?
+    // AIL C10/C11 — DM path: isDirectMessage: true per iron rule.
+    // Proposal-only; no-op unless AILPreSendInterceptor.shared.isEnabled (default OFF).
+    @State private var dmSendGate = AILPreSendGate(
+        messageKey: "one-dm-composer",
+        isCrisisContext: false,
+        isDirectMessage: true
+    )
     @FocusState private var isFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -55,6 +62,7 @@ struct ONEMessageComposerView: View {
             Divider().opacity(0.4)
         }
         .animation(ONE.Motion.adaptive(reduceMotion: reduceMotion), value: overridesOpen)
+        .ailPreSendGate(dmSendGate)
     }
 
     // MARK: - Contract bar
@@ -205,7 +213,14 @@ struct ONEMessageComposerView: View {
     }
 
     private var sendButton: some View {
-        Button { Task { await trySend() } } label: {
+        Button {
+            // Route through AIL pre-send gate (C10/C11, isDirectMessage: true).
+            // When interceptor is disabled (default), forwards straight to trySend.
+            let draft = text
+            dmSendGate.submit(draft: draft) { _ in
+                Task { await trySend() }
+            }
+        } label: {
             Image(systemName: "arrow.up")
                 .font(.systemScaled(16, weight: .semibold))
                 .foregroundStyle(.white)

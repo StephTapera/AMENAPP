@@ -238,7 +238,7 @@ struct AILAccessibilitySettingsSection: View {
     private func settingLabel(symbol: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 15))
+                .font(.body)
                 .foregroundStyle(.secondary)
                 .frame(width: 22, alignment: .center)
                 .padding(.top, 2)
