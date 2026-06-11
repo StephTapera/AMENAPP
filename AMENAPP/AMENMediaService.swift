@@ -220,8 +220,9 @@ final class AMENMediaService: @unchecked Sendable {
 
             let expiresInDirect: TimeInterval? = (payload["expiresIn"] as? TimeInterval)
                 ?? (payload["expires_in"] as? TimeInterval)
-            let expiresInFromInt: TimeInterval? = (payload["expiresIn"] as? Int).map(TimeInterval.init)
-                ?? (payload["expires_in"] as? Int).map(TimeInterval.init)
+            let expiresInFromIntA: TimeInterval? = (payload["expiresIn"] as? Int).map { TimeInterval($0) }
+            let expiresInFromIntB: TimeInterval? = (payload["expires_in"] as? Int).map { TimeInterval($0) }
+            let expiresInFromInt: TimeInterval? = expiresInFromIntA ?? expiresInFromIntB
             let expiresIn: TimeInterval = expiresInDirect ?? expiresInFromInt ?? 3_000
 
             spotifyToken = token
