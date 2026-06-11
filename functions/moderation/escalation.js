@@ -11,6 +11,11 @@
  *   reportToNcmec() is a placeholder that MUST NOT be called in production
  *   until legal/compliance approves the NCMEC CyberTipline integration.
  *
+ * SCHEMA NOTE (H4 fix 2026-06-11):
+ *   This file no longer writes directly to the legalHolds collection.
+ *   All holds are created via createLegalHold() from legalHold.js, which is
+ *   the single writer. This ensures a consistent schema across all code paths.
+ *
  * Exports:
  *   createLegalHold(contentRef, authorUid, reporterUid, evidenceSnapshot)
  *   escalateChildSafety(db, contentRef, authorUid, reporterUid, categories, evidenceSnapshot)
@@ -19,12 +24,19 @@
 
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const crypto = require("crypto");
+// H4 fix: route all legalHolds writes through the canonical single writer.
+const { createLegalHold: createLegalHoldRecord } = require("./legalHold");
 
 /**
  * createLegalHold(contentRef, authorUid, reporterUid, evidenceSnapshot)
  *
- * Immediately hides the content, creates an immutable legal-hold record, and
- * queues the case for critical human review.
+ * Immediately hides the content, creates an immutable legal-hold record via
+ * the canonical single writer in legalHold.js, and queues the case for
+ * critical human review.
+ *
+ * H4 fix (2026-06-11): no longer writes directly to legalHolds collection.
+ * Delegates to createLegalHoldRecord() which uses buildLegalHoldDoc() to
+ * enforce the canonical schema across all code paths.
  *
  * @param {string} contentRef       Firestore document path of the offending content
  * @param {string} authorUid        UID of the content author
@@ -66,26 +78,14 @@ async function createLegalHold(contentRef, authorUid, reporterUid, evidenceSnaps
     );
   }
 
-  // ── Step 2: Create the legal-hold record ────────────────────────────────────
-  await db.collection("legalHolds").doc(holdId).set({
-    caseId,
-    type:             "csam_suspected",
-    sourceContentRef: contentRef,
-    sourceUserId:     authorUid,
-    reporterUserId:   reporterUid ?? "system",
-    status:           "new",
-    severity:         "critical",
-    evidenceRefs:     [],
-    legalHold:        true,
-    externalReport: {
-      required:       true,
-      provider:       "NCMEC_CYBERTIPLINE",
-      submitted:      false,
-      submittedAt:    null,
-      confirmationId: null,
-    },
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
+  // ── Step 2: Create the legal-hold record via canonical single writer ─────────
+  // H4 fix: pass holdId via opts so this path can use a holdId != caseId while
+  // still storing both IDs in the document body for cross-referencing.
+  await createLegalHoldRecord(db, contentRef, evidenceSnapshot, caseId, {
+    holdId,
+    sourceUserId:  authorUid,
+    reporterUserId: reporterUid ?? "system",
+    type:          "csam_suspected",
   });
 
   console.log(`[escalation] Legal hold created: holdId=${holdId}`);
@@ -187,27 +187,20 @@ async function escalateChildSafety(db, contentRef, authorUid, reporterUid, categ
     );
   }
 
-  // ── Step 2: Create the legal-hold record ──────────────────────────────────
-  batch.set(db.collection("legalHolds").doc(holdId), {
-    caseId,
-    type:             "csam_suspected",
-    sourceContentRef: contentRef,
-    sourceUserId:     authorUid ?? null,
-    reporterUserId:   reporterUid ?? "user",
-    categories:       categories || [],
-    postSnapshot:     evidenceSnapshot || {},
-    status:           "new",
-    severity:         "critical",
-    legalHold:        true,
-    externalReport: {
-      required:       true,
-      provider:       "NCMEC_CYBERTIPLINE",
-      submitted:      false,
-      submittedAt:    null,
-      confirmationId: null,
-    },
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
+  // ── Step 2: Create the legal-hold record via canonical single writer ──────────
+  // H4 fix: build the canonical doc outside the batch and set it directly so we
+  // can use buildLegalHoldDoc() through createLegalHoldRecord().  createLegalHoldRecord
+  // also marks the source document (merge: true), which is safe here because the
+  // batch already sets the hide fields above via merge:true — the source-doc marking
+  // add legalHold:true / legalHoldCaseId without clobbering visible:false.
+  // We do NOT add this to the Firestore batch because createLegalHoldRecord() writes
+  // atomically itself and also handles the source-document flag in a try/catch.
+  await createLegalHoldRecord(db, contentRef, evidenceSnapshot, caseId, {
+    holdId,
+    sourceUserId:   authorUid ?? null,
+    reporterUserId: reporterUid ?? "user",
+    categories:     categories || [],
+    type:           "csam_suspected",
   });
 
   // ── Step 3: childSafetyEscalations record ─────────────────────────────────

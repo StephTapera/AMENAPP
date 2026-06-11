@@ -23,6 +23,11 @@ function getGateway() { return require("./moderationGateway"); }
 const { moderateImage } = require("./moderation/imageModeration");
 const { fileNCMECReport } = require("./ncmecReporter");
 
+// H4 fix (2026-06-11): route legalHolds writes through the canonical single writer
+// so the NCMEC reporting pipeline always sees a consistent document schema.
+const { createLegalHold: createLegalHoldRecord } = require("./moderation/legalHold");
+const crypto = require("crypto");
+
 // Vision categories that require mandatory CSAM escalation regardless of path.
 const IMAGE_CSAM_CATEGORIES = new Set(["cs_csam_suspected", "cs_child_exploitation"]);
 
@@ -203,13 +208,33 @@ async function writeDeadLetter(db, { postRef, error }) {
 }
 
 // ─── Child-safety escalation ──────────────────────────────────────────────────
+// H4 fix (2026-06-11): No longer writes directly to legalHolds.
+// Routes through createLegalHoldRecord() (legalHold.js) so the canonical schema
+// from legalHoldSchema.js is enforced. The local hold document ID format
+// "hold_${postId}_${ts}" has been replaced with a proper UUID to match the format
+// expected by cyberTiplineInterface.js and other NCMEC tooling.
 async function escalateChildSafety(db, { snap, post, categories, authorId }) {
-  const holdId = `hold_${snap.ref.id}_${Date.now()}`;
-  const holdRef = db.collection("legalHolds").doc(holdId);
+  const holdId = crypto.randomUUID();
+  const caseId = crypto.randomUUID();
+  const contentRef = snap.ref.path;
+
+  console.warn(
+    `[moderatePost] CHILD SAFETY ESCALATION INITIATED — post ${snap.ref.id}, holdId ${holdId}, caseId ${caseId}, categories: ${categories.join(", ")}`,
+  );
+
+  // Step 1: Write the canonical legal-hold record (evidence secured first).
+  // createLegalHoldRecord also marks the source document with legalHold:true.
+  await createLegalHoldRecord(db, contentRef, post, caseId, {
+    holdId,
+    sourceUserId:   authorId ?? null,
+    reporterUserId: "system",
+    categories,
+    type:           "csam_suspected",
+  });
 
   const batch = db.batch();
 
-  // 1. Post: immediately invisible.
+  // Step 2: Post: immediately invisible (after hold is secured).
   batch.update(snap.ref, {
     visible: false,
     flaggedForReview: true,
@@ -223,37 +248,40 @@ async function escalateChildSafety(db, { snap, post, categories, authorId }) {
     },
   });
 
-  // 2. Legal hold: snapshot of post data.
-  batch.set(holdRef, {
-    postRef: snap.ref.path,
-    authorId: authorId ?? null,
-    postSnapshot: post,
-    categories,
-    createdAt: FieldValue.serverTimestamp(),
-    status: "active",
-  });
-
-  // 3. Child safety escalations collection.
-  const escRef = db.collection("childSafetyEscalations").doc();
+  // Step 3: Child safety escalations record (cross-references holdId + caseId).
+  const escRef = db.collection("childSafetyEscalations").doc(caseId);
   batch.set(escRef, {
-    contentRef: snap.ref.path,
-    authorId: authorId ?? null,
+    caseId,
+    holdId,
+    contentRef,
+    authorUid:   authorId ?? null,
+    reporterUid: "system",
     categories,
-    status: "new",
-    severity: "critical",
-    legalHold: true,
-    legalHoldRef: holdRef.path,
+    status:      "new",
+    severity:    "critical",
+    legalHold:   true,
+    legalHoldRef: `legalHolds/${holdId}`,
     externalReport: {
-      required: true,
-      provider: "NCMEC_CYBERTIPLINE",
+      required:  true,
+      provider:  "NCMEC_CYBERTIPLINE",
       submitted: false,
     },
     createdAt: FieldValue.serverTimestamp(),
   });
 
+  // Step 4: Escalation queue for critical human review.
+  batch.set(db.collection("escalationQueue").doc(caseId), {
+    caseId,
+    holdId,
+    priority:            "critical",
+    requiresHumanReview: true,
+    createdAt:           FieldValue.serverTimestamp(),
+    updatedAt:           FieldValue.serverTimestamp(),
+  });
+
   await batch.commit();
   console.warn(
-    `[moderatePost] CHILD SAFETY ESCALATION — post ${snap.ref.id}, holdId ${holdId}, categories: ${categories.join(", ")}`,
+    `[moderatePost] CHILD SAFETY ESCALATION COMPLETE — post ${snap.ref.id}, holdId ${holdId}, caseId ${caseId}`,
   );
 }
 

@@ -13,69 +13,70 @@
  * Firestore security rules for the legalHolds collection MUST deny all
  * client writes and deletes. Only Cloud Functions (admin SDK) may write here.
  *
+ * SCHEMA NOTE (H4 fix 2026-06-11):
+ *   All writes to the legalHolds collection MUST go through createLegalHold()
+ *   in this file, which delegates to buildLegalHoldDoc() in legalHoldSchema.js.
+ *   Never write to legalHolds directly from escalation.js or moderatePost.js.
+ *   This ensures the NCMEC reporting pipeline and legal review tooling always
+ *   see a consistent document shape.
+ *
  * Exports:
- *   createLegalHold(db, contentRef, contentSnapshot, caseId)
+ *   createLegalHold(db, contentRef, contentSnapshot, caseId, opts)
  *   isUnderLegalHold(db, contentRef)   — boolean check on the source document
  *   getLegalHoldEvidence(db, caseId)   — admin-only evidence retrieval
  */
 
 const { FieldValue } = require("firebase-admin/firestore");
-const crypto = require("crypto");
+const { buildLegalHoldDoc } = require("./legalHoldSchema");
 
 // ─── createLegalHold ───────────────────────────────────────────────────────────
 
 /**
- * createLegalHold(db, contentRef, contentSnapshot, caseId)
+ * createLegalHold(db, contentRef, contentSnapshot, caseId, opts)
  *
- * 1. Writes an immutable snapshot of the content to legalHolds/{holdId}.
- * 2. Sets legalHold: true on the original content document so that
+ * THE SINGLE WRITER for the legalHolds Firestore collection.
+ * All code paths that need to create a legal hold must call this function.
+ *
+ * 1. Builds a canonical legalHolds document via buildLegalHoldDoc().
+ * 2. Writes an immutable snapshot of the content to legalHolds/{holdId}.
+ * 3. Sets legalHold: true on the original content document so that
  *    retention-policy cleanup jobs can skip it.
  *
- * The snapshot document is keyed by caseId so that the escalation record
- * and the legal-hold record share a stable cross-reference.
+ * The snapshot document is keyed by holdId. holdId defaults to caseId (system
+ * detection path); callers may pass opts.holdId to override (user-report path
+ * uses a separate UUID so the document ID can differ from caseId while still
+ * carrying both IDs in the document body for cross-referencing).
  *
  * @param {FirebaseFirestore.Firestore} db
  * @param {string} contentRef        Firestore document path (e.g. "posts/abc123")
  * @param {object} contentSnapshot   Plain-object copy of the document data at the
  *                                   time of detection (call .data() before passing in)
- * @param {string} caseId            UUID from escalation.js; used as the hold document ID
- * @returns {Promise<string>} holdId — the legalHolds document ID (same as caseId)
+ * @param {string} caseId            UUID cross-referencing childSafetyEscalations
+ * @param {object} [opts]            Optional overrides forwarded to buildLegalHoldDoc:
+ *                                     holdId, type, sourceUserId, reporterUserId,
+ *                                     categories, status, severity, externalReport
+ * @returns {Promise<string>} holdId — the legalHolds document ID
  */
-async function createLegalHold(db, contentRef, contentSnapshot, caseId) {
+async function createLegalHold(db, contentRef, contentSnapshot, caseId, opts = {}) {
   if (!contentRef) throw new Error("[legalHold] contentRef is required");
   if (!caseId)     throw new Error("[legalHold] caseId is required");
 
-  const holdId = caseId;
+  // holdId defaults to caseId (system path) but callers may override (user-report path).
+  const holdId = opts.holdId ?? caseId;
 
-  // Fingerprint the snapshot for tamper detection.
-  const snapshotHash = crypto
-    .createHash("sha256")
-    .update(JSON.stringify(contentSnapshot ?? null))
-    .digest("hex");
-
-  // Step 1: Write immutable hold record.
-  await db.collection("legalHolds").doc(holdId).set({
+  // Build the canonical document — single schema for all writers.
+  const holdDoc = buildLegalHoldDoc({
     holdId,
     caseId,
     contentRef,
-
-    // Full snapshot preserved verbatim.
-    contentSnapshot: contentSnapshot ?? null,
-    snapshotHash,
-
-    // Administrative fields.
-    preservedAt:    FieldValue.serverTimestamp(),
-    legalHold:      true,
-    immutable:      true,
-
-    // Disposition tracking — must only be updated by authorised legal/compliance staff.
-    disposition:    "preserved",
-    dispositionAt:  null,
-    dispositionBy:  null,
-    dispositionNote: null,
+    contentSnapshot,
+    ...opts,
   });
 
-  console.log(`[legalHold] Hold created: holdId=${holdId} contentRef=${contentRef}`);
+  // Step 1: Write immutable hold record.
+  await db.collection("legalHolds").doc(holdId).set(holdDoc);
+
+  console.log(`[legalHold] Hold created: holdId=${holdId} caseId=${caseId} contentRef=${contentRef}`);
 
   // Step 2: Mark the original document so cleanup jobs leave it alone.
   // Use merge:true so we don't clobber other fields on the document.
@@ -151,8 +152,16 @@ async function isUnderLegalHold(db, contentRef) {
 async function getLegalHoldEvidence(db, caseId) {
   if (!caseId) throw new Error("[legalHold] getLegalHoldEvidence: caseId is required");
 
-  const snap = await db.collection("legalHolds").doc(caseId).get();
+  // Primary lookup: system-detection path uses holdId==caseId, so try doc(caseId) first.
+  let snap = await db.collection("legalHolds").doc(caseId).get();
+
+  // Fallback: user-report path uses a separate holdId UUID — query by caseId field.
   if (!snap.exists) {
+    const q = await db.collection("legalHolds").where("caseId", "==", caseId).limit(1).get();
+    snap = q.empty ? null : q.docs[0];
+  }
+
+  if (!snap || !snap.exists) {
     console.warn(`[legalHold] No hold found for caseId=${caseId}`);
     return null;
   }

@@ -73,10 +73,33 @@ async function prepareCyberTiplineReport(db, caseId) {
   const escalation = caseSnap.data();
 
   // Load the legal-hold snapshot (contains the original content).
+  // H4 fix (2026-06-11): holdId may differ from caseId (user-report path uses
+  // separate UUIDs).  Prefer legalHoldRef stored on the escalation case; fall
+  // back to querying by caseId for documents where holdId==caseId (system path).
   let holdData = null;
   try {
-    const holdSnap = await db.collection("legalHolds").doc(caseId).get();
-    if (holdSnap.exists) holdData = holdSnap.data();
+    let holdSnap = null;
+    const holdRef = escalation.legalHoldRef
+      ? db.doc(escalation.legalHoldRef)
+      : null;
+
+    if (holdRef) {
+      holdSnap = await holdRef.get();
+    }
+
+    // Fallback: try legalHolds/{caseId} for system-detection path where holdId==caseId.
+    if (!holdSnap || !holdSnap.exists) {
+      holdSnap = await db.collection("legalHolds").doc(caseId).get();
+    }
+
+    // Second fallback: query by caseId field for any path.
+    if (!holdSnap || !holdSnap.exists) {
+      const q = await db.collection("legalHolds").where("caseId", "==", caseId).limit(1).get();
+      holdSnap = q.empty ? null : q.docs[0];
+    }
+
+    if (holdSnap && holdSnap.exists) holdData = holdSnap.data();
+    else console.warn(`[cyberTipline] No legalHold found for caseId=${caseId}`);
   } catch (err) {
     console.error(`[cyberTipline] Failed to load legalHold for caseId=${caseId}:`, err.message);
   }
@@ -101,20 +124,28 @@ async function prepareCyberTiplineReport(db, caseId) {
     espApiKey:        null,                 // TODO(gate: DECISION) — store in Secret Manager once issued; NEVER hardcode
 
     // ── Subject / uploader ────────────────────────────────────────────────────
-    espUserId:        escalation.sourceUserId ?? null,
+    // H4 fix: use canonical field names from legalHoldSchema.js
+    espUserId:        escalation.sourceUserId ?? escalation.authorUid ?? null,
     espUserEmail:     null,                 // TODO(gate: DECISION) — fetch from auth if legally permitted; requires legal review
     espUserIpAddress: null,                 // TODO(gate: DECISION) — capture at upload time if legally permitted; requires legal review
 
     // ── Content references ────────────────────────────────────────────────────
     // NCMEC requires at minimum a URL or hash of the reported content.
-    reportedContent: (escalation.evidenceRefs ?? []).map((ref) => ({
-      value: ref,
-      type: "firestore_ref",
-      // TODO(gate: HUMAN-MACHINE) — replace with signed URL or file hash once GCS Storage integration is in place
-    })),
+    // H4 fix: canonical content ref is stored as contentRef on both escalation case
+    // and legal-hold doc (holdData?.contentRef).  snapshotHash from the hold provides
+    // a tamper-evident fingerprint for chain-of-custody purposes.
+    reportedContent: (() => {
+      const refs = [];
+      const ref = escalation.contentRef ?? holdData?.contentRef ?? null;
+      if (ref) refs.push({ value: ref, type: "firestore_ref" });
+      if (holdData?.snapshotHash) refs.push({ value: holdData.snapshotHash, type: "sha256_snapshot_hash" });
+      // TODO(gate: HUMAN-MACHINE) — replace firestore_ref with signed GCS URL once Storage integration is in place
+      return refs;
+    })(),
 
     // ── Detection context ─────────────────────────────────────────────────────
-    detectedCategories: escalation.type ? [escalation.type] : [],
+    // H4 fix: use categories array from escalation (canonical field) with type as fallback
+    detectedCategories: escalation.categories ?? (escalation.type ? [escalation.type] : []),
     additionalInfo: [
       `Internal case type: ${escalation.type ?? "unknown"}`,
       `Source content ref: ${escalation.sourceContentRef ?? "unknown"}`,
