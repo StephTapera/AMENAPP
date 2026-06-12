@@ -566,6 +566,17 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var connectSmartBereanEnabled: Bool = false
     @Published private(set) var connectOfflineQueueEnabled: Bool = false
 
+    // MARK: - SANCTUARY Living Video (Wave 0, default OFF)
+    @Published private(set) var sanctuaryCoreEnabled: Bool = false
+    @Published private(set) var sanctuaryLayersEnabled: Bool = false
+    @Published private(set) var sanctuaryThreadEnabled: Bool = false
+    @Published private(set) var sanctuaryReactionsEnabled: Bool = false
+    @Published private(set) var sanctuaryWatchTogetherEnabled: Bool = false
+    @Published private(set) var sanctuarySelahEnabled: Bool = false
+    @Published private(set) var sanctuaryAskMomentEnabled: Bool = false
+    @Published private(set) var sanctuaryJourneyEnabled: Bool = false
+    @Published private(set) var sanctuarySearchEnabled: Bool = false
+
     // MARK: - Cross-cutting
     @Published private(set) var analyticsEnabled: Bool = true
     @Published private(set) var performanceTelemetryEnabled: Bool = true
@@ -1401,6 +1412,17 @@ final class AMENFeatureFlags: ObservableObject {
             "connect_smart_berean_enabled": false as NSObject,
             "connect_offline_queue_enabled": false as NSObject,
 
+            // SANCTUARY Living Video — all default OFF until Wave 0+ validation
+            "sanctuary_core": false as NSObject,
+            "sanctuary_layers": false as NSObject,
+            "sanctuary_thread": false as NSObject,
+            "sanctuary_reactions": false as NSObject,
+            "sanctuary_watch_together": false as NSObject,
+            "sanctuary_selah": false as NSObject,
+            "sanctuary_ask_moment": false as NSObject,
+            "sanctuary_journey": false as NSObject,
+            "sanctuary_search": false as NSObject,
+
             // System 34: Healthy Media — extended flags
             "immersive_media_sessions_enabled": false as NSObject,
             "finite_media_queues_enabled": true as NSObject,
@@ -2004,6 +2026,17 @@ final class AMENFeatureFlags: ObservableObject {
         connectEmptyStatesEnabled  = config["connect_empty_states_enabled"].boolValue
         connectSmartBereanEnabled  = config["connect_smart_berean_enabled"].boolValue
         connectOfflineQueueEnabled = config["connect_offline_queue_enabled"].boolValue
+
+        // SANCTUARY Living Video
+        sanctuaryCoreEnabled          = config["sanctuary_core"].boolValue
+        sanctuaryLayersEnabled        = config["sanctuary_layers"].boolValue
+        sanctuaryThreadEnabled        = config["sanctuary_thread"].boolValue
+        sanctuaryReactionsEnabled     = config["sanctuary_reactions"].boolValue
+        sanctuaryWatchTogetherEnabled = config["sanctuary_watch_together"].boolValue
+        sanctuarySelahEnabled         = config["sanctuary_selah"].boolValue
+        sanctuaryAskMomentEnabled     = config["sanctuary_ask_moment"].boolValue
+        sanctuaryJourneyEnabled       = config["sanctuary_journey"].boolValue
+        sanctuarySearchEnabled        = config["sanctuary_search"].boolValue
 
         // Music Attachment
         musicAttachmentEnabled = config.configValue(forKey: "music_attachment_enabled").boolValue
