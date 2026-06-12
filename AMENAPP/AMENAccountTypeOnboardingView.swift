@@ -104,6 +104,9 @@ final class AMENAccountTypeViewModel: ObservableObject {
     @Published var selectedType: AMENAccountType? = nil
     @Published var isSubmitting: Bool = false
     @Published var showExtendedOnboarding: Bool = false
+    /// P0-09 FIX: set true when confirm() detects no age profile.
+    /// The view presents DOB collection before allowing onboarding to complete.
+    @Published var needsDOBCollection: Bool = false
 
     func selectType(_ type: AMENAccountType) {
         withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.78))) {
@@ -115,6 +118,23 @@ final class AMENAccountTypeViewModel: ObservableObject {
         guard let type = selectedType else { return false }
         isSubmitting = true
         let selectedValue = type.rawValue
+
+        // P0-09 FIX: COPPA gate — verify an age profile exists before
+        // completing onboarding. Google/Apple SSO may have bypassed the email
+        // DOB-collection path; AgeAssuranceService.getAgeProfile throws
+        // .profileNotFound when none has been stored. Fail closed: block
+        // onboarding completion and surface DOB collection instead.
+        if let uid = Auth.auth().currentUser?.uid {
+            do {
+                _ = try await AgeAssuranceService.shared.getAgeProfile(userId: uid)
+            } catch {
+                dlog("🔞 [P0-09] No age profile for \(uid) — blocking account-type confirm, routing to DOB collection")
+                isSubmitting = false
+                needsDOBCollection = true
+                return false
+            }
+        }
+
         UserDefaults.standard.set(selectedValue, forKey: "amenAccountType")
 
         if let uid = Auth.auth().currentUser?.uid {
@@ -135,7 +155,7 @@ final class AMENAccountTypeViewModel: ObservableObject {
         AMENAnalyticsService.shared.track(.accountTypeSelected(type: selectedValue))
         try? await Task.sleep(nanoseconds: 300_000_000)
         isSubmitting = false
-        
+
         // Return true if Church/Business needs extended onboarding
         return type == .church || type == .business
     }
@@ -145,6 +165,9 @@ final class AMENAccountTypeViewModel: ObservableObject {
 
 struct AMENAccountTypeOnboardingView: View {
     @StateObject private var vm = AMENAccountTypeViewModel()
+    /// P0-09 FIX: AuthenticationViewModel is needed so AgeGateContainerView
+    /// can call completeAgeGate() and clear needsAgeGate after DOB is collected.
+    @EnvironmentObject private var authViewModel: AuthenticationViewModel
 
     /// Gating flag — set true after the user confirms their selection.
     @AppStorage("amenAccountTypeOnboardingComplete") private var onboardingComplete: Bool = false
@@ -200,9 +223,11 @@ struct AMENAccountTypeOnboardingView: View {
                         ) {
                             Task {
                                 let needsExtendedOnboarding = await vm.confirm()
+                                // needsDOBCollection is set by confirm() when no age
+                                // profile exists — the fullScreenCover below handles it.
                                 if needsExtendedOnboarding {
                                     vm.showExtendedOnboarding = true
-                                } else {
+                                } else if !vm.needsDOBCollection {
                                     onboardingComplete = true
                                 }
                             }
@@ -217,6 +242,24 @@ struct AMENAccountTypeOnboardingView: View {
             .sheet(isPresented: $vm.showExtendedOnboarding) {
                 if let selectedType = vm.selectedType {
                     AMENChurchBusinessOnboardingView(accountType: selectedType)
+                }
+            }
+            // P0-09 FIX: When confirm() detects no age profile (SSO path that
+            // bypassed email sign-up DOB collection), show the mandatory DOB
+            // gate. AgeGateContainerView calls authViewModel.completeAgeGate()
+            // which writes the profile to Firestore and sets needsAgeGate=false.
+            // The onChange below observes that transition and clears the local
+            // gate flag so the cover dismisses and the user can retry confirm().
+            .fullScreenCover(isPresented: $vm.needsDOBCollection) {
+                AgeGateContainerView()
+                    .environmentObject(authViewModel)
+                    .interactiveDismissDisabled(true) // cannot be swiped away
+            }
+            .onChange(of: authViewModel.needsAgeGate) { _, gateStillActive in
+                // Age gate satisfied → dismiss the DOB cover and let the user
+                // tap "Get Started" again (confirm() will now find a profile).
+                if !gateStillActive {
+                    vm.needsDOBCollection = false
                 }
             }
         }

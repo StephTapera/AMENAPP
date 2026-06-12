@@ -114,11 +114,6 @@ struct AMENAPPApp: App {
             diskPath: AppConfig.urlCacheDiskPath
         )
         
-        // ✅ Initialize Firebase Remote Config for AI API keys
-        Task {
-            Self.setupRemoteConfig()
-        }
-
         // ✅ Start StoreKit 2 transaction listener so renewals, billing-retry
         // recoveries, and Ask-to-Buy approvals are processed across app sessions.
         AmenStoreKitManager.shared.startTransactionListener()
@@ -172,7 +167,7 @@ struct AMENAPPApp: App {
     }
     
     /// Setup Firebase Remote Config to fetch AI API keys
-    private static func setupRemoteConfig() {
+    static func setupRemoteConfig() {
         // Guard: RemoteConfig crashes if Firebase is not yet configured.
         guard FirebaseApp.app() != nil else { return }
         let remoteConfig = RemoteConfig.remoteConfig()

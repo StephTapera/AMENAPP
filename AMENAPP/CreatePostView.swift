@@ -4732,9 +4732,17 @@ struct CreatePostView: View {
     
     /// Sync post to Algolia for instant search (non-blocking)
     private func syncPostToAlgolia(_ post: Post) {
+        // Belt-and-suspenders: never index prayer posts in Algolia regardless of visibility
+        guard post.category != .prayer else {
+            dlog("🔒 Skipping Algolia sync for prayer post (category guard)")
+            return
+        }
         // Run in background - don't block UI or show errors
         Task.detached(priority: .background) {
             do {
+                // isPublic: true only for posts visible to everyone that are not prayer requests.
+                // Followers-only and community posts must not be discoverable in search.
+                let isPublic = post.visibility == .everyone && post.category != .prayer
                 // Convert Post to dictionary for Algolia
                 let postData: [String: Any] = [
                     "content": post.content,
@@ -4745,7 +4753,7 @@ struct CreatePostView: View {
                     "commentCount": post.commentCount,
                     "repostCount": post.repostCount,
                     "createdAt": post.createdAt.timeIntervalSince1970,
-                    "isPublic": true,
+                    "isPublic": isPublic,
                     "shareCount": 0  // Add shareCount for Algolia
                 ]
                 

@@ -97,6 +97,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseApp.configure()
         dlog("✅ Firebase configured successfully")
 
+        // P0-03 FIX: Kick off Remote Config fetch immediately after Firebase is configured.
+        // Previously this was called from AMENAPPApp.init() via Task{}, where FirebaseApp
+        // might not yet be configured on a fresh install — causing all feature flags
+        // (including AI kill switches and safety flags) to stay on compiled-in defaults
+        // for the entire first session. Calling it here guarantees Firebase is ready.
+        AMENAPPApp.setupRemoteConfig()
+        dlog("✅ Remote Config fetch initiated (post-Firebase-configure)")
+
         // ✅ Initialize Crashlytics for production crash monitoring
         // Must be called after FirebaseApp.configure()
         // Crashlytics automatically collects crashes; this enables it and sets

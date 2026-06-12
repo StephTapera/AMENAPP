@@ -543,7 +543,10 @@ struct ContentView: View {
                 set: { _ in }
             )
         ) {
+            // P0-09 FIX: pass authViewModel so AMENAccountTypeOnboardingView
+            // can forward it to AgeGateContainerView when no age profile exists.
             AMENAccountTypeOnboardingView()
+                .environmentObject(authViewModel)
         }
     }
     

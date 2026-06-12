@@ -307,8 +307,11 @@ class AlgoliaSyncService {
         
         dlog("🔄 Starting bulk post sync (limit: \(limit))...")
         
-        // Fetch posts from Firestore
+        // Fetch posts from Firestore — only publicly visible, non-prayer posts
+        // Visibility filter applied server-side; prayer filter applied client-side
+        // to avoid requiring a composite Firestore index for notIn + isEqualTo on different fields.
         let snapshot = try await db.collection("posts")
+            .whereField("visibility", isEqualTo: "everyone")
             .limit(to: limit)
             .getDocuments()
         
@@ -319,6 +322,8 @@ class AlgoliaSyncService {
         for document in snapshot.documents {
             let data = document.data()
             let category = data["category"] as? String ?? "general"
+            // Skip prayer posts — they must never appear in search indexes regardless of visibility
+            guard category != "prayer" else { continue }
             let record = AlgoliaPostRecord(
                 objectID: document.documentID,
                 content: data["content"] as? String ?? "",

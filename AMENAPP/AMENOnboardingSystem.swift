@@ -227,8 +227,7 @@ struct ONBPrimaryButton: View {
             .frame(maxWidth: .infinity)
             // HIGH FIX: minHeight so button grows with Dynamic Type at AX sizes
             .frame(minHeight: 56)
-            .glassEffect(
-                .regular.interactive(),
+            .amenInteractiveGlassEffect(
                 in: RoundedRectangle(cornerRadius: ONB.ctaRadius, style: .continuous)
             )
             .opacity(isEnabled ? 1.0 : 0.45)

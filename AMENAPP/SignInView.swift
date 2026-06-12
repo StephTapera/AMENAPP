@@ -1138,10 +1138,15 @@ struct SignInView: View {
                 let _ = try await FirebaseManager.shared.signInWithGoogle()
                 
                 dlog("✅ Google Sign-In successful")
-                
+
+                // P0-09 FIX: Do NOT set isAuthenticated = true here. The
+                // AuthenticationViewModel auth-state listener fires after
+                // Firebase confirms the sign-in and calls
+                // evaluateAgeGateIfNeeded() BEFORE setting isAuthenticated,
+                // ensuring the COPPA age gate runs on every SSO path.
+                // Directly setting isAuthenticated here races ahead of that
+                // check and lets users bypass the DOB collection step.
                 await MainActor.run {
-                    viewModel.isAuthenticated = true
-                    viewModel.needsOnboarding = true
                     viewModel.isLoading = false
                 }
                 
@@ -1366,11 +1371,15 @@ struct SignInView: View {
                 )
                 
                 dlog("✅ Firebase authentication successful")
-                
+
+                // P0-09 FIX: Do NOT set isAuthenticated = true here. The
+                // AuthenticationViewModel auth-state listener fires after
+                // Firebase confirms the sign-in and calls
+                // evaluateAgeGateIfNeeded() BEFORE setting isAuthenticated,
+                // ensuring the COPPA age gate runs on every SSO path.
+                // Directly setting isAuthenticated here races ahead of that
+                // check and lets users bypass the DOB collection step.
                 await MainActor.run {
-                    viewModel.isAuthenticated = true
-                    viewModel.needsOnboarding = true
-                    
                     // Clear nonce after successful auth
                     currentNonce = nil
                     nonceGeneratedAt = nil
