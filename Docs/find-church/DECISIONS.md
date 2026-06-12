@@ -55,3 +55,11 @@ All decisions made autonomously per the AUTONOMY MANDATE.
 ## D-13 · HTML prototype for onboarding
 **Decision:** HTML prototype of 3-phase onboarding is written to `docs/find-church/onboarding-prototype.html` for review validation, then SwiftUI is built from that spec. The HTML is NOT an intermediate approval gate — SwiftUI follows immediately.  
 **Rationale:** Standard methodology per project directives.
+
+## D-14 · Tier-P seeker profile rules hardening
+**Decision:** `seekerProfiles/{uid}` is owner-only in Firestore rules with no client admin override.  
+**Rationale:** `SeekerProfile` is Tier-P sensitive and the Find Church 2.0 contract requires owner-only access.
+
+## D-15 · Church claim fields are CF/Aegis-controlled
+**Decision:** Direct client updates to `claimState`, `verificationTier`, `claimedBy`, `claimedAt`, `verificationStatus`, and `ownershipClaimed` are blocked in `/churches/{churchId}` rules.  
+**Rationale:** Claim transitions must be handled by Cloud Functions/Aegis review while existing church profile edits remain additive.

@@ -98,6 +98,16 @@ These pre-existing errors were fixed as collateral to get a clean build:
 
 ---
 
+## 2026-06-12 Audit Addendum
+
+| Item | Status | File(s) | Notes |
+|---|---|---|---|
+| Phase 0 inventory refresh | FIXED | `Docs/find-church/AUDIT.md` | Re-audited current Find Church 2.0 contracts, services, UI scaffolds, backend callables, rules, and design conformance gaps. |
+| Tier-P seeker profile access | FIXED | `AMENAPP/firestore.deploy.rules` | Removed client admin override; `seekerProfiles/{uid}` is owner-only at rules level. |
+| Church claim-field mutation protection | FIXED | `AMENAPP/firestore.deploy.rules` | Direct app updates to claim/verification fields are blocked; CF/Admin SDK path remains the mutation path. |
+
+---
+
 ## Design Compliance Checklist
 
 - [x] No glass-on-glass nesting (`.ultraThinMaterial` only at outermost surface)

@@ -939,6 +939,15 @@ service cloud.firestore {
       // Update: church owner/pastor within same church, executive admin, or content manager.
       allow update: if
         provenanceUnchanged() &&
+        // Find Church 2.0 claim state is CF/Aegis-controlled. Direct clients may
+        // update profile content through existing role gates, but cannot mutate
+        // claim/verification fields from the app.
+        fieldNotChanged('claimState') &&
+        fieldNotChanged('verificationTier') &&
+        fieldNotChanged('claimedBy') &&
+        fieldNotChanged('claimedAt') &&
+        fieldNotChanged('verificationStatus') &&
+        fieldNotChanged('ownershipClaimed') &&
         (
           (hasAnyClaimRole(['owner', 'pastor']) && sameChurch(churchId)) ||
           hasClaimRole('executive_admin') ||
@@ -2826,18 +2835,11 @@ service cloud.firestore {
       allow create, update, delete: if false;  // CF Admin SDK only
     }
 
-    // Seeker Profiles (Tier-P: owner-only, no admin read)
+    // Seeker Profiles (Tier-P: owner-only, no client admin override)
     // privacySyncEnabled must be true for the document to exist in Firestore;
     // the client manages on-device storage when it is false.
     match /seekerProfiles/{uid} {
-      // SECURITY FIX (MEDIUM 2026-06-11): Consolidate duplicate allow rules.
-      // Duplicate allow read, write lines are ambiguous and confusing. Merged with OR.
-      // NOTE(HUMAN): The comment says "no executive admin override (Tier-P)" but
-      // isAdminSDK() grants full read/write — this contradiction requires a human
-      // decision. The consolidated rule below preserves the current effective behavior
-      // (owner OR adminSDK). If adminSDK override must be removed per Tier-P, replace
-      // isAdminSDK() with if false.
-      allow read, write: if (isSignedIn() && request.auth.uid == uid) || isAdminSDK();
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
     }
 
     // Visit Plans (commitment objects — owner read/write, soft-delete only)
