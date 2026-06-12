@@ -234,9 +234,11 @@ async function processImage(
   localInputPath: string,
   assetId: string
 ): Promise<{ thumbnailStoragePath: string; compressedStoragePath: string }> {
-  // Dynamic require so TypeScript does not need @types/sharp in every env.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const sharp = require("sharp") as typeof import("sharp");
+  // Dynamic require: sharp is an optional dependency — if absent the function
+  // will throw and the caller should catch. We use `any` deliberately here
+  // because sharp ships its own typings only when the package is installed.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+  const sharp = require("sharp") as any;
 
   const thumbLocalPath = path.join(os.tmpdir(), `${assetId}_thumb.jpg`);
   const compressedLocalPath = path.join(os.tmpdir(), `${assetId}_compressed.jpg`);
@@ -465,7 +467,7 @@ async function transcribeAudioAsset(localAudioPath: string): Promise<string> {
     const audioBuffer = fs.readFileSync(localAudioPath);
     const filename = path.basename(localAudioPath);
     const result = await transcribeAudioBuffer(audioBuffer, filename);
-    return result.text ?? "";
+    return result.fullText ?? "";
   } catch (transcribeErr) {
     // Non-fatal — transcription unavailable
     logger.warn("[transcribeAudioAsset] Transcription unavailable — setting empty transcript", {

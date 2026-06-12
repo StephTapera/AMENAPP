@@ -458,6 +458,9 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var bereanFollowUpsEnabled: Bool = false
     @Published private(set) var bereanCommentaryCompareEnabled: Bool = false
     @Published private(set) var bereanTheologicalLensEnabled: Bool = false
+    /// Gates the Berean Memory management UI (Trust Architecture Layer 3).
+    /// Default OFF until backend callables and Firestore rules are verified.
+    @Published private(set) var bereanMemoryEnabled: Bool = false
     // Kill switches (override feature flags — fail closed)
     @Published private(set) var bereanMemoryKillSwitch: Bool = false
     @Published private(set) var bereanContextBridgeKillSwitch: Bool = false
@@ -1402,6 +1405,8 @@ final class AMENFeatureFlags: ObservableObject {
             "berean_follow_ups_enabled": false as NSObject,
             "berean_commentary_compare_enabled": false as NSObject,
             "berean_theological_lens_enabled": false as NSObject,
+            // Trust Architecture Layer 3 — Memory Management UI. Default OFF.
+            "berean_memory_enabled": false as NSObject,
 
             // System 32: Communication OS
             "messages_smart_context_enabled": false as NSObject,
@@ -1925,6 +1930,7 @@ final class AMENFeatureFlags: ObservableObject {
         bereanFollowUpsEnabled = config["berean_follow_ups_enabled"].boolValue
         bereanCommentaryCompareEnabled = config["berean_commentary_compare_enabled"].boolValue
         bereanTheologicalLensEnabled = config["berean_theological_lens_enabled"].boolValue
+        bereanMemoryEnabled = config["berean_memory_enabled"].boolValue
         bereanMemoryKillSwitch = config["berean_memory_kill_switch"].boolValue
         bereanContextBridgeKillSwitch = config["berean_context_bridge_kill_switch"].boolValue
         bereanSafetyClassifierKillSwitch = config["berean_safety_classifier_kill_switch"].boolValue

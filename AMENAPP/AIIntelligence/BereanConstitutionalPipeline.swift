@@ -8,12 +8,26 @@
 // Architecture notes:
 //   - @MainActor class: all @Published mutations happen on the main thread.
 //   - Feature-flagged via "berean_constitutional_pipeline_enabled" in Remote Config.
-//     If the flag is false, the legacy "callModelBerean" callable is used instead.
+//     When the flag is false the pipeline is UNAVAILABLE; no legacy path is used
+//     because the legacy callable has no constitutional review stage. A
+//     .pipelineDisabled error is thrown and the degraded response is surfaced
+//     instead — no unverified candidate answer ever reaches the user.
 //   - sessionId is stable for the lifetime of this instance; use clearHistory()
 //     to begin a new logical session.
 //   - submitFeedback() is best-effort; errors are swallowed silently.
 //   - BereanPipelineMode mirrors BereanConstitutionalMode but is the wire type
 //     sent to the backend; keep these two enums aligned if you rename values.
+//
+// Fail-secure invariants (P0-fix 2026-06-12):
+//   I-1. The legacy "callModelBerean" path is REMOVED. When the pipeline flag is
+//        false the caller receives a degraded response, never unverified content.
+//   I-2. After a successful pipeline call, if isVerified==false or reviewVerdict
+//        is a known failure/legacy sentinel, the answer is replaced with the
+//        degraded-response string. The evidence/assumptions/unknowns from the
+//        backend are preserved for transparency.
+//   I-3. Any throw from the pipeline (network, decode, partial corruption) is
+//        caught and replaced with the degraded response. The error is surfaced in
+//        self.error for the UI but NO unverified text is published to lastResponse.
 
 import Foundation
 import SwiftUI
@@ -144,30 +158,61 @@ final class BereanConstitutionalPipeline: ObservableObject {
             return
         }
 
-        do {
-            let response: BereanPipelineResponse
+        // I-1: Pipeline flag is the single gate. No legacy path — the legacy callable
+        // has no constitutional review stage and must never be used as a fallback.
+        guard isPipelineEnabled else {
+            dlog("[BereanPipeline] Pipeline disabled via Remote Config — surfacing degraded response.")
+            self.error = BereanPipelineError.pipelineDisabled.localizedDescription
+            lastResponse = BereanPipelineResponse.degraded(
+                traceId: UUID().uuidString,
+                reason: "pipeline_disabled"
+            )
+            return
+        }
 
-            if isPipelineEnabled {
-                response = try await callConstitutionalPipeline(
-                    query: trimmedQuery,
-                    mode: mode,
-                    userId: userId
+        do {
+            let candidate = try await callConstitutionalPipeline(
+                query: trimmedQuery,
+                mode: mode,
+                userId: userId
+            )
+
+            // I-2: Reject any response that has not been confirmed by constitutional review.
+            // reviewVerdict values that mean "no full review was applied":
+            //   "legacy"          — legacy callable synthetic response (should never appear now)
+            //   "fail"            — backend review did not pass
+            //   "verified-partial"— backend degraded pass; treat as unverified on the client
+            //   "error"           — pipeline error verdict
+            let knownFailVerdicts: Set<String> = ["legacy", "fail", "verified-partial", "error"]
+            let response: BereanPipelineResponse
+            if !candidate.isVerified || knownFailVerdicts.contains(candidate.reviewVerdict.lowercased()) {
+                dlog("[BereanPipeline] I-2: response rejected — isVerified=\(candidate.isVerified) reviewVerdict='\(candidate.reviewVerdict)'. Surfacing degraded response.")
+                response = BereanPipelineResponse.degraded(
+                    traceId: candidate.traceId,
+                    reason: candidate.reviewVerdict,
+                    evidence: candidate.evidence,
+                    assumptions: candidate.assumptions,
+                    unknowns: candidate.unknowns
                 )
             } else {
-                response = try await callLegacyBerean(
-                    query: trimmedQuery,
-                    mode: mode,
-                    userId: userId
-                )
+                response = candidate
             }
 
-            // Append conversation turns before surfacing the response.
+            // Append conversation turns only for verified responses so history
+            // does not accumulate unverified content.
             conversationHistory.append(BereanConversationTurn(role: "user", content: trimmedQuery))
             conversationHistory.append(BereanConversationTurn(role: "assistant", content: response.answer))
             lastResponse = response
 
         } catch {
+            // I-3: Any pipeline error (network, decode, partial corruption) surfaces a
+            // degraded response with an error message. No unverified text is published.
+            dlog("[BereanPipeline] I-3: pipeline error — \(error.localizedDescription). Surfacing degraded response.")
             self.error = error.localizedDescription
+            lastResponse = BereanPipelineResponse.degraded(
+                traceId: UUID().uuidString,
+                reason: "pipeline_error"
+            )
         }
     }
 
@@ -222,44 +267,6 @@ final class BereanConstitutionalPipeline: ObservableObject {
         return try decode(result.data)
     }
 
-    /// Fallback: calls the legacy "callModelBerean" callable and wraps the response
-    /// in a minimal `BereanPipelineResponse` so the caller always gets the same type.
-    private func callLegacyBerean(
-        query: String,
-        mode: BereanPipelineMode,
-        userId: String
-    ) async throws -> BereanPipelineResponse {
-
-        let payload: [String: Any] = [
-            "query": query,
-            "userId": userId,
-            "sessionId": sessionId,
-            "mode": mode.rawValue,
-            "conversationHistory": serialisedHistory(),
-        ]
-
-        let result = try await functions.httpsCallable("callModelBerean").call(payload)
-        // The legacy callable returns a flat dict; map it to a full pipeline response.
-        if let data = result.data as? [String: Any],
-           let answer = data["response"] as? String ?? data["answer"] as? String {
-            return BereanPipelineResponse(
-                traceId: data["traceId"] as? String ?? UUID().uuidString,
-                answer: answer,
-                evidence: [],
-                context: data["context"] as? String ?? "",
-                interpretations: data["interpretations"] as? [String] ?? [],
-                assumptions: [],
-                unknowns: [],
-                confidence: data["confidence"] as? String ?? "medium",
-                trustScore: data["trustScore"] as? Double ?? 0.5,
-                reviewVerdict: data["reviewVerdict"] as? String ?? "legacy",
-                isVerified: false,
-                timestamp: Date()
-            )
-        }
-        throw BereanPipelineError.unexpectedResponseShape
-    }
-
     // MARK: - Decoding Helper
 
     private func decode(_ rawData: Any) throws -> BereanPipelineResponse {
@@ -288,11 +295,55 @@ final class BereanConstitutionalPipeline: ObservableObject {
     }
 }
 
+// MARK: - BereanPipelineResponse + Degraded Factory
+
+extension BereanPipelineResponse {
+    /// Builds a fail-secure degraded response that is safe to surface to the user.
+    ///
+    /// A degraded response:
+    ///  - carries `isVerified = false` and `reviewVerdict = "degraded"` so the
+    ///    UI can render a clear "unverified" trust badge.
+    ///  - replaces the candidate answer with a safe advisory string.
+    ///  - preserves evidence/assumptions/unknowns from the backend (if supplied)
+    ///    so the evidence sheet can still show what was retrieved.
+    ///  - sets `trustScore = 0.0` and `confidence = "Unknown"`.
+    ///
+    /// - Parameters:
+    ///   - traceId: Trace ID from the original backend call, or a new UUID for client-side errors.
+    ///   - reason: Internal reason string (e.g. "pipeline_disabled", "pipeline_error", or the reviewVerdict).
+    ///   - evidence: Evidence chunks from the backend, if available.
+    ///   - assumptions: Assumptions from the backend, if available.
+    ///   - unknowns: Unknowns from the backend, if available.
+    static func degraded(
+        traceId: String,
+        reason: String,
+        evidence: [BereanPipelineEvidence] = [],
+        assumptions: [String] = [],
+        unknowns: [String] = []
+    ) -> BereanPipelineResponse {
+        BereanPipelineResponse(
+            traceId: traceId,
+            answer: "I could not verify this response. Please try again or consult your pastor for guidance on this topic.",
+            evidence: evidence,
+            context: "",
+            interpretations: [],
+            assumptions: assumptions,
+            unknowns: unknowns,
+            confidence: "Unknown",
+            trustScore: 0.0,
+            reviewVerdict: "degraded",
+            isVerified: false,
+            timestamp: Date()
+        )
+    }
+}
+
 // MARK: - BereanPipelineError
 
 enum BereanPipelineError: LocalizedError {
     case unexpectedResponseShape
     case pipelineDisabled
+    case constitutionalFailure
 
     var errorDescription: String? {
         switch self {
@@ -300,6 +351,8 @@ enum BereanPipelineError: LocalizedError {
             return "Berean returned an unexpected response format. Please try again."
         case .pipelineDisabled:
             return "The Berean Constitutional Pipeline is currently unavailable."
+        case .constitutionalFailure:
+            return "Response could not be verified. Please try again or consult a pastor."
         }
     }
 }
@@ -345,6 +398,20 @@ private struct BereanPipelinePreview: View {
                 if let response = pipeline.lastResponse {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
+                            // Degraded-state warning banner (I-2 / I-3)
+                            if !response.isVerified {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "exclamationmark.shield")
+                                        .foregroundStyle(.orange)
+                                    Text("Constitutional review was not completed for this response.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(10)
+                                .background(Color.orange.opacity(0.08),
+                                            in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+
                             Text(response.answer)
                                 .font(.body)
 

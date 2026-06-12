@@ -50,11 +50,13 @@ struct HomeView: View {
     @StateObject private var digestViewModel = AmenDailyDigestViewModel()
     @ObservedObject private var notificationService = NotificationService.shared
     @ObservedObject private var postsManager = PostsManager.shared  // ✅ FIXED: Use @ObservedObject for singletons
+    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
     @State private var isCategoriesExpanded = false
     @State private var selectedFeedMode: LegacyFeedMode = .everyone
     @State private var showFeedModeDropdown = false
     @State private var showCommunitiesSheet = false
     @State private var showBereanAssistant = false
+    @State private var showBILWave1 = false
     @Binding var showBereanQuickActions: Bool
     @Binding var showBereanAssistantFromMenu: Bool
     @Binding var selectedPostCategory: CreatePostView.PostCategory
@@ -264,6 +266,9 @@ struct HomeView: View {
                 .fullScreenCover(isPresented: $showBereanAssistant) {
                     BereanChatView()
                 }
+                .sheet(isPresented: $showBILWave1) {
+                    BILHomeWave1View()
+                }
                 .sheet(isPresented: $showCommunitiesSheet) {
                     FeedCommunitiesSheet(
                         selectedMode: $selectedFeedMode,
@@ -342,15 +347,31 @@ struct HomeView: View {
                 }
                 .animation(.amenSpringStandard, value: bereanMenuManager.activePayload != nil)
                 .overlay(alignment: .bottomTrailing) {
-                    if AMENFeatureFlags.shared.communityOSUniversalComposerEnabled {
-                        AmenComposerLaunchButton(
-                            source: ComposerSource.standalone,
-                            label: "Create",
-                            systemImage: "plus.circle.fill"
-                        )
-                        .padding(.trailing, 16)
-                        .padding(.bottom, floatingCreateBottomPadding)
+                    VStack(alignment: .trailing, spacing: 12) {
+                        if featureFlags.bilWave1Enabled {
+                            Button {
+                                showBILWave1 = true
+                            } label: {
+                                Label("BIL", systemImage: "brain.head.profile")
+                                    .font(.callout.weight(.semibold))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .clipShape(Capsule())
+                            .accessibilityLabel("Open Berean Intelligence Layer Wave 1")
+                        }
+
+                        if featureFlags.communityOSUniversalComposerEnabled {
+                            AmenComposerLaunchButton(
+                                source: ComposerSource.standalone,
+                                label: "Create",
+                                systemImage: "plus.circle.fill"
+                            )
+                        }
                     }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, floatingCreateBottomPadding)
                 }
         }
         // Deep link: open a specific post when a push notification is tapped
@@ -854,6 +875,354 @@ struct FeedModeDropdownMenu: View {
             insertion: .scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity),
             removal:   .scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity)
         ))
+    }
+}
+
+// MARK: - BIL Wave 1 Launcher
+
+private enum BILHomeWave1Feature: String, CaseIterable, Identifiable {
+    case compactor = "BI-01"
+    case ledger = "BI-02"
+    case branching = "BI-03"
+    case sourceCards = "BI-04"
+    case contextPackages = "BI-05"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .compactor: return "Compaction"
+        case .ledger: return "Context Ledger"
+        case .branching: return "Branches"
+        case .sourceCards: return "Source Cards"
+        case .contextPackages: return "Context Packages"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .compactor: return "Visible summaries with undo and private-mode limits."
+        case .ledger: return "Beliefs, provenance, pin, lock, correct, and delete."
+        case .branching: return "Fork a thread and compare divergence before merge."
+        case .sourceCards: return "Layered source summaries with citations and scripture refs."
+        case .contextPackages: return "Versioned bundles for configured Berean sessions."
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .compactor: return "text.alignleft"
+        case .ledger: return "list.bullet.rectangle"
+        case .branching: return "point.3.connected.trianglepath.dotted"
+        case .sourceCards: return "doc.text.magnifyingglass"
+        case .contextPackages: return "shippingbox"
+        }
+    }
+}
+
+@MainActor
+private final class BILHomeWave1ViewModel: ObservableObject {
+    @Published var approvalDiffEnabled = true
+    @Published var selectedBranch = "Main"
+    @Published var ledgerStates: [String: String] = [
+        "contracts": "Pinned",
+        "briefings": "Locked",
+        "commitments": "Active"
+    ]
+
+    let compactionDecision = "Keep callable metadata envelopes and Tier P local-only compaction."
+    let compactionFact = "Active memory integration uses RAG and conversation-memory callables."
+    let branchDiff = "Main focused contracts and tier policy. UX branch explored ledger panels, branch diff, source cards, and packages."
+    let sourceCitations = ["00:12:44 adoption context", "Page 3 assurance paragraph"]
+    let scriptureRefs = ["Romans 8:1", "Romans 8:15", "Romans 8:39"]
+    let packageTools = ["Source Cards", "Commitments", "Artifact Workspace"]
+
+    func setLedgerState(_ key: String, to state: String) {
+        ledgerStates[key] = state
+    }
+}
+
+private struct BILHomeWave1View: View {
+    @StateObject private var viewModel = BILHomeWave1ViewModel()
+    @ObservedObject private var flags = AMENFeatureFlags.shared
+
+    private var enabledFeatures: [BILHomeWave1Feature] {
+        BILHomeWave1Feature.allCases.filter(isEnabled)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if enabledFeatures.isEmpty {
+                    Section {
+                        VStack(spacing: 12) {
+                            Image(systemName: "lock.shield")
+                                .font(.system(size: 36, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Text("BIL Wave 1 is off")
+                                .font(.headline)
+                            Text("Enable `bil_enabled` and at least one BI-01 through BI-05 flag to expose these surfaces.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 28)
+                    }
+                } else {
+                    Section {
+                        ForEach(enabledFeatures) { feature in
+                            NavigationLink {
+                                destination(for: feature)
+                            } label: {
+                                Label {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("\(feature.rawValue) · \(feature.title)")
+                                            .font(.body.weight(.semibold))
+                                        Text(feature.subtitle)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: feature.icon)
+                                        .foregroundStyle(.teal)
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Flagged surfaces")
+                    } footer: {
+                        Text("These Wave 1 views are wired UI only. Engine work remains blocked behind later wave flags and contracts.")
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("BIL Wave 1")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func isEnabled(_ feature: BILHomeWave1Feature) -> Bool {
+        guard flags.bilEnabled else { return false }
+        switch feature {
+        case .compactor: return flags.bilCompactorEnabled
+        case .ledger: return flags.bilLedgerEnabled
+        case .branching: return flags.bilBranchingEnabled
+        case .sourceCards: return flags.bilSourceCardsEnabled
+        case .contextPackages: return flags.bilContextPackagesEnabled
+        }
+    }
+
+    @ViewBuilder
+    private func destination(for feature: BILHomeWave1Feature) -> some View {
+        switch feature {
+        case .compactor:
+            BILHomeCompactionView(viewModel: viewModel)
+        case .ledger:
+            BILHomeLedgerView(viewModel: viewModel)
+        case .branching:
+            BILHomeBranchingView(viewModel: viewModel)
+        case .sourceCards:
+            BILHomeSourceCardsView(viewModel: viewModel)
+        case .contextPackages:
+            BILHomeContextPackagesView(viewModel: viewModel)
+        }
+    }
+}
+
+private struct BILHomeCompactionView: View {
+    @ObservedObject var viewModel: BILHomeWave1ViewModel
+
+    var body: some View {
+        List {
+            Section("Controls") {
+                Toggle("Show approval diff before saving", isOn: $viewModel.approvalDiffEnabled)
+                Label("Tier P chats compact locally only", systemImage: "lock")
+                    .foregroundStyle(.secondary)
+            }
+            Section("Episode: Launch plan tradeoffs") {
+                LabeledContent("Range", value: "Turns 38-62")
+                BILHomeInfoBlock(title: "Decision", text: viewModel.compactionDecision)
+                BILHomeInfoBlock(title: "Fact", text: viewModel.compactionFact)
+                BILHomeInfoBlock(title: "Open question", text: "Who signs off on Tier P local compaction?")
+                HStack {
+                    Button("Approve") {}
+                    Spacer()
+                    Button("Undo") {}
+                    Spacer()
+                    Button("Expand") {}
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .navigationTitle("Compaction")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct BILHomeLedgerView: View {
+    @ObservedObject var viewModel: BILHomeWave1ViewModel
+
+    var body: some View {
+        List {
+            Section("Conflict") {
+                BILHomeInfoBlock(
+                    title: "Resolution required",
+                    text: "A new inference conflicts with a locked briefing preference, so Berean must ask instead of overwriting it."
+                )
+                HStack {
+                    Button("Keep") {}
+                    Button("Replace") {}
+                    Button("Edit") {}
+                }
+                .buttonStyle(.bordered)
+            }
+            Section("Entries") {
+                ledgerRow(key: "contracts", belief: "BIL work is contract-first, flag-gated, and tier-aware.")
+                ledgerRow(key: "briefings", belief: "Briefings stay calm, skimmable, and easy to silence.")
+                ledgerRow(key: "commitments", belief: "Accepted suggestions convert into AmenCommitmentObject.")
+            }
+        }
+        .navigationTitle("Context Ledger")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func ledgerRow(key: String, belief: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(belief)
+                .font(.body.weight(.semibold))
+            Text("State: \(viewModel.ledgerStates[key] ?? "Active")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Pin") { viewModel.setLedgerState(key, to: "Pinned") }
+                Button("Lock") { viewModel.setLedgerState(key, to: "Locked") }
+                Button("Correct") { viewModel.setLedgerState(key, to: "Corrected") }
+                Button(role: .destructive) { viewModel.setLedgerState(key, to: "Deleted") } label: {
+                    Text("Delete")
+                }
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct BILHomeBranchingView: View {
+    @ObservedObject var viewModel: BILHomeWave1ViewModel
+    private let branches = ["Main", "Backend first", "UX review"]
+
+    var body: some View {
+        List {
+            Section("Branch tree") {
+                ForEach(branches, id: \.self) { branch in
+                    Button {
+                        viewModel.selectedBranch = branch
+                    } label: {
+                        HStack {
+                            Image(systemName: viewModel.selectedBranch == branch ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(.teal)
+                            Text(branch)
+                            Spacer()
+                            Text(branch == "Main" ? "Turn 18" : "Fork")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            Section("Diff") {
+                Text(viewModel.branchDiff)
+                Button("Merge synthesis into selected branch") {}
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .navigationTitle("Branches")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct BILHomeSourceCardsView: View {
+    @ObservedObject var viewModel: BILHomeWave1ViewModel
+
+    var body: some View {
+        List {
+            Section("Romans 8: Life in the Spirit") {
+                LabeledContent("Type", value: "Sermon transcript")
+                BILHomeInfoBlock(title: "One line", text: "Paul grounds assurance in Christ and Spirit-led adoption.")
+                BILHomeInfoBlock(title: "Paragraph", text: "The source connects no condemnation, adoption, suffering, hope, and persevering love.")
+                BILHomeChipList(title: "Citations", values: viewModel.sourceCitations)
+                BILHomeChipList(title: "Scripture", values: viewModel.scriptureRefs)
+                Button("Attach to thread") {}
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .navigationTitle("Source Cards")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct BILHomeContextPackagesView: View {
+    @ObservedObject var viewModel: BILHomeWave1ViewModel
+
+    var body: some View {
+        List {
+            Section("AMEN Architecture session") {
+                LabeledContent("Version", value: "v4")
+                LabeledContent("Mode", value: "Project Planning")
+                LabeledContent("Pinned ledger", value: "8")
+                LabeledContent("Source cards", value: "3")
+                BILHomeChipList(title: "Tool grants", values: viewModel.packageTools)
+                HStack {
+                    Button("Open") {}
+                    Spacer()
+                    Button("Share") {}
+                    Spacer()
+                    Button("New Version") {}
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .navigationTitle("Context Packages")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct BILHomeInfoBlock: View {
+    let title: String
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            Text(text)
+                .font(.body)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct BILHomeChipList: View {
+    let title: String
+    let values: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            ForEach(values, id: \.self) { value in
+                Text(value)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.teal.opacity(0.14)))
+                    .foregroundStyle(.teal)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

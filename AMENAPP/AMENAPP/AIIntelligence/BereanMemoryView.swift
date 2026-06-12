@@ -1,290 +1,206 @@
-import SwiftUI
-import FirebaseFunctions
-
-// MARK: - BereanMemoryEntry
+// BereanMemoryView.swift
+// AMEN App — Trust Architecture Layer 3: Berean Memory Transparency UI
 //
-// Codable model for a single persisted memory entry. The backend stores these
-// under users/{uid}/bereanMemory/{id} and surfaces them via the
-// "bereanGetMemory" callable.
+// Gives users full visibility into, and control over, every piece of
+// context that Berean has learned about them.
+//
+// Feature flag: `berean_memory_enabled` (Firebase Remote Config).
+// When the flag is absent or false this screen shows a disabled state
+// rather than crashing or silently hiding itself.
+//
+// Accessibility:
+//   • Every interactive element carries an accessibilityLabel + accessibilityHint.
+//   • Reduce-motion: spring animations replaced with instant transitions when
+//     UIAccessibility.isReduceMotionEnabled returns true.
+//   • VoiceOver: rows use .accessibilityElement(children: .combine) so the
+//     full row context (content + provenance + lock state) is read as one unit.
 
-struct BereanMemoryEntry: Codable, Identifiable {
-    let id: String
-    let category: String   // preference | study | prayer | church | action | context
-    let content: String
-    let isLocked: Bool
-    let provenance: String // "Created during conversation on [date]"
-    let updatedAt: Date
-
-    // MARK: Derived display properties
-
-    /// SF Symbol name for the entry category.
-    var categoryIcon: String {
-        switch category {
-        case "preference": return "slider.horizontal.3"
-        case "study":      return "books.vertical"
-        case "prayer":     return "hands.sparkles"
-        case "church":     return "building.2"
-        case "action":     return "checkmark.circle"
-        default:           return "brain"   // "context" + unknown
-        }
-    }
-
-    /// Accent color per category — used in icon rendering.
-    var categoryColor: Color {
-        switch category {
-        case "preference": return .blue
-        case "study":      return .indigo
-        case "prayer":     return .purple
-        case "church":     return .green
-        case "action":     return .orange
-        default:           return .teal    // "context"
-        }
-    }
-
-    /// Title shown in the section header.
-    var categoryTitle: String {
-        switch category {
-        case "preference": return "Preferences"
-        case "study":      return "Study"
-        case "prayer":     return "Prayer"
-        case "church":     return "Church"
-        case "action":     return "Actions"
-        default:           return "Context"
-        }
-    }
-}
-
-// MARK: - Codable helpers (Date decoded as timeIntervalSince1970 Double)
-
-extension BereanMemoryEntry {
-    enum CodingKeys: String, CodingKey {
-        case id, category, content, isLocked, provenance, updatedAt
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id         = try c.decode(String.self, forKey: .id)
-        category   = try c.decode(String.self, forKey: .category)
-        content    = try c.decode(String.self, forKey: .content)
-        isLocked   = try c.decodeIfPresent(Bool.self, forKey: .isLocked) ?? false
-        provenance = try c.decodeIfPresent(String.self, forKey: .provenance) ?? "Context saved by Berean"
-        let ts     = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
-        updatedAt  = Date(timeIntervalSince1970: ts)
-    }
-}
-
-// MARK: - BereanMemoryService
-
-@MainActor
-final class BereanMemoryService: ObservableObject {
-    @Published var entries: [BereanMemoryEntry] = []
-    @Published var isLoading = false
-    @Published var error: String? = nil
-
-    private let functions = Functions.functions()
-
-    // MARK: Load
-
-    func loadMemory(userId: String) async {
-        isLoading = true
-        error = nil
-        defer { isLoading = false }
-
-        do {
-            let callable = functions.httpsCallable("bereanGetMemory")
-            let result = try await callable.call(["userId": userId])
-            guard let raw = result.data as? [[String: Any]] else {
-                entries = []
-                return
-            }
-            let data = try JSONSerialization.data(withJSONObject: raw)
-            entries = try JSONDecoder().decode([BereanMemoryEntry].self, from: data)
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    // MARK: Delete single entry
-
-    func deleteEntry(_ entry: BereanMemoryEntry, userId: String) async {
-        guard !entry.isLocked else { return }
-        do {
-            let callable = functions.httpsCallable("bereanDeleteMemory")
-            _ = try await callable.call(["userId": userId, "entryId": entry.id])
-            entries.removeAll { $0.id == entry.id }
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    // MARK: Toggle lock
-
-    func toggleLock(_ entry: BereanMemoryEntry, userId: String) async {
-        do {
-            let callable = functions.httpsCallable("bereanToggleMemoryLock")
-            let result = try await callable.call(["userId": userId, "entryId": entry.id])
-            // Backend returns updated entry; re-fetch on success
-            if let _ = result.data as? [String: Any] {
-                await loadMemory(userId: userId)
-            }
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    // MARK: Edit entry content
-
-    func editEntry(_ entry: BereanMemoryEntry, newContent: String, userId: String) async {
-        guard !entry.isLocked else { return }
-        guard !newContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        do {
-            let callable = functions.httpsCallable("bereanUpdateMemory")
-            _ = try await callable.call([
-                "userId": userId,
-                "entryId": entry.id,
-                "content": newContent.trimmingCharacters(in: .whitespacesAndNewlines)
-            ])
-            await loadMemory(userId: userId)
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    // MARK: Delete all memory
-
-    func deleteAllMemory(userId: String) async {
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            let callable = functions.httpsCallable("bereanDeleteAllMemory")
-            _ = try await callable.call(["userId": userId])
-            entries = []
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    // MARK: Derived
-
-    /// Ordered list of category keys present in entries, for section grouping.
-    var presentCategories: [String] {
-        let order = ["preference", "study", "prayer", "church", "action", "context"]
-        let found = Set(entries.map(\.category))
-        return order.filter { found.contains($0) }
-    }
-
-    func entries(for category: String) -> [BereanMemoryEntry] {
-        entries.filter { $0.category == category }
-    }
-}
+import SwiftUI
+import FirebaseRemoteConfig
 
 // MARK: - BereanMemoryView
 
 struct BereanMemoryView: View {
-    @StateObject private var service = BereanMemoryService()
 
-    /// Caller must supply the authenticated user ID.
+    // MARK: Dependencies
+
+    /// Authenticated user ID supplied by the caller.
     let userId: String
 
-    @State private var editingEntry: BereanMemoryEntry? = nil
-    @State private var editText: String = ""
-    @State private var showDeleteAllConfirm = false
+    // MARK: State
+
+    @StateObject private var manager = BereanMemoryManager()
+
+    /// Feature flag read directly from Remote Config. Defaults to false so
+    /// the view fails safely if Remote Config has not been fetched yet.
+    @State private var memoryFeatureEnabled: Bool = false
+
+    @State private var entryPendingDelete: BereanMemoryEntry? = nil
+    @State private var showDeleteConfirmation = false
+    @State private var showDeleteAllSheet = false
     @State private var showInfoSheet = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    // MARK: Body
+
     var body: some View {
         NavigationStack {
-            content
-                .navigationTitle("Berean Memory")
-                .navigationBarTitleDisplayMode(.large)
-                .toolbar { toolbarContent }
-                .sheet(isPresented: $showInfoSheet) { infoSheet }
-                .sheet(item: $editingEntry) { entry in editSheet(for: entry) }
-                .alert("Delete All Memory?", isPresented: $showDeleteAllConfirm) {
-                    deleteAllAlert
-                } message: {
-                    Text("This permanently removes everything Berean has learned about you. This cannot be undone.")
+            Group {
+                if !memoryFeatureEnabled {
+                    memoryDisabledState
+                } else {
+                    mainContent
                 }
-                .task { await service.loadMemory(userId: userId) }
+            }
+            .navigationTitle("Berean Memory")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar { toolbarItems }
+            .sheet(isPresented: $showInfoSheet) { infoSheet }
+            .confirmationDialog(
+                "Delete this memory?",
+                isPresented: $showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    if let entry = entryPendingDelete {
+                        Task { await manager.deleteEntry(entry.id, userId: userId) }
+                    }
+                    entryPendingDelete = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    entryPendingDelete = nil
+                }
+            } message: {
+                Text("This entry will be permanently removed from Berean's memory.")
+            }
+            .confirmationDialog(
+                "Delete All Memory?",
+                isPresented: $showDeleteAllSheet,
+                titleVisibility: .visible
+            ) {
+                Button("Delete All", role: .destructive) {
+                    Task { await manager.deleteAll(userId: userId) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently removes everything Berean has learned about you. This cannot be undone.")
+            }
+        }
+        .task {
+            fetchFeatureFlag()
+            if memoryFeatureEnabled {
+                await manager.fetchEntries(userId: userId)
+            }
         }
     }
 
-    // MARK: Main content
+    // MARK: - Feature flag disabled state
+
+    private var memoryDisabledState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 52, weight: .light))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+
+            Text("Memory not enabled")
+                .font(.title3.bold())
+
+            Text("Berean Memory is not available on your account right now. Check back later or contact support.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Berean Memory is not enabled. It is not available on your account right now.")
+    }
+
+    // MARK: - Main content
 
     @ViewBuilder
-    private var content: some View {
-        if service.isLoading {
-            loadingView
-        } else if let err = service.error {
-            errorView(message: err)
-        } else if service.entries.isEmpty {
+    private var mainContent: some View {
+        if manager.isLoading && manager.entries.isEmpty {
+            loadingSkeletonView
+        } else if let err = manager.error {
+            errorView(error: err)
+        } else if manager.entries.isEmpty {
             emptyStateView
         } else {
-            entriesList
+            entriesListView
         }
     }
 
-    // MARK: Entries list
+    // MARK: - Entries list
 
-    private var entriesList: some View {
+    private var entriesListView: some View {
         List {
-            ForEach(service.presentCategories, id: \.self) { category in
-                Section(header: categorySectionHeader(category)) {
-                    ForEach(service.entries(for: category)) { entry in
+            ForEach(manager.presentCategories, id: \.rawValue) { category in
+                Section {
+                    ForEach(manager.entries(for: category)) { entry in
                         memoryRow(entry)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: !entry.isLocked) {
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 if !entry.isLocked {
                                     Button(role: .destructive) {
-                                        Task { await service.deleteEntry(entry, userId: userId) }
+                                        entryPendingDelete = entry
+                                        showDeleteConfirmation = true
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
-                                    .accessibilityLabel("Delete memory entry")
+                                    .accessibilityLabel("Delete memory entry: \(entry.content.prefix(40))")
                                 }
                             }
                     }
+                } header: {
+                    categorySectionHeader(category)
                 }
             }
         }
         .listStyle(.insetGrouped)
-        .safeAreaInset(edge: .bottom) { deleteAllButton }
+        .safeAreaInset(edge: .bottom) { deleteAllFooter }
+        .refreshable {
+            await manager.fetchEntries(userId: userId)
+        }
     }
 
-    // MARK: Section header
+    // MARK: - Category section header
 
-    private func categorySectionHeader(_ category: String) -> some View {
-        let sample = service.entries(for: category).first
-        return HStack(spacing: 6) {
-            Image(systemName: sample?.categoryIcon ?? "brain")
-                .foregroundStyle(sample?.categoryColor ?? .teal)
+    private func categorySectionHeader(_ category: BereanMemoryEntry.MemoryCategory) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: category.systemImage)
                 .font(.caption.weight(.semibold))
-            Text(sample?.categoryTitle ?? category.capitalized)
+                .foregroundStyle(categoryColor(category))
+                .accessibilityHidden(true)
+            Text(category.displayName)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(sample?.categoryTitle ?? category) section")
+        .accessibilityLabel("\(category.displayName) section, \(manager.entries(for: category).count) entries")
     }
 
-    // MARK: Memory row
+    // MARK: - Memory row
 
     private func memoryRow(_ entry: BereanMemoryEntry) -> some View {
         HStack(alignment: .top, spacing: 12) {
             // Category icon
-            Image(systemName: entry.categoryIcon)
-                .foregroundStyle(entry.categoryColor)
+            Image(systemName: entry.category.systemImage)
                 .font(.body.weight(.medium))
+                .foregroundStyle(categoryColor(entry.category))
                 .frame(width: 22, alignment: .center)
                 .accessibilityHidden(true)
 
-            // Content
+            // Text content
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.content)
                     .font(.body)
                     .lineLimit(2)
                     .foregroundStyle(.primary)
-                Text(entry.provenance)
+
+                // Provenance line: "Created from: [action]"
+                Text("Created from: \(entry.provenance.action)")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -292,109 +208,84 @@ struct BereanMemoryView: View {
             Spacer(minLength: 0)
 
             // Action buttons
-            HStack(spacing: 12) {
-                lockButton(entry)
-                if !entry.isLocked {
-                    deleteButton(entry)
-                }
+            HStack(spacing: 10) {
+                lockToggleButton(entry)
             }
         }
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
-        .onTapGesture {
-            guard !entry.isLocked else { return }
-            editText = entry.content
-            editingEntry = entry
-        }
+        // Full-row accessibility element so VoiceOver reads everything together
         .accessibilityElement(children: .combine)
         .accessibilityLabel(rowAccessibilityLabel(entry))
-        .accessibilityHint(entry.isLocked ? "Locked. Unlock to edit or delete." : "Double tap to edit.")
-        .padding(.vertical, 2)
-        .listRowBackground(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Material.regularMaterial)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
+        .accessibilityHint(entry.isLocked
+            ? "Locked. Swipe to reveal options. Double tap to unlock."
+            : "Unlocked. Swipe left to delete. Double tap to lock."
         )
+        .accessibilityAddTraits(.isButton)
     }
 
     private func rowAccessibilityLabel(_ entry: BereanMemoryEntry) -> String {
-        let lockStatus = entry.isLocked ? "Locked." : "Unlocked."
-        return "\(entry.categoryTitle) memory: \(entry.content). \(lockStatus) \(entry.provenance)."
+        let lock = entry.isLocked ? "Locked." : "Unlocked."
+        return "\(entry.category.displayName) memory: \(entry.content). \(lock) Created from: \(entry.provenance.action)."
     }
 
-    // MARK: Lock button
+    // MARK: - Lock toggle button
 
-    private func lockButton(_ entry: BereanMemoryEntry) -> some View {
+    private func lockToggleButton(_ entry: BereanMemoryEntry) -> some View {
         Button {
-            Task { await service.toggleLock(entry, userId: userId) }
+            let entryId = entry.id
+            if reduceMotion {
+                Task { await manager.toggleLock(entryId, userId: userId) }
+            } else {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    Task { await manager.toggleLock(entryId, userId: userId) }
+                }
+            }
         } label: {
             Image(systemName: entry.isLocked ? "lock.fill" : "lock.open")
                 .font(.body)
                 .foregroundStyle(entry.isLocked ? .orange : .secondary)
-                .symbolEffect(.bounce, value: entry.isLocked)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(entry.isLocked ? "Unlock memory entry" : "Lock memory entry")
-        .accessibilityHint(entry.isLocked ? "Unlocking allows editing and deletion." : "Locking prevents editing and deletion.")
+        .accessibilityLabel(entry.isLocked ? "Unlock this memory entry" : "Lock this memory entry")
+        .accessibilityHint(entry.isLocked
+            ? "Unlocking allows this entry to be edited or deleted."
+            : "Locking prevents accidental edits or deletion."
+        )
     }
 
-    // MARK: Delete button
+    // MARK: - Delete all footer
 
-    private func deleteButton(_ entry: BereanMemoryEntry) -> some View {
+    private var deleteAllFooter: some View {
         Button(role: .destructive) {
-            Task { await service.deleteEntry(entry, userId: userId) }
+            showDeleteAllSheet = true
         } label: {
-            Image(systemName: "trash")
-                .font(.body)
-                .foregroundStyle(.red)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Delete memory entry")
-        .accessibilityHint("Permanently removes this entry.")
-    }
-
-    // MARK: Delete all button (bottom toolbar)
-
-    private var deleteAllButton: some View {
-        Button(role: .destructive) {
-            showDeleteAllConfirm = true
-        } label: {
-            Label("Delete All Memory", systemImage: "trash.fill")
+            Label("Delete All Memories", systemImage: "trash.fill")
                 .font(.callout.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(
+                .background {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(Material.regularMaterial)
-                )
-                .overlay(
+                }
+                .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(Color.red.opacity(0.35), lineWidth: 1)
-                )
+                }
                 .foregroundStyle(.red)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-        .accessibilityLabel("Delete all Berean memory")
-        .accessibilityHint("Permanently removes everything Berean has learned. Requires confirmation.")
-        .disabled(service.entries.isEmpty || service.isLoading)
+        .disabled(manager.entries.isEmpty || manager.isLoading)
+        .accessibilityLabel("Delete all Berean memories")
+        .accessibilityHint("Permanently removes everything Berean has learned about you. Requires confirmation.")
     }
 
-    // MARK: Delete all alert buttons
-
-    @ViewBuilder
-    private var deleteAllAlert: some View {
-        Button("Delete All", role: .destructive) {
-            Task { await service.deleteAllMemory(userId: userId) }
-        }
-        Button("Cancel", role: .cancel) {}
-    }
-
-    // MARK: Toolbar
+    // MARK: - Toolbar
 
     @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
+    private var toolbarItems: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             Button {
                 showInfoSheet = true
@@ -402,38 +293,130 @@ struct BereanMemoryView: View {
                 Image(systemName: "info.circle")
             }
             .accessibilityLabel("About Berean Memory")
-            .accessibilityHint("Explains what memory is and how it is used.")
+            .accessibilityHint("Explains what memory is stored and how to manage it.")
         }
     }
 
-    // MARK: Info sheet
+    // MARK: - Loading skeleton
+
+    private var loadingSkeletonView: some View {
+        List {
+            ForEach(0..<6, id: \.self) { _ in
+                skeletonRow
+            }
+        }
+        .listStyle(.insetGrouped)
+        .allowsHitTesting(false)
+        .accessibilityLabel("Loading Berean memory entries")
+    }
+
+    private var skeletonRow: some View {
+        HStack(alignment: .top, spacing: 12) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.secondary.opacity(0.18))
+                .frame(width: 22, height: 22)
+
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.secondary.opacity(0.18))
+                    .frame(height: 14)
+                    .frame(maxWidth: .infinity)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.secondary.opacity(0.12))
+                    .frame(width: 120, height: 10)
+            }
+        }
+        .padding(.vertical, 6)
+        .redacted(reason: .placeholder)
+    }
+
+    // MARK: - Empty state
+
+    private var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "brain")
+                .font(.system(size: 56))
+                .foregroundStyle(.teal.opacity(0.6))
+                // Pulse only when motion is allowed; keep static otherwise.
+                .symbolEffect(
+                    .pulse,
+                    options: reduceMotion ? .nonRepeating : .repeating
+                )
+                .accessibilityHidden(true)
+
+            Text("No memories yet")
+                .font(.title3.bold())
+
+            Text("Berean will learn your preferences as you use it. Everything it learns will appear here.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No Berean memory saved yet. Berean will learn your preferences as you use it and everything it learns will appear here.")
+    }
+
+    // MARK: - Error state
+
+    private func errorView(error: Error) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(.red)
+                .accessibilityHidden(true)
+
+            Text("Something went wrong")
+                .font(.headline)
+
+            Text(error.localizedDescription)
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+
+            Button("Retry") {
+                Task { await manager.fetchEntries(userId: userId) }
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityLabel("Retry loading Berean memory")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+
+    // MARK: - Info sheet
 
     private var infoSheet: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Image(systemName: "brain")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.teal)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 24)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Image(systemName: "brain")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.teal)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 24)
+                        .accessibilityHidden(true)
 
-                Text("What is Berean Memory?")
-                    .font(.title2.bold())
+                    Text("What is Berean Memory?")
+                        .font(.title2.bold())
 
-                Text("Berean saves context from your conversations to personalize responses. For example, it may remember your denomination, preferred Bible translation, or topics you study frequently.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+                    Text("Berean saves context from your conversations to personalize responses — for example, your denomination, preferred Bible translation, or topics you study often.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
 
-                Text("You own this data.")
-                    .font(.body.bold())
+                    Text("You own this data.")
+                        .font(.body.bold())
 
-                Text("You can view, edit, lock, or delete any entry at any time. Locking an entry prevents accidental edits or deletion while still allowing Berean to use it.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+                    Text("You can view, lock, or delete any entry at any time. Locking an entry protects it from accidental edits or deletion while still allowing Berean to use it.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
 
-                Spacer()
+                    Spacer(minLength: 24)
+                }
+                .padding(.horizontal, 24)
             }
-            .padding(.horizontal, 24)
             .navigationTitle("About Memory")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -447,127 +430,31 @@ struct BereanMemoryView: View {
         .presentationDragIndicator(.visible)
     }
 
-    // MARK: Edit sheet
+    // MARK: - Helpers
 
-    private func editSheet(for entry: BereanMemoryEntry) -> some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Edit Memory")
-                    .font(.title3.bold())
-                    .padding(.top, 8)
-
-                Text(entry.provenance)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-
-                TextEditor(text: $editText)
-                    .font(.body)
-                    .frame(minHeight: 120)
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Material.regularMaterial)
-                    )
-                    .accessibilityLabel("Edit memory content")
-
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .navigationTitle("Edit Entry")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        editingEntry = nil
-                    }
-                    .accessibilityLabel("Cancel edit")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        let current = editingEntry
-                        editingEntry = nil
-                        Task {
-                            if let e = current {
-                                await service.editEntry(e, newContent: editText, userId: userId)
-                            }
-                        }
-                    }
-                    .font(.body.bold())
-                    .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .accessibilityLabel("Save memory edit")
-                }
-            }
+    /// Returns a SwiftUI Color matching the category's semantic accent color name.
+    private func categoryColor(_ category: BereanMemoryEntry.MemoryCategory) -> Color {
+        switch category.accentColor {
+        case "indigo":  return .indigo
+        case "purple":  return .purple
+        case "green":   return .green
+        case "blue":    return .blue
+        case "orange":  return .orange
+        case "cyan":    return .cyan
+        default:        return .teal
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 
-    // MARK: Loading view
-
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.4)
-            Text("Loading memory…")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityLabel("Loading Berean memory")
-    }
-
-    // MARK: Error view
-
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(.red)
-            Text("Something went wrong")
-                .font(.headline)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.red)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            Button("Retry") {
-                Task { await service.loadMemory(userId: userId) }
-            }
-            .buttonStyle(.borderedProminent)
-            .accessibilityLabel("Retry loading memory")
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-    }
-
-    // MARK: Empty state
-
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "brain")
-                .font(.system(size: 56))
-                .foregroundStyle(.teal.opacity(0.6))
-                .symbolEffect(.pulse, options: reduceMotion ? .nonRepeating : .repeating)
-
-            Text("No memory saved yet")
-                .font(.title3.bold())
-
-            Text("Berean will learn your preferences as you use it.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("No Berean memory saved yet. Berean will learn your preferences as you use it.")
+    /// Reads `berean_memory_enabled` from Remote Config. Falls back to false.
+    private func fetchFeatureFlag() {
+        let rc = RemoteConfig.remoteConfig()
+        memoryFeatureEnabled = rc["berean_memory_enabled"].boolValue
     }
 }
 
 // MARK: - BereanMemorySettingsRow
 
-/// Drop-in row for use inside a Settings screen.
-/// Shows "Manage Berean Memory" with a count badge and navigates to BereanMemoryView.
+/// Convenience row for a Settings list that navigates into BereanMemoryView.
 struct BereanMemorySettingsRow: View {
     let userId: String
     let entryCount: Int
@@ -592,31 +479,28 @@ struct BereanMemorySettingsRow: View {
                         .font(.caption.bold())
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(
-                            Capsule()
-                                .fill(Color.teal.opacity(0.18))
-                        )
+                        .background(Capsule().fill(Color.teal.opacity(0.18)))
                         .foregroundStyle(.teal)
-                        .accessibilityLabel("\(entryCount) memory entries")
+                        .accessibilityLabel("\(entryCount) memory \(entryCount == 1 ? "entry" : "entries")")
                 }
             }
         }
-        .accessibilityLabel("Manage Berean Memory. \(entryCount > 0 ? "\(entryCount) entries saved." : "No entries yet.")")
-        .accessibilityHint("Opens memory management screen where you can view, edit, lock, and delete entries.")
+        .accessibilityLabel("Manage Berean Memory. \(entryCount > 0 ? "\(entryCount) \(entryCount == 1 ? "entry" : "entries") saved." : "No entries yet.")")
+        .accessibilityHint("Opens the memory management screen where you can view, lock, and delete entries.")
     }
 }
 
 // MARK: - Previews
 
 #if DEBUG
-#Preview("Memory List") {
+#Preview("Memory list") {
     BereanMemoryView(userId: "preview-user")
 }
 
-#Preview("Settings Row") {
+#Preview("Settings row") {
     NavigationStack {
         List {
-            BereanMemorySettingsRow(userId: "preview-user", entryCount: 7)
+            BereanMemorySettingsRow(userId: "preview-user", entryCount: 4)
         }
         .navigationTitle("Settings")
     }
