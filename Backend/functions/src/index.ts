@@ -416,6 +416,12 @@ export * from "./berean/bereanOperatingLayer";
 // Flag: berean_memory_enabled in system/serverFeatureFlags
 export * from "./berean/bereanMemory";
 
+// Berean Model Router — task-class → provider routing callable
+// Callable: modelRouter (App Check + Auth)
+// Routes model calls to the correct provider (Claude / Gemini / NIM) by task class.
+// Region: us-east1
+export { modelRouter } from "./berean/modelRouter";
+
 // Video Explain — AI-powered explanation of sermon/teaching video content
 // Callable: explainVideoContent (Auth + App Check, transcript gate, Claude, safety filter)
 // Security: server re-checks visibility, block status, flagged state before generation.
