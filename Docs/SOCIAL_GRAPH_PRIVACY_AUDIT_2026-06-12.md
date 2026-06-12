@@ -114,23 +114,45 @@ Full audit of AMEN's follow/block/privacy/comment/search/feed/notification/AI st
 
 ---
 
-## Tests Required (Not Yet Added)
+## Tests — Status (Updated 2026-06-12 post-verification)
 
-See `docs/privacy-model.md §13` for full test matrix. Priority tests:
+68 tests passing across 3 new test files. See commit history on `safety-hardening` branch.
 
+### functions/test/rules.spec.js — 45 tests ✓
 ```
-□ Rules unit test: canCommentOnPost() — all commentPermissions values × relationship states
-□ Rules unit test: post read — followers-only × non-follower (must deny)
-□ Rules unit test: post read — trustedCircle × non-mutual (must deny)
-□ Rules unit test: comment create — blocked user → must deny
-□ Rules unit test: pending follow request → not treated as follow
-□ CF integration test: ragSearch — private post result filtered from non-follower
-□ CF integration test: ragSearch — blocked post result filtered
+✓ Rules unit test: canCommentOnPost() — all commentPermissions values × relationship states (19 cases)
+✓ Rules unit test: post read — followers-only × non-follower (must deny) — privacyLevel AND visibility variants
+✓ Rules unit test: post read — trustedCircle × non-mutual (must deny)
+✓ Rules unit test: comment create — blocked user → must deny (bidirectional)
+✓ Rules unit test: isEffectivelyPublic / isFollowersOnlyPost / isTrustedCirclePost — both schema versions
+✓ Rules unit test: allowComments:false overrides all permission levels
+□ Rules unit test: pending follow request → not treated as follow (OPEN — needs dedicated test)
+```
+
+### Backend/functions/src/__tests__/socialGraph.rateLimit.test.ts — 6 tests ✓
+```
+✓ CF unit test: createFollow — rate limit enforced at 200/hour
+✓ CF unit test: 201st follow throws resource-exhausted
+✓ CF unit test: new hour bucket resets counter
+✓ CF unit test: per-user independent counters
+```
+
+### Backend/functions/src/__tests__/socialGraph.ragAcl.test.ts — 17 tests ✓
+```
+✓ CF integration test: ragSearch — private post filtered from non-follower
+✓ CF integration test: ragSearch — blocked post filtered (both block directions)
+✓ CF integration test: ragSearch — followers-only requires follow edge
+✓ CF integration test: ragSearch — trustedCircle requires mutual follow
+✓ CF integration test: ragSearch — legacy visibility='Followers' NOT world-readable
+✓ CF integration test: owner always sees own posts
+```
+
+### Still Open (require emulator or live test environment)
+```
 □ CF integration test: blockRelationshipCleanup — notifications revoked bidirectionally
 □ CF integration test: revokeNotificationsOnCommentDelete — notification deleted
 □ CF integration test: reconcileFollowCounts — drift detected and repaired
-□ CF integration test: createFollow — rate limit enforced at 200/hour
-□ Counter reconciliation test — follows count corrected after drift
+□ Rules unit test: pending follow request → not treated as follow
 ```
 
 ---
@@ -198,4 +220,4 @@ See `docs/privacy-model.md §13` for full test matrix. Priority tests:
 - [ ] Logs/analytics: no private content in function logs (grep pass needed)
 - [ ] Rollback path tested
 - [ ] Notification payload lock screen audit (M-4)
-- [ ] Backfill migration run (C-3 migration step)
+- [ ] Backfill migration run (C-3 migration step) — queued for D-2 deploy wave 2026-06-12
