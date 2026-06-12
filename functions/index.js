@@ -1888,3 +1888,26 @@ exports.bereanRunEvals                 = bereanConstitutional.bereanRunEvals;
 // are deployed from the creator codebase (Backend/functions) — do not
 // cross-require here. Deploy via:
 //   firebase deploy --only "functions:creator:bereanPipeline,..." --project amen-5e359
+
+// ============================================================================
+// SANCTUARY — Living Video backend (Wave 2)
+// Default codebase, us-central1 per function.
+// Deploy individually:
+//   firebase deploy --only functions:default:sanctuaryTranscribe
+//   firebase deploy --only functions:default:sanctuaryAnchorScripture
+//   firebase deploy --only functions:default:sanctuaryAskMoment
+//   firebase deploy --only functions:default:sanctuaryReact
+//   firebase deploy --only functions:default:sanctuaryReactionField
+//   firebase deploy --only functions:default:sanctuaryRoomSync
+//   firebase deploy --only functions:default:sanctuarySearch
+//   firebase deploy --only functions:default:sanctuaryWeeklyDigest
+// ============================================================================
+const sanctuary = require("./lib/sanctuary");
+exports.sanctuaryTranscribe      = sanctuary.sanctuaryTranscribe;
+exports.sanctuaryAnchorScripture = sanctuary.sanctuaryAnchorScripture;
+exports.sanctuaryAskMoment       = sanctuary.sanctuaryAskMoment;
+exports.sanctuaryReact           = sanctuary.sanctuaryReact;
+exports.sanctuaryReactionField   = sanctuary.sanctuaryReactionField;
+exports.sanctuaryRoomSync        = sanctuary.sanctuaryRoomSync;
+exports.sanctuarySearch          = sanctuary.sanctuarySearch;
+exports.sanctuaryWeeklyDigest    = sanctuary.sanctuaryWeeklyDigest;

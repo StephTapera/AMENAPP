@@ -10,13 +10,15 @@
     "logs": "firebase functions:log",
     "test": "jest --passWithNoTests",
     "build:context": "node -e \"const ts=require(\"typescript\"),fs=require(\"fs\"),path=require(\"path\"),opts={module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true,skipLibCheck:true,strict:false};fs.readdirSync(\"context\").filter(f=>f.endsWith(\".ts\")).forEach(f=>{const r=ts.transpileModule(fs.readFileSync(path.join(\"context\",f),\"utf8\"),{compilerOptions:opts,fileName:f});fs.writeFileSync(path.join(\"context\",f.replace(\".ts\",\".js\")),r.outputText)})\"",
-    "build:berean": "cd berean && npx tsc"
+    "build:berean": "cd berean && npx tsc",
+    "build:sanctuary": "npx tsc -p tsconfig.sanctuary.json"
   },
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
     "testMatch": [
       "**/src/discussion/**/*.test.ts",
+      "**/src/sanctuary/**/*.test.ts",
       "**/test/ageTier.test.js",
       "**/test/phoneAuthPii.test.js",
       "**/test/safety-rules.test.js",

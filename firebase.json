@@ -28,6 +28,7 @@
       ],
       "predeploy": [
         "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:context",
+        "PATH=/usr/local/bin:$PATH npm --prefix \"$RESOURCE_DIR\" run build:sanctuary",
         "cd \"$RESOURCE_DIR/berean\" && npx tsc"
       ],
       "source": "functions"

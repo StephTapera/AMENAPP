@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "rootDir": "src/sanctuary",
+    "outDir": "lib/sanctuary",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "types": ["node", "jest"]
+  },
+  "include": ["src/sanctuary/**/*.ts"],
+  "exclude": ["src/sanctuary/**/*.test.ts"]
+}
