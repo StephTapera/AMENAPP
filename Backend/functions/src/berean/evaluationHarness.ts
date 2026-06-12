@@ -8,7 +8,7 @@
 
 export interface GradeResult {
     passed: boolean;
-    score: number;
+    score?: number;
     reason?: string;
 }
 
@@ -17,6 +17,7 @@ export interface EvalTestCase {
     category: string;
     riskLevel: "low" | "medium" | "high" | "critical";
     prompt?: string;
+    input?: string | Record<string, unknown>;
     systemContext?: string;
     expectedBehavior: string;
     grader: (response: any) => boolean | GradeResult;

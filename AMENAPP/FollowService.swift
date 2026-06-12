@@ -180,7 +180,7 @@ class FollowService: ObservableObject {
             // atomically writes follows + follows_index + counter increments.
             // Firestore rules now gate follows_index on CF-only writes, so this
             // callable is the only valid write path.
-            let callable = Functions.functions().httpsCallable("createFollow")
+            let callable = Functions.functions(region: "us-east1").httpsCallable("createFollow")
             _ = try await callable.call(["followingId": userId])
             dlog("✅ Followed user successfully via CF")
 

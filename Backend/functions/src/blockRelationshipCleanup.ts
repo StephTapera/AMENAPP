@@ -30,8 +30,8 @@ const db = admin.firestore();
 
 // ─── Trigger ─────────────────────────────────────────────────────────────────
 
-export const blockRelationshipCleanup = onDocumentCreated(
-    "users/{blockerId}/blockedUsers/{blockedId}",
+export const blockRelationshipCleanupTrigger = onDocumentCreated(
+    { document: "users/{blockerId}/blockedUsers/{blockedId}", region: "us-east1" },
     async (event) => {
         const { blockerId, blockedId } = event.params;
 
