@@ -147,6 +147,22 @@ struct BereanConstitutionalReviewResult {
     }
 }
 
+// MARK: - ScriptureVerificationPolicy
+
+/// The policy that governs how scripture reference mismatches are handled
+/// for a given BereanConstitutionalMode.
+///
+/// This is the SINGLE authoritative encoding of mode → policy.
+/// No other file should hard-code mode-to-policy logic.
+enum ScriptureVerificationPolicy {
+    /// Mismatch refs MUST NOT be surfaced as AI text; substitute canonicalText
+    /// or display a correction notice. Applied for `.guard` and `.discern`.
+    case blockOnMismatch
+    /// Mismatch refs are annotated visibly but do not block display.
+    /// Applied for `.ask`, `.build`, and `.reflect`.
+    case annotateOnMismatch
+}
+
 // MARK: - BereanConstitutionalReviewGate (actor)
 
 /// Mandatory pre-flight gate for all Berean AI dispatch.
@@ -157,6 +173,27 @@ actor BereanConstitutionalReviewGate {
 
     static let shared = BereanConstitutionalReviewGate()
     private init() {}
+
+    // MARK: - Scripture Verification Policy (G-1)
+
+    /// Returns the ScriptureVerificationPolicy for a given constitutional mode.
+    ///
+    /// This is the SINGLE place that encodes mode → policy.
+    /// ScriptureReferenceValidator.verifyWithAPIPipeline calls this; no other
+    /// file should hard-code mode-to-policy logic.
+    ///
+    /// - `.guard`, `.discern` → `.blockOnMismatch`
+    /// - `.ask`, `.build`, `.reflect` → `.annotateOnMismatch`
+    static func scriptureVerificationPolicy(
+        for mode: BereanConstitutionalMode
+    ) -> ScriptureVerificationPolicy {
+        switch mode {
+        case .guard, .discern:
+            return .blockOnMismatch
+        case .ask, .build, .reflect:
+            return .annotateOnMismatch
+        }
+    }
 
     // MARK: - Review
 

@@ -14,6 +14,7 @@
  */
 
 import * as functions from 'firebase-functions/v2/https'
+import { logger } from 'firebase-functions'
 import * as admin from 'firebase-admin'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -128,7 +129,6 @@ function parseRefToPassageId(ref: string): string | null {
     '2 timothy': '2TI', 'titus': 'TIT', 'philemon': 'PHM', 'hebrews': 'HEB',
     'james': 'JAS', '1 peter': '1PE', '2 peter': '2PE', '1 john': '1JN',
     '2 john': '2JN', '3 john': '3JN', 'jude': 'JUD', 'revelation': 'REV',
-    '1 corinthians': '1CO',
   }
 
   const trimmed = ref.trim()
@@ -170,7 +170,7 @@ async function fetchFromApiBible(
     })
 
     if (!response.ok) {
-      functions.logger.warn('[verifyScriptureText] API.Bible non-OK status', {
+      logger.warn('[verifyScriptureText] API.Bible non-OK status', {
         status: response.status,
         passageId,
       })
@@ -184,7 +184,7 @@ async function fetchFromApiBible(
     const isAbort =
       err instanceof Error &&
       (err.name === 'AbortError' || err.message.includes('abort'))
-    functions.logger.warn('[verifyScriptureText] API.Bible fetch error', {
+    logger.warn('[verifyScriptureText] API.Bible fetch error', {
       passageId,
       isTimeout: isAbort,
       // explicitly NOT logging apiKey, url (which doesn't contain key), or bibleId
@@ -287,7 +287,7 @@ async function resolveOneRef(
       }
     }
   } catch (cacheErr) {
-    functions.logger.warn('[verifyScriptureText] Firestore cache read error', { ref, translation })
+    logger.warn('[verifyScriptureText] Firestore cache read error', { ref, translation })
     // Continue to API fallback
   }
 
@@ -301,7 +301,7 @@ async function resolveOneRef(
 
     const bibleId = resolveApiBibleId(translation)
     if (!bibleId) {
-      functions.logger.warn('[verifyScriptureText] No bibleId for translation', { translation })
+      logger.warn('[verifyScriptureText] No bibleId for translation', { translation })
       return { ref, verdict: 'unresolvable' }
     }
 
@@ -321,7 +321,7 @@ async function resolveOneRef(
         verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       })
       .catch((writeErr) => {
-        functions.logger.warn('[verifyScriptureText] Cache write error', { ref })
+        logger.warn('[verifyScriptureText] Cache write error', { ref })
       })
   }
 
@@ -398,7 +398,7 @@ export const verifyScriptureText = functions.onCall(
           )
         } catch (err) {
           // Catch-all: any unexpected error → unresolvable, no key leak
-          functions.logger.error('[verifyScriptureText] Unexpected error resolving ref', {
+          logger.error('[verifyScriptureText] Unexpected error resolving ref', {
             ref: item.ref,
             // deliberately not logging apiKey or full error
           })

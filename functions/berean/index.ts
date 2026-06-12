@@ -58,15 +58,18 @@ export const bereanConstitutionalPipeline = functions.onCall(
       throw new functions.HttpsError('invalid-argument', 'sessionId is required.')
     }
 
-    const output = await runBereanPipeline({
-      userId: uid,
-      query,
-      sessionId,
-      mode,
-      conversationHistory,
-    })
+    const output = await runBereanPipeline(
+      {
+        userId: uid,
+        query,
+        sessionId,
+        mode: (mode as import('./constitutionalPipeline').BereanMode) ?? 'Ask',
+        conversationHistory: (conversationHistory as import('./constitutionalPipeline').ConversationTurn[]) ?? [],
+      },
+      db
+    )
 
-    return { response: output.response, traceId: output.traceId, trustScore: output.trustScore }
+    return { response: output.response, traceId: output.trace.traceId, trustScore: output.response.trustScore }
   }
 )
 
@@ -83,9 +86,9 @@ export const bereanGetMemory = functions.onCall(
     }
 
     const uid = request.auth.uid
-    const { categories } = (request.data ?? {}) as { categories?: string[] }
+    const { categories } = (request.data ?? {}) as { categories?: import('./memoryStore').MemoryCategory[] }
 
-    const entries = await readMemory(uid, categories)
+    const entries = await readMemory({ userId: uid, categories }, db)
     return { entries }
   }
 )
@@ -108,7 +111,7 @@ export const bereanDeleteMemory = functions.onCall(
       throw new functions.HttpsError('invalid-argument', 'entryId is required.')
     }
 
-    await deleteMemory(uid, entryId)
+    await deleteMemory(uid, entryId, db)
     return { success: true }
   }
 )
@@ -134,7 +137,7 @@ export const bereanToggleMemoryLock = functions.onCall(
       throw new functions.HttpsError('invalid-argument', 'locked must be a boolean.')
     }
 
-    await lockMemory(uid, entryId, locked)
+    await lockMemory(uid, entryId, locked, db)
     return { success: true, locked }
   }
 )
@@ -192,7 +195,7 @@ export const bereanDeleteAllMemory = functions.onCall(
     }
 
     const uid = request.auth.uid
-    await deleteAllUserMemory(uid)
+    await deleteAllUserMemory(uid, db)
     return { success: true }
   }
 )
@@ -226,7 +229,7 @@ export const bereanSubmitFeedback = functions.onCall(
       throw new functions.HttpsError('invalid-argument', 'rating must be "positive" or "negative".')
     }
 
-    const feedbackId = await submitFeedback({ userId: uid, traceId, sessionId, rating, comment })
+    const feedbackId = await submitFeedback({ userId: uid, traceId, sessionId, rating: rating as import('./feedbackCapture').FeedbackRating, comment }, db)
     return { success: true, feedbackId }
   }
 )
@@ -258,8 +261,24 @@ export const bereanRunEvals = functions.onCall(
       )
     }
 
-    const categories = Array.from(new Set(EVAL_TEST_CASES.map((tc) => tc.category)))
-    const results = await runEvalSuite(categories)
+    // EVAL_TEST_CASES is Record<EvalCategory, EvalTest[]> — run each category suite.
+    const suiteResults = await Promise.all(
+      (Object.keys(EVAL_TEST_CASES) as import('./evalFramework').EvalCategory[]).map((category) =>
+        runEvalSuite(
+          category,
+          EVAL_TEST_CASES[category],
+          async (input: string) => {
+            const out = await runBereanPipeline(
+              { userId: 'eval-system', query: input, sessionId: 'eval', mode: 'Ask', conversationHistory: [] },
+              db
+            )
+            return out.response.answer
+          },
+          db
+        )
+      )
+    )
+    const results = suiteResults
     const gateCheck = checkDeploymentGate(results)
 
     // Persist eval run for audit trail
@@ -273,3 +292,12 @@ export const bereanRunEvals = functions.onCall(
     return { results, gateCheck }
   }
 )
+
+// ── 9. verifyScriptureText ────────────────────────────────────────────────────
+// Verifies AI-produced scripture text against canonical Bible text.
+// Resolution order: Firestore cache (bibleVerses) → API.Bible REST API.
+// Input:  { references: Array<{ ref, claimedText, translation }> } (max 20)
+// Output: { results: Array<{ ref, verdict, canonicalText?, similarity? }> }
+// Fail-secure: any error → "unresolvable" (never "verified" on error).
+
+export { verifyScriptureText } from './apiBibleVerification'

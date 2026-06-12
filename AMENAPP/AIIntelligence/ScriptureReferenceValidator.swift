@@ -6,8 +6,10 @@
 // Not a full ground-truth check — but catches hallucinated books and
 // obviously out-of-range references.
 // H-10 fix: scripture citation hardening
+// G-1: verifyWithAPIPipeline — calls verifyScriptureText CF; encodes mode policy inline.
 
 import Foundation
+import FirebaseFunctions
 
 enum ScriptureReferenceValidator {
 
@@ -88,6 +90,133 @@ enum ScriptureReferenceValidator {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
         let range = NSRange(text.startIndex..., in: text)
         return regex.firstMatch(in: text, range: range) != nil
+    }
+
+    // MARK: — API Pipeline Verification (G-1)
+
+    /// A single reference where the claimed text does not match the canonical text.
+    struct ScriptureMismatch: Equatable {
+        let ref: String
+        let claimedText: String
+        let canonicalText: String
+    }
+
+    /// The result of a full API-backed scripture verification pass.
+    struct ScriptureVerificationReport: Equatable {
+        /// References confirmed accurate by the backend.
+        let verifiedRefs: [String]
+        /// References where the claimed verse text diverges from the canonical text.
+        let mismatchRefs: [ScriptureMismatch]
+        /// References the backend could not resolve (unknown, no data, or CF error).
+        let unresolvableRefs: [String]
+        /// Epistemic declaration derived from the verification results.
+        let epistemicDeclaration: EpistemicDeclaration
+    }
+
+    /// Calls the `verifyScriptureText` Firebase callable to verify that each
+    /// `claimedText[ref]` matches the canonical text for `ref` in `translation`.
+    ///
+    /// Mode policy (single authoritative source — do not hard-code elsewhere):
+    ///  - `.guard` / `.discern`: mismatch refs MUST NOT be surfaced as AI text;
+    ///    substitute canonicalText or a correction notice.
+    ///  - `.ask` / `.build` / `.reflect`: mismatch annotates visibly but does not block.
+    ///  - All modes: unresolvable refs go to `unknowns` in the EpistemicDeclaration.
+    ///
+    /// On any callable error: ALL refs become unresolvable (fail-secure).
+    static func verifyWithAPIPipeline(
+        references: [String],
+        claimedTexts: [String: String],
+        translation: String,
+        mode: BereanConstitutionalMode
+    ) async -> ScriptureVerificationReport {
+
+        guard !references.isEmpty else {
+            return ScriptureVerificationReport(
+                verifiedRefs: [],
+                mismatchRefs: [],
+                unresolvableRefs: [],
+                epistemicDeclaration: .empty
+            )
+        }
+
+        // Build the callable payload.
+        let payload: [String: Any] = [
+            "references": references,
+            "claimedTexts": claimedTexts,
+            "translation": translation
+        ]
+
+        let callable = Functions.functions().httpsCallable("verifyScriptureText")
+
+        do {
+            let result = try await callable.call(payload)
+
+            guard let data = result.data as? [String: Any] else {
+                // Unrecognised response shape — fail-secure.
+                return failSecureReport(references: references)
+            }
+
+            let verified    = data["verified"]    as? [String]         ?? []
+            let mismatches  = data["mismatches"]  as? [[String: Any]]  ?? []
+            let unresolved  = data["unresolvable"] as? [String]        ?? []
+
+            var mismatchStructs: [ScriptureMismatch] = []
+            for item in mismatches {
+                guard
+                    let ref      = item["ref"]          as? String,
+                    let claimed  = item["claimedText"]  as? String,
+                    let canon    = item["canonicalText"] as? String
+                else { continue }
+                mismatchStructs.append(ScriptureMismatch(ref: ref, claimedText: claimed, canonicalText: canon))
+            }
+
+            // Mode policy: .guard and .discern treat mismatch refs as unresolvable
+            // for the purposes of the EpistemicDeclaration unknowns list.
+            let policy = BereanConstitutionalReviewGate.scriptureVerificationPolicy(for: mode)
+            let unknownRefs: [String]
+            switch policy {
+            case .blockOnMismatch:
+                // Mismatch refs are treated as unknowns — they must not be shown as AI text.
+                unknownRefs = unresolved + mismatchStructs.map(\.ref)
+            case .annotateOnMismatch:
+                // Mismatch refs appear as annotations, not in unknowns.
+                unknownRefs = unresolved
+            }
+
+            let declaration = EpistemicDeclaration(
+                verifiedFacts: verified,
+                assumptions: [],
+                unknowns: unknownRefs
+            )
+
+            return ScriptureVerificationReport(
+                verifiedRefs: verified,
+                mismatchRefs: mismatchStructs,
+                unresolvableRefs: unresolved,
+                epistemicDeclaration: declaration
+            )
+
+        } catch {
+            // Any callable error → fail-secure: all refs become unresolvable.
+            return failSecureReport(references: references)
+        }
+    }
+
+    // MARK: — Fail-secure helper
+
+    /// Returns a report where every reference is unresolvable — used on CF errors.
+    private static func failSecureReport(references: [String]) -> ScriptureVerificationReport {
+        let declaration = EpistemicDeclaration(
+            verifiedFacts: [],
+            assumptions: [],
+            unknowns: references
+        )
+        return ScriptureVerificationReport(
+            verifiedRefs: [],
+            mismatchRefs: [],
+            unresolvableRefs: references,
+            epistemicDeclaration: declaration
+        )
     }
 
     // MARK: — Internal helpers
