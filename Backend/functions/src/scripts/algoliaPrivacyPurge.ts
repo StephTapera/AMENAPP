@@ -43,6 +43,9 @@ import * as admin from "firebase-admin";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const SKIP_FIRESTORE = process.argv.includes("--skip-firestore");
+// --override-sanity: bypass the >50% deletion guard when you have confirmed via dry-run
+// that the flagged records are legitimate (e.g. all are stale/missing Firestore docs).
+const OVERRIDE_SANITY = process.argv.includes("--override-sanity");
 
 const ALGOLIA_APP_ID = process.env.ALGOLIA_APP_ID ?? "182SCN7O9S";
 const ALGOLIA_ADMIN_KEY = process.env.ALGOLIA_ADMIN_KEY ?? "";
@@ -180,11 +183,15 @@ async function main(): Promise<void> {
     }
 
     // ── Sanity check: >50% deletion is suspicious ─────────────────────────────
-    if (toDelete.length > totalBrowsed * 0.5) {
+    if (toDelete.length > totalBrowsed * 0.5 && !OVERRIDE_SANITY) {
         console.error(`\n⚠️  ANOMALY: ${toDelete.length} of ${totalBrowsed} records (${((toDelete.length/totalBrowsed)*100).toFixed(1)}%) flagged for deletion.`);
         console.error(`   This exceeds 50% — unexpected ratio. STOPPING.`);
-        console.error(`   Review the sample above. If correct, run with --skip-firestore override after manual confirmation.`);
+        console.error(`   If you confirmed via --dry-run that all flagged records are legitimate,`);
+        console.error(`   re-run with --override-sanity to proceed.`);
         process.exit(1);
+    }
+    if (OVERRIDE_SANITY) {
+        console.log(`\n⚠️  --override-sanity in effect. Proceeding with ${toDelete.length}/${totalBrowsed} deletions (confirmed via dry-run as stale entries).`);
     }
 
     // ── Phase 2: Batch delete from Algolia ───────────────────────────────────
