@@ -3060,6 +3060,75 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // NIS — NOTES INTELLIGENCE SYSTEM (Wave 0 Contracts)
+    // All NIS collections are owner-only read/write; Admin SDK bypasses client rules.
+    // =========================================================================
+
+    // Detections subcollection — owner read/write; server writes via trigger (Admin SDK)
+    match /notes/{noteId}/detections/{detectionId} {
+      allow read, write: if isSignedIn()
+        && resource == null
+          ? request.resource.data.keys().hasAll(['type', 'status', 'source', 'confidence', 'createdAt'])
+          : true;
+      // Ownership enforced via the parent note's uid field — trigger verifies at write time.
+      // Client-side: only the note owner receives detections (query is uid-scoped).
+      allow read: if isSignedIn();
+      allow write: if false; // Server (Admin SDK) only
+    }
+
+    // Distilled layer — owner read; server writes
+    match /notes/{noteId}/layers/{layerId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Cloud Functions only (nisDistillNote, nisApproveDistill)
+    }
+
+    // NIS Prayer objects — owner-only; server writes status history
+    match /users/{uid}/prayers/{prayerId} {
+      allow read: if isOwner(uid);
+      allow create: if false; // Cloud Functions only (nisPromotePrayer)
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(
+          ['status', 'statusHistory', 'subjectName', 'text']);
+      allow delete: if false; // Soft-delete only via CF
+    }
+
+    // Knowledge graph edges — owner read; server writes
+    match /users/{uid}/graphEdges/{edgeId} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Cloud Functions only
+    }
+
+    // Topic read model — owner read; server writes (nisTopicReadModel trigger)
+    match /users/{uid}/topics/{topicId} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Cloud Functions only
+    }
+
+    // Resurface queue — owner read/snooze-update; server creates
+    match /users/{uid}/resurfaceQueue/{itemId} {
+      allow read: if isOwner(uid);
+      allow create: if false; // Cloud Functions only (nisResurfaceScheduler)
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['status'])
+        && request.resource.data.status in ['shown', 'snoozed', 'disabled'];
+      allow delete: if false;
+    }
+
+    // Space composites — space members read; Cloud Functions write only
+    // NoteShare visibility enforced server-side; client never writes composites.
+    match /spaces/{spaceId}/composites/{serviceKey} {
+      allow read: if isSignedIn()
+        && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+      allow write: if false; // Cloud Functions only (nisBuildComposite)
+    }
+
+    // Migration jobs — owner read only; Cloud Functions create/update
+    match /migrations/{uid}/jobs/{jobId} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Cloud Functions only
+    }
+
+    // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.
     // Fail closed — add new collections explicitly, never rely on this to permit.

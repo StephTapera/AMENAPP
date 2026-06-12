@@ -19,48 +19,64 @@ enum ChurchNoteBlockType: String, Codable, CaseIterable, Hashable, Identifiable 
     case action
     case reflection
     case scripture
+    // NIS Wave 0 — registered here; render implementations owned by Lanes F/G/H (Wave 2)
+    case scriptureLive  // live passage via API.Bible provider; translation-switchable
+    case prayerCard     // promoted NISPrayer entity with lifecycle UI
+    case wrestling      // honest doubt/disagreement; one-tap Berean Discern handoff
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .paragraph:  return "Paragraph"
-        case .quote:      return "Quote"
-        case .takeaway:   return "Takeaway"
-        case .prayer:     return "Prayer"
-        case .action:     return "Action Step"
-        case .reflection: return "Reflection"
-        case .scripture:  return "Scripture"
+        case .paragraph:     return "Paragraph"
+        case .quote:         return "Quote"
+        case .takeaway:      return "Takeaway"
+        case .prayer:        return "Prayer"
+        case .action:        return "Action Step"
+        case .reflection:    return "Reflection"
+        case .scripture:     return "Scripture"
+        case .scriptureLive: return "Live Scripture"
+        case .prayerCard:    return "Prayer"
+        case .wrestling:     return "Wrestling"
         }
     }
 
     var icon: String {
         switch self {
-        case .paragraph:  return "text.alignleft"
-        case .quote:      return "quote.opening"
-        case .takeaway:   return "lightbulb.fill"
-        case .prayer:     return "hands.sparkles.fill"
-        case .action:     return "checkmark.circle.fill"
-        case .reflection: return "heart.text.clipboard.fill"
-        case .scripture:  return "book.fill"
+        case .paragraph:     return "text.alignleft"
+        case .quote:         return "quote.opening"
+        case .takeaway:      return "lightbulb.fill"
+        case .prayer:        return "hands.sparkles.fill"
+        case .action:        return "checkmark.circle.fill"
+        case .reflection:    return "heart.text.clipboard.fill"
+        case .scripture:     return "book.fill"
+        case .scriptureLive: return "book.pages.fill"
+        case .prayerCard:    return "hands.sparkles.fill"
+        case .wrestling:     return "arrow.circlepath"
         }
     }
 
     /// Whether this block type appears in conversion menus.
     var isConvertible: Bool {
-        self != .paragraph
+        switch self {
+        case .paragraph, .scriptureLive, .prayerCard, .wrestling: return false
+        default: return true
+        }
     }
 
     /// Corresponding highlight type for block tinting.
     var highlightType: ChurchNoteHighlightType? {
         switch self {
-        case .paragraph:  return nil
-        case .quote:      return .quote
-        case .takeaway:   return .takeaway
-        case .prayer:     return .prayer
-        case .action:     return .action
-        case .reflection: return nil
-        case .scripture:  return .scripture
+        case .paragraph:     return nil
+        case .quote:         return .quote
+        case .takeaway:      return .takeaway
+        case .prayer:        return .prayer
+        case .action:        return .action
+        case .reflection:    return nil
+        case .scripture:     return .scripture
+        case .scriptureLive: return .scripture
+        case .prayerCard:    return .prayer
+        case .wrestling:     return nil
         }
     }
 }

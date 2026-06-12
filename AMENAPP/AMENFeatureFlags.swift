@@ -246,6 +246,24 @@ final class AMENFeatureFlags: ObservableObject {
     /// Wave 4: Commitment Bridge — turn a Tier-C goal facet into a real Commitment Object.
     @Published private(set) var contextCommitmentBridgeEnabled: Bool = false
 
+    // MARK: - Berean Intelligence Layer
+    @Published private(set) var bilEnabled: Bool = false
+    @Published private(set) var bilCompactorEnabled: Bool = false
+    @Published private(set) var bilLedgerEnabled: Bool = false
+    @Published private(set) var bilBranchingEnabled: Bool = false
+    @Published private(set) var bilSourceCardsEnabled: Bool = false
+    @Published private(set) var bilContextPackagesEnabled: Bool = false
+
+    var bilWave1Enabled: Bool {
+        bilEnabled && (
+            bilCompactorEnabled ||
+            bilLedgerEnabled ||
+            bilBranchingEnabled ||
+            bilSourceCardsEnabled ||
+            bilContextPackagesEnabled
+        )
+    }
+
     // MARK: - Amen Daily Digest
     @Published private(set) var amenDailyDigestEnabled: Bool = true
     @Published private(set) var amenDailyDigestWeatherEnabled: Bool = true
@@ -821,6 +839,28 @@ final class AMENFeatureFlags: ObservableObject {
     @Published var composerIntentEngineEnabled: Bool = false
     @Published var composerSmartCardsEnabled: Bool = false
 
+    // MARK: - System NIS: Notes Intelligence System (all default OFF — Wave 0 contracts)
+    // Server pipeline (nisProcessNote trigger) may run behind nis_detection_layer server flag
+    // so data accrues safely before any UI surface ships.
+    /// C1 + C3: Silent Detection Layer + Scripture Engine client surfacing.
+    @Published private(set) var nisDetectionLayerEnabled: Bool = false
+    /// C2: Birth Context — note inherits church, series, and timestamp at creation.
+    @Published private(set) var nisBirthContextEnabled: Bool = false
+    /// C4: Prayer Objects — prayer detections promote to lifecycle-tracked entities.
+    @Published private(set) var nisPrayerObjectsEnabled: Bool = false
+    /// C5: Two-Layer Notes — Berean proposes distilled layer; user approves/edits.
+    @Published private(set) var nisDistillEnabled: Bool = false
+    /// C6: Ripening / Resurfacing — past notes surface in Selah (max 1/week, anti-addiction).
+    @Published private(set) var nisResurfaceEnabled: Bool = false
+    /// C7: Knowledge Graph — typed edges + precomputed topic read model.
+    @Published private(set) var nisGraphTopicsEnabled: Bool = false
+    /// C8: Apple Notes Migration — import, classify, detect, graph retroactively.
+    @Published private(set) var nisMigrationEnabled: Bool = false
+    /// C9a: Wrestling Block + Berean Discern handoff.
+    @Published private(set) var nisWrestlingEnabled: Bool = false
+    /// C9b: Composite Space Notes — merged read model for shared-service notes.
+    @Published private(set) var nisCompositesEnabled: Bool = false
+
     private init() {
         applyUITestOverrides()
         Task { await fetchRemoteConfig() }
@@ -1070,6 +1110,14 @@ final class AMENFeatureFlags: ObservableObject {
             "context_export_enabled": false as NSObject,
             "context_qr_enabled": false as NSObject,
             "context_commitment_bridge_enabled": false as NSObject,
+
+            // Berean Intelligence Layer — all default OFF
+            "bil_enabled": false as NSObject,
+            "bil_compactor": false as NSObject,
+            "bil_ledger": false as NSObject,
+            "bil_branching": false as NSObject,
+            "bil_source_cards": false as NSObject,
+            "bil_context_packages": false as NSObject,
 
             // Community Hubs & Object Intelligence
             "community_hubs_enabled": false as NSObject,
@@ -1494,6 +1542,17 @@ final class AMENFeatureFlags: ObservableObject {
             "findChurch2_availability": false as NSObject,
             "findChurch2_trustSignals": false as NSObject,
             "findChurch2_designRefresh": false as NSObject,
+
+            // NIS — Notes Intelligence System (all default OFF)
+            "nis_detection_layer": false as NSObject,
+            "nis_birth_context": false as NSObject,
+            "nis_prayer_objects": false as NSObject,
+            "nis_distill": false as NSObject,
+            "nis_resurface": false as NSObject,
+            "nis_graph_topics": false as NSObject,
+            "nis_migration": false as NSObject,
+            "nis_wrestling": false as NSObject,
+            "nis_composites": false as NSObject,
         ]
     }
 
@@ -1678,6 +1737,13 @@ final class AMENFeatureFlags: ObservableObject {
         contextExportEnabled = config["context_export_enabled"].boolValue
         contextQREnabled = config["context_qr_enabled"].boolValue
         contextCommitmentBridgeEnabled = config["context_commitment_bridge_enabled"].boolValue
+
+        bilEnabled = config["bil_enabled"].boolValue
+        bilCompactorEnabled = config["bil_compactor"].boolValue
+        bilLedgerEnabled = config["bil_ledger"].boolValue
+        bilBranchingEnabled = config["bil_branching"].boolValue
+        bilSourceCardsEnabled = config["bil_source_cards"].boolValue
+        bilContextPackagesEnabled = config["bil_context_packages"].boolValue
 
         communityHubsEnabled = config["community_hubs_enabled"].boolValue
         communityObjectMatchingEnabled = config["community_object_matching_enabled"].boolValue
@@ -2109,6 +2175,17 @@ final class AMENFeatureFlags: ObservableObject {
             values[key] = config.configValue(forKey: key).boolValue
         }
         CommunicationOSRemoteConfigBridge.applyRemoteConfig(communicationOSValues)
+
+        // NIS — Notes Intelligence System
+        nisDetectionLayerEnabled = config["nis_detection_layer"].boolValue
+        nisBirthContextEnabled   = config["nis_birth_context"].boolValue
+        nisPrayerObjectsEnabled  = config["nis_prayer_objects"].boolValue
+        nisDistillEnabled        = config["nis_distill"].boolValue
+        nisResurfaceEnabled      = config["nis_resurface"].boolValue
+        nisGraphTopicsEnabled    = config["nis_graph_topics"].boolValue
+        nisMigrationEnabled      = config["nis_migration"].boolValue
+        nisWrestlingEnabled      = config["nis_wrestling"].boolValue
+        nisCompositesEnabled     = config["nis_composites"].boolValue
     }
 
     private func syncSpiritualOSAppStorageFlags(_ config: RemoteConfig) {

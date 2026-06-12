@@ -29,6 +29,9 @@ export * from "./thinkFirst/validateThinkFirstCheck";
 // for human review without echoing the raw response text.
 export * from "./aiSafety/reportUnsafeAIResponse";
 
+// Berean Pipeline Orchestrator — 7-stage constitutional AI pipeline
+export * from "./berean/bereanPipeline";
+
 // Berean Spiritual Intelligence Layers (System 16)
 //   Feature 1: Living Scripture Graph
 //   Feature 2: Spiritual State Discernment Layer
@@ -45,6 +48,8 @@ export * from "./berean/controllers/generateDiscipleshipNextStep";
 export * from "./berean/controllers/saveReflectionEntry";
 export * from "./berean/controllers/generateChurchNotesSummary";
 export * from "./berean/controllers/premiumBereanCallables";
+// Berean Pipeline Stage 5: Constitutional Review hard gate
+export * from "./berean/constitutionalReview";
 
 // Selah Media OS (System 18)
 export * from "./selahMedia";
@@ -311,6 +316,21 @@ export { attachSharedKnowledgeIntegrity, voteKnowledgeIntegrity, getWeeklyAlignm
 // Callable:  backfillHolidayCalendar (admin-only), validateHolidayCalendarYear (admin-only)
 export * from "./holidayCalendarGenerator";
 
+// Notes Intelligence System (NIS) — Wave 0 contracts
+// Surfaces: nisProcessNote (trigger), nisDistillNote, nisPromotePrayer,
+//   nisResolveDetection, nisResurfaceScheduler, nisMigrationStart,
+//   nisTopicReadModel (trigger)
+// All NIS UI flags default OFF — flip via Remote Config after Wave verification.
+export {
+    nisProcessNote,
+    nisDistillNote,
+    nisPromotePrayer,
+    nisResolveDetection,
+    nisResurfaceScheduler,
+    nisMigrationStart,
+    nisTopicReadModel,
+} from "./nis";
+
 // Lord's Day Rest Mode — server-side policy evaluation + AI label resolution
 // Callables: evaluateRestMode, setRestModePolicy, resolvePostAILabel
 // Trigger:   onRestModePolicyWritten (restModePolicies/{userId})
@@ -388,6 +408,13 @@ export {
 // Berean Operating Layer — integrated Berean AI response with full context pipeline
 // Callable: generateBereanOperatingResponse
 export * from "./berean/bereanOperatingLayer";
+
+// Berean Memory Store — Trust Architecture Layer 3
+// Callables: bereanMemoryWrite, bereanMemoryRead, bereanMemoryDelete,
+//            bereanMemoryDeleteAll, bereanMemoryUpdate
+// Firestore: berean_memory/{userId}/entries/{entryId}
+// Flag: berean_memory_enabled in system/serverFeatureFlags
+export * from "./berean/bereanMemory";
 
 // Video Explain — AI-powered explanation of sermon/teaching video content
 // Callable: explainVideoContent (Auth + App Check, transcript gate, Claude, safety filter)
@@ -700,3 +727,8 @@ export {
 // Adaptive Composer Attachments — link unfurling, calendar payloads,
 // volunteer slots, prayer count aggregation.
 export * from "./composerAttachments";
+
+// Global Resilience Wave 1 — resilient messaging (sendMessageGlobal, getThreadOfflineCache)
+// Auth + App Check enforced. Idempotent sends (7-day TTL key). Privacy-aware FCM push.
+// Region: us-east1.
+export * from "./globalResilience/index";
