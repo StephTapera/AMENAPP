@@ -7,9 +7,9 @@
 
 import SwiftUI
 
-// MARK: - TrustLevel
+// MARK: - BereanResponseTrustLevel
 
-enum TrustLevel {
+enum BereanResponseTrustLevel {
     case verified
     case mostlyVerified
     case partiallyVerified
@@ -45,8 +45,8 @@ enum TrustLevel {
         }
     }
 
-    /// Derives the appropriate TrustLevel from a 0.0–1.0 confidence score.
-    static func from(score: Double) -> TrustLevel {
+    /// Derives the appropriate trust level from a 0.0-1.0 confidence score.
+    static func from(score: Double) -> BereanResponseTrustLevel {
         switch score {
         case 0.8...:  return .verified
         case 0.6...:  return .mostlyVerified
@@ -61,7 +61,7 @@ enum TrustLevel {
 /// Compact badge showing the Berean trust level for an AI-generated response.
 /// Tap the badge to see the explanation in a popover.
 struct BereanTrustBadge: View {
-    let trustLevel: TrustLevel
+    let trustLevel: BereanResponseTrustLevel
     let score: Double
     let explanation: String
 
@@ -82,7 +82,7 @@ struct BereanTrustBadge: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(trustLevel.color)
 
-                Text("·")
+                Text(".")
                     .foregroundStyle(Color(.tertiaryLabel))
 
                 Text("\(Int(score * 100))%")
@@ -121,7 +121,7 @@ struct BereanTrustBadge: View {
 
 /// Popover content showing the full trust explanation.
 private struct TrustExplanationPopover: View {
-    let trustLevel: TrustLevel
+    let trustLevel: BereanResponseTrustLevel
     let score: Double
     let explanation: String
 
@@ -167,7 +167,7 @@ private struct TrustExplanationPopover: View {
 /// Horizontal row composing a "Berean Trust" label with the inline BereanTrustBadge.
 /// Append this to any BereanResponse view to surface the trust signal.
 struct TrustBadgeRow: View {
-    let trustLevel: TrustLevel
+    let trustLevel: BereanResponseTrustLevel
     let score: Double
     let explanation: String
 
@@ -195,10 +195,10 @@ struct TrustBadgeRow: View {
 #Preview("All trust levels") {
     VStack(alignment: .leading, spacing: 16) {
         ForEach([
-            (TrustLevel.verified,          0.92, "Multiple cross-referenced sources confirm this interpretation."),
-            (TrustLevel.mostlyVerified,    0.71, "Mainstream consensus with one minor dissenting tradition noted."),
-            (TrustLevel.partiallyVerified, 0.52, "Some supporting evidence; competing interpretations exist."),
-            (TrustLevel.unverified,        0.20, "Insufficient scriptural support found for this claim.")
+            (BereanResponseTrustLevel.verified,          0.92, "Multiple cross-referenced sources confirm this interpretation."),
+            (BereanResponseTrustLevel.mostlyVerified,    0.71, "Mainstream consensus with one minor dissenting tradition noted."),
+            (BereanResponseTrustLevel.partiallyVerified, 0.52, "Some supporting evidence; competing interpretations exist."),
+            (BereanResponseTrustLevel.unverified,        0.20, "Insufficient scriptural support found for this claim.")
         ], id: \.0.label) { level, score, explanation in
             TrustBadgeRow(trustLevel: level, score: score, explanation: explanation)
         }
