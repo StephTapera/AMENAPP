@@ -28,6 +28,11 @@
 //   I-3. Any throw from the pipeline (network, decode, partial corruption) is
 //        caught and replaced with the degraded response. The error is surfaced in
 //        self.error for the UI but NO unverified text is published to lastResponse.
+//   I-4. Before any flag check or network call, CrisisDetectionService performs a
+//        synchronous local scan. If a crisis signal is present the call is aborted,
+//        isCrisisEscalated is set to true, and NO Berean response is returned — not
+//        even a degraded one. The caller must observe isCrisisEscalated and show
+//        the crisis resource card.
 
 import Foundation
 import SwiftUI
@@ -105,6 +110,10 @@ final class BereanConstitutionalPipeline: ObservableObject {
     @Published var lastResponse: BereanPipelineResponse? = nil
     @Published var error: String? = nil
     @Published var conversationHistory: [BereanConversationTurn] = []
+    /// I-4: Set to true when a crisis signal is detected in the query.
+    /// The view must observe this and present the crisis resource card.
+    /// Never cleared automatically — call clearHistory() to reset.
+    @Published var isCrisisEscalated: Bool = false
 
     // MARK: Supporting Types
 
@@ -155,6 +164,17 @@ final class BereanConstitutionalPipeline: ObservableObject {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
             error = "Query cannot be empty."
+            return
+        }
+
+        // I-4: Crisis pre-screen — runs synchronously before ANY flag check or network
+        // call. If a crisis signal is detected the pipeline is halted immediately.
+        // The view must observe isCrisisEscalated and show the crisis resource card.
+        // Fail-closed: the degraded response is NOT returned either, because any AI
+        // response (verified or not) is inappropriate when a crisis signal is present.
+        if CrisisDetectionService.shared.hasLocalCrisisSignal(in: trimmedQuery) {
+            dlog("[BereanPipeline] I-4: crisis signal detected — aborting pipeline, setting isCrisisEscalated.")
+            isCrisisEscalated = true
             return
         }
 
@@ -216,11 +236,12 @@ final class BereanConstitutionalPipeline: ObservableObject {
         }
     }
 
-    /// Clears conversation history, last response, and any pending error.
+    /// Clears conversation history, last response, any pending error, and crisis state.
     func clearHistory() {
         conversationHistory = []
         lastResponse = nil
         error = nil
+        isCrisisEscalated = false
     }
 
     /// Submits star rating + optional comment for the most recent pipeline response.
@@ -361,7 +382,7 @@ enum BereanPipelineError: LocalizedError {
 
 #if DEBUG
 private struct BereanPipelinePreview: View {
-    @StateObject private var pipeline = BereanConstitutionalPipeline()
+    @StateObject private var pipeline = BereanConstitutionalPipeline.shared
     @State private var query = "What does Romans 8:28 mean for daily life?"
 
     var body: some View {
