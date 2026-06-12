@@ -1859,3 +1859,21 @@ exports.submitSafetyReport = require("./safety/submitSafetyReport").submitSafety
 const guardianLink = require("./guardianLink");
 exports.onGuardianLinkCreated = guardianLink.onGuardianLinkCreated;
 exports.verifyGuardianLink    = guardianLink.verifyGuardianLink;
+
+// ============================================================================
+// BEREAN CONSTITUTIONAL INTELLIGENCE — Wave 2 (Phase 4 deploy)
+//   verifyScriptureText — onCall (App Check): API.Bible round-trip verse verification
+//     Firestore cache → API.Bible fallback, 0.85 Jaccard threshold
+//     Rate limit: 30 req/60s per uid. Fail-secure: API error → unresolvable.
+// Deploy: firebase deploy --only functions:verifyScriptureText --project amen-5e359
+// ============================================================================
+const bereanConstitutional = require("./lib/berean/index");
+exports.verifyScriptureText            = bereanConstitutional.verifyScriptureText;
+exports.bereanConstitutionalPipeline   = bereanConstitutional.bereanConstitutionalPipeline;
+exports.bereanGetMemory                = bereanConstitutional.bereanGetMemory;
+exports.bereanDeleteMemory             = bereanConstitutional.bereanDeleteMemory;
+exports.bereanToggleMemoryLock         = bereanConstitutional.bereanToggleMemoryLock;
+exports.bereanUpdateMemory             = bereanConstitutional.bereanUpdateMemory;
+exports.bereanDeleteAllMemory          = bereanConstitutional.bereanDeleteAllMemory;
+exports.bereanSubmitFeedback           = bereanConstitutional.bereanSubmitFeedback;
+exports.bereanRunEvals                 = bereanConstitutional.bereanRunEvals;

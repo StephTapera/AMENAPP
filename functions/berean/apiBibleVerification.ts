@@ -341,7 +341,7 @@ async function resolveOneRef(
 export const verifyScriptureText = functions.onCall(
   {
     enforceAppCheck: true,
-    region: 'us-central1',
+    region: 'us-east1',
     secrets: ['BIBLE_API_KEY'],
   },
   async (request): Promise<VerifyScriptureResponse> => {

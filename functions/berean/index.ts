@@ -35,7 +35,7 @@ async function isFlagEnabled(flag: string): Promise<boolean> {
 export const bereanConstitutionalPipeline = functions.onCall(
   {
     enforceAppCheck: true,
-    region: 'us-central1',
+    region: 'us-east1',
     secrets: ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'BIBLE_API_KEY'],
   },
   async (request) => {
@@ -79,7 +79,7 @@ export const bereanConstitutionalPipeline = functions.onCall(
 // Output: { entries: MemoryEntry[] }
 
 export const bereanGetMemory = functions.onCall(
-  { enforceAppCheck: true, region: 'us-central1' },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     if (!request.auth) {
       throw new functions.HttpsError('unauthenticated', 'Authentication required.')
@@ -98,7 +98,7 @@ export const bereanGetMemory = functions.onCall(
 // Input:  { entryId: string }
 
 export const bereanDeleteMemory = functions.onCall(
-  { enforceAppCheck: true, region: 'us-central1' },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     if (!request.auth) {
       throw new functions.HttpsError('unauthenticated', 'Authentication required.')
@@ -121,7 +121,7 @@ export const bereanDeleteMemory = functions.onCall(
 // Input:  { entryId: string, locked: boolean }
 
 export const bereanToggleMemoryLock = functions.onCall(
-  { enforceAppCheck: true, region: 'us-central1' },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     if (!request.auth) {
       throw new functions.HttpsError('unauthenticated', 'Authentication required.')
@@ -149,7 +149,7 @@ export const bereanToggleMemoryLock = functions.onCall(
 // Input:  { entryId: string, content: string }
 
 export const bereanUpdateMemory = functions.onCall(
-  { enforceAppCheck: true, region: 'us-central1' },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     if (!request.auth) {
       throw new functions.HttpsError('unauthenticated', 'Authentication required.')
@@ -188,7 +188,7 @@ export const bereanUpdateMemory = functions.onCall(
 // Locked entries are also deleted when the user explicitly requests full erasure.
 
 export const bereanDeleteAllMemory = functions.onCall(
-  { enforceAppCheck: true, region: 'us-central1' },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     if (!request.auth) {
       throw new functions.HttpsError('unauthenticated', 'Authentication required.')
@@ -205,7 +205,7 @@ export const bereanDeleteAllMemory = functions.onCall(
 // Input:  { traceId: string, sessionId: string, rating: 'positive' | 'negative', comment?: string }
 
 export const bereanSubmitFeedback = functions.onCall(
-  { enforceAppCheck: true, region: 'us-central1' },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     if (!request.auth) {
       throw new functions.HttpsError('unauthenticated', 'Authentication required.')
@@ -242,7 +242,7 @@ export const bereanSubmitFeedback = functions.onCall(
 export const bereanRunEvals = functions.onCall(
   {
     enforceAppCheck: true,
-    region: 'us-central1',
+    region: 'us-east1',
     timeoutSeconds: 540,
     memory: '2GiB',
     secrets: ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'BIBLE_API_KEY'],

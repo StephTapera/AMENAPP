@@ -685,3 +685,7 @@ export {
     revokeNotificationsOnCommentDelete,
     revokeNotificationsOnPostDelete,
 } from "./notifications/notificationRevocation";
+
+// Adaptive Composer Attachments — link unfurling, calendar payloads,
+// volunteer slots, prayer count aggregation.
+export * from "./composerAttachments";
