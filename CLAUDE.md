@@ -27,6 +27,22 @@ As of 2026-06-12, us-central1 Cloud Run service quota is exhausted (~1007 servic
 
 `cloud-functions/` has its own `firebase.json` (codebase `quarantine-legacy`). It is NOT wired into root `firebase.json`. Never deploy from or to this directory. See `cloud-functions/README.md`.
 
+## Repo Build Protocol
+
+**Canonical build command:**
+
+```sh
+xcodebuild -scheme AMENAPP -destination 'generic/platform=iOS' build \
+  -clonedSourcePackagesDirPath ./SourcePackages.nosync \
+  -derivedDataPath ./DerivedData.nosync
+```
+
+**One build at a time, repo-wide:** before any agent starts a build, it must acquire `./.build-lock` with its session identifier and timestamp. A stale lock older than 30 minutes may be cleared only with a log note. Concurrent builds corrupt the shared SwiftPM caches.
+
+**Human build broker:** when an agent shell cannot produce the build because of sandboxing, package services, or other local tool limits, the gate state is `HUMAN-PENDING at SHA <hash>`. The human runs the canonical command on the quiet tree and reports `SUCCEEDED` or `FAILED` with the SHA. A wave is not complete at `HUMAN-PENDING`, but agents may continue non-build work while that gate is pending.
+
+**Per-worktree builds:** use per-worktree cache paths. Do not use the repo-root `.nosync` directories from secondary worktrees.
+
 ## Code Style
 
 - PascalCase types, camelCase properties/methods
