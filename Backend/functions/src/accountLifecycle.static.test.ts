@@ -8,6 +8,34 @@ function read(relativePath: string): string {
 }
 
 describe("account lifecycle callable surface", () => {
+    // P0-9 / P0-10: Verify that the deletion cascade covers all AI conversation stores.
+    // This is a static source-level assertion: if any of these strings disappear from the
+    // cascade source it means the collection was accidentally removed from deletion scope.
+    test("P0-9 P0-10: deletion cascade includes all AI/Berean conversation collections", () => {
+        const cascade = read("src/userAccountDeletionCascade.ts");
+        // Root collections (P0-9)
+        expect(cascade).toContain("aiBibleStudyConversations");
+        expect(cascade).toContain("realtimeSessions");
+        // User subcollections (P0-10)
+        expect(cascade).toContain('"chatHistory"');
+        expect(cascade).toContain('"bereanConversations"');
+        // Subcollection cleanup for nested content
+        expect(cascade).toContain('collection("messages")');
+        expect(cascade).toContain('collection("analyticsEvents")');
+        expect(cascade).toContain('collection("scriptureReferences")');
+    });
+
+    test("P0-9 P0-10: accountDeletion.js (Firestore trigger) covers same AI stores", () => {
+        const trigger = fs.readFileSync(
+            path.join(__dirname, "../../../functions/accountDeletion.js"),
+            "utf8"
+        );
+        expect(trigger).toContain("aiBibleStudyConversations");
+        expect(trigger).toContain("realtimeSessions");
+        expect(trigger).toContain("'chatHistory'");
+        expect(trigger).toContain("'bereanConversations'");
+    });
+
     test("exports auth/account lifecycle callables used by iOS", () => {
         const index = read("index.ts");
         expect(index).toContain('export * from "./twoFactorAuth"');

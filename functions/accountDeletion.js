@@ -61,6 +61,11 @@ const USER_SUBCOLLECTIONS = [
   'savedPosts', 'notificationPreferences', 'privacySettings',
   // Berean AI stores (P0-05): must be hard-deleted on account removal.
   'bereanMemory', 'bereanPipelineTraces', 'bereanModelLogs', 'bereanFeedback',
+  // P0-10: AI/Berean conversation history stores on user doc — contain user-typed
+  // prayer, personal questions, and AI responses. Must be deleted on account removal
+  // (App Store 5.1.1(v) / GDPR Art.17).
+  'chatHistory',        // BereanChatView.swift:254 — assistant reply log
+  'bereanConversations', // BereanConversationService.swift + premiumBereanCallables.ts
 ];
 
 exports.processAccountDeletion = onDocumentCreated(
@@ -249,6 +254,55 @@ exports.processAccountDeletion = onDocumentCreated(
       const bereanMemoryRef = db.collection('berean_memory').doc(uid);
       await deleteCollection(bereanMemoryRef.collection('entries'));
       await bereanMemoryRef.delete();
+
+      // ── P0-9: aiBibleStudyConversations — root collection keyed by userId. ──────
+      // Each conversation doc also has a `messages` subcollection containing the
+      // user's typed queries and AI responses (App Store 5.1.1(v) / GDPR Art.17).
+      // Must recursively delete messages before deleting the conversation doc.
+      // BACKFILL REQUIRED: Run one-time admin script to delete aiBibleStudyConversations
+      // for users already in the deletion audit log. If no audit log exists, log as P1.
+      {
+        let conversationsQuery = db.collection('aiBibleStudyConversations')
+          .where('userId', '==', uid).limit(100);
+        let conversationsSnap = await conversationsQuery.get();
+        while (!conversationsSnap.empty) {
+          for (const convDoc of conversationsSnap.docs) {
+            // Delete the messages subcollection first (nested personal content)
+            await deleteCollection(convDoc.ref.collection('messages'));
+            await convDoc.ref.delete();
+          }
+          if (conversationsSnap.size < 100) break;
+          conversationsSnap = await conversationsQuery.get();
+        }
+        console.log(`[accountDeletion] aiBibleStudyConversations cleared for uid=${uid}`);
+      }
+
+      // ── P0-9 (additional): realtimeSessions — root collection keyed by createdBy. ──
+      // Voice/prayer realtime session records written by createRealtimeSession CF.
+      // Subcollections: analyticsEvents, scriptureReferences. All must be deleted.
+      // (Audit finding A13-006; field is `createdBy` and also mirrored in `ownerId`.)
+      {
+        let sessionsQuery = db.collection('realtimeSessions')
+          .where('createdBy', '==', uid).limit(100);
+        let sessionsSnap = await sessionsQuery.get();
+        while (!sessionsSnap.empty) {
+          for (const sessionDoc of sessionsSnap.docs) {
+            await deleteCollection(sessionDoc.ref.collection('analyticsEvents'));
+            await deleteCollection(sessionDoc.ref.collection('scriptureReferences'));
+            await sessionDoc.ref.delete();
+          }
+          if (sessionsSnap.size < 100) break;
+          sessionsSnap = await sessionsQuery.get();
+        }
+        console.log(`[accountDeletion] realtimeSessions cleared for uid=${uid}`);
+      }
+
+      // TODO(P1 — Pinecone): Delete user vectors from Pinecone index.
+      // Namespace format: userId (each user's embeddings are namespaced by UID).
+      // Requires PINECONE_API_KEY + PINECONE_INDEX_NAME env vars.
+      // When available, call: pineconeIndex.delete1({ deleteAll: true, namespace: uid })
+      // Tracked as P1 because Pinecone is not yet provisioned for production
+      // (see Backend/functions/src/berean/bereanMemory.ts:435).
 
       console.log(`[accountDeletion] Firestore cleared for uid=${uid}`);
     } catch (e) {
