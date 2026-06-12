@@ -29,7 +29,8 @@ struct BereanOSHubView: View {
         flags.bereanOSSocialKnowledgeFeedEnabled ||
         flags.bereanOSAdvisoryBoardsEnabled ||
         flags.bereanOSMentorOSEnabled ||
-        flags.bereanOSKnowledgeGraphEnabled
+        flags.bereanOSKnowledgeGraphEnabled ||
+        BILWaveOneFeatureGate.isWaveOneEnabled
     }
 
     private var anyQuickActionEnabled: Bool {
@@ -63,6 +64,9 @@ struct BereanOSHubView: View {
                         }
                         if flags.bereanOSKnowledgeGraphEnabled {
                             knowledgeGraphSection
+                        }
+                        if BILWaveOneFeatureGate.isWaveOneEnabled {
+                            bereanIntelligenceSection
                         }
                     }
                     .padding(.horizontal)
@@ -256,6 +260,23 @@ struct BereanOSHubView: View {
                 BereanKnowledgeGraphView()
             } label: {
                 listRow(icon: "network", label: "Knowledge Graph")
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Berean Intelligence Layer Section
+
+    private var bereanIntelligenceSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader(
+                title: "Berean Intelligence",
+                destination: AnyView(BILWaveOneHubView())
+            )
+            NavigationLink {
+                BILWaveOneHubView()
+            } label: {
+                listRow(icon: "sparkles.rectangle.stack", label: "Context, sources, and packages")
             }
             .buttonStyle(.plain)
         }
