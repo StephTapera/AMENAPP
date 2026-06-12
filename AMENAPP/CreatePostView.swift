@@ -4321,6 +4321,7 @@ struct CreatePostView: View {
                     "topicTag": topicTag as Any,
                     "visibility": postVisibility.rawValue,
                     "allowComments": allowComments,
+                    "commentPermissions": (allowComments ? mapToPostCommentPermissions(commentPermission) : .off).rawValue,
                     "imageURLs": imageURLs as Any,
                     "linkURL": (linkURL ?? linkController.activeURL?.absoluteString) as Any? as Any,
                     "createdAt": Timestamp(date: timestamp),
