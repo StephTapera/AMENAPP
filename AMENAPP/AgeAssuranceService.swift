@@ -143,18 +143,47 @@ class AgeAssuranceService: ObservableObject {
     func canAccess(feature: AgeRestrictedFeature, userId: String? = nil) async -> Bool {
         // Use cached tier if available
         if userId == nil || userId == Auth.auth().currentUser?.uid {
+            // P0-8: When requireParentalConsentUnder16 is true, restrict all teens
+            // from messaging and Berean surfaces until parental consent is on file.
+            // Guardian consent UI (OPEN-2) is not yet complete — protective default blocks access.
+            if config.requireParentalConsentUnder16 && currentUserTier == .teen {
+                switch feature {
+                case .directMessages, .sensitiveContent, .liveStreaming, .commerce:
+                    dlog("🛡️ [P0-8] Under-16 gate: blocking \(feature) for teen without parental consent")
+                    return false
+                case .publicProfile:
+                    break  // Public profile still permitted for teens
+                }
+            }
             return currentUserTier.canAccess(feature: feature)
         }
-        
+
         // Fetch tier for other user
         guard let userId = userId else { return false }
         do {
             let profile = try await getAgeProfile(userId: userId)
+            // P0-8: Same restriction applied for looked-up users
+            if config.requireParentalConsentUnder16 && profile.tier == .teen {
+                switch feature {
+                case .directMessages, .sensitiveContent, .liveStreaming, .commerce:
+                    return false
+                case .publicProfile:
+                    break
+                }
+            }
             return profile.canAccess(feature: feature)
         } catch {
             dlog("⚠️ Failed to check feature access: \(error.localizedDescription)")
             return false  // Fail closed for safety
         }
+    }
+
+    /// Returns true if a user aged under 16 (teen tier) is restricted pending parental consent.
+    /// Under P0-8 this is always true while requireParentalConsentUnder16 is set and guardian
+    /// consent UI (OPEN-2) is not yet complete.
+    func isRestrictedPendingParentalConsent(age: Int, hasConsent: Bool) -> Bool {
+        guard config.requireParentalConsentUnder16 else { return false }
+        return age < 16 && !hasConsent
     }
     
     /// Request age verification (triggered by suspicious activity or age change)

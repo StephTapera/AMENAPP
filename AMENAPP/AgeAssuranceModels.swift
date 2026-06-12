@@ -306,7 +306,9 @@ struct AgeGateConfig {
         aiRiskThreshold: 0.6,
         maxVerificationAttempts: 3,
         verificationCooldown: 86400,  // 24 hours
-        requireParentalConsentUnder16: false,
+        // PROTECTIVE DEFAULT: consent UI not yet complete — under-16 restricted until consent received
+        // OPEN-2: Build guardian consent UI. To relax this default, Steph explicit decision required.
+        requireParentalConsentUnder16: true,
         enableAIAgeDetection: true
     )
 }
