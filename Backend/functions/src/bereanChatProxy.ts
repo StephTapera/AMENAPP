@@ -109,6 +109,58 @@ export const bereanChatProxy = onCall(
             throw new HttpsError("unauthenticated", "App Check attestation required.");
         }
 
+        // ── P0-5 server fix: under-13 / no-DOB rejection (fail-closed) ─────────
+        // Read the caller's birth year from users/{uid}.  If birthYear is absent
+        // (unknown age) or indicates under-13 we reject immediately — before any
+        // LLM call or rate-limit check.  Fail-closed: no birthYear == treat as minor.
+        const callerUid = request.auth.uid;
+        try {
+            const userSnap = await admin.firestore()
+                .collection("users")
+                .doc(callerUid)
+                .get();
+            const userData = userSnap.data() ?? {};
+
+            // Accept birthYear (number), birthdate (ISO string), or minorStatus (bool).
+            const birthYear: number | null = (() => {
+                if (typeof userData.birthYear === "number") return userData.birthYear;
+                if (typeof userData.birthdate === "string" && userData.birthdate.length >= 4) {
+                    const parsed = parseInt(userData.birthdate.slice(0, 4), 10);
+                    return isNaN(parsed) ? null : parsed;
+                }
+                return null;
+            })();
+
+            const currentYear = new Date().getFullYear();
+            const isMinorByAge = birthYear !== null && (currentYear - birthYear) < 13;
+            const isMinorByFlag = userData.minorStatus === true;
+            const noDob = birthYear === null && userData.minorStatus !== false;
+
+            if (isMinorByAge || isMinorByFlag || noDob) {
+                console.warn("⚠️ bereanChatProxy: under-13 / no-DOB rejection", {
+                    uid: callerUid,
+                    isMinorByAge,
+                    isMinorByFlag,
+                    noDob,
+                });
+                throw new HttpsError(
+                    "failed-precondition",
+                    "Berean AI is not available for users under 13."
+                );
+            }
+        } catch (err: any) {
+            // Re-throw HttpsErrors (our own rejections) without wrapping.
+            if (err?.code && typeof err.code === "string") throw err;
+            // Firestore read failure: fail-closed — do not allow access.
+            console.error("❌ bereanChatProxy: failed to read user doc for age check", {
+                code: err?.code ?? "unknown",
+            });
+            throw new HttpsError(
+                "internal",
+                "Unable to verify user eligibility. Please try again."
+            );
+        }
+
         // CRITICAL-CF FIX: Per-user rate limiting.
         // Enforce both a per-minute burst limit and a daily token budget cap.
         // Throws HttpsError("resource-exhausted") if either window is exceeded.

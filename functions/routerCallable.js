@@ -124,11 +124,77 @@ exports.callModelTest = onCall(
   },
 );
 
+// ── GUARDIAN crisis detection (P0-6 server fix) ───────────────────────────────
+// 25-pattern list mirrored from bereanChatProxy.ts / CrisisSupportViewModel.
+// Any match short-circuits the callable — the LLM is never called.
+
+const GUARDIAN_CRISIS_KEYWORDS = [
+  "end it",
+  "end my life",
+  "kill myself",
+  "want to die",
+  "can't go on",
+  "cannot go on",
+  "no reason to live",
+  "take my life",
+  "don't want to be here",
+  "dont want to be here",
+  "don't want to exist",
+  "dont want to exist",
+  "wish i was dead",
+  "nothing to live for",
+  "better off dead",
+  "better off without me",
+  "going to hurt myself",
+  "hurt myself",
+  "self harm",
+  "self-harm",
+  "cut myself",
+  "overdose",
+  "jump off",
+  "hang myself",
+  "no point anymore",
+  "can't take it anymore",
+  "cant take it anymore",
+  "give up on life",
+  "end the pain",
+  "suicidal",
+  "suicide",
+  "what's the point",
+  "whats the point",
+];
+
+const GUARDIAN_CRISIS_RESPONSE = [
+  "I care about you and I want you to be safe right now.",
+  "",
+  "If you're in crisis, please reach out immediately:",
+  "• 988 Suicide & Crisis Lifeline — call or text 988",
+  "• Crisis Text Line — text HOME to 741741",
+  "• International Association for Suicide Prevention — https://www.iasp.info/resources/Crisis_Centres/",
+  "",
+  "You are not alone. A real person who can help is just a call or text away.",
+  "Please reach out to them before we continue.",
+].join("\n");
+
+/**
+ * GUARDIAN: Check text for crisis signals.
+ * Returns true if any keyword matches; caller must short-circuit to GUARDIAN_CRISIS_RESPONSE.
+ */
+function guardianDetectsCrisis(text) {
+  if (!text || typeof text !== "string") return false;
+  const lower = text.toLowerCase();
+  return GUARDIAN_CRISIS_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 // ── callModelBerean ───────────────────────────────────────────────────────────
 // Production Berean answer callable — routes through the router with
 // fail_closed + NVIDIA guards + Pinecone retrieval + citation validation.
 // This is the reference implementation for how existing berean functions
 // should be migrated to use the centralized router.
+//
+// P0-6 server fix (2026-06-12): GUARDIAN crisis check added at the top of the
+// handler — crisis queries are intercepted before any LLM call and receive the
+// safe escalation response. The LLM is never called for crisis content.
 
 exports.callModelBerean = onCall(
   {
@@ -142,6 +208,19 @@ exports.callModelBerean = onCall(
     const { question, namespace = "berean", queryVector } = request.data;
     if (!question) throw new HttpsError("invalid-argument", "question is required.");
     requireInputSize(question, 1000);
+
+    // ── GUARDIAN crisis gate (P0-6) ──────────────────────────────────────────
+    // Must run before rate-limit enforcement so crisis responses are never
+    // throttled and the user always receives the escalation message.
+    if (guardianDetectsCrisis(question)) {
+      logger.warn("callModelBerean: GUARDIAN crisis short-circuit", { uid });
+      return {
+        answer: GUARDIAN_CRISIS_RESPONSE,
+        provider: "guardian-crisis-short-circuit",
+        latencyMs: 0,
+        crisisShortCircuit: true,
+      };
+    }
 
     // 15 grounded answers per user per hour
     await enforceRateLimit(uid, "callModelBerean", 15, 3600);
