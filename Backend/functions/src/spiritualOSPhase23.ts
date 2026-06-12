@@ -84,7 +84,7 @@ function timestampMillis(value: unknown): number {
     return Date.now();
 }
 
-export const getHubItems = onCall(
+export const spiritualOSGetHubItems = onCall(
     { enforceAppCheck: true, maxInstances: 50, timeoutSeconds: 10 },
     async (request) => {
         const uid = requireAuthUser(request.auth?.uid, request.data?.userId);
@@ -156,7 +156,7 @@ export const getHubItems = onCall(
     }
 );
 
-export const pinHubItem = onCall(
+export const spiritualOSPinHubItem = onCall(
     { enforceAppCheck: true, maxInstances: 50, timeoutSeconds: 10 },
     async (request) => {
         const uid = requireAuthUser(request.auth?.uid, request.data?.userId);
@@ -183,7 +183,7 @@ export const pinHubItem = onCall(
     }
 );
 
-export const updateContextState = onCall(
+export const spiritualOSUpdateContextState = onCall(
     { enforceAppCheck: true, maxInstances: 50, timeoutSeconds: 10 },
     async (request) => {
         const uid = requireAuthUser(request.auth?.uid, request.data?.userId);
@@ -214,7 +214,7 @@ export const updateContextState = onCall(
     }
 );
 
-export const cleanupContextOnLogout = onCall(
+export const spiritualOSCleanupContextOnLogout = onCall(
     { enforceAppCheck: true, maxInstances: 50, timeoutSeconds: 10 },
     async (request) => {
         const uid = requireAuthUser(request.auth?.uid, request.data?.userId);
@@ -226,7 +226,7 @@ export const cleanupContextOnLogout = onCall(
     }
 );
 
-export const getAssistantResponse = onCall(
+export const spiritualOSAssistant = onCall(
     { enforceAppCheck: true, maxInstances: 20, timeoutSeconds: 30, secrets: [anthropicApiKey] },
     async (request) => {
         const uid = requireAuthUser(request.auth?.uid, request.data?.userId);
