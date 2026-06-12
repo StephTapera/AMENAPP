@@ -14,6 +14,8 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
+import { runDetectionPipeline } from "./detectionPipeline";
+import { nisDetectScriptureQuote as _nisDetectScriptureQuoteImpl } from "./scriptureQuoteDetector";
 
 const db = admin.firestore();
 
@@ -54,12 +56,8 @@ export const nisProcessNote = onDocumentWritten(
             if (ageMs < 30_000) return;
         }
 
-        // Lane B: run detection pipeline → write detections subcollection + graph edges
-        // Implementation placeholder — replace with real pipeline in Wave 1.
-        await db.doc(`notes/${noteId}`).set(
-            { nis: { lastProcessedAt: admin.firestore.FieldValue.serverTimestamp() } },
-            { merge: true }
-        );
+        // Lane B Wave 1: run detection pipeline → write detections subcollection + graph edges
+        await runDetectionPipeline(noteId, data);
     }
 );
 
@@ -72,11 +70,13 @@ export const nisProcessNote = onDocumentWritten(
 // Not exported as a public callable — internal pipeline function.
 // Implementation in nis/scriptureQuoteDetector.ts (Lane C, Wave 1).
 export async function nisDetectScriptureQuote(
-    _sentences: string[],
-    _noteId: string
+    sentences: string[],
+    noteId: string
 ): Promise<Array<{ sentence: string; verseId: string; score: number }>> {
-    // Wave 1: embed sentences, query Pinecone verse corpus, return matches ≥ 0.86
-    return [];
+    // Lane C Wave 1: delegate to pattern-matching implementation.
+    // Wave 2+ will swap this for embedding-based Pinecone retrieval without
+    // changing this signature.
+    return _nisDetectScriptureQuoteImpl(sentences, noteId);
 }
 
 // ---------------------------------------------------------------------------
