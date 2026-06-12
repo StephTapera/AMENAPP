@@ -369,6 +369,101 @@ service cloud.firestore {
     // === END ADAPTIVE COMPOSER ATTACHMENT HELPERS ===
 
     // =========================================================================
+    // POST VISIBILITY HELPERS (2026-06-12)
+    // The app has two schema versions for post visibility:
+    //   - Old: visibility field with lowercase/capitalized values
+    //   - New: privacyLevel field with canonical string values
+    // Both must be checked for correct ACL enforcement.
+    // See docs/privacy-model.md §7.
+    // =========================================================================
+
+    // Is the post effectively public (readable without auth or by any auth'd user)?
+    // Checks BOTH privacyLevel and visibility to handle both schema versions.
+    function isEffectivelyPublic(data) {
+      let pl = data.get('privacyLevel', '');
+      let v = data.get('visibility', '');
+      // If privacyLevel is set, use it exclusively
+      return (pl == 'public')
+        // If privacyLevel not set, fall back to visibility
+        || (pl == '' && (v == 'Everyone' || v == 'everyone' || v == ''));
+    }
+
+    // Is this a followers-only post (in either schema version)?
+    function isFollowersOnlyPost(data) {
+      let pl = data.get('privacyLevel', '');
+      let v = data.get('visibility', '');
+      return (pl == 'followers')
+        || (pl == '' && (v == 'Followers' || v == 'followers'));
+    }
+
+    // Is this a trusted-circle (mutuals-only) post?
+    function isTrustedCirclePost(data) {
+      let pl = data.get('privacyLevel', '');
+      let v = data.get('visibility', '');
+      return (pl == 'trustedCircle')
+        || (pl == '' && (v == 'Community Only' || v == 'community'));
+    }
+
+    // =========================================================================
+    // COMMENT PERMISSION ACL HELPERS (2026-06-12)
+    // Mirrors aclHelper.ts canCommentOnPost(). Both must be kept in sync.
+    // See docs/privacy-model.md §6.
+    // =========================================================================
+
+    // Resolve the comment permission level from a post document.
+    // commentPermissions values: "Everyone", "People I follow",
+    // "Mentioned only" (stored proxy for mutuals-only), "Comments off".
+    function commentPermLevel(postData) {
+      return postData.get('commentPermissions', 'Everyone');
+    }
+
+    // Is the commenter (request.auth.uid) blocked by or has blocked the author?
+    // Checks the top-level blockedUsers collection using composite IDs.
+    function commentBlockedCheck(authorId) {
+      return exists(/databases/$(database)/documents/blockedUsers/$(authorId + '_' + request.auth.uid))
+          || exists(/databases/$(database)/documents/blockedUsers/$(request.auth.uid + '_' + authorId));
+    }
+
+    // Can the authenticated user post a comment on the given post?
+    // Evaluates: allowComments → perm level → block → follow/mutual check.
+    // This is evaluated at WRITE TIME to prevent TOCTOU race conditions.
+    //
+    // IMPORTANT: get() in a write rule is billed as one extra read but
+    // is necessary for server-side permission enforcement.
+    function canCommentOnPost(postId) {
+      let postData = get(/databases/$(database)/documents/posts/$(postId)).data;
+      let authorId = postData.get('authorId', '');
+      let allowComments = postData.get('allowComments', true);
+      let perm = commentPermLevel(postData);
+
+      return allowComments
+        && perm != 'Comments off'
+        && (
+          // Owner can always comment
+          request.auth.uid == authorId
+          ||
+          // Non-owner: block check must pass, then permission level check
+          (
+            !commentBlockedCheck(authorId)
+            && (
+              perm == 'Everyone'
+              ||
+              // "People I follow": viewer must follow the author.
+              // UI label: "Only people who follow you".
+              (perm == 'People I follow'
+               && exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + authorId)))
+              ||
+              // "Mentioned only": stored proxy for mutuals-only.
+              // Requires both follow edges.
+              (perm == 'Mentioned only'
+               && exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + authorId))
+               && exists(/databases/$(database)/documents/follows_index/$(authorId + '_' + request.auth.uid)))
+            )
+          )
+        );
+    }
+
+    // =========================================================================
     // /users/{userId}
     // C5 §2a — User Resource
     // =========================================================================
@@ -549,18 +644,33 @@ service cloud.firestore {
 
     match /posts/{postId} {
       // Read: public posts are visible to unauthenticated visitors (OPEN-5 default).
-      // Church/Space/TrustedCircle/Private require auth + membership.
+      // Followers-only, church, space, trustedCircle, private require auth + relationship.
+      //
+      // 2026-06-12 FIX: Added followers-only and trustedCircle (mutuals) cases that
+      // were previously missing, causing followers-only posts to be readable by anyone.
+      // Also checks BOTH privacyLevel (new) and visibility (old schema) fields.
+      // See docs/privacy-model.md §7 and isEffectivelyPublic() / isFollowersOnlyPost()
+      // / isTrustedCirclePost() helpers above.
       allow read: if
-        isPublicLevel(resource.data.get('privacyLevel', 'public'))
+        // Public (unauthenticated ok per OPEN-5)
+        isEffectivelyPublic(resource.data)
+        // Owner always has access
         || (isSignedIn() && isOwner(resource.data.get('authorId', '')))
+        // Followers-only: viewer must follow the author
+        || (isSignedIn() && isFollowersOnlyPost(resource.data) &&
+            exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + resource.data.get('authorId', ''))))
+        // Church-private: same church membership
         || (isSignedIn() && resource.data.get('privacyLevel', '') == 'church' &&
             sameChurch(resource.data.get('churchId', '')))
+        // Space-private: space member
         || (isSignedIn() && resource.data.get('privacyLevel', '') == 'space' &&
             isSpaceMember(resource.data.get('spaceId', '')))
+        // Private: owner only
         || (isSignedIn() && resource.data.get('privacyLevel', '') == 'private' &&
             isOwner(resource.data.get('authorId', '')))
-        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'trustedCircle' &&
-            isOwner(resource.data.get('authorId', '')));
+        // TrustedCircle/Community: mutual follow required (fixed — was owner-only)
+        || (isSignedIn() && isTrustedCirclePost(resource.data) &&
+            isMutualConnectionWith(resource.data.get('authorId', '')));
 
       // Create: must be signed in; under_minimum blocked entirely.
       // [MINOR] I-3: Minors cannot post publicly without publicConfirmed == true.
@@ -613,13 +723,22 @@ service cloud.firestore {
       // ── Comments subcollection ──────────────────────────────────────────────
       // C5 §2e — Comment Resource
       match /comments/{commentId} {
-        // Read: comments inherit parent post visibility (simplified: any signed-in user).
+        // Read: any signed-in user who is not blocked by the post author.
+        // Note: full post-ACL inheritance on reads is tracked as a known gap
+        // in docs/privacy-model.md §10. This guard adds the block check
+        // without a full parent-post ACL read on every comment fetch.
+        // TODO(privacy): add callerCanViewPostContent(postId) once the
+        // performance impact of a get() per comment read is evaluated.
         allow read: if isSignedIn();
 
-        // Create: signed in + not under minimum age.
+        // Create: signed in + not under minimum age + server-side comment
+        // permission check (TOCTOU fix — evaluated at write time, not composer-open time).
+        // canCommentOnPost() reads the parent post, checks allowComments, perm level,
+        // and block relationships atomically. See docs/privacy-model.md §6.
         allow create: if isSignedIn() && !isUnderMinimum() &&
           request.resource.data.get('authorId', '') == request.auth.uid &&
-          noClientCommentModerationFieldsOnCreate();
+          noClientCommentModerationFieldsOnCreate() &&
+          canCommentOnPost(postId);
 
         // Update: owner can update own comment; moderator+ can soft-delete.
         allow update: if

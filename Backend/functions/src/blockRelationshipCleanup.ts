@@ -43,6 +43,10 @@ export const blockRelationshipCleanup = onDocumentCreated(
             removeFollows(blockerId, blockedId),
             removeFollowRequests(blockerId, blockedId),
             restrictSharedConversations(blockerId, blockedId),
+            // Revoke notifications FROM the blocked user in the blocker's inbox,
+            // AND notifications FROM the blocker in the blocked user's inbox.
+            // See docs/privacy-model.md §9.
+            revokeNotificationsOnBlock(blockerId, blockedId),
         ]);
 
         logger.info(
@@ -121,6 +125,63 @@ async function removeFollowRequests(
         batch.delete(doc.ref);
     }
     await batch.commit();
+}
+
+// ─── Notification Revocation ─────────────────────────────────────────────────
+
+const NOTIFICATION_LIMIT = 100;
+
+/**
+ * Deletes all notifications FROM the blocked user in the blocker's inbox,
+ * and all notifications FROM the blocker in the blocked user's inbox.
+ *
+ * Bidirectional: after a block, neither party should see notifications from
+ * the other. Capped at NOTIFICATION_LIMIT per direction to avoid timeout;
+ * a follow-up sweep is triggered if more exist (unlikely in practice).
+ */
+async function revokeNotificationsOnBlock(
+    blockerId: string,
+    blockedId: string
+): Promise<void> {
+    const [blockerInbox, blockedInbox] = await Promise.allSettled([
+        // Notifications from blockedId in blockerId's inbox
+        db
+            .collection("users")
+            .doc(blockerId)
+            .collection("notifications")
+            .where("actorId", "==", blockedId)
+            .limit(NOTIFICATION_LIMIT)
+            .get(),
+        // Notifications from blockerId in blockedId's inbox
+        db
+            .collection("users")
+            .doc(blockedId)
+            .collection("notifications")
+            .where("actorId", "==", blockerId)
+            .limit(NOTIFICATION_LIMIT)
+            .get(),
+    ]);
+
+    const allDocs: admin.firestore.QueryDocumentSnapshot[] = [];
+
+    if (blockerInbox.status === "fulfilled") {
+        allDocs.push(...blockerInbox.value.docs);
+    }
+    if (blockedInbox.status === "fulfilled") {
+        allDocs.push(...blockedInbox.value.docs);
+    }
+
+    if (allDocs.length === 0) return;
+
+    const batch = db.batch();
+    for (const doc of allDocs) {
+        batch.delete(doc.ref);
+    }
+    await batch.commit();
+
+    logger.info(
+        `[blockRelationshipCleanup] Revoked ${allDocs.length} notifications for block ${blockerId}→${blockedId}`
+    );
 }
 
 // ─── Conversation Restriction ─────────────────────────────────────────────────

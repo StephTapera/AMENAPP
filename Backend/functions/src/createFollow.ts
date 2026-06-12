@@ -34,6 +34,50 @@ import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
+
+const HOURLY_FOLLOW_LIMIT = 200;
+const HOUR_MS = 3_600_000;
+
+/**
+ * Throws resource-exhausted if followerId has exceeded HOURLY_FOLLOW_LIMIT
+ * follow operations in the current clock hour.
+ *
+ * Uses a Firestore counter doc with a 2-hour TTL for automatic cleanup.
+ * The transaction makes the check-and-increment atomic under concurrent calls.
+ */
+async function enforceFollowRateLimit(followerId: string): Promise<void> {
+    const hourBucket = Math.floor(Date.now() / HOUR_MS);
+    const rateLimitRef = db
+        .collection("_rateLimits")
+        .doc(`follow_${followerId}_${hourBucket}`);
+
+    await db.runTransaction(async (tx) => {
+        const doc = await tx.get(rateLimitRef);
+        const count: number = doc.exists ? ((doc.data()?.count as number) ?? 0) : 0;
+
+        if (count >= HOURLY_FOLLOW_LIMIT) {
+            throw new HttpsError(
+                "resource-exhausted",
+                "Follow rate limit exceeded. Please slow down before following more people."
+            );
+        }
+
+        tx.set(
+            rateLimitRef,
+            {
+                count: count + 1,
+                uid: followerId,
+                bucket: hourBucket,
+                // TTL for automatic cleanup (2 hours from bucket start)
+                ttl: admin.firestore.Timestamp.fromMillis((hourBucket + 2) * HOUR_MS),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+        );
+    });
+}
+
 export const createFollow = onCall(async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
@@ -67,6 +111,11 @@ export const createFollow = onCall(async (request) => {
             "Cannot follow yourself."
         );
     }
+
+    // Server-side rate limit: max 200 follows per hour.
+    // Prevents mass-follow abuse and follow-churn cycling.
+    // See docs/privacy-model.md §2 (Follow Churn Abuse).
+    await enforceFollowRateLimit(followerId);
 
     const now = admin.firestore.FieldValue.serverTimestamp();
     const indexId = `${followerId}_${followingId}`;

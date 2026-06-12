@@ -647,21 +647,85 @@ exports.ragSearch = onCall(
     allMatches.sort((a, b) => b.score - a.score);
     const results = allMatches.slice(0, 20);
 
-    // ── Privacy filter: remove private posts caller doesn't own ──────────────
-    //   For saved verses and church notes, results are user-scoped at Pinecone
-    //   upsert time (metadata.authorId). We add a client-side guard here.
-    const safeResults = results.filter((r) => {
-      if (r.type === "posts" && r.authorId && r.authorId !== uid) {
-        // Keep public posts; skip private
-        // TODO(gate: HUMAN-MACHINE) — isPrivate flag check requires a Firestore read per result; acceptable once read costs are evaluated
+    // ── Privacy filter: ACL-enforce every result before returning ──────────────
+    //   CRITICAL FIX (2026-06-12): The previous implementation kept all posts
+    //   regardless of privacy, allowing private testimony embeddings to be
+    //   returned to callers who shouldn't have access. See docs/privacy-model.md §10.
+    //
+    //   For posts: batch Firestore reads to check privacy level + block status.
+    //   For churchNotes: user-scoped at upsert time — only return caller's own.
+    //   For savedVerses / sermons: public by default.
+
+    const postResults = results.filter(
+      (r) => r.type === "posts" && r.authorId && r.authorId !== uid
+    );
+    const nonPostResults = results.filter(
+      (r) => !(r.type === "posts" && r.authorId && r.authorId !== uid)
+    );
+
+    // Batch ACL check for post results
+    const accessiblePostIds = new Set();
+    if (postResults.length > 0) {
+      await Promise.allSettled(
+        postResults.map(async (r) => {
+          try {
+            const postSnap = await db().collection("posts").doc(r.id).get();
+            if (!postSnap.exists) return; // deleted post
+
+            const postData = postSnap.data();
+            const postAuthorId = postData.authorId || postData.userId || "";
+
+            // Block check: deny if either party has blocked the other
+            const [blockedByAuthor, callerBlocked] = await Promise.all([
+              db().collection("blockedUsers").doc(`${postAuthorId}_${uid}`).get(),
+              db().collection("blockedUsers").doc(`${uid}_${postAuthorId}`).get(),
+            ]);
+            if (blockedByAuthor.exists || callerBlocked.exists) return;
+
+            // Normalise privacy level across schema versions
+            const raw = postData.privacyLevel || postData.visibility || "public";
+            const level = raw === "Everyone" ? "public"
+              : raw === "Followers" ? "followers"
+              : raw === "Community Only" ? "trustedCircle"
+              : raw;
+
+            if (level === "public" || level === "everyone") {
+              accessiblePostIds.add(r.id);
+            } else if (level === "followers") {
+              const followDoc = await db()
+                .collection("follows_index")
+                .doc(`${uid}_${postAuthorId}`)
+                .get();
+              if (followDoc.exists) accessiblePostIds.add(r.id);
+            } else if (level === "trustedCircle") {
+              const [ab, ba] = await Promise.all([
+                db().collection("follows_index").doc(`${uid}_${postAuthorId}`).get(),
+                db().collection("follows_index").doc(`${postAuthorId}_${uid}`).get(),
+              ]);
+              if (ab.exists && ba.exists) accessiblePostIds.add(r.id);
+            }
+            // church / space / private / unknown → deny from RAG results
+          } catch (checkErr) {
+            console.warn(`[ragSearch] ACL check failed for post ${r.id}:`, checkErr.message);
+          }
+        })
+      );
+    }
+
+    // Caller owns their own post results — always accessible
+    const ownedPostResults = results.filter(
+      (r) => r.type === "posts" && r.authorId === uid
+    );
+
+    const safeResults = [
+      ...ownedPostResults,
+      ...postResults.filter((r) => accessiblePostIds.has(r.id)),
+      ...nonPostResults.filter((r) => {
+        // Church notes are user-scoped — only return caller's own
+        if (r.type === "churchNotes" && r.authorId && r.authorId !== uid) return false;
         return true;
-      }
-      if (r.type === "churchNotes" && r.authorId && r.authorId !== uid) {
-        // Church notes are per-user — only return caller's own
-        return false;
-      }
-      return true;
-    });
+      }),
+    ];
 
     logFunction("ragSearch", {
       uid, scope, queryLen: safeQuery.length,

@@ -88,10 +88,31 @@ export const algoliaPostUpdateSync = onDocumentUpdated(
         return;
     }
 
+    // CRITICAL ACL FIX (2026-06-12): Only index public posts in Algolia.
+    // Followers-only, church, space, private, and trustedCircle posts must NOT
+    // appear in Algolia because Algolia cannot enforce per-user ACL at query time
+    // for these fine-grained permission levels.
+    // See docs/privacy-model.md §10 (Algolia ACL).
+    const privacyLevel = after.privacyLevel ?? after.visibility ?? "public";
+    const isPublic =
+        privacyLevel === "public" ||
+        privacyLevel === "Everyone" ||
+        privacyLevel === "everyone";
+
+    if (!isPublic) {
+        // Remove from index if privacy level changed to non-public
+        await algoliaRequest("DELETE", `posts/${encodeURIComponent(postId)}`);
+        logger.info(
+            `[algoliaSync] Removed non-public post ${postId} (privacyLevel=${privacyLevel}) from Algolia`
+        );
+        return;
+    }
+
     const record = {
         objectID: postId,
         content: after.content ?? after.text ?? "",
         authorId: after.authorId ?? after.userId ?? "",
+        privacyLevel: "public", // Invariant: only public posts reach this point
         visibility: after.visibility ?? "public",
         status: after.status ?? "published",
         searchKeywords: after.searchKeywords ?? [],

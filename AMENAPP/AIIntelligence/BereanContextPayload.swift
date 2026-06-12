@@ -165,6 +165,11 @@ enum BereanContextAction: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - BereanContextActionResult
+// Wire shape extended with constitutional audit fields (safety-hardening, 2026-06-12).
+// constitutionalMode and epistemicDeclaration are non-optional so downstream consumers
+// always have an audit trail anchor.
+
 struct BereanContextActionResult: Identifiable, Equatable {
     let id: String
     let action: BereanContextAction
@@ -174,4 +179,8 @@ struct BereanContextActionResult: Identifiable, Equatable {
     let suggestedActions: [String]
     let safetyNotice: String?
     let threadId: String?
+    /// The constitutional mode that was in effect when this result was produced.
+    let constitutionalMode: BereanConstitutionalMode
+    /// Epistemic declaration attached by the gate — surfaces uncertainty to UI.
+    let epistemicDeclaration: EpistemicDeclaration
 }

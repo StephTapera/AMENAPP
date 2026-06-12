@@ -27,6 +27,10 @@ struct FirestorePost: Codable, Identifiable {
     var topicTag: String?
     var visibility: String  // "everyone", "followers", "community"
     var allowComments: Bool
+    // Granular comment permission level stored alongside allowComments.
+    // Values: "Everyone", "People I follow", "Mentioned only", "Comments off"
+    // Enforced server-side by Firestore Rules canCommentOnPost() and aclHelper.ts.
+    var commentPermissions: String?
     var imageURLs: [String]?
     var linkURL: String?
     var linkPreviewTitle: String?

@@ -11,6 +11,8 @@ final class BereanContextActionEngine: ObservableObject {
     @Published private(set) var lastErrorMessage: String?
 
     private let functions = Functions.functions()
+    // Constitutional gate — serial actor, shared across the app.
+    private let constitutionGate = BereanConstitutionalReviewGate.shared
 
     func perform(_ action: BereanContextAction, payload: BereanContextPayload) async -> BereanContextActionResult? {
         guard AMENFeatureFlags.shared.bereanLiquidGlassContextActionsEnabled else {
@@ -24,6 +26,20 @@ final class BereanContextActionEngine: ObservableObject {
             return nil
         }
 
+        // Constitutional pre-flight gate (must pass before any AI call).
+        // Derives the appropriate mode from the action, then checks payload
+        // integrity, crisis signals, medical guardrail, and high-impact action rules.
+        let constitutionResult = await constitutionGate.review(action: action, payload: payload)
+        guard constitutionResult.passed else {
+            let reason = constitutionResult.blockedReasons.first ?? "Constitutional review did not pass."
+            dlog("[Berean] Constitutional gate blocked '\(action.rawValue)': \(constitutionResult.blockedReasons.joined(separator: "; "))")
+            lastErrorMessage = reason.contains("Crisis") || reason.contains("crisis")
+                ? "It sounds like you may be going through something difficult. Please reach out for support."
+                : "Berean could not process this request. Please try again."
+            AMENAnalyticsService.shared.track(.bereanProviderFailure(reason: "constitutional_gate_blocked"))
+            return nil
+        }
+
         isLoading = true
         lastResult = nil
         lastErrorMessage = nil
@@ -32,7 +48,8 @@ final class BereanContextActionEngine: ObservableObject {
         do {
             let result = try await functions.httpsCallable("routeBereanContextualAction").call([
                 "action": action.rawValue,
-                "payload": payload.dictionaryValue
+                "payload": payload.dictionaryValue,
+                "constitutionalMode": constitutionResult.requiredMode.rawValue
             ])
             guard let data = result.data as? [String: Any] else {
                 throw BereanContextActionError.invalidResponse
@@ -45,7 +62,9 @@ final class BereanContextActionEngine: ObservableObject {
                 scriptureReferences: data["scriptureReferences"] as? [String] ?? [],
                 suggestedActions: data["suggestedActions"] as? [String] ?? [],
                 safetyNotice: data["safetyNotice"] as? String,
-                threadId: data["threadId"] as? String
+                threadId: data["threadId"] as? String,
+                constitutionalMode: constitutionResult.requiredMode,
+                epistemicDeclaration: EpistemicDeclaration.empty
             )
             lastResult = response
             AMENAnalyticsService.shared.track(.bereanStudyActionCompleted(action: action.rawValue))

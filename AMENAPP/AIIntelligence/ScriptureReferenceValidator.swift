@@ -76,6 +76,20 @@ enum ScriptureReferenceValidator {
         return bookAliasMap[normalized] != nil
     }
 
+    // MARK: — Constitutional integration
+
+    /// Returns `true` when `text` contains at least one pattern that looks like a
+    /// scripture reference (e.g. "John 3:16", "1 Cor 13:4-7").
+    /// Used by BereanConstitutionalIntelligence to trigger validation before display
+    /// whenever AI-generated text contains embedded references.
+    static func requiresVerification(_ text: String) -> Bool {
+        // Lightweight heuristic: look for book-like word(s) followed by chapter:verse pattern.
+        let pattern = #"[1-3]?\s?[A-Za-z]+(?:\s[A-Za-z]+)?\s+\d+:\d+"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.firstMatch(in: text, range: range) != nil
+    }
+
     // MARK: — Internal helpers
 
     /// Maps normalized alias → canonical book key used in `chapterVerseBoundsTable`.

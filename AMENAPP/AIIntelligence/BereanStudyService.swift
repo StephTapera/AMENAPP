@@ -9,6 +9,10 @@ struct BereanStudyDraft: Identifiable {
     let type: BereanStudyActionType
     let payload: [String: Any]
     var approved: Bool = false
+    /// Constitutional mode that was in effect when this draft was generated.
+    var constitutionalMode: BereanConstitutionalMode = .discern
+    /// Epistemic declaration for the draft (populated after constitutional review).
+    var epistemicDeclaration: EpistemicDeclaration = .empty
 }
 
 enum BereanStudyActionType: String {
@@ -49,7 +53,7 @@ enum BereanStudyError: Error {
 /// NVIDIA_API_KEY never touches the client; it lives in Secret Manager server-side.
 ///
 /// ─────────────────────────────────────────────────────────────────────────
-/// WIRING CERT — Berean LLM Lane  (safety-hardening branch, 2026-06-11)
+/// WIRING CERT — Berean LLM Lane  (safety-hardening branch, 2026-06-12)
 /// ─────────────────────────────────────────────────────────────────────────
 /// Gate 1 — Age-gating (isMinor)
 ///   All six public study methods call `call()` which checks
@@ -81,6 +85,13 @@ enum BereanStudyError: Error {
 ///
 /// Gate 6 — Auth guard (pre-existing, confirmed wired)
 ///   `Auth.auth().currentUser != nil` checked in `call()`.
+///
+/// Gate 7 — Constitutional review (added 2026-06-12)
+///   `BereanConstitutionalReviewGate.shared.reviewStudyCall()` runs after
+///   the rate-limit gate. Delegates crisis-signal and medical-guardrail
+///   checks to the shared actor, unifying constitutional logic across
+///   BereanContextActionEngine and BereanStudyService without duplication.
+///   The resolved constitutional mode is attached to the returned draft.
 /// ─────────────────────────────────────────────────────────────────────────
 @MainActor
 final class BereanStudyService: ObservableObject {
@@ -91,6 +102,8 @@ final class BereanStudyService: ObservableObject {
     @Published var errorMessage: String?
 
     private let functions = Functions.functions(region: "us-central1")
+    // Constitutional gate — shared actor instance.
+    private let constitutionGate = BereanConstitutionalReviewGate.shared
 
     // MARK: - Rate-limit state (Gate 2)
     // Sliding window: max 10 calls per 60 seconds per process lifetime.
@@ -154,7 +167,8 @@ final class BereanStudyService: ObservableObject {
         var params: [String: Any] = ["verseRef": ref, "perspectiveMode": perspectiveMode.rawValue]
         if let t = passageText { params["passageText"] = t }
         if let c = context { params["context"] = c }
-        return await call("bereanExplainVerse", type: .explainVerse, params: params)
+        return await call("bereanExplainVerse", type: .explainVerse, params: params,
+                          constitutionTexts: [ref, passageText, context].compactMap { $0 })
     }
 
     /// Build a 7-day study plan from a verse or topic.
@@ -168,12 +182,14 @@ final class BereanStudyService: ObservableObject {
         if let r = ref { params["verseRef"] = r }
         if let t = topic { params["topic"] = t }
         if let c = context { params["context"] = c }
-        return await call("bereanStudyPlan", type: .studyPlan, params: params)
+        return await call("bereanStudyPlan", type: .studyPlan, params: params,
+                          constitutionTexts: [ref, topic, context].compactMap { $0 })
     }
 
     /// Compare KJV, NIV, ESV, NLT side-by-side.
     func compareTranslations(ref: String) async -> BereanStudyDraft? {
-        await call("bereanCompareTranslations", type: .compareTranslations, params: ["verseRef": ref])
+        await call("bereanCompareTranslations", type: .compareTranslations, params: ["verseRef": ref],
+                   constitutionTexts: [ref])
     }
 
     /// Generate 5 group-study discussion questions.
@@ -191,7 +207,8 @@ final class BereanStudyService: ObservableObject {
         var params: [String: Any] = ["verseRef": ref, "perspectiveMode": perspectiveMode.rawValue]
         if let t = passageText { params["passageText"] = t }
         if let g = groupContext { params["groupContext"] = g }
-        return await call("bereanDiscussionQuestions", type: .discussionQuestions, params: params)
+        return await call("bereanDiscussionQuestions", type: .discussionQuestions, params: params,
+                          constitutionTexts: [ref, passageText, groupContext].compactMap { $0 })
     }
 
     /// Draft a personalised prayer from a passage.
@@ -204,7 +221,8 @@ final class BereanStudyService: ObservableObject {
         var params: [String: Any] = ["verseRef": ref]
         if let t = passageText { params["passageText"] = t }
         if let c = context { params["context"] = c }
-        return await call("bereanPrayerFromPassage", type: .prayerFromPassage, params: params)
+        return await call("bereanPrayerFromPassage", type: .prayerFromPassage, params: params,
+                          constitutionTexts: [ref, passageText, context].compactMap { $0 })
     }
 
     /// Structure a passage into a Church Notes entry draft.
@@ -217,12 +235,18 @@ final class BereanStudyService: ObservableObject {
         var params: [String: Any] = ["verseRef": ref]
         if let t = passageText { params["passageText"] = t }
         if let s = sermonTitle { params["sermonTitle"] = s }
-        return await call("bereanConvertToChurchNotes", type: .convertToChurchNotes, params: params)
+        return await call("bereanConvertToChurchNotes", type: .convertToChurchNotes, params: params,
+                          constitutionTexts: [ref, passageText, sermonTitle].compactMap { $0 })
     }
 
     // MARK: - Private
 
-    private func call(_ name: String, type: BereanStudyActionType, params: [String: Any]) async -> BereanStudyDraft? {
+    private func call(
+        _ name: String,
+        type: BereanStudyActionType,
+        params: [String: Any],
+        constitutionTexts: [String] = []
+    ) async -> BereanStudyDraft? {
 
         // Gate 6 — Auth
         guard Auth.auth().currentUser != nil else {
@@ -240,6 +264,23 @@ final class BereanStudyService: ObservableObject {
 
         // Gate 2 — Client-side rate limit (WIRING CERT: added 2026-06-11)
         guard checkRateLimit() else { return nil }
+
+        // Gate 7 — Constitutional review (WIRING CERT: added 2026-06-12)
+        // Delegates crisis-signal and medical-guardrail checks to the shared
+        // BereanConstitutionalReviewGate actor. This unifies constitutional
+        // logic with BereanContextActionEngine without duplicating it here.
+        let constitutionResult = await constitutionGate.reviewStudyCall(
+            texts: constitutionTexts,
+            actionType: type
+        )
+        guard constitutionResult.passed else {
+            let reason = constitutionResult.blockedReasons.first ?? ""
+            dlog("[Berean] Constitutional gate blocked study call '\(name)': \(constitutionResult.blockedReasons.joined(separator: "; "))")
+            errorMessage = reason.lowercased().contains("crisis")
+                ? "It sounds like you may be going through something difficult. Please reach out for support."
+                : "Berean could not process this request. Please try again."
+            return nil
+        }
 
         isLoading = true
         errorMessage = nil
@@ -312,7 +353,9 @@ final class BereanStudyService: ObservableObject {
                 return nil
             }
 
-            let draft = BereanStudyDraft(id: draftId, type: type, payload: payload)
+            var draft = BereanStudyDraft(id: draftId, type: type, payload: payload)
+            draft.constitutionalMode = constitutionResult.requiredMode
+            draft.epistemicDeclaration = EpistemicDeclaration.empty
             lastDraft = draft
             return draft
         } catch {

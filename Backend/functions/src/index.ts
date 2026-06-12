@@ -674,3 +674,14 @@ export * from "./one/oneActivateLegacy";
 // volunteer slot management, and prayer count aggregation.
 // All callables require Auth + App Check. Transactions used for atomic counters.
 export { unfurlLink, generateCalendarPayload, incrementVolunteerSlot, aggregatePrayerCount } from "./composerAttachments";
+
+// Privacy & Social Graph — 2026-06-12 security audit fixes
+// • reconcileFollowCounts: weekly scheduled function to repair follower/following
+//   count drift from missed increments/decrements. See docs/privacy-model.md §2.
+// • revokeNotificationsOnCommentDelete, revokeNotificationsOnPostDelete: revoke
+//   in-app notifications when content is soft-deleted. See docs/privacy-model.md §9.
+export { reconcileFollowCounts } from "./counterReconciliation";
+export {
+    revokeNotificationsOnCommentDelete,
+    revokeNotificationsOnPostDelete,
+} from "./notifications/notificationRevocation";

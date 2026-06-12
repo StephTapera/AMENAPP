@@ -1,5 +1,11 @@
 import Foundation
 
+// MARK: - AmenAIProvenance
+// Extended with constitutional audit trail fields (safety-hardening, 2026-06-12).
+// constitutionalReviewPassed and bereanMode are the Enterprise Reliability Framework
+// anchor: every AI-assisted artefact carries a record of whether the constitutional
+// gate passed and which mode was active.
+
 struct AmenAIProvenance: Codable, Equatable {
     let aiAssisted: Bool
     let aiGenerated: Bool
@@ -16,6 +22,10 @@ struct AmenAIProvenance: Codable, Equatable {
     let safetyVerdict: String
     let createdAt: Date
     let approvedAt: Date?
+    /// True when BereanConstitutionalReviewGate passed for this artefact.
+    let constitutionalReviewPassed: Bool
+    /// The constitutional mode that was in effect when this artefact was generated.
+    let bereanMode: BereanConstitutionalMode
 }
 
 struct AmenGeneratedDraft: Identifiable, Codable, Equatable {
