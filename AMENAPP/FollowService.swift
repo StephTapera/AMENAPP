@@ -10,6 +10,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 import Combine
 
 // MARK: - Follow Model
@@ -172,65 +173,20 @@ class FollowService: ObservableObject {
         
         // Public account — optimistically update local state FIRST (prevents double-tap)
         following.insert(userId)
-        
-        // Create follow relationship
-        let follow = Follow(
-            followerId: currentUserId,
-            followingId: userId
-        )
-        
-        dlog("   Creating follow relationship...")
-        
-        // Use batch write for atomicity
-        let batch = db.batch()
-        
-        // 1. Add to follows collection
-        let followRef = db.collection(FirebaseManager.CollectionPath.follows).document()
-        do {
-            try batch.setData(from: follow, forDocument: followRef)
-        } catch {
-            dlog("❌ Failed to encode follow data: \(error)")
-            // Revert optimistic update
-            following.remove(userId)
-            throw error
-        }
 
-        // 1b. Write follows_index entry — used by Firestore privacy rules for O(1) lookups
-        let indexId = "\(currentUserId)_\(userId)"
-        let indexRef = db.collection("follows_index").document(indexId)
-        batch.setData([
-            "followerId": currentUserId,
-            "followingId": userId,
-            "createdAt": FieldValue.serverTimestamp()
-        ], forDocument: indexRef)
-
-        // 2. Increment follower count on target user
-        let targetUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
-        batch.updateData([
-            "followersCount": FieldValue.increment(Int64(1)),
-            "updatedAt": FieldValue.serverTimestamp()
-        ], forDocument: targetUserRef)
-        
-        // 3. Increment following count on current user
-        let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
-        batch.updateData([
-            "followingCount": FieldValue.increment(Int64(1)),
-            "updatedAt": FieldValue.serverTimestamp()
-        ], forDocument: currentUserRef)
-        
-        // Commit batch
+        dlog("   Calling createFollow CF (server-side rate limit + atomic write)...")
         do {
-            dlog("   Committing batch write...")
-            try await batch.commit()
-            dlog("✅ Followed user successfully")
-            
-            // ✅ RECORD RATE LIMIT ACTION
+            // createFollow callable: enforces 200/hour server-side rate limit,
+            // atomically writes follows + follows_index + counter increments.
+            // Firestore rules now gate follows_index on CF-only writes, so this
+            // callable is the only valid write path.
+            let callable = Functions.functions().httpsCallable("createFollow")
+            _ = try await callable.call(["followingId": userId])
+            dlog("✅ Followed user successfully via CF")
+
             await NewAccountRestrictionService.shared.recordAction(.follow, userId: currentUserId)
-            
         } catch {
-            dlog("❌ Batch commit failed: \(error)")
-            dlog("   Error details: \((error as NSError).localizedDescription)")
-            // Revert optimistic update on error
+            dlog("❌ createFollow CF failed: \(error)")
             following.remove(userId)
             throw error
         }
