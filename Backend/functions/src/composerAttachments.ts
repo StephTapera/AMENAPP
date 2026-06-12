@@ -196,7 +196,7 @@ function extractMeta(html: string, domain: string): LinkPreview {
  * @returns         { title, description, imageURL, domain }
  */
 export const unfurlLink = onCall(
-  { enforceAppCheck: true },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     requireAuth(request);
 
@@ -322,7 +322,7 @@ function escapeICalText(text: string): string {
  * @returns               { icalString, downloadURL }
  */
 export const generateCalendarPayload = onCall(
-  { enforceAppCheck: true },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     requireAuth(request);
 
@@ -413,7 +413,7 @@ interface VolunteerSlotResult {
  * @returns            { success: true, newSlotsFilled }
  */
 export const incrementVolunteerSlot = onCall(
-  { enforceAppCheck: true },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     const uid = requireAuth(request);
 
@@ -517,7 +517,7 @@ interface PrayerCountResult {
  * @returns                    { newPrayCount }
  */
 export const aggregatePrayerCount = onCall(
-  { enforceAppCheck: true },
+  { enforceAppCheck: true, region: 'us-east1' },
   async (request) => {
     const uid = requireAuth(request);
 

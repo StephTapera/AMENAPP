@@ -59,6 +59,8 @@ const USER_OWNED_COLLECTIONS = [
 const USER_SUBCOLLECTIONS = [
   'followers', 'following', 'followRequests', 'blockedUsers',
   'savedPosts', 'notificationPreferences', 'privacySettings',
+  // Berean AI stores (P0-05): must be hard-deleted on account removal.
+  'bereanMemory', 'bereanPipelineTraces', 'bereanModelLogs', 'bereanFeedback',
 ];
 
 exports.processAccountDeletion = onDocumentCreated(
@@ -220,6 +222,14 @@ exports.processAccountDeletion = onDocumentCreated(
           archivedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       }
+
+      // 3j. Berean AI top-level collections (P0-05): hard-delete pipeline traces
+      // and feedback that are stored at the top level keyed by userId, not under
+      // the user doc. The user-doc subcollections (bereanMemory, bereanPipelineTraces,
+      // bereanModelLogs, bereanFeedback) are already covered by USER_SUBCOLLECTIONS
+      // above; these calls cover any top-level counterpart collections.
+      await deleteDocsWhere('bereanPipelineTraces', 'userId', uid);
+      await deleteDocsWhere('bereanFeedback', 'userId', uid);
 
       console.log(`[accountDeletion] Firestore cleared for uid=${uid}`);
     } catch (e) {

@@ -296,11 +296,8 @@ export async function deleteMemory(
     );
   }
 
-  // ── 2. Soft-delete the memory entry ──────────────────────────────────────────
-  await entryRef.update({
-    isDeleted: true,
-    updatedAt: now,
-  });
+  // ── 2. Hard-delete the memory entry ──────────────────────────────────────────
+  await entryRef.delete();
 
   // ── 3. Remove associated vector if present (best-effort, non-fatal) ──────────
   try {
@@ -332,6 +329,9 @@ export async function deleteMemory(
     entryId,
     userId,
     category: data.category,
+    // Strip content from audit record for prayer entries — prayer content must
+    // not be retained in any log after the user explicitly deletes the entry.
+    ...(data.category !== "prayer" && { content: data.content }),
     deletedAt: now,
     initiatedBy: "user",
   });
@@ -385,7 +385,7 @@ export async function lockMemory(
  * deleteAllUserMemory — cascade-delete all memory for a user.
  *
  * Called on account deletion to satisfy App Store guideline 5.1.1(v).
- * Soft-deletes all entries in users/{userId}/bereanMemory in batches,
+ * Hard-deletes all entries in users/{userId}/bereanMemory in batches,
  * hard-deletes all matching vectors from bereanMemoryVectors, and writes a
  * single cascade receipt to bereanAuditLog/cascade/{userId}.
  *
@@ -405,13 +405,11 @@ export async function deleteAllUserMemory(
     .doc(userId)
     .collection("bereanMemory");
 
-  let totalSoftDeleted = 0;
+  let totalDeleted = 0;
   let lastDoc: admin.firestore.QueryDocumentSnapshot | null = null;
 
   while (true) {
-    let pageQuery: admin.firestore.Query = memoryCollRef
-      .where("isDeleted", "==", false)
-      .limit(BATCH_SIZE);
+    let pageQuery: admin.firestore.Query = memoryCollRef.limit(BATCH_SIZE);
     if (lastDoc) {
       pageQuery = pageQuery.startAfter(lastDoc);
     }
@@ -421,11 +419,11 @@ export async function deleteAllUserMemory(
 
     const batch = db.batch();
     for (const doc of pageSnap.docs) {
-      batch.update(doc.ref, { isDeleted: true, updatedAt: now });
+      batch.delete(doc.ref);
     }
     await batch.commit();
 
-    totalSoftDeleted += pageSnap.size;
+    totalDeleted += pageSnap.size;
     lastDoc = pageSnap.docs[pageSnap.docs.length - 1];
 
     if (pageSnap.size < BATCH_SIZE) break;
@@ -477,7 +475,7 @@ export async function deleteAllUserMemory(
     .set({
       userId,
       cascadeAt: now,
-      totalEntriesSoftDeleted: totalSoftDeleted,
+      totalEntriesDeleted: totalDeleted,
       totalVectorsDeleted,
       initiatedBy: "accountDeletion",
     });

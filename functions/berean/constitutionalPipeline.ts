@@ -307,15 +307,40 @@ export async function runBereanPipeline(
   db: admin.firestore.Firestore,
 ): Promise<PipelineOutput> {
   // ── FEATURE FLAG CHECK ─────────────────────────────────────────────────────
+  const _safeUnavailableOutput = (): PipelineOutput => ({
+    response: {
+      answer: "Berean is temporarily unavailable. Please try again shortly.",
+      evidence: [],
+      context: "",
+      interpretations: [],
+      assumptions: [],
+      unknowns: ["Constitutional pipeline not available"],
+      confidence: "Unknown",
+      trustScore: 0,
+      reviewVerdict: "error",
+      isVerified: false,
+    },
+    trace: {
+      traceId: "unavailable",
+      stages: {},
+      totalMs: 0,
+      isHighRisk: false,
+      retryCount: 0,
+      finalConfidence: "Unknown",
+    },
+  });
+
   try {
     const flagSnap = await db.doc("featureFlags/trustArchitecture").get();
     const flags = flagSnap.exists ? (flagSnap.data() ?? {}) : {};
     if (flags["constitutionalPipeline"] !== true) {
-      return legacyPipelineCall(input, db);
+      return _safeUnavailableOutput();
     }
   } catch {
-    // If we cannot read the flag, fall back to legacy rather than blocking.
-    return legacyPipelineCall(input, db);
+    // If we cannot read the flag, do NOT fall back to unreviewed legacy path.
+    // Return a safe error so no query — including crisis queries — bypasses
+    // constitutional review.
+    return _safeUnavailableOutput();
   }
 
   // ── PIPELINE STATE ─────────────────────────────────────────────────────────

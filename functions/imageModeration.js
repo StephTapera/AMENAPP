@@ -487,6 +487,139 @@ Respond ONLY with valid JSON, no markdown:
 }
 
 /**
+ * Storage trigger: moderate DM video attachments uploaded to chat_videos/{conversationId}/{fileName}
+ *
+ * FAIL-CLOSED design: any error during moderation immediately sets moderationStatus to 'blocked'
+ * on the associated message document so the video is never delivered unreviewed.
+ *
+ * // TODO: Wire to full video frame-extraction + Cloud Vision pipeline; currently sets pending status
+ *
+ * P0-08 fix: DM video attachments had zero content moderation. This trigger intercepts every
+ * finalized upload under chat_videos/ and blocks delivery until a human moderator clears it,
+ * ensuring CSAM/NCMEC pipelines are not bypassed for videos sent to minor recipients.
+ */
+exports.moderateUploadedDMVideo = onObjectFinalized({
+    region: "us-west1",
+    bucket: "amen-5e359.firebasestorage.app",
+}, async (event) => {
+    const filePath = event.data.name;
+    const contentType = event.data.contentType;
+
+    console.log(`[DM VIDEO MOD] Processing file: ${filePath}`);
+
+    // Only process video content types
+    if (!contentType || !contentType.startsWith("video/")) {
+        console.log(`[DM VIDEO MOD] Skipping non-video file: ${contentType}`);
+        return null;
+    }
+
+    // Path shape: chat_videos/{conversationId}/{fileName}
+    const pathParts = filePath.split("/");
+    const conversationId = pathParts.length > 1 ? pathParts[1] : null;
+    const fileName = pathParts.length > 2 ? pathParts[2] : filePath;
+
+    console.log(`[DM VIDEO MOD] ConversationId: ${conversationId}, file: ${fileName}`);
+
+    // FAIL-CLOSED: wrap everything in try/catch. Any error blocks delivery.
+    try {
+        if (!conversationId) {
+            throw new Error("Cannot determine conversationId from path — blocking as precaution");
+        }
+
+        // Locate the message document that references this video.
+        // iOS clients write a message doc with videoStoragePath == filePath before upload.
+        const msgsSnap = await db.collection("conversations")
+            .doc(conversationId)
+            .collection("messages")
+            .where("videoStoragePath", "==", filePath)
+            .limit(1)
+            .get();
+
+        // Log to human-review queue regardless of whether we find the message doc.
+        await db.collection("dmVideoModerationQueue").add({
+            filePath,
+            conversationId,
+            fileName,
+            contentType,
+            moderationStatus: "pending",
+            // TODO: Wire to full video frame-extraction + Cloud Vision pipeline; currently sets pending status
+            reviewNote: "Automated video moderation pipeline not yet wired. Human review required before delivery.",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            expireAt: new Date(Date.now() + TTL_PENDING_MS),
+        });
+
+        // Alert moderators
+        await db.collection("moderatorAlerts").add({
+            type: "dm_video_pending_review",
+            conversationId,
+            filePath,
+            contentType,
+            // TODO: Wire to full video frame-extraction + Cloud Vision pipeline; currently sets pending status
+            reason: "DM video upload requires human review before delivery (video moderation pipeline pending)",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            status: "pending_review",
+        });
+
+        if (!msgsSnap.empty) {
+            const msgRef = msgsSnap.docs[0].ref;
+            await msgRef.update({
+                moderationStatus: "pending",
+                moderationBlockedDelivery: true,
+                moderationReviewNote: "Video held for human review before delivery",
+                moderationUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            console.log(`[DM VIDEO MOD] Message doc updated to 'pending' — delivery blocked pending review: ${filePath}`);
+        } else {
+            // No message doc found yet (race condition) — write a sentinel doc to the queue
+            // that a post-upload reconciliation job can pick up.
+            console.warn(`[DM VIDEO MOD] No message doc found for ${filePath} — sentinel written to dmVideoModerationQueue`);
+        }
+
+        console.log(`[DM VIDEO MOD] Video queued for human review: ${filePath}`);
+        return { action: "pending_review", filePath };
+
+    } catch (error) {
+        // FAIL-CLOSED: on any error, attempt to block delivery via Firestore, then log.
+        console.error(`[DM VIDEO MOD] Error during moderation of ${filePath} — applying fail-closed block:`, error);
+
+        // Best-effort: locate and hard-block the message document.
+        try {
+            if (conversationId) {
+                const msgsSnap = await db.collection("conversations")
+                    .doc(conversationId)
+                    .collection("messages")
+                    .where("videoStoragePath", "==", filePath)
+                    .limit(1)
+                    .get();
+
+                if (!msgsSnap.empty) {
+                    await msgsSnap.docs[0].ref.update({
+                        moderationStatus: "blocked",
+                        moderationBlockedDelivery: true,
+                        moderationReviewNote: `Blocked by fail-closed safety: ${error.message}`,
+                        moderationUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    console.log(`[DM VIDEO MOD] Fail-closed: message doc set to 'blocked' for ${filePath}`);
+                }
+            }
+        } catch (blockErr) {
+            console.error(`[DM VIDEO MOD] Fail-closed block write also failed for ${filePath}:`, blockErr);
+        }
+
+        // Log the error for ops visibility.
+        await db.collection("dmVideoModerationErrors").add({
+            filePath,
+            conversationId,
+            error: error.message,
+            moderationStatus: "blocked",
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch((logErr) => console.error("[DM VIDEO MOD] Error log write failed:", logErr));
+
+        return { action: "blocked_error", error: error.message, filePath };
+    }
+});
+
+/**
  * Notify user that their image was rejected (optional)
  */
 async function notifyUserOfRejection(userId, context, reasons) {

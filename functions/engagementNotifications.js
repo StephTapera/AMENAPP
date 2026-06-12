@@ -96,8 +96,8 @@ exports.gentleReengagement = onSchedule(
 
         const sent = await safeSend(userId, userData.fcmToken, {
           notification: {
-            title: 'We miss you',
-            body: `${displayName}, your community is praying for you. Come back and share what God is doing.`,
+            title: 'Your community is here',
+            body: `There's new activity in your community, ${displayName}. See what's been shared.`,
           },
           data: { type: 'gentle_reengagement', deepLink: 'amen://feed' },
         });
