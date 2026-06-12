@@ -28,6 +28,7 @@ export const reconcileFollowCounts = onSchedule(
     {
         schedule: "every monday 03:00",
         timeZone: "America/New_York",
+        region: "us-east1", // us-central1 at 999/1000 Cloud Run service quota
         memory: "512MiB",
         timeoutSeconds: 540,
         maxInstances: 1, // prevent concurrent reconciliation runs

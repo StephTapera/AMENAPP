@@ -34,7 +34,7 @@ const NOTIFICATION_BATCH_LIMIT = 100;
  * unnecessary Firestore reads.
  */
 export const revokeNotificationsOnCommentDelete = onDocumentUpdated(
-    "posts/{postId}/comments/{commentId}",
+    { document: "posts/{postId}/comments/{commentId}", region: "us-east1" },
     async (event) => {
         const before = event.data?.before.data();
         const after = event.data?.after.data();
@@ -109,7 +109,7 @@ export const revokeNotificationsOnCommentDelete = onDocumentUpdated(
  * This prevents deep-link taps from leading to "post unavailable" states.
  */
 export const revokeNotificationsOnPostDelete = onDocumentUpdated(
-    "posts/{postId}",
+    { document: "posts/{postId}", region: "us-east1" },
     async (event) => {
         const before = event.data?.before.data();
         const after = event.data?.after.data();

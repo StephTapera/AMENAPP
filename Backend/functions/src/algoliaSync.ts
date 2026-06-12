@@ -70,7 +70,7 @@ async function algoliaRequest(
  * Only syncs fields that are search-relevant to minimize Algolia write units.
  */
 export const algoliaPostUpdateSync = onDocumentUpdated(
-    { document: "posts/{postId}", secrets: [algoliaAdminKey] },
+    { document: "posts/{postId}", secrets: [algoliaAdminKey], region: "us-east1" },
     async (event) => {
     const postId = event.params.postId;
     const after = event.data?.after.data();
@@ -131,7 +131,7 @@ export const algoliaPostUpdateSync = onDocumentUpdated(
  * Belt-and-suspenders alongside postDeletionCascade's Algolia removal.
  */
 export const algoliaPostDeleteSync = onDocumentDeleted(
-    { document: "posts/{postId}", secrets: [algoliaAdminKey] },
+    { document: "posts/{postId}", secrets: [algoliaAdminKey], region: "us-east1" },
     async (event) => {
     const postId = event.params.postId;
     await algoliaRequest("DELETE", `posts/${encodeURIComponent(postId)}`);

@@ -2997,6 +2997,52 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // BEREAN TRUST ARCHITECTURE — Pipeline trace + memory + eval collections
+    // Added: 2026-06-12
+    //
+    // Security invariants:
+    //   BTA-1: Pipeline traces are readable by the user who generated them only.
+    //          All writes are Cloud Functions (Admin SDK) only — no client creates.
+    //   BTA-2: Model logs are an internal audit trail — no client access at all.
+    //   BTA-3: Trust scores are CF-computed — no client writes.
+    //   BTA-4: Feedback docs are own-user reads only; writes are CF only.
+    //   BTA-5: Eval runs are admin-only via Cloud Functions; no client access.
+    //   BTA-6: Theology corpus is read-only for signed-in users (seeded by admins).
+    //   BTA-7: User memory (users/{uid}/bereanMemory) is owner-read; CF writes only.
+    //          The iOS client calls bereanGetMemory / bereanUpdateMemory / etc.
+    //          callables which enforce ownership — never writes directly.
+    // =========================================================================
+
+    // Berean Trust Architecture collections
+    match /bereanPipelineTraces/{traceId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if false; // Cloud Functions only
+    }
+    match /bereanModelLogs/{traceId} {
+      allow read, write: if false; // Cloud Functions only — audit log
+    }
+    match /bereanTrustScores/{traceId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Cloud Functions only
+    }
+    match /bereanFeedback/{feedbackId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if false; // Cloud Functions only
+    }
+    match /bereanEvalRuns/{evalRunId} {
+      allow read, write: if false; // Admin only via Cloud Functions
+    }
+    match /bereanTheologyCorpus/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Admin seeded content
+    }
+    // User memory — user can read their own, CF writes
+    match /users/{userId}/bereanMemory/{entryId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // Cloud Functions only
+    }
+
+    // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.
     // Fail closed — add new collections explicitly, never rely on this to permit.
