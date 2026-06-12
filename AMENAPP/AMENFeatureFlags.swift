@@ -2230,6 +2230,17 @@ final class AMENFeatureFlags: ObservableObject {
         if args.contains("--ui-test-enable-camera-os") {
             cameraOSEnabled = true
         }
+        if args.contains("--ui-test-enable-nis-detection-layer") {
+            nisDetectionLayerEnabled = true
+        }
+
+        // NIS Wave 1 — enable detection layer and birth context in debug builds so
+        // Lane D and Lane E wiring is exercised without requiring a Remote Config flip.
+        // Production remains OFF until Remote Config activates post-verification.
+        #if DEBUG
+        nisDetectionLayerEnabled = true
+        nisBirthContextEnabled   = true   // Lane E (C2): enable birth context capture in debug
+        #endif
     }
 
     // MARK: - Explain Video Rollout Gate

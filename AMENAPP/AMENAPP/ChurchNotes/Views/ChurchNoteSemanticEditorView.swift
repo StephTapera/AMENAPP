@@ -110,13 +110,22 @@ final class ChurchNoteSemanticEditorViewModel: ObservableObject {
     func startEditing() {
         Task {
             // Ensure the note doc exists before listening for blocks
-            if blocks.isEmpty && note.blockCount == 0 {
+            let isNewNote = blocks.isEmpty && note.blockCount == 0
+            if isNewNote {
                 try? await repository.createNote(note)
                 // Seed with one empty paragraph
                 let seed = ChurchNoteBlockV2.paragraph(text: "", order: 0)
                 try? await repository.addBlock(seed, to: note.id)
             }
             repository.startListeningToBlocks(noteId: note.id)
+
+            // NIS C2: silently capture birth context on new note creation.
+            // Fire-and-forget — must not block note creation or UI.
+            if isNewNote, AMENFeatureFlags.shared.nisBirthContextEnabled {
+                let noteId = note.id
+                let uid = note.userId
+                Task { await NISBirthContextService.shared.capture(noteId: noteId, authorUID: uid) }
+            }
         }
     }
 
@@ -314,6 +323,10 @@ struct ChurchNoteSemanticEditorView: View {
     @StateObject private var collaborationService = ChurchNotesCollaborationService()
     @StateObject private var commentsService = ChurchNotesCommentsService()
 
+    // MARK: - NIS: Notes Intelligence System
+    // NIS placeholder — Lane F/G/H replaces in Wave 2
+    @StateObject private var nisBridge = NISEditorBridge()
+
     init(note: ChurchNoteV2? = nil) {
         _vm = StateObject(wrappedValue: ChurchNoteSemanticEditorViewModel(note: note))
     }
@@ -326,6 +339,16 @@ struct ChurchNoteSemanticEditorView: View {
                         noteHeader
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
+
+                        // NIS placeholder — Lane F/G/H replaces in Wave 2
+                        if AMENFeatureFlags.shared.nisDetectionLayerEnabled {
+                            NISStatusCapsule(
+                                processingState: nisBridge.processingState,
+                                detectionCount: nisBridge.detections.count
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, 4)
+                        }
 
                         if !vm.pinnedBlocks.isEmpty {
                             pinnedStrip
@@ -359,6 +382,8 @@ struct ChurchNoteSemanticEditorView: View {
                     vm.startEditing()
                     collaborationService.start(noteId: vm.note.id, currentRole: currentCollaborationRole)
                     commentsService.start(noteId: vm.note.id)
+                    // NIS placeholder — Lane F/G/H replaces in Wave 2
+                    nisBridge.observe(noteId: vm.note.id)
                 }
                 .onDisappear {
                     vm.stopEditing()
@@ -1798,5 +1823,76 @@ private struct BereanChurchNoteInsightCard: View {
                         )
                 )
         )
+    }
+}
+
+// MARK: - NISStatusCapsule
+// NIS placeholder — Lane F/G/H replaces in Wave 2
+// Shows a compact status pill below the note toolbar.
+// Hidden when idle with no detections; visible during processing and when insights exist.
+
+private struct NISStatusCapsule: View {
+    let processingState: NISProcessingState
+    let detectionCount: Int
+
+    private var isVisible: Bool {
+        switch processingState {
+        case .idle:       return detectionCount > 0
+        case .processing: return true
+        case .done:       return true
+        case .error:      return true
+        }
+    }
+
+    var body: some View {
+        if isVisible {
+            HStack(spacing: 6) {
+                switch processingState {
+                case .idle:
+                    EmptyView()
+
+                case .processing:
+                    ProgressView()
+                        .scaleEffect(0.65)
+                        .tint(.secondary)
+                    Text("Analyzing note…")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                case .done(let count):
+                    Image(systemName: "sparkles")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(count == 1 ? "1 insight" : "\(count) insights")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                case .error:
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("Analysis unavailable")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.ultraThinMaterial, in: Capsule())
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .leading)))
+            .animation(.easeInOut(duration: 0.25), value: processingState)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var accessibilityLabel: String {
+        switch processingState {
+        case .idle:                   return "No insights yet"
+        case .processing:             return "Analyzing note"
+        case .done(let count):        return count == 1 ? "1 insight found" : "\(count) insights found"
+        case .error(let msg):         return "Analysis error: \(msg)"
+        }
     }
 }
