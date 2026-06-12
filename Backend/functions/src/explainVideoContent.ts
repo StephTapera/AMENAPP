@@ -34,6 +34,7 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import * as admin from "firebase-admin";
+import { isBlocked } from "./aclHelper";
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -131,12 +132,8 @@ export const explainVideoContent = onCall(
             }
         }
 
-        // Block check: if the post author has blocked this caller (or vice versa), deny.
-        const [callerBlockedByAuthor, callerBlockedAuthor] = await Promise.all([
-            db.collection("blockedUsers").doc(`${authorId}_${callerId}`).get(),
-            db.collection("blockedUsers").doc(`${callerId}_${authorId}`).get(),
-        ]);
-        if (callerBlockedByAuthor.exists || callerBlockedAuthor.exists) {
+        // Block check: deny if either party has blocked the other (aclHelper — one source of truth).
+        if (await isBlocked(callerId, authorId)) {
             throw new HttpsError("permission-denied", "Content unavailable.");
         }
 

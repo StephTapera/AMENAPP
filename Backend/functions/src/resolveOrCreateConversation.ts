@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { isBlocked as isBlockedEitherWay } from "./aclHelper";
 
 const db = admin.firestore();
 
@@ -7,14 +8,7 @@ function participantHashFor(a: string, b: string): string {
     return [a, b].sort().join("_");
 }
 
-async function isBlockedEitherWay(uidA: string, uidB: string): Promise<boolean> {
-    const [aBlocksB, bBlocksA] = await Promise.all([
-        db.collection("users").doc(uidA).collection("blockedUsers").doc(uidB).get(),
-        db.collection("users").doc(uidB).collection("blockedUsers").doc(uidA).get()
-    ]);
-
-    return aBlocksB.exists || bBlocksA.exists;
-}
+// isBlockedEitherWay is now aclHelper.isBlocked — uses top-level blockedUsers collection.
 
 async function getFollowStatus(followerId: string, followingId: string): Promise<boolean> {
     const snapshot = await db.collection("follows")

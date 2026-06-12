@@ -36,6 +36,7 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { getServerSafetyFlags } from "./serverFeatureFlags";
+import { isBlocked } from "./aclHelper";
 
 const db = admin.firestore();
 
@@ -143,11 +144,9 @@ async function hasNoContactOrder(senderId: string, recipientId: string): Promise
  * Uses a deterministic doc ID ({recipientId}_{senderId}) for an O(1) point-read
  * instead of a collection query scan.
  */
+// isBlockedByRecipient → replaced by aclHelper.isBlocked (bidirectional, one source of truth).
 async function isBlockedByRecipient(senderId: string, recipientId: string): Promise<boolean> {
-    // Block documents are stored with ID "{blocker}_{blocked}".
-    const docId = `${recipientId}_${senderId}`;
-    const snap = await db.collection(BLOCKED_USERS_COLLECTION).doc(docId).get();
-    return snap.exists;
+    return isBlocked(senderId, recipientId);
 }
 
 /**

@@ -2,6 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
+import { isBlocked } from "./aclHelper";
 
 const db = admin.firestore();
 
@@ -37,13 +38,7 @@ function generateSecureToken(): string {
     return crypto.randomBytes(24).toString("base64url");
 }
 
-async function isBlocked(userId: string, targetId: string): Promise<boolean> {
-    const [blockA, blockB] = await Promise.all([
-        db.collection("users").doc(userId).collection("blockedUsers").doc(targetId).get(),
-        db.collection("users").doc(targetId).collection("blockedUsers").doc(userId).get(),
-    ]);
-    return blockA.exists || blockB.exists;
-}
+// isBlocked imported from shared aclHelper — do not duplicate inline.
 
 // ─── Dynamic Link Helpers ────────────────────────────────────────────
 

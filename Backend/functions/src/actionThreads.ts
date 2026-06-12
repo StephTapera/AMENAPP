@@ -28,6 +28,7 @@
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import { isBlocked } from "./aclHelper";
 
 const db = admin.firestore();
 type CallableAuthContext = {
@@ -50,13 +51,7 @@ function assertOwner(uid: string, userId: string): void {
     }
 }
 
-async function isBlocked(userA: string, userB: string): Promise<boolean> {
-    const [ab, ba] = await Promise.all([
-        db.collection("blockedUsers").doc(`${userA}_${userB}`).get(),
-        db.collection("blockedUsers").doc(`${userB}_${userA}`).get(),
-    ]);
-    return ab.exists || ba.exists;
-}
+// isBlocked imported from shared aclHelper — do not duplicate inline.
 
 async function areMutualFollows(userA: string, userB: string): Promise<boolean> {
     const [ab, ba] = await Promise.all([

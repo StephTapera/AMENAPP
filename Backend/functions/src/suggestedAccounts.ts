@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
+import { isBlocked as isBlockedEitherDirection } from "./aclHelper";
 
 const db = admin.firestore();
 
@@ -101,16 +102,7 @@ async function loadExclusions(uid: string): Promise<Set<string>> {
     return excluded;
 }
 
-/**
- * Check if a user is blocked in either direction.
- */
-async function isBlockedEitherDirection(uidA: string, uidB: string): Promise<boolean> {
-    const [ab, ba] = await Promise.all([
-        db.collection("users").doc(uidA).collection("blockedUsers").doc(uidB).get(),
-        db.collection("users").doc(uidB).collection("blockedUsers").doc(uidA).get(),
-    ]);
-    return ab.exists || ba.exists;
-}
+// isBlockedEitherDirection is now aclHelper.isBlocked — imported above.
 
 /**
  * Get second-degree connections: friends-of-friends.
