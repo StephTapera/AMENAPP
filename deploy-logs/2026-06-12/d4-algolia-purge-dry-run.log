@@ -1,0 +1,38 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║  algoliaPrivacyPurge — D-4 non-public record removal         ║
+║  Index: posts                                                ║
+║  Mode: DRY RUN (no writes)                                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+Phase 1: browsing Algolia index...
+  Browsed: 105 records, flagged: 105…
+
+Phase 1 complete:
+  Total records browsed: 105
+  Records to delete:     105
+  Records to keep:       0
+
+20-record sample of records flagged for deletion:
+  test_post_326122C6     reason: Firestore doc missing (stale index entry)
+  F9A40135-4D23-4B54-8   reason: Firestore doc missing (stale index entry)
+  F918762C-2BA4-4665-9   reason: Firestore doc missing (stale index entry)
+  F8A55272-AE24-4625-9   reason: Firestore doc missing (stale index entry)
+  F742A03B-ACD7-4430-8   reason: Firestore doc missing (stale index entry)
+  F65B517E-F808-4FAB-9   reason: Firestore doc missing (stale index entry)
+  F584BE57-32C1-4052-9   reason: Firestore doc missing (stale index entry)
+  F37A4DE1-73EE-41F9-B   reason: Firestore doc missing (stale index entry)
+  F1B1D264-A55D-4D10-B   reason: Firestore doc missing (stale index entry)
+  F0E28C53-2FE7-4AFB-B   reason: Firestore doc missing (stale index entry)
+  F079A59A-81A7-41CF-A   reason: Firestore doc missing (stale index entry)
+  ECFF9A06-BCFD-4CD1-B   reason: Firestore doc missing (stale index entry)
+  E99896F3-CC9A-4B0C-B   reason: Firestore doc missing (stale index entry)
+  E864ECBE-7442-42E3-8   reason: Firestore doc missing (stale index entry)
+  E2B46FD7-8521-4D65-B   reason: Firestore doc missing (stale index entry)
+  E0684371-9E9E-4DF0-A   reason: Firestore doc missing (stale index entry)
+  DEE997E7-6CDC-43B4-8   reason: Firestore doc missing (stale index entry)
+  DEDFB20A-A1E9-4E66-9   reason: Firestore doc missing (stale index entry)
+  DE3A84A9-1C40-44EB-A   reason: Firestore doc missing (stale index entry)
+  DB13ADCD-FC36-4AA1-B   reason: Firestore doc missing (stale index entry)
+
+🔵 DRY RUN — no deletes performed. Re-run without --dry-run to apply.

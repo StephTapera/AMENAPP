@@ -1,6 +1,8 @@
 # Logs
 logs
 *.log
+# Deploy audit logs are tracked for compliance
+!deploy-logs/**/*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
