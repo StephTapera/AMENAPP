@@ -19,7 +19,8 @@
       "**/test/ageTier.test.js",
       "**/test/phoneAuthPii.test.js",
       "**/test/safety-rules.test.js",
-      "**/test/moderation-safety.test.js"
+      "**/test/moderation-safety.test.js",
+      "**/test/rules.spec.js"
     ],
     "moduleFileExtensions": [
       "ts",
