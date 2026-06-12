@@ -12,6 +12,7 @@
 
 import * as admin from "firebase-admin";
 import { nisDetectScriptureQuote } from "./scriptureQuoteDetector";
+import { enrichBirthContext } from "./birthContextEnricher";
 
 const db = admin.firestore();
 
@@ -431,6 +432,9 @@ export async function runDetectionPipeline(
         },
         { merge: true }
     );
+
+    // Enrich birth context if available (Lane E)
+    await enrichBirthContext(noteId, uid);
 
     console.log(
         `[NIS] nisProcessNote: note=${noteId} uid=${uid} detections=${deduplicated.length}`
