@@ -145,31 +145,47 @@ final class BereanScriptureResolutionEngine: ObservableObject {
 final class BereanRealtimeModerationService {
     private let functions = Functions.functions()
 
-    func validateTranscript(_ transcript: String, sessionId: String) async throws -> Bool {
+    /// - Parameter constitutionalMode: Forwarded to the moderateRealtimeTranscript CF so
+    ///   the backend can apply mode-appropriate policy. Defaults to `.ask` for legacy callers;
+    ///   PrayerRoomModerationEngine always passes `.guard` (G-3).
+    func validateTranscript(
+        _ transcript: String,
+        sessionId: String,
+        constitutionalMode: BereanConstitutionalMode = .ask
+    ) async throws -> Bool {
         let result = try await functions.httpsCallable("moderateRealtimeTranscript").call([
             "transcript": transcript,
             "sessionId": sessionId,
+            "constitutionalMode": constitutionalMode.rawValue,
         ])
         let data = result.data as? [String: Any]
         return data?["allowed"] as? Bool ?? false
     }
 
+    /// - Parameter scriptureVerification: Optional segment-level scripture verification
+    ///   status (G-3). Forwarded to the persistRealtimeTranscriptChunk CF to be stored on
+    ///   the Firestore chunk document. Defaults to nil (omitted) for legacy callers.
     func persistApprovedChunk(
         sessionId: String,
         text: String,
         kind: String,
         language: BereanSupportedLanguage,
         targetLanguage: BereanSupportedLanguage? = nil,
-        isFinal: Bool = true
+        isFinal: Bool = true,
+        scriptureVerification: ScriptureVerificationStatus? = nil
     ) async throws {
-        _ = try await functions.httpsCallable("persistRealtimeTranscriptChunk").call([
+        var payload: [String: Any] = [
             "sessionId": sessionId,
             "text": text,
             "kind": kind,
             "language": language.rawValue,
             "targetLanguage": (targetLanguage ?? language).rawValue,
             "isFinal": isFinal,
-        ])
+        ]
+        if let sv = scriptureVerification {
+            payload["scriptureVerification"] = sv.rawValue
+        }
+        _ = try await functions.httpsCallable("persistRealtimeTranscriptChunk").call(payload)
     }
 }
 
