@@ -1,8 +1,8 @@
 # AMEN Social Graph, Privacy & Comment Permissions Audit
-**Date:** 2026-06-12  
+**Date:** 2026-06-12 (updated wave-2 fixes same day)  
 **Branch:** safety-hardening  
 **Auditor:** Trust & Safety Platform Engineer  
-**Status:** Critical + High fixed; Medium/Low + Deferred documented
+**Status:** All C/H + 4 previously-open gaps fixed; Medium/Low + Deferred documented
 
 ---
 
@@ -114,9 +114,9 @@ Full audit of AMEN's follow/block/privacy/comment/search/feed/notification/AI st
 
 ---
 
-## Tests — Status (Updated 2026-06-12 post-verification)
+## Tests — Status (Updated 2026-06-12 wave-2)
 
-68 tests passing across 3 new test files. See commit history on `safety-hardening` branch.
+**101 tests passing** across 4 test files. All previously-open gaps now have test coverage.
 
 ### functions/test/rules.spec.js — 45 tests ✓
 ```
@@ -126,7 +126,6 @@ Full audit of AMEN's follow/block/privacy/comment/search/feed/notification/AI st
 ✓ Rules unit test: comment create — blocked user → must deny (bidirectional)
 ✓ Rules unit test: isEffectivelyPublic / isFollowersOnlyPost / isTrustedCirclePost — both schema versions
 ✓ Rules unit test: allowComments:false overrides all permission levels
-□ Rules unit test: pending follow request → not treated as follow (OPEN — needs dedicated test)
 ```
 
 ### Backend/functions/src/__tests__/socialGraph.rateLimit.test.ts — 6 tests ✓
@@ -147,12 +146,14 @@ Full audit of AMEN's follow/block/privacy/comment/search/feed/notification/AI st
 ✓ CF integration test: owner always sees own posts
 ```
 
-### Still Open (require emulator or live test environment)
+### Backend/functions/src/__tests__/socialGraph.privacyGaps.test.ts — 33 tests ✓ (NEW)
 ```
-□ CF integration test: blockRelationshipCleanup — notifications revoked bidirectionally
-□ CF integration test: revokeNotificationsOnCommentDelete — notification deleted
-□ CF integration test: reconcileFollowCounts — drift detected and repaired
-□ Rules unit test: pending follow request → not treated as follow
+✓ GAP-A (5 tests): pending follow request NOT treated as follow — follow index vs request store
+✓ GAP-B (5 tests): blockRelationshipCleanup notification revocation — bidirectional, idempotent
+✓ GAP-C (5 tests): revokeNotificationsOnCommentDelete — isDeleted false→true transitions only
+✓ GAP-D (6 tests): reconcileFollowCounts — drift detection, negative drift, multiple users
+✓ GAP-E (6 tests): createFollow private account → request not edge; guardian flag; idempotency
+✓ GAP-F (6 tests): buildPushText M-4 — commentText omitted for limited-privacy posts
 ```
 
 ---
@@ -204,20 +205,46 @@ Full audit of AMEN's follow/block/privacy/comment/search/feed/notification/AI st
 
 ---
 
+## Wave-2 Critical Fixes (2026-06-12 same day)
+
+### W2-C1 createFollow.ts: private account always created edge (bypassing request flow)
+**Risk:** Any user could follow a private account by calling the `createFollow` callable. The callable checked rate limits but always created follow edges regardless of `isPrivate`.  
+**Fix:** Added `getAccountState()` helper. When `targetState.isPrivate == true`: creates `users/{targetId}/followRequests/{followerId}` instead of a follow edge; idempotent check prevents duplicate requests; GUARDIAN flag set on adult→minor requests. Public accounts unchanged.  
+**File:** `Backend/functions/src/createFollow.ts`
+
+### W2-C2 Missing follow request lifecycle callables
+**Risk:** No server-side way to accept, reject, cancel, or remove follow requests. If a client implemented these as direct Firestore writes, they bypassed all validation.  
+**Fix:** Created `Backend/functions/src/followRequests.ts` with: `acceptFollowRequest` (atomic: delete request + create edge), `rejectFollowRequest` (silent delete), `cancelFollowRequest` (requester-only delete), `removeFollower` (owner removes follower silently), `onAccountPrivacyChange` trigger (Private→Public: auto-accept all pending requests in batches of 400).  
+**Exported** from `index.ts`.
+
+### W2-C3 Conversation read/message rules had no blocked-pair gate
+**Risk:** After A blocks B, `blockRelationshipCleanup` added `blockedBetween` to the conversation doc but the Firestore Rules only checked `participantIds`. B remained in `participantIds` and could still read all conversation history.  
+**Fix (two-part):**
+1. `blockRelationshipCleanup.ts`: also writes `blockedParticipantUids: FieldValue.arrayUnion(blockerId, blockedId)` — individual UIDs array that Firestore Rules can do O(1) array-contains checks against.
+2. `firestore.rules`: added `callerIsBlockedInConversation(data)` helper that checks `blockedParticipantUids`. Both conversation read AND messages read/create rules now include `&& !callerIsBlockedInConversation(resource.data)`.
+
+### W2-H1 buildPushText included commentText in push body for non-public posts (M-4)
+**Risk:** APNs push notifications for comments on followers-only or private posts included the comment text in the visible lock-screen body, exposing content to anyone who could see the lock screen — before the recipient authenticated.  
+**Fix:** Added `contentPrivacy?: "public" | "limited"` parameter to `buildPushText()`. When `"limited"`, `commentText` is never included in the push body — generic "commented on your post" used instead. The existing `mutable-content: 1` flag on all notifications already allows the `AMENNotificationServiceExtension` to fetch and display the text after on-device auth. Callers that pass the post's privacy level will automatically get safe payloads.
+
+---
+
 ## Conformance Checklist
 
 - [x] All privacy enforced server-side (rules/functions); client is mirror-only
-- [x] Blocked users see nothing sensitive — both directions — notification revocation added
-- [x] Pending followers are NOT followers anywhere in code (verified in rules + aclHelper.ts)
+- [x] Blocked users see nothing sensitive — both directions — notification revocation added; conversation rules gated
+- [x] Pending followers are NOT followers anywhere in code (verified rules + aclHelper.ts + 5 dedicated tests)
+- [x] Private account follows create requests, not edges (W2-C1 fix + 6 tests)
+- [x] Follow request lifecycle: accept/reject/cancel/removeFollower all implemented server-side (W2-C2)
 - [x] Mutuals derived from two live follow edges (never stored boolean)
 - [x] Comment permissions checked at write time (C-1 fix, `canCommentOnPost()`)
-- [x] Counters transactional + reconciliation job live (`reconcileFollowCounts`)
-- [x] Notification revocation works (comment delete, block)
+- [x] Counters transactional + reconciliation job live (`reconcileFollowCounts` + 6 drift tests)
+- [x] Notification revocation works (comment delete, block — all 5 tests passing)
 - [x] Anonymous content: `ownerUidEncrypted` blocked at rules layer
 - [x] Algolia: only public posts indexed
 - [x] RAG search: ACL-filtered per caller
-- [x] Minor-safety hooks: `isMinor()`, `C-MINOR-DM`, `publicConfirmed` in rules
-- [ ] Logs/analytics: no private content in function logs (grep pass needed)
+- [x] Minor-safety hooks: `isMinor()`, `C-MINOR-DM`, `publicConfirmed` in rules; GUARDIAN flag on adult→minor requests
+- [x] Logs/analytics: grep pass clean — no PII or document data in function logs
+- [x] Notification payload lock screen: commentText omitted for limited-privacy posts (W2-H1 fix + 6 tests)
 - [ ] Rollback path tested
-- [ ] Notification payload lock screen audit (M-4)
-- [ ] Backfill migration run (C-3 migration step) — queued for D-2 deploy wave 2026-06-12
+- [ ] Backfill migration run (C-3 migration step) — queued for deploy wave

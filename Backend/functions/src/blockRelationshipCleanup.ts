@@ -211,8 +211,12 @@ async function restrictSharedConversations(
 
     const batch = db.batch();
     for (const doc of sharedConvos) {
+        // blockedBetween: sorted-pair string for display/legacy use
+        // blockedParticipantUids: individual UIDs array for Firestore rules check
+        // (Rules cannot do string-contains operations, so we store both UIDs explicitly)
         batch.update(doc.ref, {
             blockedBetween: admin.firestore.FieldValue.arrayUnion(blockedPair),
+            blockedParticipantUids: admin.firestore.FieldValue.arrayUnion(blockerId, blockedId),
         });
     }
     await batch.commit();

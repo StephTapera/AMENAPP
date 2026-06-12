@@ -686,6 +686,17 @@ export {
     revokeNotificationsOnPostDelete,
 } from "./notifications/notificationRevocation";
 
+// Follow request lifecycle (private accounts): accept, reject, cancel, remove,
+// and the onAccountPrivacyChange trigger for Private→Public auto-accept.
+// See docs/privacy-model.md §2 and §5.
+export {
+    acceptFollowRequest,
+    rejectFollowRequest,
+    cancelFollowRequest,
+    removeFollower,
+    onAccountPrivacyChange,
+} from "./followRequests";
+
 // Adaptive Composer Attachments — link unfurling, calendar payloads,
 // volunteer slots, prayer count aggregation.
 export * from "./composerAttachments";

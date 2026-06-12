@@ -34,6 +34,19 @@ import * as admin from "firebase-admin";
 
 const db = admin.firestore();
 
+// ─── Private Account Helper ───────────────────────────────────────────────────
+
+/** Returns the privacy state of a user account. */
+async function getAccountState(
+    uid: string
+): Promise<{ isPrivate: boolean; ageTier: string | null }> {
+    const doc = await db.collection("users").doc(uid).get();
+    return {
+        isPrivate: doc.data()?.isPrivate === true,
+        ageTier: (doc.data()?.ageTier as string | null) ?? null,
+    };
+}
+
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 
 const HOURLY_FOLLOW_LIMIT = 200;
@@ -120,12 +133,59 @@ export const createFollow = onCall(async (request) => {
     const now = admin.firestore.FieldValue.serverTimestamp();
     const indexId = `${followerId}_${followingId}`;
 
-    // Check for existing follow to make this idempotent
+    // Check for existing follow (idempotent)
     const existingIndex = await db.collection("follows_index").doc(indexId).get();
     if (existingIndex.exists) {
         return { success: true, alreadyFollowing: true };
     }
 
+    // ── Private-account gate (docs/privacy-model.md §2) ──────────────────────
+    // If the target account is private, create a follow REQUEST instead of an
+    // edge. A pending request is NOT a follow — it must never be treated as one.
+    const [callerState, targetState] = await Promise.all([
+        getAccountState(followerId),
+        getAccountState(followingId as string),
+    ]);
+
+    if (targetState.isPrivate) {
+        // Check for an existing pending request (idempotent)
+        const existingRequest = await db
+            .collection("users")
+            .doc(followingId as string)
+            .collection("followRequests")
+            .doc(followerId)
+            .get();
+        if (existingRequest.exists) {
+            return { success: true, requestAlreadySent: true };
+        }
+
+        // Create the follow request doc. GUARDIAN: adult→minor requests are stored
+        // with a guardian flag so the notification policy can route them appropriately.
+        const isAdultToMinor =
+            !callerState.ageTier?.startsWith("tier") &&
+            (targetState.ageTier === "tierB" || targetState.ageTier === "tierC");
+
+        await db
+            .collection("users")
+            .doc(followingId as string)
+            .collection("followRequests")
+            .doc(followerId)
+            .set({
+                requesterId: followerId,
+                targetId: followingId,
+                status: "pending",
+                guardianRouted: isAdultToMinor,
+                createdAt: now,
+            });
+
+        functions.logger.info(
+            `[createFollow] Follow request: ${followerId} → ${followingId}` +
+            (isAdultToMinor ? " [GUARDIAN]" : "")
+        );
+        return { success: true, requestSent: true };
+    }
+
+    // ── Public account: create follow edge atomically ─────────────────────────
     const followDocRef = db.collection("follows").doc(indexId);
     const indexDocRef = db.collection("follows_index").doc(indexId);
 
@@ -150,7 +210,7 @@ export const createFollow = onCall(async (request) => {
         followingCount: admin.firestore.FieldValue.increment(1),
         updatedAt: now,
     });
-    batch.update(db.collection("users").doc(followingId), {
+    batch.update(db.collection("users").doc(followingId as string), {
         followersCount: admin.firestore.FieldValue.increment(1),
         updatedAt: now,
     });

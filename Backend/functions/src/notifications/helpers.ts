@@ -450,7 +450,13 @@ export function buildRoutes(
 
 /**
  * Generates push notification title and body text.
- * Respects lock screen privacy settings.
+ * Respects lock screen privacy settings AND post-level content privacy.
+ *
+ * @param contentPrivacy  "public" if the parent post is fully public; "limited"
+ *   for followers-only, trustedCircle, church, space, or private posts.
+ *   When "limited", commentText is NEVER included in the visible push body —
+ *   the content is only resolved on-device after auth via mutable-content.
+ *   See docs/privacy-model.md §9 (Payload hygiene) and M-4 audit finding.
  */
 export function buildPushText(
     type: NotificationType,
@@ -459,12 +465,19 @@ export function buildPushText(
     opts: {
         commentText?: string;
         actorCount?: number;
+        contentPrivacy?: "public" | "limited";
     } = {}
 ): { title: string; body: string } {
-    // Privacy-safe generic messages
+    // Privacy-safe generic messages (user's lock screen preference)
     if (privacy === LockScreenPrivacy.Minimal) {
         return { title: "AMEN", body: "You have a new notification" };
     }
+
+    // M-4 fix: never include comment/reply text for non-public content in push body.
+    // The APNs mutable-content flag allows the NotificationServiceExtension to
+    // fetch and display the text on-device after the user authenticates.
+    const includeCommentText =
+        opts.contentPrivacy !== "limited" && !!opts.commentText;
 
     const othersText =
         opts.actorCount && opts.actorCount > 1
@@ -494,15 +507,15 @@ export function buildPushText(
         case NotificationType.Comment:
             return {
                 title: "New Comment",
-                body: opts.commentText
-                    ? `${displayName} commented: ${opts.commentText.substring(0, 80)}`
+                body: includeCommentText
+                    ? `${displayName} commented: ${opts.commentText!.substring(0, 80)}`
                     : `${displayName} commented on your post`,
             };
         case NotificationType.Reply:
             return {
                 title: "New Reply",
-                body: opts.commentText
-                    ? `${displayName} replied: ${opts.commentText.substring(0, 80)}`
+                body: includeCommentText
+                    ? `${displayName} replied: ${opts.commentText!.substring(0, 80)}`
                     : `${displayName} replied to your comment`,
             };
         case NotificationType.Mention:

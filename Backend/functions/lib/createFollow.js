@@ -67,6 +67,37 @@ const functions = __importStar(require("firebase-functions"));
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
+const HOURLY_FOLLOW_LIMIT = 200;
+const HOUR_MS = 3600000;
+/**
+ * Throws resource-exhausted if followerId has exceeded HOURLY_FOLLOW_LIMIT
+ * follow operations in the current clock hour.
+ *
+ * Uses a Firestore counter doc with a 2-hour TTL for automatic cleanup.
+ * The transaction makes the check-and-increment atomic under concurrent calls.
+ */
+async function enforceFollowRateLimit(followerId) {
+    const hourBucket = Math.floor(Date.now() / HOUR_MS);
+    const rateLimitRef = db
+        .collection("_rateLimits")
+        .doc(`follow_${followerId}_${hourBucket}`);
+    await db.runTransaction(async (tx) => {
+        const doc = await tx.get(rateLimitRef);
+        const count = doc.exists ? (doc.data()?.count ?? 0) : 0;
+        if (count >= HOURLY_FOLLOW_LIMIT) {
+            throw new https_1.HttpsError("resource-exhausted", "Follow rate limit exceeded. Please slow down before following more people.");
+        }
+        tx.set(rateLimitRef, {
+            count: count + 1,
+            uid: followerId,
+            bucket: hourBucket,
+            // TTL for automatic cleanup (2 hours from bucket start)
+            ttl: admin.firestore.Timestamp.fromMillis((hourBucket + 2) * HOUR_MS),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    });
+}
 exports.createFollow = (0, https_1.onCall)(async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
@@ -84,6 +115,10 @@ exports.createFollow = (0, https_1.onCall)(async (request) => {
     if (followerId === followingId) {
         throw new https_1.HttpsError("invalid-argument", "Cannot follow yourself.");
     }
+    // Server-side rate limit: max 200 follows per hour.
+    // Prevents mass-follow abuse and follow-churn cycling.
+    // See docs/privacy-model.md §2 (Follow Churn Abuse).
+    await enforceFollowRateLimit(followerId);
     const now = admin.firestore.FieldValue.serverTimestamp();
     const indexId = `${followerId}_${followingId}`;
     // Check for existing follow to make this idempotent

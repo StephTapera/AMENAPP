@@ -217,6 +217,15 @@ service cloud.firestore {
       return data.get('participantIds', data.get('participantUids', []));
     }
 
+    // Returns true if the calling user is in a blocked pair on this conversation.
+    // blockRelationshipCleanup stores each blocked UID in the blockedParticipantUids
+    // array when a block is created, so we can do an O(1) array-contains check.
+    // This prevents blocked participants from reading conversation history even though
+    // they remain in participantIds (messages are retained for appeals purposes).
+    function callerIsBlockedInConversation(data) {
+      return request.auth.uid in data.get('blockedParticipantUids', []);
+    }
+
     function dmRequiresMinorSafety(participantUids) {
       return isMinor() ||
         (
@@ -1256,10 +1265,14 @@ service cloud.firestore {
     // =========================================================================
 
     match /conversations/{conversationId} {
-      // Read: only participants. (GAP P0-1: gate on participantIds via helper.)
+      // Read: only participants, and only if not in a blocked pair.
+      // callerIsBlockedInConversation checks the blockedParticipantUids array written
+      // by blockRelationshipCleanup when a block is created. Blocked users retain their
+      // participantIds membership for appeals evidence but cannot read the conversation.
       allow read: if
         isSignedIn() &&
-        request.auth.uid in conversationParticipants(resource.data);
+        request.auth.uid in conversationParticipants(resource.data) &&
+        !callerIsBlockedInConversation(resource.data);
 
       // Create: signed in + not under minimum age + participant in conversation.
       // [MINOR] C-MINOR-DM: minors require mutual-follow with all participants.
@@ -1285,17 +1298,21 @@ service cloud.firestore {
 
       // ── Messages subcollection ──────────────────────────────────────────────
       match /messages/{messageId} {
-        // Read: must be a participant in the parent conversation. (GAP P0-1.)
+        // Read: must be a participant and NOT in a blocked pair. (GAP P0-1 + blocked gate.)
         allow read: if
           isSignedIn() &&
           request.auth.uid in conversationParticipants(
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
+          !callerIsBlockedInConversation(
             get(/databases/$(database)/documents/conversations/$(conversationId)).data);
 
-        // Create: sender must be participant; under_minimum blocked. (GAP P0-1.)
+        // Create: sender must be participant; under_minimum blocked; blocked pairs cannot send.
         allow create: if
           isSignedIn() && !isUnderMinimum() &&
           request.resource.data.get('senderId', '') == request.auth.uid &&
           request.auth.uid in conversationParticipants(
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
+          !callerIsBlockedInConversation(
             get(/databases/$(database)/documents/conversations/$(conversationId)).data);
 
         // Update: only sender can edit own message (soft-delete).
