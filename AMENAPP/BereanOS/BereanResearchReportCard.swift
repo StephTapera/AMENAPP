@@ -180,7 +180,7 @@ struct BereanResearchReportCard: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             Spacer(minLength: 0)
-                            BereanConfidenceBadge(level: finding.confidence, compact: true)
+                            BereanOSConfidenceBadge(level: finding.confidence, compact: true)
                         }
                     }
                 }

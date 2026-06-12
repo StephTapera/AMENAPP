@@ -71,6 +71,7 @@ const firestore_1 = require("firebase-functions/v2/firestore");
 const v2_1 = require("firebase-functions/v2");
 const admin = __importStar(require("firebase-admin"));
 const serverFeatureFlags_1 = require("./serverFeatureFlags");
+const aclHelper_1 = require("./aclHelper");
 const db = admin.firestore();
 // ─── Constants ───────────────────────────────────────────────────────────────
 /**
@@ -144,11 +145,9 @@ async function hasNoContactOrder(senderId, recipientId) {
  * Uses a deterministic doc ID ({recipientId}_{senderId}) for an O(1) point-read
  * instead of a collection query scan.
  */
+// isBlockedByRecipient → replaced by aclHelper.isBlocked (bidirectional, one source of truth).
 async function isBlockedByRecipient(senderId, recipientId) {
-    // Block documents are stored with ID "{blocker}_{blocked}".
-    const docId = `${recipientId}_${senderId}`;
-    const snap = await db.collection(BLOCKED_USERS_COLLECTION).doc(docId).get();
-    return snap.exists;
+    return (0, aclHelper_1.isBlocked)(senderId, recipientId);
 }
 /**
  * Counts recent enforcement violations by severity level.

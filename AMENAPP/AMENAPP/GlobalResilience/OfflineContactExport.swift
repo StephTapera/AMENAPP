@@ -98,7 +98,7 @@ struct OfflineContactExportView: View {
                     }
                 }
             }
-            .glassEffect()
+            .amenGlassEffect()
             .navigationTitle("Save Contacts Offline")
             .navigationBarTitleDisplayMode(.inline)
         }

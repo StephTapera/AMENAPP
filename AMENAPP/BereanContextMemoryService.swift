@@ -13,7 +13,7 @@ import FirebaseFirestore
 
 // MARK: - Memory Models
 
-struct BereanMemoryEntry: Codable, Identifiable {
+struct BereanContextMemoryEntry: Codable, Identifiable {
     var id: String = UUID().uuidString
     var category: MemoryCategory
     var summary: String
@@ -60,7 +60,7 @@ final class BereanContextMemoryService: ObservableObject {
 
     static let shared = BereanContextMemoryService()
 
-    @Published private(set) var memories: [BereanMemoryEntry] = []
+    @Published private(set) var memories: [BereanContextMemoryEntry] = []
     @Published private(set) var userContext: BereanUserContext = BereanUserContext()
     @Published var isLoaded = false
 
@@ -101,7 +101,7 @@ final class BereanContextMemoryService: ObservableObject {
                 guard let docs = snapshot?.documents else { return }
                 let decoder = Firestore.Decoder()
                 self.memories = docs.compactMap { doc in
-                    try? doc.data(as: BereanMemoryEntry.self, decoder: decoder)
+                    try? doc.data(as: BereanContextMemoryEntry.self, decoder: decoder)
                 }
                 self.isLoaded = true
                 dlog("BereanContextMemoryService: loaded \(self.memories.count) memory entries")
@@ -130,7 +130,7 @@ final class BereanContextMemoryService: ObservableObject {
 
     // MARK: - Memory Operations
 
-    func addMemory(_ entry: BereanMemoryEntry) async {
+    func addMemory(_ entry: BereanContextMemoryEntry) async {
         guard let uid = Auth.auth().currentUser?.uid else {
             dlog("BereanContextMemoryService.addMemory: no authenticated user")
             return
@@ -255,7 +255,7 @@ final class BereanContextMemoryService: ObservableObject {
                 let rawCategory = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 let summary = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !summary.isEmpty,
-                      let category = BereanMemoryEntry.MemoryCategory(rawValue: rawCategory) else { continue }
+                      let category = BereanContextMemoryEntry.MemoryCategory(rawValue: rawCategory) else { continue }
 
                 let tags: [String] = parts.count > 2
                     ? parts[2].components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
@@ -264,7 +264,7 @@ final class BereanContextMemoryService: ObservableObject {
                     ? parts[3].components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
                     : []
 
-                let entry = BereanMemoryEntry(
+                let entry = BereanContextMemoryEntry(
                     category: category,
                     summary: summary,
                     detail: "\(userMessage)\n\n\(aiResponse)",
@@ -285,7 +285,7 @@ final class BereanContextMemoryService: ObservableObject {
         }
     }
 
-    private func updateContextFromEntry(_ entry: BereanMemoryEntry, uid: String) async {
+    private func updateContextFromEntry(_ entry: BereanContextMemoryEntry, uid: String) async {
         var ctx = userContext
         switch entry.category {
         case .struggle:
@@ -321,7 +321,7 @@ final class BereanContextMemoryService: ObservableObject {
     // MARK: - Smart Recall
 
     /// Find memories relevant to a query using keyword matching.
-    func recallRelevant(to query: String, limit: Int = 5) -> [BereanMemoryEntry] {
+    func recallRelevant(to query: String, limit: Int = 5) -> [BereanContextMemoryEntry] {
         let keywords = query
             .lowercased()
             .components(separatedBy: .whitespacesAndNewlines)
@@ -329,7 +329,7 @@ final class BereanContextMemoryService: ObservableObject {
 
         guard !keywords.isEmpty else { return Array(memories.prefix(limit)) }
 
-        let scored: [(BereanMemoryEntry, Int)] = memories.map { entry in
+        let scored: [(BereanContextMemoryEntry, Int)] = memories.map { entry in
             let haystack = (entry.summary + " " + entry.detail + " " + entry.tags.joined(separator: " ")).lowercased()
             let score = keywords.reduce(0) { acc, kw in acc + (haystack.contains(kw) ? 1 : 0) }
             return (entry, score)

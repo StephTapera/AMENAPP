@@ -56,13 +56,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.blockRelationshipCleanup = void 0;
+exports.blockRelationshipCleanupTrigger = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const v2_1 = require("firebase-functions/v2");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
 // ─── Trigger ─────────────────────────────────────────────────────────────────
-exports.blockRelationshipCleanup = (0, firestore_1.onDocumentCreated)("users/{blockerId}/blockedUsers/{blockedId}", async (event) => {
+exports.blockRelationshipCleanupTrigger = (0, firestore_1.onDocumentCreated)({ document: "users/{blockerId}/blockedUsers/{blockedId}", region: "us-east1" }, async (event) => {
     const { blockerId, blockedId } = event.params;
     v2_1.logger.info(`[blockRelationshipCleanup] Processing block: ${blockerId} → ${blockedId}`);
     await Promise.allSettled([
@@ -197,8 +197,12 @@ async function restrictSharedConversations(blockerId, blockedId) {
         return;
     const batch = db.batch();
     for (const doc of sharedConvos) {
+        // blockedBetween: sorted-pair string for display/legacy use
+        // blockedParticipantUids: individual UIDs array for Firestore rules check
+        // (Rules cannot do string-contains operations, so we store both UIDs explicitly)
         batch.update(doc.ref, {
             blockedBetween: admin.firestore.FieldValue.arrayUnion(blockedPair),
+            blockedParticipantUids: admin.firestore.FieldValue.arrayUnion(blockerId, blockedId),
         });
     }
     await batch.commit();

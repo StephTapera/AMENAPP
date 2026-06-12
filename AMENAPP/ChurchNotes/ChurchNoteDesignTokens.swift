@@ -55,13 +55,17 @@ enum CNToken {
 
         static func tint(for type: ChurchNoteBlockType) -> Color {
             switch type {
-            case .paragraph:  return Color.clear
-            case .quote:      return quote
-            case .takeaway:   return takeaway
-            case .prayer:     return prayer
-            case .action:     return action
-            case .reflection: return reflection
-            case .scripture:  return scripture
+            case .paragraph:    return Color.clear
+            case .quote:        return quote
+            case .takeaway:     return takeaway
+            case .prayer:       return prayer
+            case .action:       return action
+            case .reflection:   return reflection
+            case .scripture:    return scripture
+            // NIS placeholder — Lane F/G/H replaces in Wave 2
+            case .scriptureLive: return scripture
+            case .prayerCard:    return prayer
+            case .wrestling:     return Color(red: 0.957, green: 0.906, blue: 0.780).opacity(0.35) // warm amber
             }
         }
     }
@@ -71,13 +75,17 @@ enum CNToken {
     enum BlockBorder {
         static func color(for type: ChurchNoteBlockType) -> Color {
             switch type {
-            case .paragraph:  return Color.clear
-            case .quote:      return Color(red: 0.776, green: 0.769, blue: 0.816).opacity(0.5)
-            case .takeaway:   return Color(red: 0.847, green: 0.765, blue: 0.424).opacity(0.4)
-            case .prayer:     return Color(red: 0.867, green: 0.725, blue: 0.761).opacity(0.4)
-            case .action:     return Color(red: 0.725, green: 0.820, blue: 0.690).opacity(0.4)
-            case .reflection: return Color(red: 0.780, green: 0.740, blue: 0.850).opacity(0.4)
-            case .scripture:  return Color(red: 0.725, green: 0.796, blue: 0.906).opacity(0.4)
+            case .paragraph:    return Color.clear
+            case .quote:        return Color(red: 0.776, green: 0.769, blue: 0.816).opacity(0.5)
+            case .takeaway:     return Color(red: 0.847, green: 0.765, blue: 0.424).opacity(0.4)
+            case .prayer:       return Color(red: 0.867, green: 0.725, blue: 0.761).opacity(0.4)
+            case .action:       return Color(red: 0.725, green: 0.820, blue: 0.690).opacity(0.4)
+            case .reflection:   return Color(red: 0.780, green: 0.740, blue: 0.850).opacity(0.4)
+            case .scripture:    return Color(red: 0.725, green: 0.796, blue: 0.906).opacity(0.4)
+            // NIS placeholder — Lane F/G/H replaces in Wave 2
+            case .scriptureLive: return Color(red: 0.725, green: 0.796, blue: 0.906).opacity(0.4)
+            case .prayerCard:    return Color(red: 0.867, green: 0.725, blue: 0.761).opacity(0.4)
+            case .wrestling:     return Color(red: 0.847, green: 0.785, blue: 0.550).opacity(0.4) // warm amber
             }
         }
     }

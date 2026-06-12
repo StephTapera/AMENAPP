@@ -36,8 +36,8 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.onChurchVerificationReviewed = exports.moderateChurchMediaUpload = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.submitChurchVerificationRequest = exports.updateAlignmentProfile = exports.getWeeklyAlignmentSummary = exports.voteKnowledgeIntegrity = exports.attachSharedKnowledgeIntegrity = exports.sendNotification = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = void 0;
-exports.revokeNotificationsOnPostDelete = exports.revokeNotificationsOnCommentDelete = exports.reconcileFollowCounts = exports.aggregatePrayerCount = exports.incrementVolunteerSlot = exports.generateCalendarPayload = exports.unfurlLink = exports.getLivekitToken = exports.generateLiveKitToken = exports.onSabbathNotificationWrite = exports.syncFamilySabbathPresence = exports.setSabbathPreference = exports.evaluateSabbathMode = exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.processGiving = exports.reportMedia = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = void 0;
+exports.aggregateDiscernmentSignals = exports.generateGracefulRewrite = exports.scoreWeightOfWords = exports.analyzeTruthVsEmotion = exports.updateUserGrowthPattern = exports.savePostActionReflection = exports.createReflectionPrompt = exports.updateMomentLearning = exports.logMomentInterception = exports.evaluateMomentRisk = exports.generateReconciliationPrompt = exports.classifyRelationshipState = exports.updateRelationalGravity = exports.markSilenceSignalResolved = exports.resurfaceAvoidedItem = exports.detectSilencePatterns = exports.dismissDriftSignal = exports.generateBalancingScripture = exports.analyzeScriptureDrift = exports.resolveUnsentThought = exports.saveUnsentThought = exports.detectUnsentThoughtRisk = exports.modelRouter = exports.onChurchVerificationReviewed = exports.moderateChurchMediaUpload = exports.generateGroundedChurchAnswer = exports.refreshChurchLivestreamState = exports.reviewChurchModerationItem = exports.submitChurchProfileUpdate = exports.submitChurchVerificationRequest = exports.nisTopicReadModel = exports.nisMigrationStart = exports.nisResurfaceScheduler = exports.nisResolveDetection = exports.nisPromotePrayer = exports.nisDistillNote = exports.nisProcessNote = exports.updateAlignmentProfile = exports.getWeeklyAlignmentSummary = exports.voteKnowledgeIntegrity = exports.attachSharedKnowledgeIntegrity = exports.sendNotification = exports.indexPostIntoHub = exports.reportHubContent = exports.muteObjectHub = exports.recordObjectInteraction = exports.getRelatedObjectHubs = exports.getObjectHub = exports.createOrJoinObjectHub = exports.resolveCommunityObject = void 0;
+exports.onAccountPrivacyChange = exports.removeFollower = exports.cancelFollowRequest = exports.rejectFollowRequest = exports.acceptFollowRequest = exports.revokeNotificationsOnPostDelete = exports.revokeNotificationsOnCommentDelete = exports.reconcileFollowCounts = exports.aggregatePrayerCount = exports.incrementVolunteerSlot = exports.generateCalendarPayload = exports.unfurlLink = exports.getLivekitToken = exports.generateLiveKitToken = exports.onSabbathNotificationWrite = exports.syncFamilySabbathPresence = exports.setSabbathPreference = exports.evaluateSabbathMode = exports.matchNeedsToVolunteers = exports.classifyPostNeed = exports.onPrayerCreated = exports.matchPrayerSupport = exports.matchEventsForUser = exports.triggerIntelligenceBriefForUser = exports.buildIntelligenceBriefs = exports.buildGlobalCard = exports.generateWorldResponse = exports.submitWorldEvent = exports.getGlobalIntelligenceCards = exports.processGiving = exports.reportMedia = exports.triggerMediaModeration = exports.getAccountMediaRiskScore = exports.getPostModerationStatus = exports.submitMediaReviewDecision = exports.onPostMediaUpdatedRunModeration = exports.onPostCreatedRunMediaModeration = exports.evaluateTone = exports.getAILabelDetail = exports.recordPostAIUsage = exports.createWalkWithChristPathFromPattern = exports.generateMeaningPrompt = exports.updateEternalWeightAfterReflection = exports.calculateEternalWeight = exports.generateCommunityDiscernmentSummary = void 0;
 const admin = __importStar(require("firebase-admin"));
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -63,6 +63,8 @@ __exportStar(require("./thinkFirst/validateThinkFirstCheck"), exports);
 // response" mechanism. Persists structured reports to aiUnsafeReports
 // for human review without echoing the raw response text.
 __exportStar(require("./aiSafety/reportUnsafeAIResponse"), exports);
+// Berean Pipeline Orchestrator — 7-stage constitutional AI pipeline
+__exportStar(require("./berean/bereanPipeline"), exports);
 // Berean Spiritual Intelligence Layers (System 16)
 //   Feature 1: Living Scripture Graph
 //   Feature 2: Spiritual State Discernment Layer
@@ -79,6 +81,8 @@ __exportStar(require("./berean/controllers/generateDiscipleshipNextStep"), expor
 __exportStar(require("./berean/controllers/saveReflectionEntry"), exports);
 __exportStar(require("./berean/controllers/generateChurchNotesSummary"), exports);
 __exportStar(require("./berean/controllers/premiumBereanCallables"), exports);
+// Berean Pipeline Stage 5: Constitutional Review hard gate
+__exportStar(require("./berean/constitutionalReview"), exports);
 // Selah Media OS (System 18)
 __exportStar(require("./selahMedia"), exports);
 // Smart Media Attachments (System 22)
@@ -302,6 +306,19 @@ Object.defineProperty(exports, "updateAlignmentProfile", { enumerable: true, get
 // Scheduled: generateNextYearHolidayCalendar (Nov 1, 06:00 UTC)
 // Callable:  backfillHolidayCalendar (admin-only), validateHolidayCalendarYear (admin-only)
 __exportStar(require("./holidayCalendarGenerator"), exports);
+// Notes Intelligence System (NIS) — Wave 0 contracts
+// Surfaces: nisProcessNote (trigger), nisDistillNote, nisPromotePrayer,
+//   nisResolveDetection, nisResurfaceScheduler, nisMigrationStart,
+//   nisTopicReadModel (trigger)
+// All NIS UI flags default OFF — flip via Remote Config after Wave verification.
+var nis_1 = require("./nis");
+Object.defineProperty(exports, "nisProcessNote", { enumerable: true, get: function () { return nis_1.nisProcessNote; } });
+Object.defineProperty(exports, "nisDistillNote", { enumerable: true, get: function () { return nis_1.nisDistillNote; } });
+Object.defineProperty(exports, "nisPromotePrayer", { enumerable: true, get: function () { return nis_1.nisPromotePrayer; } });
+Object.defineProperty(exports, "nisResolveDetection", { enumerable: true, get: function () { return nis_1.nisResolveDetection; } });
+Object.defineProperty(exports, "nisResurfaceScheduler", { enumerable: true, get: function () { return nis_1.nisResurfaceScheduler; } });
+Object.defineProperty(exports, "nisMigrationStart", { enumerable: true, get: function () { return nis_1.nisMigrationStart; } });
+Object.defineProperty(exports, "nisTopicReadModel", { enumerable: true, get: function () { return nis_1.nisTopicReadModel; } });
 // Lord's Day Rest Mode — server-side policy evaluation + AI label resolution
 // Callables: evaluateRestMode, setRestModePolicy, resolvePostAILabel
 // Trigger:   onRestModePolicyWritten (restModePolicies/{userId})
@@ -372,6 +389,18 @@ Object.defineProperty(exports, "onChurchVerificationReviewed", { enumerable: tru
 // Berean Operating Layer — integrated Berean AI response with full context pipeline
 // Callable: generateBereanOperatingResponse
 __exportStar(require("./berean/bereanOperatingLayer"), exports);
+// Berean Memory Store — Trust Architecture Layer 3
+// Callables: bereanMemoryWrite, bereanMemoryRead, bereanMemoryDelete,
+//            bereanMemoryDeleteAll, bereanMemoryUpdate
+// Firestore: berean_memory/{userId}/entries/{entryId}
+// Flag: berean_memory_enabled in system/serverFeatureFlags
+__exportStar(require("./berean/bereanMemory"), exports);
+// Berean Model Router — task-class → provider routing callable
+// Callable: modelRouter (App Check + Auth)
+// Routes model calls to the correct provider (Claude / Gemini / NIM) by task class.
+// Region: us-east1
+var modelRouter_1 = require("./berean/modelRouter");
+Object.defineProperty(exports, "modelRouter", { enumerable: true, get: function () { return modelRouter_1.modelRouter; } });
 // Video Explain — AI-powered explanation of sermon/teaching video content
 // Callable: explainVideoContent (Auth + App Check, transcript gate, Claude, safety filter)
 // Security: server re-checks visibility, block status, flagged state before generation.
@@ -644,7 +673,20 @@ Object.defineProperty(exports, "reconcileFollowCounts", { enumerable: true, get:
 var notificationRevocation_1 = require("./notifications/notificationRevocation");
 Object.defineProperty(exports, "revokeNotificationsOnCommentDelete", { enumerable: true, get: function () { return notificationRevocation_1.revokeNotificationsOnCommentDelete; } });
 Object.defineProperty(exports, "revokeNotificationsOnPostDelete", { enumerable: true, get: function () { return notificationRevocation_1.revokeNotificationsOnPostDelete; } });
+// Follow request lifecycle (private accounts): accept, reject, cancel, remove,
+// and the onAccountPrivacyChange trigger for Private→Public auto-accept.
+// See docs/privacy-model.md §2 and §5.
+var followRequests_1 = require("./followRequests");
+Object.defineProperty(exports, "acceptFollowRequest", { enumerable: true, get: function () { return followRequests_1.acceptFollowRequest; } });
+Object.defineProperty(exports, "rejectFollowRequest", { enumerable: true, get: function () { return followRequests_1.rejectFollowRequest; } });
+Object.defineProperty(exports, "cancelFollowRequest", { enumerable: true, get: function () { return followRequests_1.cancelFollowRequest; } });
+Object.defineProperty(exports, "removeFollower", { enumerable: true, get: function () { return followRequests_1.removeFollower; } });
+Object.defineProperty(exports, "onAccountPrivacyChange", { enumerable: true, get: function () { return followRequests_1.onAccountPrivacyChange; } });
 // Adaptive Composer Attachments — link unfurling, calendar payloads,
 // volunteer slots, prayer count aggregation.
 __exportStar(require("./composerAttachments"), exports);
+// Global Resilience Wave 1 — resilient messaging (sendMessageGlobal, getThreadOfflineCache)
+// Auth + App Check enforced. Idempotent sends (7-day TTL key). Privacy-aware FCM push.
+// Region: us-east1.
+__exportStar(require("./globalResilience/index"), exports);
 //# sourceMappingURL=index.js.map

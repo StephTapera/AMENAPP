@@ -38,6 +38,7 @@ const https_1 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
+const aclHelper_1 = require("./aclHelper");
 const db = admin.firestore();
 // ─── Dynamic Link Constants ─────────────────────────────────────────
 const AUTO_THROTTLE_THRESHOLD = 50; // After this many joins, switch to approval mode
@@ -48,13 +49,7 @@ const INACTIVITY_HOURS = 24; // Disable link after this many hours with no activ
 function generateSecureToken() {
     return crypto.randomBytes(24).toString("base64url");
 }
-async function isBlocked(userId, targetId) {
-    const [blockA, blockB] = await Promise.all([
-        db.collection("users").doc(userId).collection("blockedUsers").doc(targetId).get(),
-        db.collection("users").doc(targetId).collection("blockedUsers").doc(userId).get(),
-    ]);
-    return blockA.exists || blockB.exists;
-}
+// isBlocked imported from shared aclHelper — do not duplicate inline.
 // ─── Dynamic Link Helpers ────────────────────────────────────────────
 async function recordJoinEvent(conversationId, linkId, userId) {
     await db
@@ -301,7 +296,7 @@ exports.evaluateJoinViaLink = (0, https_1.onCall)(async (request) => {
     }
     const adminIds = convo.adminIds || [];
     for (const adminId of adminIds) {
-        if (await isBlocked(uid, adminId)) {
+        if (await (0, aclHelper_1.isBlocked)(uid, adminId)) {
             return { outcome: "blocked", reason: "Unable to join this group" };
         }
     }

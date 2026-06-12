@@ -1,12 +1,12 @@
-// BereanConfidenceBadge.swift
+// BereanOSConfidenceBadge.swift
 // AMENAPP — BereanOS
 // Reusable confidence-level pill badge for memory entries.
 
 import SwiftUI
 
-// MARK: - BereanConfidenceBadge
+// MARK: - BereanOSConfidenceBadge
 
-struct BereanConfidenceBadge: View {
+struct BereanOSConfidenceBadge: View {
     let level: BereanConfidenceLevel
     var compact: Bool = false
 
@@ -110,13 +110,13 @@ struct BereanConfidenceBadge: View {
     VStack(spacing: 20) {
         // Full badges
         ForEach(BereanConfidenceLevel.allCases) { level in
-            BereanConfidenceBadge(level: level, compact: false)
+            BereanOSConfidenceBadge(level: level, compact: false)
         }
         Divider()
         // Compact badges
         HStack(spacing: 12) {
             ForEach(BereanConfidenceLevel.allCases) { level in
-                BereanConfidenceBadge(level: level, compact: true)
+                BereanOSConfidenceBadge(level: level, compact: true)
             }
         }
     }

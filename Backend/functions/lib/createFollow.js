@@ -67,6 +67,15 @@ const functions = __importStar(require("firebase-functions"));
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
+// ─── Private Account Helper ───────────────────────────────────────────────────
+/** Returns the privacy state of a user account. */
+async function getAccountState(uid) {
+    const doc = await db.collection("users").doc(uid).get();
+    return {
+        isPrivate: doc.data()?.isPrivate === true,
+        ageTier: doc.data()?.ageTier ?? null,
+    };
+}
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 const HOURLY_FOLLOW_LIMIT = 200;
 const HOUR_MS = 3600000;
@@ -98,7 +107,7 @@ async function enforceFollowRateLimit(followerId) {
         }, { merge: true });
     });
 }
-exports.createFollow = (0, https_1.onCall)(async (request) => {
+exports.createFollow = (0, https_1.onCall)({ region: "us-east1" }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {
@@ -121,11 +130,50 @@ exports.createFollow = (0, https_1.onCall)(async (request) => {
     await enforceFollowRateLimit(followerId);
     const now = admin.firestore.FieldValue.serverTimestamp();
     const indexId = `${followerId}_${followingId}`;
-    // Check for existing follow to make this idempotent
+    // Check for existing follow (idempotent)
     const existingIndex = await db.collection("follows_index").doc(indexId).get();
     if (existingIndex.exists) {
         return { success: true, alreadyFollowing: true };
     }
+    // ── Private-account gate (docs/privacy-model.md §2) ──────────────────────
+    // If the target account is private, create a follow REQUEST instead of an
+    // edge. A pending request is NOT a follow — it must never be treated as one.
+    const [callerState, targetState] = await Promise.all([
+        getAccountState(followerId),
+        getAccountState(followingId),
+    ]);
+    if (targetState.isPrivate) {
+        // Check for an existing pending request (idempotent)
+        const existingRequest = await db
+            .collection("users")
+            .doc(followingId)
+            .collection("followRequests")
+            .doc(followerId)
+            .get();
+        if (existingRequest.exists) {
+            return { success: true, requestAlreadySent: true };
+        }
+        // Create the follow request doc. GUARDIAN: adult→minor requests are stored
+        // with a guardian flag so the notification policy can route them appropriately.
+        const isAdultToMinor = !callerState.ageTier?.startsWith("tier") &&
+            (targetState.ageTier === "tierB" || targetState.ageTier === "tierC");
+        await db
+            .collection("users")
+            .doc(followingId)
+            .collection("followRequests")
+            .doc(followerId)
+            .set({
+            requesterId: followerId,
+            targetId: followingId,
+            status: "pending",
+            guardianRouted: isAdultToMinor,
+            createdAt: now,
+        });
+        functions.logger.info(`[createFollow] Follow request: ${followerId} → ${followingId}` +
+            (isAdultToMinor ? " [GUARDIAN]" : ""));
+        return { success: true, requestSent: true };
+    }
+    // ── Public account: create follow edge atomically ─────────────────────────
     const followDocRef = db.collection("follows").doc(indexId);
     const indexDocRef = db.collection("follows_index").doc(indexId);
     const batch = db.batch();
@@ -155,7 +203,7 @@ exports.createFollow = (0, https_1.onCall)(async (request) => {
     return { success: true };
 });
 // ─── createUnfollow ───────────────────────────────────────────────────────────
-exports.createUnfollow = (0, https_1.onCall)(async (request) => {
+exports.createUnfollow = (0, https_1.onCall)({ region: "us-east1" }, async (request) => {
     const data = request.data;
     const context = { auth: request.auth, app: request.app };
     if (!context.auth) {

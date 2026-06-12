@@ -229,15 +229,16 @@ struct DonationWarningCard: View {
     /// if the backend returns a more severe result. The client can never
     /// downgrade a "warning" or "block" returned here.
     private func fetchLiveWarningLevel() {
-        let functions = Functions.functions()
-        let payload: [String: Any] = ["recipientId": recipientId]
+        Task {
+            do {
+                let functions = Functions.functions()
+                let payload: [String: Any] = ["recipientId": recipientId]
+                let result = try await functions
+                    .httpsCallable("trustScoring-checkDonationSafety")
+                    .call(payload)
 
-        functions.httpsCallable("trustScoring-checkDonationSafety")
-            .call(payload) { result, error in
-                guard error == nil,
-                      let data = result?.data as? [String: Any],
+                guard let data = result.data as? [String: Any],
                       let level = data["warningLevel"] as? String else {
-                    // On CF error: fail safe — keep existing level, do not expose donate button.
                     fetchError = true
                     return
                 }
@@ -248,20 +249,20 @@ struct DonationWarningCard: View {
 
                 // Only upgrade, never downgrade.
                 if newRank > currentRank {
-                    DispatchQueue.main.async {
-                        liveWarningLevel = level
-                    }
-                } else if newRank <= currentRank {
+                    liveWarningLevel = level
+                } else {
                     // Accept same-or-lower from CF only if current is still "none"/"caution".
                     // "warning" and "block" are final — client cannot clear them.
                     let isFinal = currentRank >= 2
                     if !isFinal {
-                        DispatchQueue.main.async {
-                            liveWarningLevel = level
-                        }
+                        liveWarningLevel = level
                     }
                 }
+            } catch {
+                // On CF error: fail safe — keep existing level, do not expose donate button.
+                fetchError = true
             }
+        }
     }
 }
 

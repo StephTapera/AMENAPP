@@ -553,7 +553,7 @@ private struct RecordHoldButton: View {
 
 // MARK: - glassEffect helper
 
-private extension View {
+extension View {
     /// Applies a glass-style background matching the existing GlobalResilience surface style.
     @ViewBuilder
     func glassEffect() -> some View {

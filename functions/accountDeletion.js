@@ -231,6 +231,25 @@ exports.processAccountDeletion = onDocumentCreated(
       await deleteDocsWhere('bereanPipelineTraces', 'userId', uid);
       await deleteDocsWhere('bereanFeedback', 'userId', uid);
 
+      // 3k. Berean AI snake_case top-level collections (P0-05 cascade):
+      // The backend pipeline writes to snake_case collection names distinct from the
+      // camelCase user-doc subcollections handled above. All four must be scrubbed.
+
+      // berean_pipeline_traces — keyed by userId
+      await deleteDocsWhere('berean_pipeline_traces', 'userId', uid);
+
+      // berean_feedback — keyed by userId
+      await deleteDocsWhere('berean_feedback', 'userId', uid);
+
+      // berean_model_logs — may be keyed by userId OR requesterId; scrub both fields
+      await deleteDocsWhere('berean_model_logs', 'userId', uid);
+      await deleteDocsWhere('berean_model_logs', 'requesterId', uid);
+
+      // berean_memory/{userId}/entries subcollection + parent document
+      const bereanMemoryRef = db.collection('berean_memory').doc(uid);
+      await deleteCollection(bereanMemoryRef.collection('entries'));
+      await bereanMemoryRef.delete();
+
       console.log(`[accountDeletion] Firestore cleared for uid=${uid}`);
     } catch (e) {
       errors.push(`firestore: ${e.message}`);

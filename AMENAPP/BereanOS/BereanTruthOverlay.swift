@@ -3,10 +3,10 @@ import SwiftUI
 // MARK: - View Modifier
 
 extension View {
-    /// Overlays a compact `BereanConfidenceBadge` in the top-trailing corner of the view.
+    /// Overlays a compact `BereanOSConfidenceBadge` in the top-trailing corner of the view.
     func bereanTruthLabel(_ level: BereanConfidenceLevel) -> some View {
         self.overlay(alignment: .topTrailing) {
-            BereanConfidenceBadge(level: level, compact: true)
+            BereanOSConfidenceBadge(level: level, compact: true)
                 .padding(4)
         }
     }
@@ -25,7 +25,7 @@ struct BereanInlineTruthLabel: View {
         Button {
             showExplanation = true
         } label: {
-            BereanConfidenceBadge(level: level, compact: true)
+            BereanOSConfidenceBadge(level: level, compact: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
@@ -42,7 +42,7 @@ struct BereanInlineTruthLabel: View {
     private var explanationPopover: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                BereanConfidenceBadge(level: level, compact: false)
+                BereanOSConfidenceBadge(level: level, compact: false)
                 Spacer()
                 Button {
                     showExplanation = false

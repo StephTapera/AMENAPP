@@ -54,7 +54,7 @@ async function algoliaRequest(method, path, body) {
  * Patches the Algolia record when a post document is updated.
  * Only syncs fields that are search-relevant to minimize Algolia write units.
  */
-exports.algoliaPostUpdateSync = (0, firestore_1.onDocumentUpdated)({ document: "posts/{postId}", secrets: [algoliaAdminKey] }, async (event) => {
+exports.algoliaPostUpdateSync = (0, firestore_1.onDocumentUpdated)({ document: "posts/{postId}", secrets: [algoliaAdminKey], region: "us-east1" }, async (event) => {
     const postId = event.params.postId;
     const after = event.data?.after.data();
     const before = event.data?.before.data();
@@ -69,10 +69,26 @@ exports.algoliaPostUpdateSync = (0, firestore_1.onDocumentUpdated)({ document: "
         v2_1.logger.info(`[algoliaSync] Removed hidden/deleted post ${postId} from Algolia`);
         return;
     }
+    // CRITICAL ACL FIX (2026-06-12): Only index public posts in Algolia.
+    // Followers-only, church, space, private, and trustedCircle posts must NOT
+    // appear in Algolia because Algolia cannot enforce per-user ACL at query time
+    // for these fine-grained permission levels.
+    // See docs/privacy-model.md §10 (Algolia ACL).
+    const privacyLevel = after.privacyLevel ?? after.visibility ?? "public";
+    const isPublic = privacyLevel === "public" ||
+        privacyLevel === "Everyone" ||
+        privacyLevel === "everyone";
+    if (!isPublic) {
+        // Remove from index if privacy level changed to non-public
+        await algoliaRequest("DELETE", `posts/${encodeURIComponent(postId)}`);
+        v2_1.logger.info(`[algoliaSync] Removed non-public post ${postId} (privacyLevel=${privacyLevel}) from Algolia`);
+        return;
+    }
     const record = {
         objectID: postId,
         content: after.content ?? after.text ?? "",
         authorId: after.authorId ?? after.userId ?? "",
+        privacyLevel: "public", // Invariant: only public posts reach this point
         visibility: after.visibility ?? "public",
         status: after.status ?? "published",
         searchKeywords: after.searchKeywords ?? [],
@@ -86,7 +102,7 @@ exports.algoliaPostUpdateSync = (0, firestore_1.onDocumentUpdated)({ document: "
  * Removes the post record from Algolia when the Firestore document is deleted.
  * Belt-and-suspenders alongside postDeletionCascade's Algolia removal.
  */
-exports.algoliaPostDeleteSync = (0, firestore_1.onDocumentDeleted)({ document: "posts/{postId}", secrets: [algoliaAdminKey] }, async (event) => {
+exports.algoliaPostDeleteSync = (0, firestore_1.onDocumentDeleted)({ document: "posts/{postId}", secrets: [algoliaAdminKey], region: "us-east1" }, async (event) => {
     const postId = event.params.postId;
     await algoliaRequest("DELETE", `posts/${encodeURIComponent(postId)}`);
     v2_1.logger.info(`[algoliaSync] Removed deleted post ${postId} from Algolia`);

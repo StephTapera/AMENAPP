@@ -138,24 +138,27 @@ private struct TrustWarningBannerModifier: ViewModifier {
 
     /// Fallback to `trustScoring-getProfileTrustScore` when Firestore doc is missing.
     private func fetchFromFunction() {
-        let functions = Functions.functions()
-        functions.httpsCallable("trustScoring-getProfileTrustScore")
-            .call(["userId": userId]) { result, error in
-                guard error == nil,
-                      let data = result?.data as? [String: Any],
+        Task {
+            do {
+                let functions = Functions.functions()
+                let result = try await functions
+                    .httpsCallable("trustScoring-getProfileTrustScore")
+                    .call(["userId": userId])
+
+                guard let data = result.data as? [String: Any],
                       let score = data["impersonationRiskScore"] as? Double else {
                     // On error: fail safe — do not show banner if score unknown.
-                    DispatchQueue.main.async {
-                        fetchComplete = true
-                    }
+                    fetchComplete = true
                     return
                 }
 
-                DispatchQueue.main.async {
-                    isVisible = score > 0.70
-                    fetchComplete = true
-                }
+                isVisible = score > 0.70
+                fetchComplete = true
+            } catch {
+                // On error: fail safe — do not show banner if score unknown.
+                fetchComplete = true
             }
+        }
     }
 }
 

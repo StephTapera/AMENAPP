@@ -117,7 +117,7 @@ struct WhyAmISeeingThisSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .glassEffect()
+        .amenGlassEffect()
         // VoiceOver: read the full explanation as a single announcement when it loads.
         .onChange(of: accessibilityAnnouncement) { _, newValue in
             guard !newValue.isEmpty else { return }

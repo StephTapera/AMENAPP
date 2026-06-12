@@ -108,7 +108,7 @@ struct BereanTruthDisclosureSheet: View {
 
     // MARK: - Helpers
 
-    /// Returns the colored dot color that visually matches `BereanConfidenceBadge`.
+    /// Returns the colored dot color that visually matches `BereanOSConfidenceBadge`.
     private func dotColor(for level: BereanConfidenceLevel) -> Color {
         switch level {
         case .certain:      return .green

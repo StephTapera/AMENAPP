@@ -231,7 +231,7 @@ struct BereanResearchView: View {
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
-                            BereanConfidenceBadge(level: finding.confidence, compact: true)
+                            BereanOSConfidenceBadge(level: finding.confidence, compact: true)
                         }
                     }
                 }

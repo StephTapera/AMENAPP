@@ -22,7 +22,17 @@
  */
 
 import type { EvalTestCase } from "../evaluationHarness";
-import type { EvalResult } from "../../berean/evalFramework";
+
+// ── EvalResult ────────────────────────────────────────────────────────────────
+// Mirrors the EvalResult shape defined in functions/berean/evalFramework.ts.
+// Redeclared here to keep this package self-contained (evalFramework.ts is not
+// published as a shared module from this package's tsconfig paths).
+export interface EvalResult {
+  testId: string;
+  passed: boolean;
+  reason: string;
+  latencyMs: number;
+}
 
 // ─── helper predicates ───────────────────────────────────────────────────────
 

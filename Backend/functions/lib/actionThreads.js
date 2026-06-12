@@ -63,6 +63,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.inviteThreadParticipant = exports.archiveActionThread = exports.completeActionStep = exports.activateActionThread = exports.createActionThread = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
+const aclHelper_1 = require("./aclHelper");
 const db = admin.firestore();
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function requireAuth(context) {
@@ -76,13 +77,7 @@ function assertOwner(uid, userId) {
         throw new https_1.HttpsError("permission-denied", "User mismatch");
     }
 }
-async function isBlocked(userA, userB) {
-    const [ab, ba] = await Promise.all([
-        db.collection("blockedUsers").doc(`${userA}_${userB}`).get(),
-        db.collection("blockedUsers").doc(`${userB}_${userA}`).get(),
-    ]);
-    return ab.exists || ba.exists;
-}
+// isBlocked imported from shared aclHelper — do not duplicate inline.
 async function areMutualFollows(userA, userB) {
     const [ab, ba] = await Promise.all([
         db.collection("follows")
@@ -438,7 +433,7 @@ exports.inviteThreadParticipant = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError("resource-exhausted", "Max participants reached");
     }
     // Server-side block check
-    if (await isBlocked(uid, targetUserId)) {
+    if (await (0, aclHelper_1.isBlocked)(uid, targetUserId)) {
         throw new https_1.HttpsError("permission-denied", "Cannot invite a blocked user");
     }
     // For sensitive threads: mutual follow required

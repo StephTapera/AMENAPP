@@ -38,6 +38,7 @@ const functions = __importStar(require("firebase-functions"));
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const rateLimit_1 = require("./rateLimit");
+const aclHelper_1 = require("./aclHelper");
 const db = admin.firestore();
 // ─── Scoring Weights ─────────────────────────────────────────────────
 const WEIGHTS = {
@@ -86,16 +87,7 @@ async function loadExclusions(uid) {
     });
     return excluded;
 }
-/**
- * Check if a user is blocked in either direction.
- */
-async function isBlockedEitherDirection(uidA, uidB) {
-    const [ab, ba] = await Promise.all([
-        db.collection("users").doc(uidA).collection("blockedUsers").doc(uidB).get(),
-        db.collection("users").doc(uidB).collection("blockedUsers").doc(uidA).get(),
-    ]);
-    return ab.exists || ba.exists;
-}
+// isBlockedEitherDirection is now aclHelper.isBlocked — imported above.
 /**
  * Get second-degree connections: friends-of-friends.
  */
@@ -324,7 +316,7 @@ exports.getSuggestedAccountsRail = (0, https_1.onCall)(async (request) => {
                 continue; // Age-policy
             // Bidirectional block check (sample — only for top candidates)
             if (graphCandidates.get(candidateId).graphScore > 2) {
-                if (await isBlockedEitherDirection(uid, candidateId))
+                if (await (0, aclHelper_1.isBlocked)(uid, candidateId))
                     continue;
             }
             const graph = graphCandidates.get(candidateId);
