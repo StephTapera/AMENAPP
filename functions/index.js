@@ -173,6 +173,12 @@ exports.serverSidePostModeration = serverSidePostModeration;
 // Image Moderation: Export Cloud Vision SafeSearch moderation
 exports.moderateUploadedImage = moderateUploadedImage;
 
+// P0-08: DM Video Moderation — Storage trigger for chat_videos/{conversationId}/{fileName}
+// Fail-closed: blocks delivery (sets moderationStatus='pending' or 'blocked') until human review.
+// TODO: Wire to full video frame-extraction + Cloud Vision pipeline; currently sets pending status
+const { moderateUploadedDMVideo } = require("./imageModeration");
+exports.moderateUploadedDMVideo = moderateUploadedDMVideo;
+
 // P0: Phone Authentication Rate Limiting
 exports.checkPhoneVerificationRateLimit = checkPhoneVerificationRateLimit;
 exports.reportPhoneVerificationFailure = reportPhoneVerificationFailure;
