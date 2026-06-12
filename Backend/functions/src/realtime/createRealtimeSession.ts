@@ -183,7 +183,14 @@ export const createRealtimeSession = onCall(
             throw new HttpsError("unavailable", "OpenAI did not return a realtime client secret.");
         }
 
-        const expiresAtMs = openAISecret.expires_at ? openAISecret.expires_at * 1000 : Date.now() + 60_000;
+        // [G-4] Never fabricate an expiry. If OpenAI omits expires_at, the
+        // session is not safe to use — throw so the client gets a clean error
+        // rather than silently accepting a session with unknown lifetime.
+        if (!openAISecret.expires_at) {
+            console.error("[createRealtimeSession] OpenAI client secret missing expires_at — refusing to create session.");
+            throw new HttpsError("unavailable", "Realtime session grant did not include an expiry. Please try again.");
+        }
+        const expiresAtMs = openAISecret.expires_at * 1000;
         const expiresAt = admin.firestore.Timestamp.fromMillis(expiresAtMs);
 
         await sessionRef.set({

@@ -56,7 +56,9 @@ final class BereanRealtimeSessionManager: ObservableObject {
             throw BereanRealtimeError.invalidBrokerResponse
         }
 
-        let expiresAtMs = data["expiresAtMs"] as? Double ?? Date().addingTimeInterval(60).timeIntervalSince1970 * 1000
+        guard let expiresAtMs = data["expiresAtMs"] as? Double else {
+            throw BereanRealtimeError.invalidSessionGrant
+        }
         let endpointURL: URL? = (data["endpoint"] as? String).flatMap(URL.init(string:))
         let secret = BereanRealtimeClientSecret(
             sessionId: sessionId,
@@ -128,10 +130,29 @@ final class BereanRealtimeSessionManager: ObservableObject {
     }
 
     private static func decodeSession(id: String, data: [String: Any]) -> BereanRealtimeSession {
+        if data["sessionType"] == nil {
+            dlog("[BereanRealtimeSM] decodeSession: sessionType missing from Firestore doc \(id); defaulting to voice_assistant")
+        }
         let type = BereanRealtimeSessionType(rawValue: data["sessionType"] as? String ?? "voice_assistant") ?? .voiceAssistant
+
+        if data["status"] == nil {
+            dlog("[BereanRealtimeSM] decodeSession: status missing from Firestore doc \(id); defaulting to initializing")
+        }
         let status = BereanRealtimeSessionStatus(rawValue: data["status"] as? String ?? "initializing") ?? .initializing
+
+        if data["sourceLanguage"] == nil {
+            dlog("[BereanRealtimeSM] decodeSession: sourceLanguage missing from Firestore doc \(id); defaulting to en")
+        }
         let source = BereanSupportedLanguage(rawValue: data["sourceLanguage"] as? String ?? "en") ?? .english
+
+        if data["selectedLanguage"] == nil {
+            dlog("[BereanRealtimeSM] decodeSession: selectedLanguage missing from Firestore doc \(id); defaulting to sourceLanguage (\(source.rawValue))")
+        }
         let selected = BereanSupportedLanguage(rawValue: data["selectedLanguage"] as? String ?? source.rawValue) ?? source
+
+        if data["targetLanguages"] == nil {
+            dlog("[BereanRealtimeSM] decodeSession: targetLanguages missing from Firestore doc \(id); defaulting to [sourceLanguage]")
+        }
         let targets = (data["targetLanguages"] as? [String] ?? [source.rawValue]).compactMap(BereanSupportedLanguage.init(rawValue:))
         let provider = data["provider"] as? [String: Any]
 
@@ -152,6 +173,10 @@ final class BereanRealtimeSessionManager: ObservableObject {
 
 enum BereanRealtimeError: LocalizedError {
     case invalidBrokerResponse
+    /// [G-4] Thrown when the broker response omits or cannot parse expiresAtMs.
+    /// The session must NOT start with an unknown expiry — this is the client
+    /// backstop for a server-side invariant.
+    case invalidSessionGrant
     /// WIRING CERT Gate 1 — thrown when the current user is on the teen or
     /// underMinimum age tier (or when no profile has been loaded yet).
     case minorUserBlocked
@@ -160,6 +185,8 @@ enum BereanRealtimeError: LocalizedError {
         switch self {
         case .invalidBrokerResponse:
             return "Realtime session broker returned an invalid response."
+        case .invalidSessionGrant:
+            return "Berean could not start this session. Please try again."
         case .minorUserBlocked:
             return "Berean AI voice features are available for adults only."
         }
