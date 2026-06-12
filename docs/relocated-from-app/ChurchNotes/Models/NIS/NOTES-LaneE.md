@@ -63,3 +63,4 @@ if (uid) {
 - [x] Note creation fires `NISBirthContextService.shared.capture(...)` (gated)
 - [x] `nisBirthContextEnabled = true` in debug config
 - [x] NO-DUPLICATES check passed (single definition each)
+NISService.swift listener implementation committed in 4ca93a34 under SANCTUARY prefix — already in history, do not re-commit or report as missing.

@@ -43,3 +43,4 @@ No BIL compiler errors were reached or observed. All failures occurred during pa
 Run `xcodebuild -scheme AMENAPP build` from an unsandboxed local terminal or resolve the CoreSimulator/SwiftPM sandbox environment, then rerun Amendment A before starting Wave 2.
 
 de650fb2 retained by human decision as mixed checkpoint; no history rewrite.
+4ca93a34 retained by human decision as mixed checkpoint; no history rewrite.

@@ -47,11 +47,11 @@ export type SanctuarySearchResult = {
 
 | Function | Wave 2 Owner | Emulator Test | Demo Command | Status |
 | --- | --- | --- | --- | --- |
-| `sanctuaryTranscribe` | B1 | Pending | Pending | Pending |
-| `sanctuaryAnchorScripture` | B2 | Pending | Pending | Pending |
-| `sanctuaryAskMoment` | B4 | Pending | Pending | Pending |
-| `sanctuaryReact` | B3 | Pending | Pending | Pending |
-| `sanctuaryReactionField` | B3 | Pending | Pending | Pending |
-| `sanctuaryRoomSync` | B3 | Pending | Pending | Pending |
-| `sanctuarySearch` | B1 | Pending | Pending | Pending |
-| `sanctuaryWeeklyDigest` | B3 | Pending | Pending | Pending |
+| `sanctuaryTranscribe` | B1 | ✅ `B1 sanctuaryTranscribe rejects non-gs media and records failed status` | `XDG_CONFIG_HOME=/private/tmp/firebase-config FIREBASE_CLI_DISABLE_UPDATE_CHECK=1 firebase --config firebase.sanctuary-emulator.json emulators:exec --only firestore,auth,functions "npm --prefix functions test -- --runTestsByPath src/sanctuary/sanctuary.test.ts"` | ✅ Emulator green |
+| `sanctuaryAnchorScripture` | B2 | ✅ `B2 sanctuaryAnchorScripture writes explicit OSIS anchors from transcript chunks` | `XDG_CONFIG_HOME=/private/tmp/firebase-config FIREBASE_CLI_DISABLE_UPDATE_CHECK=1 firebase --config firebase.sanctuary-emulator.json emulators:exec --only firestore,auth,functions "npm --prefix functions test -- --runTestsByPath src/sanctuary/sanctuary.test.ts"` | ✅ Emulator green |
+| `sanctuaryAskMoment` | B4 | ✅ `B4 sanctuaryAskMoment streams citation and answer events over SSE` | `XDG_CONFIG_HOME=/private/tmp/firebase-config FIREBASE_CLI_DISABLE_UPDATE_CHECK=1 firebase --config firebase.sanctuary-emulator.json emulators:exec --only firestore,auth,functions "npm --prefix functions test -- --runTestsByPath src/sanctuary/sanctuary.test.ts"` | ✅ Emulator green |
+| `sanctuaryReact` | B3 | ✅ `B3 sanctuaryReact accepts text-free reactions and sanctuaryReactionField returns density only` | `XDG_CONFIG_HOME=/private/tmp/firebase-config FIREBASE_CLI_DISABLE_UPDATE_CHECK=1 firebase --config firebase.sanctuary-emulator.json emulators:exec --only firestore,auth,functions "npm --prefix functions test -- --runTestsByPath src/sanctuary/sanctuary.test.ts"` | ✅ Emulator green |
+| `sanctuaryReactionField` | B3 | ✅ `B3 sanctuaryReact accepts text-free reactions and sanctuaryReactionField returns density only` | `XDG_CONFIG_HOME=/private/tmp/firebase-config FIREBASE_CLI_DISABLE_UPDATE_CHECK=1 firebase --config firebase.sanctuary-emulator.json emulators:exec --only firestore,auth,functions "npm --prefix functions test -- --runTestsByPath src/sanctuary/sanctuary.test.ts"` | ✅ Emulator green |
+| `sanctuaryRoomSync` | B3 | ✅ `B3 sanctuaryRoomSync persists room presence and prayer state` | `XDG_CONFIG_HOME=/private/tmp/firebase-config FIREBASE_CLI_DISABLE_UPDATE_CHECK=1 firebase --config firebase.sanctuary-emulator.json emulators:exec --only firestore,auth,functions "npm --prefix functions test -- --runTestsByPath src/sanctuary/sanctuary.test.ts"` | ✅ Emulator green |
+| `sanctuarySearch` | B1 | ✅ `B1 sanctuarySearch returns timestamped keyword results and writes journey interaction` | `XDG_CONFIG_HOME=/private/tmp/firebase-config FIREBASE_CLI_DISABLE_UPDATE_CHECK=1 firebase --config firebase.sanctuary-emulator.json emulators:exec --only firestore,auth,functions "npm --prefix functions test -- --runTestsByPath src/sanctuary/sanctuary.test.ts"` | ✅ Emulator green |
+| `sanctuaryWeeklyDigest` | B3 | ✅ `B3 sanctuaryWeeklyDigest writes server-only creator digest documents` | `XDG_CONFIG_HOME=/private/tmp/firebase-config FIREBASE_CLI_DISABLE_UPDATE_CHECK=1 firebase --config firebase.sanctuary-emulator.json emulators:exec --only firestore,auth,functions "npm --prefix functions test -- --runTestsByPath src/sanctuary/sanctuary.test.ts"` | ✅ Emulator green |

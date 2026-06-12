@@ -211,6 +211,10 @@ function authed(data: StoredDoc): any {
   return { auth: { uid: "u1" }, data };
 }
 
+function callHandler(handler: unknown, data: StoredDoc): Promise<any> {
+  return (handler as any)(authed(data));
+}
+
 describe("Sanctuary scripture detection", () => {
   it("converts explicit references to OSIS", () => {
     const anchors = detectScriptureReferences("John 3:16 and Romans 8:28", 42000);
@@ -253,7 +257,7 @@ describe("Sanctuary Wave 2 callable emulator coverage", () => {
   it("B1 sanctuaryTranscribe rejects non-gs media and records failed status", async () => {
     firestoreStore.set("livingVideos/v-transcribe", { mediaURL: "https://example.com/video.mp4" });
 
-    await expect(sanctuaryTranscribe(authed({ videoId: "v-transcribe" }))).rejects.toMatchObject({ code: "failed-precondition" });
+    await expect(callHandler(sanctuaryTranscribe, { videoId: "v-transcribe" })).rejects.toMatchObject({ code: "failed-precondition" });
     expect(firestoreStore.get("livingVideos/v-transcribe")?.transcriptStatus).toBe("failed");
   });
 
@@ -266,7 +270,7 @@ describe("Sanctuary Wave 2 callable emulator coverage", () => {
       words: [],
     });
 
-    const result = await sanctuaryAnchorScripture(authed({ videoId: "v-anchor" }));
+    const result = await callHandler(sanctuaryAnchorScripture, { videoId: "v-anchor" });
 
     expect(result.anchors.map((anchor: any) => anchor.verseRef)).toEqual(["JHN.3.16", "ROM.8.28"]);
     expect(directChildDocs("livingVideos/v-anchor/anchors")).toHaveLength(2);
@@ -276,7 +280,7 @@ describe("Sanctuary Wave 2 callable emulator coverage", () => {
     firestoreStore.set("livingVideos/v-search", { ownerUid: "u1", title: "Mercy Study", contentType: "study", scriptureAnchors: [{ verseRef: "JHN.3.16" }] });
     firestoreStore.set("livingVideos/v-search/transcriptChunks/chunk_0000", { text: "Mercy and faithfulness meet in this study.", startMs: 42000, endMs: 45000 });
 
-    const result = await sanctuarySearch(authed({ query: "mercy faithfulness", scope: { visibility: "mine" } }));
+    const result = await callHandler(sanctuarySearch, { query: "mercy faithfulness", scope: { visibility: "mine" } });
 
     expect(result.results[0]).toMatchObject({ videoId: "v-search", timestampMs: 42000, score: 1 });
     expect(directChildDocs("journeyNodes/u1/nodes")).toHaveLength(1);
@@ -285,8 +289,8 @@ describe("Sanctuary Wave 2 callable emulator coverage", () => {
   it("B3 sanctuaryReact accepts text-free reactions and sanctuaryReactionField returns density only", async () => {
     firestoreStore.set("livingVideos/v-react", { ownerUid: "u1", durationMs: 10000 });
 
-    const reaction = await sanctuaryReact(authed({ videoId: "v-react", reaction: { type: "amen", timestampMs: 2500 } }));
-    const field = await sanctuaryReactionField(authed({ videoId: "v-react" }));
+    const reaction = await callHandler(sanctuaryReact, { videoId: "v-react", reaction: { type: "amen", timestampMs: 2500 } });
+    const field = await callHandler(sanctuaryReactionField, { videoId: "v-react" });
 
     expect(reaction).toEqual({ accepted: true, bucketIndex: 25 });
     expect(field.videoId).toBe("v-react");
@@ -296,8 +300,8 @@ describe("Sanctuary Wave 2 callable emulator coverage", () => {
   });
 
   it("B3 sanctuaryRoomSync persists room presence and prayer state", async () => {
-    const joined = await sanctuaryRoomSync(authed({ roomId: "room-1", op: { type: "join", member: { uid: "u1" } } }));
-    const prayed = await sanctuaryRoomSync(authed({ roomId: "room-1", op: { type: "prayer", playheadMs: 3200 } }));
+    const joined = await callHandler(sanctuaryRoomSync, { roomId: "room-1", op: { type: "join", member: { uid: "u1" } } });
+    const prayed = await callHandler(sanctuaryRoomSync, { roomId: "room-1", op: { type: "prayer", playheadMs: 3200 } });
 
     expect(joined.room.memberOrbs).toHaveLength(1);
     expect(prayed.room.state).toBe("prayer");
@@ -317,7 +321,7 @@ describe("Sanctuary Wave 2 callable emulator coverage", () => {
       json: jest.fn(),
     };
 
-    await sanctuaryAskMoment(
+    await (sanctuaryAskMoment as any)(
       {
         method: "POST",
         body: { videoId: "v-ask", timestampMs: 1000, question: "What does this mean?" },
@@ -336,7 +340,7 @@ describe("Sanctuary Wave 2 callable emulator coverage", () => {
     firestoreStore.set("livingVideos/v-digest", { ownerUid: "creator-1", updatedAt: { ms: Date.now() } });
     firestoreStore.set("livingVideos/v-digest/reactions/u1_amen_100", { type: "amen", timestampMs: 100 });
 
-    await sanctuaryWeeklyDigest();
+    await (sanctuaryWeeklyDigest as any)();
 
     const digests = directChildDocs("creatorWeeklyDigests");
     expect(digests).toHaveLength(1);
