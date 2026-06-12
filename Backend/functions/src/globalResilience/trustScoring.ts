@@ -2,7 +2,7 @@
  * trustScoring.ts
  * AMEN — Global Resilience: Trust Scoring
  *
- * Firebase Gen-2 callable Cloud Functions (region: us-east1):
+ * Firebase Gen-2 callable Cloud Functions (region: us-central1):
  *
  *   evaluateTrustProfile  — Apply a triggerEvent mutation to a TrustProfile and
  *                           emit an immutable safety audit log entry.
@@ -30,7 +30,7 @@ import type { VerificationTier, DmRiskLevel } from "./contracts";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const REGION = "us-east1";
+const REGION = "us-central1";
 
 /** Threshold: account age in days below which a new-money-request is blocked. */
 const ACCOUNT_AGE_BLOCK_DAYS = 30;

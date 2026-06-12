@@ -398,7 +398,7 @@ __exportStar(require("./berean/bereanMemory"), exports);
 // Berean Model Router — task-class → provider routing callable
 // Callable: modelRouter (App Check + Auth)
 // Routes model calls to the correct provider (Claude / Gemini / NIM) by task class.
-// Region: us-east1
+// Region: us-east1 (modelRouter — NOT in this migration batch; client pinned)
 var modelRouter_1 = require("./berean/modelRouter");
 Object.defineProperty(exports, "modelRouter", { enumerable: true, get: function () { return modelRouter_1.modelRouter; } });
 // Video Explain — AI-powered explanation of sermon/teaching video content
@@ -687,6 +687,6 @@ Object.defineProperty(exports, "onAccountPrivacyChange", { enumerable: true, get
 __exportStar(require("./composerAttachments"), exports);
 // Global Resilience Wave 1 — resilient messaging (sendMessageGlobal, getThreadOfflineCache)
 // Auth + App Check enforced. Idempotent sends (7-day TTL key). Privacy-aware FCM push.
-// Region: us-east1.
+// Region: us-east1 (follow/privacy held at us-east1; globalResilience source at us-central1 pending quota; see docs/deploy-topology.md).
 __exportStar(require("./globalResilience/index"), exports);
 //# sourceMappingURL=index.js.map

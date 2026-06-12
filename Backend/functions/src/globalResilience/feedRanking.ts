@@ -2,7 +2,7 @@
  * feedRanking.ts
  * AMEN — Global Resilience: Constitutional Feed Ranking
  *
- * Firebase Gen-2 callable Cloud Functions (region: us-east1):
+ * Firebase Gen-2 callable Cloud Functions (region: us-central1):
  *
  *   rankFeedPosts          — Score and rank candidate posts for a user's feed
  *                            using constitutional signals. Hard-rules guarantee
@@ -229,7 +229,7 @@ function computeScore(s: FeedRankingSignals): number {
 
 export const rankFeedPosts = onCall(
     {
-        region: "us-east1",
+        region: "us-central1",
         enforceAppCheck: true,
     },
     async (request) => {
@@ -411,7 +411,7 @@ export const rankFeedPosts = onCall(
 
 export const getRankingExplanation = onCall(
     {
-        region: "us-east1",
+        region: "us-central1",
         enforceAppCheck: true,
     },
     async (request) => {

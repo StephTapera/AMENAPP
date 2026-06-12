@@ -2,7 +2,7 @@
  * crisisBulletins.ts
  * AMEN — Global Resilience: Crisis Bulletin Management
  *
- * Firebase Gen-2 callable Cloud Functions (region: us-east1):
+ * Firebase Gen-2 callable Cloud Functions (region: us-central1):
  *
  *   publishCrisisBulletin  — Org-gated write to /crisisBulletins/{newId},
  *                            FCM topic push to "crisis_bulletins", and
@@ -37,7 +37,7 @@ import type { BulletinSeverity, VerificationTier } from "./contracts";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const REGION = "us-east1";
+const REGION = "us-central1";
 
 /** FCM topic all crisis bulletin subscribers are subscribed to. */
 const CRISIS_BULLETINS_TOPIC = "crisis_bulletins";

@@ -3,7 +3,7 @@
  * AMEN — Global Resilience Wave 1
  *
  * Barrel export for all Global Resilience Cloud Functions.
- * Region: us-east1 (configured per-function in messaging.ts).
+ * Region: us-central1 (per REGION constant in each function file).
  */
 
 export { sendMessageGlobal, getThreadOfflineCache } from "./messaging";

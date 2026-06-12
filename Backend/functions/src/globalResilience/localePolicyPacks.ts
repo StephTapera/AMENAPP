@@ -15,7 +15,7 @@
  *   seedLocalePolicyPacks         — One-time admin-only seed for the 10 default
  *                                   locale packs.
  *
- * Region: us-east1 (matches Wave-1/Wave-2 deploy target).
+ * Region: us-central1.
  *
  * Firestore layout:
  *   /localePolicyPacks/{localeId}       — LocalePolicyPack
@@ -32,7 +32,7 @@ import type { LocalePolicyPack } from "./contracts";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const REGION = "us-east1";
+const REGION = "us-central1";
 
 /** BCP-47 tag for the universal fallback pack. */
 const FALLBACK_LOCALE = "en";

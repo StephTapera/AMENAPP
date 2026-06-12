@@ -8,7 +8,7 @@
  *   getThreadOfflineCache — Returns the last 50 messages in a thread for
  *                           offline-first clients.
  *
- * Region: us-east1 (matches Wave-1/Wave-2 deploy target).
+ * Region: us-central1.
  *
  * Firestore layout:
  *   /threads/{threadId}/messages/{messageId}
@@ -28,7 +28,7 @@ import type { DmRiskLevel } from "./contracts";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const REGION = "us-east1";
+const REGION = "us-central1";
 
 /** Max body text chars echoed in push notification preview. */
 const FCM_BODY_PREVIEW_MAX = 50;

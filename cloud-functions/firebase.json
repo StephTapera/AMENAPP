@@ -2,7 +2,7 @@
   "functions": [
     {
       "source": ".",
-      "codebase": "default",
+      "codebase": "quarantine-legacy",
       "runtime": "nodejs20"
     }
   ]

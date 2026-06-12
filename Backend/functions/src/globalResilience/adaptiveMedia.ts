@@ -12,7 +12,7 @@
  *                         quality variant of a processed asset, with graceful
  *                         fallback to the best available rendition.
  *
- * Region: us-east1  (matches Wave-1/Wave-2 deploy target).
+ * Region: us-central1.
  *
  * Firestore layout:
  *   /mediaAssets/{assetId}   — MediaAssetDocument (see interface below)
@@ -46,7 +46,7 @@ import { moderateContent } from "../intelligence/amenRouting";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const REGION = "us-east1";
+const REGION = "us-central1";
 
 /** Thumbnail dimensions (square crop). */
 const THUMB_SIZE = 200;
