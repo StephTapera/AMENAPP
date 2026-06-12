@@ -1883,3 +1883,8 @@ exports.bereanUpdateMemory             = bereanConstitutional.bereanUpdateMemory
 exports.bereanDeleteAllMemory          = bereanConstitutional.bereanDeleteAllMemory;
 exports.bereanSubmitFeedback           = bereanConstitutional.bereanSubmitFeedback;
 exports.bereanRunEvals                 = bereanConstitutional.bereanRunEvals;
+
+// NOTE: bereanPipeline, constitutionalReview, modelRouter, bereanMemory*
+// are deployed from the creator codebase (Backend/functions) — do not
+// cross-require here. Deploy via:
+//   firebase deploy --only "functions:creator:bereanPipeline,..." --project amen-5e359
