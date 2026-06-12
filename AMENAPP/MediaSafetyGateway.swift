@@ -21,6 +21,22 @@ import FirebaseFirestore
 import FirebaseAuth
 import CryptoKit
 
+// MARK: - Media Safety Evaluating Protocol
+
+/// Abstraction over MediaSafetyGateway for testability.
+/// MessagingViewController holds a `mediaSafetyGateway` property of this type,
+/// defaulting to `MediaSafetyGateway.shared`, so tests can inject a mock.
+@MainActor
+protocol MediaSafetyEvaluating {
+    func evaluate(
+        image: UIImage,
+        senderId: String,
+        recipientId: String,
+        conversationId: String,
+        messageId: String
+    ) async -> MediaSafetyDecision
+}
+
 // MARK: - Media Safety Decision
 
 enum MediaSafetyDecision {
@@ -51,7 +67,7 @@ enum MediaSafetyDecision {
 // MARK: - Media Safety Gateway
 
 @MainActor
-final class MediaSafetyGateway {
+final class MediaSafetyGateway: MediaSafetyEvaluating {
     static let shared = MediaSafetyGateway()
 
     private lazy var db = Firestore.firestore()
