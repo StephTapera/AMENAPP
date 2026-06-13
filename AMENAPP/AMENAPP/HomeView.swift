@@ -57,6 +57,8 @@ struct HomeView: View {
     @State private var showCommunitiesSheet = false
     @State private var showBereanAssistant = false
     @State private var showBILWave1 = false
+    @State private var islandMachine = IslandStateMachine()
+    @State private var showBereanLens = false
     @Binding var showBereanQuickActions: Bool
     @Binding var showBereanAssistantFromMenu: Bool
     @Binding var selectedPostCategory: CreatePostView.PostCategory
@@ -373,6 +375,32 @@ struct HomeView: View {
                     }
                     .padding(.trailing, 16)
                     .padding(.bottom, floatingCreateBottomPadding)
+                }
+                // Berean Island in-app pill — gated by bereanIslandEnabled flag
+                .overlay(alignment: .bottom) {
+                    if featureFlags.bereanIslandEnabled {
+                        GlassPill(machine: islandMachine) { action in
+                            switch action {
+                            case .askBerean:
+                                showBereanAssistant = true
+                            case .openBible:
+                                showBereanAssistant = true
+                            case .prayNow:
+                                showBereanAssistant = true
+                            default:
+                                break
+                            }
+                        } onQuery: { query in
+                            showBereanAssistant = true
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, floatingCreateBottomPadding + 8)
+                    }
+                }
+                .sheet(isPresented: $showBereanLens) {
+                    if featureFlags.bereanLensEnabled {
+                        BereanLensView { showBereanLens = false }
+                    }
                 }
         }
         // Deep link: open a specific post when a push notification is tapped

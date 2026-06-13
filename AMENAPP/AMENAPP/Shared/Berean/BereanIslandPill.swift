@@ -166,9 +166,13 @@ private struct CompactPill: View {
             ),
             value: pressed
         )
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in pressed = true }
+                .onEnded { _ in pressed = false }
+        )
         .accessibilityLabel("Berean — \(whisper ?? "tap to ask")")
         .accessibilityHint("Double-tap to expand")
-        ._onButtonGesture(pressing: { pressed = $0 }, perform: {})
     }
 }
 

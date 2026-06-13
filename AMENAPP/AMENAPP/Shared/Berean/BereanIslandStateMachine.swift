@@ -11,7 +11,7 @@ import Foundation
 import Observation
 import SwiftUI
 
-@Observable
+@Observable @MainActor
 final class IslandStateMachine {
 
     // MARK: - State
