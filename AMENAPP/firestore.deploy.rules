@@ -3312,19 +3312,13 @@ service cloud.firestore {
     // CAPABILITIES v1 (Wave 0 — Context Engine + Prayer OS + Scripture)
     // =========================================================================
 
-    // Context grants — owner reads own grants; CF (contextEngine_setGrant) writes on policy change.
-    // Version field updated atomically by CF; client may only write source + policy.
+    // Context grants — owner reads own grants; CF callable (contextEngine_setGrant) writes.
+    // SECURITY FIX (CAP-W3-QA): direct client writes are DENIED. The callable enforces
+    // App Check + auth; a direct Firestore write would bypass App Check entirely.
+    // Clients must use contextEngine_setGrant (App Check enforced) to mutate grants.
     match /users/{uid}/contextGrants/{sourceId} {
       allow read: if isOwner(uid);
-      allow create, update: if isOwner(uid)
-        && request.resource.data.keys().hasAll(["source", "policy", "grantedAt", "updatedAt", "version"])
-        && request.resource.data.policy in ["never", "askEveryTime", "whileUsing", "always"]
-        && request.resource.data.source in [
-             "calendar", "location", "contacts",
-             "prayerHistory", "readingHistory",
-             "notesContent", "messagesMeta", "churchProfile"
-           ];
-      allow delete: if false;
+      allow create, update, delete: if false; // CF callable (contextEngine_setGrant) only
     }
 
     // Context audit log — owner reads own log; CF writes only (no client writes).

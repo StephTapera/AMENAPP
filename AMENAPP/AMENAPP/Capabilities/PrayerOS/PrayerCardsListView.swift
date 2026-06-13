@@ -32,6 +32,7 @@ struct PrayerCardsListView: View {
                 .toolbar { toolbarContent }
                 .sheet(isPresented: $showingCreateSheet) {
                     PrayerOSCardSheet(editingCard: nil)
+                        .presentationDetents([.medium, .large])
                 }
                 .task {
                     try? await service.loadCards(status: statusFilter)
@@ -318,6 +319,7 @@ struct PrayerCardDetailView: View {
         }
         .sheet(isPresented: $showingEditSheet) {
             PrayerOSCardSheet(editingCard: card)
+                .presentationDetents([.medium, .large])
         }
     }
 
