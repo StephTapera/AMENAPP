@@ -99,12 +99,8 @@ struct MessagesView: View {
     @Environment(\.tabBarVisible) private var tabBarVisible
     @Environment(\.mainTabSelection) private var mainTabSelection
     
-    enum MessageTab {
-        case messages
-        case requests
-        case archived
-    }
-    
+    // MessageTab is now top-level in AdaptiveGlassInboxView.swift
+
     // Real conversations from Firebase — deduplicated by participant so pin/unpin
     // doesn't produce a second copy of the same person in any list.
     private var conversations: [ChatConversation] {
@@ -357,130 +353,31 @@ struct MessagesView: View {
         }
     }
 
-    // MARK: — AMEN Inbox (new skin)
+    // MARK: — Adaptive Glass Inbox
 
     private var amenInboxBody: some View {
-        ZStack(alignment: .top) {
-            AMENInboxTokens.background.ignoresSafeArea()
-
-            ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: 0, pinnedViews: []) {
-
-                    // Zero-height scroll offset reader for top blur
-                    GeometryReader { geo in
-                        Color.clear.preference(
-                            key: ScrollOffsetPreferenceKey.self,
-                            value: geo.frame(in: .named("amenInboxScroll")).minY
-                        )
-                    }
-                    .frame(height: 0)
-
-                    // Spiritual OS — Amen Hub (Agent B, gated by AppStorage flag)
-                    AmenHubSectionView(
-                        viewModel: hubViewModel,
-                        userId: Auth.auth().currentUser?.uid ?? ""
-                    )
-
-                    // ── HERO HEADER ──────────────────────────────────────────
-                    InboxHeroHeader(
-                        greetingName: firstName,
-                        onCompose: { activeSheet = .newMessage },
-                        onBack: { mainTabSelection.wrappedValue = 0 },
-                        onSettings: { activeSheet = .settings },
-                        onRequests: { selectedTab = .requests },
-                        requestCount: unreadRequestsCount,
-                        searchText: $searchText
-                    )
-
-                    // ── TAB SELECTOR ─────────────────────────────────────────
-                    amenTabSelector
-                        .padding(.horizontal, AMENInboxTokens.hPad)
-                        .padding(.bottom, 8)
-
-                    // ── QUICK ACCESS STRIP (Messages tab only) ───────────────
-                    if selectedTab == .messages && searchText.isEmpty {
-                        let recentAccepted = conversations.filter { $0.status == "accepted" }
-                        if !recentAccepted.isEmpty {
-                            InboxSectionLabel(text: "Recent")
-                            QuickAccessRow(conversations: recentAccepted) { conv in
-                                openChat(conv)
-                            }
-                            .padding(.bottom, 8)
-                            Divider()
-                                .padding(.horizontal, AMENInboxTokens.hPad)
-                                .padding(.bottom, 4)
-                        }
-                    }
-
-                    // ── PINNED CONVERSATIONS ─────────────────────────────────
-                    if selectedTab == .messages && !pinnedConversations.isEmpty && searchText.isEmpty {
-                        InboxSectionLabel(text: "Pinned")
-                        ForEach(pinnedConversations) { conv in
-                            amenThreadRow(conv)
-                                .contextMenu { conversationContextMenu(for: conv) }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    trailingSwipeActions(for: conv)
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                    Button {
-                                        unpinConversation(conv)
-                                    } label: { Label("Unpin", systemImage: "pin.slash.fill") }
-                                        .tint(.gray)
-                                }
-                            InboxSeparator()
-                        }
-                        InboxSectionLabel(text: "All Messages")
-                    }
-
-                    // ── MAIN LIST ────────────────────────────────────────────
-                    if filteredConversations.isEmpty {
-                        if searchText.isEmpty {
-                            InboxEmptyState(mode: .noMessages)
-                                .padding(.top, 60)
-                        } else {
-                            InboxEmptyState(mode: .noResults(searchText))
-                                .padding(.top, 60)
-                        }
-                    } else {
-                        ForEach(Array(filteredConversations.enumerated()), id: \.element.id) { index, conv in
-                            amenThreadRow(conv)
-                                .contextMenu { conversationContextMenu(for: conv) }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    trailingSwipeActions(for: conv)
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                    leadingSwipeActions(for: conv)
-                                }
-                                // Request AI summary when row appears
-                                .onAppear { aiSummaryService.requestSummary(for: conv) }
-                                // Staggered entrance animation
-                                .opacity(rowsVisible ? 1 : 0)
-                                .offset(x: rowsVisible ? 0 : 20)
-                                .animation(
-                                    .spring(response: 0.45, dampingFraction: 0.78)
-                                    .delay(Double(index) * 0.065),
-                                    value: rowsVisible
-                                )
-                            InboxSeparator()
-                        }
-                    }
-
-                    // Bottom padding for home indicator
-                    Spacer().frame(height: 32)
-                }
-            }
-            .coordinateSpace(name: "amenInboxScroll")
-            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                if abs(value - scrollOffset) >= 1 {
-                    scrollOffset = value
-                }
-            }
-            .refreshable { await refreshConversations() }
-
-            // ── Top-edge frosted blur ─────────────────────────────────
-            ScrollEdgeTopBlurOverlay(scrollOffset: scrollOffset)
-                .ignoresSafeArea(edges: .top)
-        }
+        AdaptiveGlassInboxView(
+            conversations:       filteredConversations,
+            pinnedConversations: pinnedConversations,
+            aiSummaryService:    aiSummaryService,
+            requestCount:        unreadRequestsCount,
+            firstName:           firstName,
+            searchText:          $searchText,
+            selectedTab:         $selectedTab,
+            isRefreshing:        $isRefreshing,
+            onOpenChat:          openChat,
+            onCompose:           { activeSheet = .newMessage },
+            onSettings:          { activeSheet = .settings },
+            onRequests:          { selectedTab = .requests },
+            onBack:              { mainTabSelection.wrappedValue = 0 },
+            onArchive:           archiveConversation,
+            onDelete:            { conv in conversationToDelete = conv; showDeleteConfirmation = true },
+            onPin:               pinConversation,
+            onUnpin:             unpinConversation,
+            onMarkRead:          markConversationRead,
+            onMarkUnread:        markConversationUnread,
+            onRefresh:           refreshConversations
+        )
     }
 
     // Single thread row using the new AMENThreadRow component
@@ -4933,7 +4830,7 @@ struct CoordinatorModifier: ViewModifier {
     let messagingService: FirebaseMessagingService
     let conversations: [ChatConversation]
     @Binding var activeSheet: MessageSheetType?
-    @Binding var selectedTab: MessagesView.MessageTab
+    @Binding var selectedTab: MessageTab
     
     func body(content: Content) -> some View {
         content

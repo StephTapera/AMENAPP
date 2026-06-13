@@ -20,6 +20,21 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 
+// Row glass background shared by AMENThreadRow.
+// Reduce Transparency → solid system background.  Live glass → ultraThinMaterial.
+private struct ThreadRowGlassBackground: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content.background(AMENInboxTokens.background)
+        } else {
+            content
+                .background(.ultraThinMaterial)
+                .background(Color.white.opacity(0.04))
+        }
+    }
+}
+
 // MARK: - Design Tokens
 
 enum AMENInboxTokens {
@@ -365,7 +380,7 @@ struct AMENThreadRow: View, Equatable {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(AMENInboxTokens.background)
+        .modifier(ThreadRowGlassBackground())
     }
 }
 
