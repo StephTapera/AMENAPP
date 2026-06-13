@@ -72,3 +72,19 @@ Wave 1 lanes begin after Wave 0 green-build gate passes.
 | W2 | Type-compatibility audit — 0 module-level conflicts; nested PrayerCategory/PrayerStatus duplicates shadow cleanly | (pending) | DONE |
 | W2 | Docs/Capabilities/E2E_RESULTS.md — 13-step verification, Steps 1–12 PASS, Step 13 PARTIAL (Settings mount gap) | (pending) | DONE |
 | W2 | PROGRESS.md — Wave 2 section appended | (pending) | DONE |
+
+---
+
+## Wave 3 — POLISH
+
+| Lane | Item | Commit | Status |
+|---|---|---|---|
+| W3 | Check 1: Motion adaptive — CapabilityPickerView, PrayerFollowUpBanner, all views | (see below) | PASS |
+| W3 | Check 2: Dynamic Type — PrayerCardsListView empty-state icon `.system(size:56)` → `.largeTitle` + `.imageScale(.large)` | (see below) | FIXED |
+| W3 | Check 3: Dark mode — no hardcoded hex/RGB colors in any Capabilities view | (see below) | PASS |
+| W3 | Check 4: iPad detents — VerseLookupView + PrayerOSCardSheet already have `.presentationDetents([.medium, .large])` | (see below) | PASS |
+| W3 | Check 5: Copy review — zero lorem/placeholder/TODO violations | (see below) | PASS |
+| W3 | Check 6: ContextSettingsView → PrivacySettingsView DATA & ANALYTICS section, gated by capabilitiesCoreEnabled | (see below) | FIXED |
+| W3 | Check 7: GlassKit — CapabilityPickerView uses .glassSurface(cornerRadius:16); sheet surfaces correctly use .regularMaterial | (see below) | PASS |
+| W3 | Check 8: Zero-states — PrayerCardsListView, CapabilityPickerView, VerseLookupView all have thoughtful empty states | (see below) | PASS |
+| W3 | POLISH_REPORT.md — detailed per-check audit written | (see below) | DONE |

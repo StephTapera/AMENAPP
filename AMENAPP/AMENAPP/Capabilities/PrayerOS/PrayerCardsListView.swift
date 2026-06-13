@@ -109,7 +109,8 @@ struct PrayerCardsListView: View {
     private var emptyStateView: some View {
         VStack(spacing: 20) {
             Image(systemName: "hands.and.sparkles")
-                .font(.system(size: 56))
+                .font(.largeTitle)
+                .imageScale(.large)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 

@@ -590,6 +590,29 @@ struct PrivacySettingsView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
+                // MARK: CAPABILITIES DATA & CONTEXT
+                if AMENFeatureFlags.shared.capabilitiesCoreEnabled {
+                    VStack(spacing: 0) {
+                        NavigationLink("Data & Context") {
+                            ContextSettingsView()
+                        }
+                        .font(AMENFont.semiBold(15))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                    .padding(.horizontal, 16)
+
+                    Text("Choose which data Capabilities like Prayer OS and Verse Lookup may access.")
+                        .font(AMENFont.regular(12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                }
+
                 // MARK: PRAYER INSIGHTS AI — C-08
                 Text("PRAYER INSIGHTS")
                     .font(AMENFont.bold(11))
