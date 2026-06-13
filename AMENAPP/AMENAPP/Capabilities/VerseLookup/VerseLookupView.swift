@@ -92,7 +92,7 @@ struct VerseLookupView: View {
     }
 
     private var searchField: some View {
-        TextField("John 3:16 or "God is love"", text: $query)
+        TextField("John 3:16 or \"God is love\"", text: $query)
             .textFieldStyle(.roundedBorder)
             .focused($isQueryFocused)
             .padding()
@@ -115,7 +115,7 @@ struct VerseLookupView: View {
     @ViewBuilder
     private var resultsList: some View {
         if results.isEmpty && !query.isEmpty {
-            Text("No results for "\(query)"")
+            Text("No results for \"\(query)\"")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding()
