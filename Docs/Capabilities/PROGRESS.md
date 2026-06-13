@@ -45,3 +45,11 @@ Wave 1 lanes begin after Wave 0 green-build gate passes.
 | D | PrayerOSCardSheet.swift — create/edit Form sheet: subject/type/category/detail/reminder/follow-up + dedupe banner | aaf1c29f | DONE |
 | D | PrayerCardsListView.swift — list + PrayerCardRow + PrayerCardDetailView + status filter | 22407e97 | DONE |
 | D | PrayerFollowUpBanner.swift — deep-link follow-up reminder banner + safe Array subscript | b06925b7 | DONE |
+| B | registry/callables.ts — capabilityRegistry_list (auth, no App Check, surface-filtered Firestore query) | 48e1472f | DONE |
+| B | prayerOS/callables.ts — prayerOS_createCard/updateCard/listCards/completeFollowUp (App Check, context dedupe) | 430d3cab | DONE |
+| B | prayerOS/scheduled.ts — prayerOS_followUpSweep every 15 min (idempotent, notificationQueue) | 430d3cab | DONE |
+| B | scripture/referenceParser.ts — 66-book OSIS parser, no LLM, false-positive guards | c8d4b4dd | DONE |
+| B | scripture/callables.ts — detectReferences/getVerses/searchVerses (cache, API.Bible, searchVerses fallback) | c8d4b4dd | DONE |
+| B | scripts/seedCapabilities.ts — idempotent seed: prayer_os, scripture_intelligence, verse_lookup | 394e8be6 | DONE |
+| B | tsconfig.capabilities.json — noEmit 0 errors | a582fb23 | DONE |
+| B | referenceParser.test.ts — 65 tests passing | a582fb23 | DONE |
