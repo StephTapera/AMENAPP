@@ -31,3 +31,9 @@
 ## Wave 1 — Parallel Lanes (pending)
 
 Wave 1 lanes begin after Wave 0 green-build gate passes.
+
+| Lane | Item | Commit | Status |
+|---|---|---|---|
+| A | resolveContextAccess.ts — policy resolver + audit log batch write | 48e1472f | DONE |
+| A | callables.ts — contextEngine_getGrants, contextEngine_setGrant, contextEngine_getAuditLog | 48e1472f | DONE |
+| A | index.ts — replace skeleton with real exports | 48e1472f | DONE |
