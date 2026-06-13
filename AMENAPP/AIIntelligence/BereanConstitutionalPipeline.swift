@@ -76,6 +76,7 @@ struct BereanPipelineResponse: Codable, Identifiable {
     let trustScore: Double
     let reviewVerdict: String
     let isVerified: Bool
+    var isAiGenerated: Bool = true
     let timestamp: Date
 
     // MARK: - Coding keys (snake_case ↔ camelCase)
@@ -91,6 +92,7 @@ struct BereanPipelineResponse: Codable, Identifiable {
         case trustScore
         case reviewVerdict
         case isVerified
+        case isAiGenerated
         case timestamp
     }
 }

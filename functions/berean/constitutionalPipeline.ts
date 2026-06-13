@@ -80,6 +80,7 @@ export interface BereanResponse {
   trustScore: number;
   reviewVerdict: string;
   isVerified: boolean;
+  isAiGenerated: boolean;
 }
 
 export interface PipelineOutput {
@@ -222,6 +223,7 @@ function errorPipelineOutput(
       trustScore: 0,
       reviewVerdict: "error",
       isVerified: false,
+      isAiGenerated: true,
     },
     trace,
   };
@@ -280,6 +282,7 @@ async function legacyPipelineCall(
       trustScore: 0,
       reviewVerdict: "legacy",
       isVerified: false,
+      isAiGenerated: true,
     },
     trace,
   };
@@ -319,6 +322,7 @@ export async function runBereanPipeline(
       trustScore: 0,
       reviewVerdict: "error",
       isVerified: false,
+      isAiGenerated: true,
     },
     trace: {
       traceId: "unavailable",
@@ -893,6 +897,7 @@ export async function runBereanPipeline(
       trustScore,
       reviewVerdict: reviewResult.overallVerdict,
       isVerified: reviewResult.overallVerdict !== "fail",
+      isAiGenerated: true,
     };
 
     // ── Write completed trace to Firestore ──────────────────────────────────
@@ -914,6 +919,7 @@ export async function runBereanPipeline(
           reviewVerdict: reviewResult.overallVerdict,
           intentClasses,
           isHighRisk,
+          isAiGenerated: true,
         },
         { merge: true },
       )
