@@ -340,15 +340,10 @@ struct ChurchNoteSemanticEditorView: View {
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
 
-                        // NIS placeholder — Lane F/G/H replaces in Wave 2
-                        if AMENFeatureFlags.shared.nisDetectionLayerEnabled {
-                            NISStatusCapsule(
-                                processingState: nisBridge.processingState,
-                                detectionCount: nisBridge.detections.count
-                            )
+                        // NIS Lane D: detection status bar — gated by flag; replaced NISStatusCapsule
+                        NISDetectionStatusBar(bridge: nisBridge)
                             .padding(.horizontal, 16)
                             .padding(.top, 4)
-                        }
 
                         if !vm.pinnedBlocks.isEmpty {
                             pinnedStrip
@@ -382,8 +377,10 @@ struct ChurchNoteSemanticEditorView: View {
                     vm.startEditing()
                     collaborationService.start(noteId: vm.note.id, currentRole: currentCollaborationRole)
                     commentsService.start(noteId: vm.note.id)
-                    // NIS placeholder — Lane F/G/H replaces in Wave 2
-                    nisBridge.observe(noteId: vm.note.id)
+                    // NIS Lane D: gate observation behind feature flag
+                    if AMENFeatureFlags.shared.nisDetectionLayerEnabled {
+                        nisBridge.observe(noteId: vm.note.id)
+                    }
                 }
                 .onDisappear {
                     vm.stopEditing()
