@@ -289,6 +289,21 @@
             </array>
         </dict>
 
+        <!-- OtherAppUsageData: Berean pipeline traces (bereanPipelineTraces) and
+             feedback records (bereanFeedback) — session/query metadata linked to userId -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeOtherAppUsageData</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
     </array>
 </dict>
 </plist>
