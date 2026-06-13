@@ -30,6 +30,10 @@ struct PrayerFollowUpBanner: View {
 
     @StateObject private var service = PrayerOSService.shared
 
+    // MARK: Environment
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // MARK: State
 
     @State private var isCompleting: Bool = false
@@ -129,7 +133,12 @@ struct PrayerFollowUpBanner: View {
                 note: nil
             )
             // Dismiss banner after successful completion.
-            withAnimation(.easeOut(duration: 0.25)) {
+            // Respects reduceMotion: no spring/bounce, just a short ease when motion is reduced.
+            withAnimation(
+                reduceMotion
+                    ? .easeInOut(duration: 0.2)
+                    : .easeOut(duration: 0.25)
+            ) {
                 isDismissed = true
             }
         } catch {
