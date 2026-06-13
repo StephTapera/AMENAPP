@@ -864,6 +864,24 @@ final class AMENFeatureFlags: ObservableObject {
     /// C9b: Composite Space Notes — merged read model for shared-service notes.
     @Published private(set) var nisCompositesEnabled: Bool = false
 
+    // MARK: - System 40: Berean Island (default OFF — flip in Remote Config after verification)
+    /// Master gate: floating Berean Island pill + all four states. Off = zero Island UI.
+    @Published private(set) var bereanIslandEnabled: Bool = false
+    /// Allows context-triggered proactive compact suggestions (≤3/day hard cap).
+    @Published private(set) var bereanIslandProactiveEnabled: Bool = false
+    /// Write-with-Berean composer glyph and tools in all composers.
+    @Published private(set) var writeWithBereanEnabled: Bool = false
+    /// Phone-context engine: calendar, location, reminders signals (Tier-C, opt-in).
+    @Published private(set) var bereanContextEngineEnabled: Bool = false
+    /// Berean Lens camera surface: bible/flyer/safety/study/fellowship/sermon modes.
+    @Published private(set) var bereanLensEnabled: Bool = false
+    /// Sermon Companion live session with on-device speech and Smart Church Note streaming.
+    @Published private(set) var bereanSermonCompanionEnabled: Bool = false
+    /// Voice personalization: TTS voices + Mind & Manner dials.
+    @Published private(set) var bereanVoicePersonalizationEnabled: Bool = false
+    /// Berean+ gating: enforce free-tier limits per entitlement matrix.
+    @Published private(set) var bereanPlusGatingEnabled: Bool = false
+
     private init() {
         applyUITestOverrides()
         Task { await fetchRemoteConfig() }
@@ -2192,6 +2210,16 @@ final class AMENFeatureFlags: ObservableObject {
         nisMigrationEnabled      = config["nis_migration"].boolValue
         nisWrestlingEnabled      = config["nis_wrestling"].boolValue
         nisCompositesEnabled     = config["nis_composites"].boolValue
+
+        // System 40: Berean Island — all OFF by default
+        bereanIslandEnabled              = config["berean_island"].boolValue
+        bereanIslandProactiveEnabled     = config["berean_island_proactive"].boolValue
+        writeWithBereanEnabled           = config["write_with_berean"].boolValue
+        bereanContextEngineEnabled       = config["berean_context_engine"].boolValue
+        bereanLensEnabled                = config["berean_lens"].boolValue
+        bereanSermonCompanionEnabled     = config["berean_sermon_companion"].boolValue
+        bereanVoicePersonalizationEnabled = config["berean_voice_personalization"].boolValue
+        bereanPlusGatingEnabled          = config["berean_plus_gating"].boolValue
     }
 
     private func syncSpiritualOSAppStorageFlags(_ config: RemoteConfig) {

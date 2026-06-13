@@ -7,7 +7,7 @@ import SwiftUI
 
 private let _acAmenGold = Color(red: 198 / 255, green: 151 / 255, blue: 63 / 255)
 
-// MARK: - AttachmentCardView (dispatcher)
+// MARK: - AttachmentCardView (dispatcher — exhaustive, no default)
 
 struct AttachmentCardView: View {
     let attachment: ComposerAttachment
@@ -15,6 +15,7 @@ struct AttachmentCardView: View {
 
     var body: some View {
         switch attachment {
+        // Set A
         case .scripture(let payload):
             AC_ScriptureCard(payload: payload, onRemove: onRemove)
         case .prayer(let payload):
@@ -25,8 +26,54 @@ struct AttachmentCardView: View {
             AC_ChurchNoteCard(payload: payload, onRemove: onRemove)
         case .poll(let payload):
             AC_PollCard(payload: payload, onRemove: onRemove)
-        default:
-            AC_GenericAttachmentCard(typeLabel: attachment.typeKey, onRemove: onRemove)
+        // Set B
+        case .music(let payload):
+            AC_MusicCard(payload: payload, onRemove: onRemove)
+        case .podcast(let payload):
+            AC_PodcastCard(payload: payload, onRemove: onRemove)
+        case .youtube(let payload):
+            AC_YouTubeCard(payload: payload, onRemove: onRemove)
+        case .location(let payload):
+            AC_LocationCard(payload: payload, onRemove: onRemove)
+        case .file(let payload):
+            AC_FileCard(payload: payload, onRemove: onRemove)
+        case .checklist(let payload):
+            AC_ChecklistCard(payload: payload, onRemove: onRemove)
+        // Set C
+        case .donation(let payload):
+            AC_DonationCard(payload: payload, onRemove: onRemove)
+        case .volunteer(let payload):
+            AC_VolunteerCard(payload: payload, onRemove: onRemove)
+        case .announcement(let payload):
+            AC_AnnouncementCard(payload: payload, onRemove: onRemove)
+        case .rsvp(let payload):
+            AC_RSVPCard(payload: payload, onRemove: onRemove)
+        case .directions(let payload):
+            AC_DirectionsCard(payload: payload, onRemove: onRemove)
+        case .voice(let payload):
+            AC_VoiceCard(payload: payload, onRemove: onRemove)
+        case .video(let payload):
+            AC_VideoCard(payload: payload, onRemove: onRemove)
+        case .task(let payload):
+            AC_TaskCard(payload: payload, onRemove: onRemove)
+        case .reminder(let payload):
+            AC_ReminderCard(payload: payload, onRemove: onRemove)
+        case .link(let payload):
+            AC_LinkCard(payload: payload, onRemove: onRemove)
+        case .bibleStudy(let payload):
+            AC_BibleStudyCard(payload: payload, onRemove: onRemove)
+        case .discussionThread(let payload):
+            AC_DiscussionThreadCard(payload: payload, onRemove: onRemove)
+        // Church-only types — dedicated card views in a future church-tools build;
+        // rendered with a labeled generic card until then.
+        case .sermon(let payload):
+            AC_GenericAttachmentCard(typeLabel: "Sermon · \(payload.title)", onRemove: onRemove)
+        case .worshipSong(let payload):
+            AC_GenericAttachmentCard(typeLabel: "Worship · \(payload.title)", onRemove: onRemove)
+        case .teachingSeries(let payload):
+            AC_GenericAttachmentCard(typeLabel: "Series · \(payload.seriesTitle)", onRemove: onRemove)
+        case .ministryForm(let payload):
+            AC_GenericAttachmentCard(typeLabel: "Ministry Form · \(payload.title)", onRemove: onRemove)
         }
     }
 }
@@ -600,59 +647,45 @@ private struct AC_PollOptionRow: View {
     let hasVotedAny: Bool
     let onVote: () -> Void
 
-    private var percentage: Double {
+    private var fraction: Double {
         guard totalVotes > 0 else { return 0 }
         return Double(voteCount) / Double(totalVotes)
-    }
-
-    private var percentageText: String {
-        "\(Int((percentage * 100).rounded()))%"
     }
 
     var body: some View {
         Button(action: onVote) {
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color(.tertiarySystemFill))
-                    .frame(maxWidth: .infinity)
-
                 GeometryReader { geo in
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(isVoted ? Color.green.opacity(0.35) : Color(.systemFill))
-                        .frame(width: hasVotedAny ? geo.size.width * percentage : 0)
+                        .fill(isVoted ? Color.green.opacity(0.15) : Color(.tertiarySystemFill))
+                        .frame(width: hasVotedAny ? geo.size.width * fraction : geo.size.width)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: fraction)
                 }
-
                 HStack {
                     Text(option)
                         .font(.subheadline)
                         .foregroundStyle(.primary)
-                        .lineLimit(1)
                     Spacer()
                     if hasVotedAny {
-                        // Percentage only — no raw counts shown
-                        Text(percentageText)
-                            .font(.subheadline.weight(.semibold))
+                        Text("\(Int((fraction * 100).rounded()))%")
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                            .accessibilityLabel("\(percentageText) of votes")
                     }
                     if isVoted {
-                        Image(systemName: "checkmark.circle.fill")
+                        Image(systemName: "checkmark")
+                            .font(.caption.weight(.bold))
                             .foregroundStyle(.green)
-                            .accessibilityHidden(true)
                     }
                 }
                 .padding(.horizontal, 10)
+                .padding(.vertical, 8)
             }
             .frame(minHeight: 44)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(hasVotedAny)
-        .accessibilityLabel(
-            hasVotedAny
-                ? "\(option), \(percentageText)\(isVoted ? ", your vote" : "")"
-                : "Vote for \(option)"
-        )
-        .accessibilityAddTraits(isVoted ? .isSelected : [])
+        .accessibilityLabel("\(option)\(isVoted ? ", your vote" : "")\(hasVotedAny ? ", \(Int((fraction * 100).rounded())) percent" : "")")
+        .accessibilityHint(hasVotedAny ? "" : "Tap to vote for \(option)")
     }
 }
