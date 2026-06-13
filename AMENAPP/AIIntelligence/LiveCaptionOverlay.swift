@@ -30,14 +30,15 @@ struct LiveCaptionOverlay: View {
 
             if let reference = scriptureReferences.last, !reference.reference.isEmpty {
                 HStack(spacing: 6) {
-                    Image(systemName: "book.closed")
+                    Image(systemName: reference.isUnverified ? "questionmark.circle" : "book.closed")
                         .font(.caption.weight(.semibold))
+                        .foregroundStyle(reference.isUnverified ? Color.orange : Color.secondary)
                     Text(reference.reference)
                         .font(.caption.weight(.semibold))
+                        .foregroundStyle(reference.isUnverified ? Color.orange : Color.secondary)
                         .lineLimit(1)
                 }
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Detected scripture reference, \(reference.reference)")
+                .accessibilityLabel("Detected scripture reference, \(reference.reference)\(reference.isUnverified ? ", unverified" : "")")
             }
         }
         .padding(.horizontal, 14)
