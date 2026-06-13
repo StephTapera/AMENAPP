@@ -393,6 +393,14 @@ final class AMENFeatureFlags: ObservableObject {
     /// Default OFF until CameraOS rules/index coverage and runtime privacy review are verified.
     @Published private(set) var cameraOSEnabled: Bool = false
 
+    // MARK: - AMEN Distinctives (F1-F6)
+    @Published private(set) var prayerLedgerEnabled: Bool = false
+    @Published private(set) var graceMechanicsEnabled: Bool = false
+    @Published private(set) var testEverythingEnabled: Bool = false
+    @Published private(set) var witnessedCommitmentsEnabled: Bool = false
+    @Published private(set) var liturgicalPacingEnabled: Bool = false
+    @Published private(set) var dailyOfficeEnabled: Bool = false
+
     // MARK: - Communication OS (System 32: Next-Gen Messaging + Group Discussions)
     @Published private(set) var messagesSmartContextEnabled: Bool = false
     @Published private(set) var groupDiscussionPulseEnabled: Bool = false
@@ -882,6 +890,18 @@ final class AMENFeatureFlags: ObservableObject {
     /// Berean+ gating: enforce free-tier limits per entitlement matrix.
     @Published private(set) var bereanPlusGatingEnabled: Bool = false
 
+    // MARK: - System 41: Capabilities v1 (default OFF — flip in Remote Config after verification)
+    /// Master gate: Capabilities core infrastructure (registry, context engine, picker plumbing).
+    @Published private(set) var capabilitiesCoreEnabled: Bool = false
+    /// @ invocation picker in Messages, Berean, and Smart Church Notes composers.
+    @Published private(set) var capabilityPickerEnabled: Bool = false
+    /// Prayer OS capability — prayer cards, reminders, follow-up tracking.
+    @Published private(set) var prayerOSEnabled: Bool = false
+    /// Scripture Intelligence capability — reference detection in Smart Church Notes.
+    @Published private(set) var scriptureIntelligenceEnabled: Bool = false
+    /// Verse Lookup capability — inline verse retrieval and insertion in any composer.
+    @Published private(set) var verseLookupInlineEnabled: Bool = false
+
     private init() {
         applyUITestOverrides()
         Task { await fetchRemoteConfig() }
@@ -929,6 +949,14 @@ final class AMENFeatureFlags: ObservableObject {
             "berean_adaptive_mode_enabled": true as NSObject,
             "berean_deep_enabled": true as NSObject,
             "berean_entitlement_enforcement_enabled": true as NSObject,
+
+            // AMEN Distinctives - default OFF until rollout
+            "ff_prayer_ledger": false as NSObject,
+            "ff_grace_mechanics": false as NSObject,
+            "ff_test_everything": false as NSObject,
+            "ff_witnessed_commitments": false as NSObject,
+            "ff_liturgical_pacing": false as NSObject,
+            "ff_daily_office": false as NSObject,
 
             // Check-in
             "spiritual_check_in_enabled": true as NSObject,
@@ -1576,6 +1604,13 @@ final class AMENFeatureFlags: ObservableObject {
             "nis_migration": false as NSObject,
             "nis_wrestling": false as NSObject,
             "nis_composites": false as NSObject,
+
+            // Capabilities v1 — all default OFF
+            "capabilities_core": false as NSObject,
+            "capability_picker": false as NSObject,
+            "prayer_os": false as NSObject,
+            "scripture_intelligence": false as NSObject,
+            "verse_lookup_inline": false as NSObject,
         ]
     }
 
@@ -1594,6 +1629,13 @@ final class AMENFeatureFlags: ObservableObject {
         bereanAdaptiveModeEnabled = config["berean_adaptive_mode_enabled"].boolValue
         bereanDeepEnabled = config["berean_deep_enabled"].boolValue
         bereanEntitlementEnforcementEnabled = config["berean_entitlement_enforcement_enabled"].boolValue
+
+        prayerLedgerEnabled = config["ff_prayer_ledger"].boolValue
+        graceMechanicsEnabled = config["ff_grace_mechanics"].boolValue
+        testEverythingEnabled = config["ff_test_everything"].boolValue
+        witnessedCommitmentsEnabled = config["ff_witnessed_commitments"].boolValue
+        liturgicalPacingEnabled = config["ff_liturgical_pacing"].boolValue
+        dailyOfficeEnabled = config["ff_daily_office"].boolValue
 
         spiritualCheckInEnabled = config["spiritual_check_in_enabled"].boolValue
         checkInBehavioralSignalsEnabled = config["check_in_behavioral_signals_enabled"].boolValue
@@ -2220,6 +2262,13 @@ final class AMENFeatureFlags: ObservableObject {
         bereanSermonCompanionEnabled     = config["berean_sermon_companion"].boolValue
         bereanVoicePersonalizationEnabled = config["berean_voice_personalization"].boolValue
         bereanPlusGatingEnabled          = config["berean_plus_gating"].boolValue
+
+        // Capabilities v1 — all OFF by default
+        capabilitiesCoreEnabled      = config["capabilities_core"].boolValue
+        capabilityPickerEnabled      = config["capability_picker"].boolValue
+        prayerOSEnabled              = config["prayer_os"].boolValue
+        scriptureIntelligenceEnabled = config["scripture_intelligence"].boolValue
+        verseLookupInlineEnabled     = config["verse_lookup_inline"].boolValue
     }
 
     private func syncSpiritualOSAppStorageFlags(_ config: RemoteConfig) {

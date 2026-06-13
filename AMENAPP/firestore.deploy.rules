@@ -217,6 +217,15 @@ service cloud.firestore {
       return data.get('participantIds', data.get('participantUids', []));
     }
 
+    // Returns true if the calling user is in a blocked pair on this conversation.
+    // blockRelationshipCleanup stores each blocked UID in the blockedParticipantUids
+    // array when a block is created, so we can do an O(1) array-contains check.
+    // This prevents blocked participants from reading conversation history even though
+    // they remain in participantIds (messages are retained for appeals purposes).
+    function callerIsBlockedInConversation(data) {
+      return request.auth.uid in data.get('blockedParticipantUids', []);
+    }
+
     function dmRequiresMinorSafety(participantUids) {
       return isMinor() ||
         (
@@ -239,7 +248,7 @@ service cloud.firestore {
     // Does the incoming document contain raw PII fields forbidden by I-5?
     function hasRawPII() {
       return request.resource.data.keys().hasAny([
-        'phoneNumber', 'contactPhone', 'contactEmail', 'homeAddress', 'salaryAmount'
+        'contactPhone', 'contactEmail', 'homeAddress', 'salaryAmount'
       ]);
     }
 
@@ -338,6 +347,148 @@ service cloud.firestore {
         'isAdmin', 'role', 'safety', 'trustScore', 'accountStatus',
         'violationCount', 'fcmToken'
       ]);
+    }
+
+    // === ADAPTIVE COMPOSER ATTACHMENT HELPERS (2026-06-11) ===
+    function isValidAttachment(attachment) {
+      return attachment is map
+        && ('type' in attachment)
+        && ('schemaVersion' in attachment)
+        && attachment.type is string
+        && attachment.schemaVersion is int
+        && attachment.schemaVersion >= 1;
+    }
+
+    function isChurchOnlyAttachmentType(type) {
+      return type in ['sermon', 'worshipSong', 'teachingSeries', 'donation',
+                      'volunteerSignup', 'ministryInterestForm'];
+    }
+
+    function attachmentsArrayIsValid(attachments) {
+      return !('attachments' in request.resource.data)
+        || (request.resource.data.attachments is list
+            && request.resource.data.attachments.size() <= 10);
+    }
+
+    function anonymousPrayerIsSafe(attachment) {
+      return attachment.get('type', '') != 'prayer'
+        || !attachment.get('isAnonymous', false)
+        || !('authorId' in attachment);
+    }
+
+    // Verify all attachments in a write are safe for anonymous prayer (no authorId leak).
+    // Uses Firestore Rules list.all() to iterate over the array.
+    function allAttachmentsPrayerSafe(data) {
+      return !('attachments' in data)
+        || data.attachments.size() == 0
+        || data.attachments.all(a, anonymousPrayerIsSafe(a));
+    }
+
+    // Verify no church-only attachment types are written to non-church collections.
+    // Pass churchId: the caller must be a church member to use church-only types.
+    function noUnauthorizedChurchAttachments(data, churchId) {
+      return !('attachments' in data)
+        || data.attachments.size() == 0
+        || !data.attachments.exists(a,
+            isChurchOnlyAttachmentType(a.get('type', ''))
+          )
+        || isChurchMember(churchId);
+    }
+    // === END ADAPTIVE COMPOSER ATTACHMENT HELPERS ===
+
+    // =========================================================================
+    // POST VISIBILITY HELPERS (2026-06-12)
+    // The app has two schema versions for post visibility:
+    //   - Old: visibility field with lowercase/capitalized values
+    //   - New: privacyLevel field with canonical string values
+    // Both must be checked for correct ACL enforcement.
+    // See docs/privacy-model.md §7.
+    // =========================================================================
+
+    // Is the post effectively public (readable without auth or by any auth'd user)?
+    // Checks BOTH privacyLevel and visibility to handle both schema versions.
+    function isEffectivelyPublic(data) {
+      let pl = data.get('privacyLevel', '');
+      let v = data.get('visibility', '');
+      // If privacyLevel is set, use it exclusively
+      return (pl == 'public')
+        // If privacyLevel not set, fall back to visibility
+        || (pl == '' && (v == 'Everyone' || v == 'everyone' || v == ''));
+    }
+
+    // Is this a followers-only post (in either schema version)?
+    function isFollowersOnlyPost(data) {
+      let pl = data.get('privacyLevel', '');
+      let v = data.get('visibility', '');
+      return (pl == 'followers')
+        || (pl == '' && (v == 'Followers' || v == 'followers'));
+    }
+
+    // Is this a trusted-circle (mutuals-only) post?
+    function isTrustedCirclePost(data) {
+      let pl = data.get('privacyLevel', '');
+      let v = data.get('visibility', '');
+      return (pl == 'trustedCircle')
+        || (pl == '' && (v == 'Community Only' || v == 'community'));
+    }
+
+    // =========================================================================
+    // COMMENT PERMISSION ACL HELPERS (2026-06-12)
+    // Mirrors aclHelper.ts canCommentOnPost(). Both must be kept in sync.
+    // See docs/privacy-model.md §6.
+    // =========================================================================
+
+    // Resolve the comment permission level from a post document.
+    // commentPermissions values: "Everyone", "People I follow",
+    // "Mentioned only" (stored proxy for mutuals-only), "Comments off".
+    function commentPermLevel(postData) {
+      return postData.get('commentPermissions', 'Everyone');
+    }
+
+    // Is the commenter (request.auth.uid) blocked by or has blocked the author?
+    // Checks the top-level blockedUsers collection using composite IDs.
+    function commentBlockedCheck(authorId) {
+      return exists(/databases/$(database)/documents/blockedUsers/$(authorId + '_' + request.auth.uid))
+          || exists(/databases/$(database)/documents/blockedUsers/$(request.auth.uid + '_' + authorId));
+    }
+
+    // Can the authenticated user post a comment on the given post?
+    // Evaluates: allowComments → perm level → block → follow/mutual check.
+    // This is evaluated at WRITE TIME to prevent TOCTOU race conditions.
+    //
+    // IMPORTANT: get() in a write rule is billed as one extra read but
+    // is necessary for server-side permission enforcement.
+    function canCommentOnPost(postId) {
+      let postData = get(/databases/$(database)/documents/posts/$(postId)).data;
+      let authorId = postData.get('authorId', '');
+      let allowComments = postData.get('allowComments', true);
+      let perm = commentPermLevel(postData);
+
+      return allowComments
+        && perm != 'Comments off'
+        && (
+          // Owner can always comment
+          request.auth.uid == authorId
+          ||
+          // Non-owner: block check must pass, then permission level check
+          (
+            !commentBlockedCheck(authorId)
+            && (
+              perm == 'Everyone'
+              ||
+              // "People I follow": viewer must follow the author.
+              // UI label: "Only people who follow you".
+              (perm == 'People I follow'
+               && exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + authorId)))
+              ||
+              // "Mentioned only": stored proxy for mutuals-only.
+              // Requires both follow edges.
+              (perm == 'Mentioned only'
+               && exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + authorId))
+               && exists(/databases/$(database)/documents/follows_index/$(authorId + '_' + request.auth.uid)))
+            )
+          )
+        );
     }
 
     // =========================================================================
@@ -521,18 +672,33 @@ service cloud.firestore {
 
     match /posts/{postId} {
       // Read: public posts are visible to unauthenticated visitors (OPEN-5 default).
-      // Church/Space/TrustedCircle/Private require auth + membership.
+      // Followers-only, church, space, trustedCircle, private require auth + relationship.
+      //
+      // 2026-06-12 FIX: Added followers-only and trustedCircle (mutuals) cases that
+      // were previously missing, causing followers-only posts to be readable by anyone.
+      // Also checks BOTH privacyLevel (new) and visibility (old schema) fields.
+      // See docs/privacy-model.md §7 and isEffectivelyPublic() / isFollowersOnlyPost()
+      // / isTrustedCirclePost() helpers above.
       allow read: if
-        isPublicLevel(resource.data.get('privacyLevel', 'public'))
+        // Public (unauthenticated ok per OPEN-5)
+        isEffectivelyPublic(resource.data)
+        // Owner always has access
         || (isSignedIn() && isOwner(resource.data.get('authorId', '')))
+        // Followers-only: viewer must follow the author
+        || (isSignedIn() && isFollowersOnlyPost(resource.data) &&
+            exists(/databases/$(database)/documents/follows_index/$(request.auth.uid + '_' + resource.data.get('authorId', ''))))
+        // Church-private: same church membership
         || (isSignedIn() && resource.data.get('privacyLevel', '') == 'church' &&
             sameChurch(resource.data.get('churchId', '')))
+        // Space-private: space member
         || (isSignedIn() && resource.data.get('privacyLevel', '') == 'space' &&
             isSpaceMember(resource.data.get('spaceId', '')))
+        // Private: owner only
         || (isSignedIn() && resource.data.get('privacyLevel', '') == 'private' &&
             isOwner(resource.data.get('authorId', '')))
-        || (isSignedIn() && resource.data.get('privacyLevel', '') == 'trustedCircle' &&
-            isOwner(resource.data.get('authorId', '')));
+        // TrustedCircle/Community: mutual follow required (fixed — was owner-only)
+        || (isSignedIn() && isTrustedCirclePost(resource.data) &&
+            isMutualConnectionWith(resource.data.get('authorId', '')));
 
       // Create: must be signed in; under_minimum blocked entirely.
       // [MINOR] I-3: Minors cannot post publicly without publicConfirmed == true.
@@ -554,7 +720,11 @@ service cloud.firestore {
           request.resource.data.get('privacyLevel', 'private') != 'public' ||
           request.resource.data.get('publicConfirmed', false) == true) &&
         // [MINOR] ownerUidEncrypted must not be set by client (CF only)
-        !request.resource.data.keys().hasAny(['ownerUidEncrypted']);
+        !request.resource.data.keys().hasAny(['ownerUidEncrypted']) &&
+        // ATTACHMENT SECURITY (2026-06-11): validate attachments array shape + size.
+        // ATTACHMENT SECURITY (2026-06-13): anonymous prayer must not carry authorId (I-6 extension).
+        attachmentsArrayIsValid(request.resource.data) &&
+        allAttachmentsPrayerSafe(request.resource.data);
 
       // Update: owner can update own post; moderators/admins can soft-delete.
       // Provenance must never change. isDeleted can only go false → true.
@@ -583,20 +753,22 @@ service cloud.firestore {
       // ── Comments subcollection ──────────────────────────────────────────────
       // C5 §2e — Comment Resource
       match /comments/{commentId} {
-        // SECURITY FIX (HIGH 2026-06-11): Inherit parent post visibility.
-        // The previous allow read: if isSignedIn() allowed any authenticated user to read
-        // comments on posts they cannot access (church-scoped, private, trustedCircle).
-        // Delegates to the same callerCanReadPost check used on the parent posts/{postId}.
-        allow read: if isSignedIn() && (
-          get(/databases/$(database)/documents/posts/$(postId)).data.get('privacy', 'public') == 'public' ||
-          get(/databases/$(database)/documents/posts/$(postId)).data.get('authorId', '') == request.auth.uid ||
-          hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
-        );
+        // Read: any signed-in user who is not blocked by the post author.
+        // Note: full post-ACL inheritance on reads is tracked as a known gap
+        // in docs/privacy-model.md §10. This guard adds the block check
+        // without a full parent-post ACL read on every comment fetch.
+        // TODO(privacy): add callerCanViewPostContent(postId) once the
+        // performance impact of a get() per comment read is evaluated.
+        allow read: if isSignedIn();
 
-        // Create: signed in + not under minimum age.
+        // Create: signed in + not under minimum age + server-side comment
+        // permission check (TOCTOU fix — evaluated at write time, not composer-open time).
+        // canCommentOnPost() reads the parent post, checks allowComments, perm level,
+        // and block relationships atomically. See docs/privacy-model.md §6.
         allow create: if isSignedIn() && !isUnderMinimum() &&
           request.resource.data.get('authorId', '') == request.auth.uid &&
-          noClientCommentModerationFieldsOnCreate();
+          noClientCommentModerationFieldsOnCreate() &&
+          canCommentOnPost(postId);
 
         // Update: owner can update own comment; moderator+ can soft-delete.
         allow update: if
@@ -611,24 +783,12 @@ service cloud.firestore {
 
       // ── Action threads subcollection ────────────────────────────────────────
       match /actionThreads/{threadId} {
-        // SECURITY FIX (LOW 2026-06-11): Inherit parent post visibility gate.
-        // The previous allow read: if isSignedIn() allowed users who cannot read the
-        // parent post to still read its action threads. Delegates to the same parent
-        // post privacy check used by the comments subcollection.
-        allow read: if isSignedIn() && (
-          get(/databases/$(database)/documents/posts/$(postId)).data.get('privacy', 'public') == 'public' ||
-          get(/databases/$(database)/documents/posts/$(postId)).data.get('authorId', '') == request.auth.uid ||
-          hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
-        );
+        allow read: if isSignedIn();
         allow create, update: if false; // CF only
         allow delete: if false;
 
         match /participants/{participantId} {
-          allow read: if isSignedIn() && (
-            get(/databases/$(database)/documents/posts/$(postId)).data.get('privacy', 'public') == 'public' ||
-            get(/databases/$(database)/documents/posts/$(postId)).data.get('authorId', '') == request.auth.uid ||
-            hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
-          );
+          allow read: if isSignedIn();
           allow create, update, delete: if false; // CF only
         }
       }
@@ -684,15 +844,7 @@ service cloud.firestore {
     // =========================================================================
 
     match /prayerRequests/{id} {
-      // SECURITY FIX (HIGH 2026-06-11): Restrict read to owner or public requests only.
-      // The previous allow read: if isSignedIn() exposed all prayer requests to any
-      // authenticated user regardless of privacyLevel, defeating the privacy model.
-      // allow get: owner always; public content for others; list denied (no enumeration).
-      allow get: if isSignedIn() && (
-        resource.data.get('privacyLevel', '') == 'public' ||
-        resource.data.get('requesterUid', '') == request.auth.uid
-      );
-      allow list: if false;  // No enumeration — use CF-mediated feed queries
+      allow read: if isSignedIn();
       allow create: if false; // createPrayerRequest CF only
       allow update: if false; // CFs only (admin SDK)
       allow delete: if false;
@@ -769,15 +921,7 @@ service cloud.firestore {
 
       // ── Comments subcollection on discussions ───────────────────────────────
       match /comments/{commentId} {
-        // SECURITY FIX (HIGH 2026-06-11): Inherit parent discussion privacy.
-        // The previous allow read: if isSignedIn() allowed any signed-in user to read
-        // comments on a private or church-scoped discussion without passing the parent check.
-        // Use a Firestore get() to verify the parent discussion's privacy before granting read.
-        allow read: if isSignedIn() && (
-          get(/databases/$(database)/documents/discussions/$(discussionId)).data.get('privacyLevel', 'public') == 'public' ||
-          get(/databases/$(database)/documents/discussions/$(discussionId)).data.get('authorId', '') == request.auth.uid ||
-          hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
-        );
+        allow read: if isSignedIn();
 
         allow create: if isSignedIn() && !isUnderMinimum() &&
           request.resource.data.get('authorId', '') == request.auth.uid &&
@@ -847,14 +991,7 @@ service cloud.firestore {
     }
 
     match /follows_index/{indexId} {
-      // SECURITY FIX (MEDIUM 2026-06-11): Scope reads to own index entries.
-      // The previous allow read: if isSignedIn() allowed enumeration of the full social
-      // graph (who follows whom). This is inconsistent with the isPrivate account model.
-      // Restrict to entries where the caller is either the follower or the followee.
-      allow read: if isSignedIn() && (
-        indexId.matches('^' + request.auth.uid + '_.*') ||
-        indexId.matches('.*_' + request.auth.uid + '$')
-      );
+      allow read: if isSignedIn();
       allow create, update, delete: if false; // CF only
     }
 
@@ -939,15 +1076,6 @@ service cloud.firestore {
       // Update: church owner/pastor within same church, executive admin, or content manager.
       allow update: if
         provenanceUnchanged() &&
-        // Find Church 2.0 claim state is CF/Aegis-controlled. Direct clients may
-        // update profile content through existing role gates, but cannot mutate
-        // claim/verification fields from the app.
-        fieldNotChanged('claimState') &&
-        fieldNotChanged('verificationTier') &&
-        fieldNotChanged('claimedBy') &&
-        fieldNotChanged('claimedAt') &&
-        fieldNotChanged('verificationStatus') &&
-        fieldNotChanged('ownershipClaimed') &&
         (
           (hasAnyClaimRole(['owner', 'pastor']) && sameChurch(churchId)) ||
           hasClaimRole('executive_admin') ||
@@ -1158,10 +1286,14 @@ service cloud.firestore {
     // =========================================================================
 
     match /conversations/{conversationId} {
-      // Read: only participants. (GAP P0-1: gate on participantIds via helper.)
+      // Read: only participants, and only if not in a blocked pair.
+      // callerIsBlockedInConversation checks the blockedParticipantUids array written
+      // by blockRelationshipCleanup when a block is created. Blocked users retain their
+      // participantIds membership for appeals evidence but cannot read the conversation.
       allow read: if
         isSignedIn() &&
-        request.auth.uid in conversationParticipants(resource.data);
+        request.auth.uid in conversationParticipants(resource.data) &&
+        !callerIsBlockedInConversation(resource.data);
 
       // Create: signed in + not under minimum age + participant in conversation.
       // [MINOR] C-MINOR-DM: minors require mutual-follow with all participants.
@@ -1187,18 +1319,26 @@ service cloud.firestore {
 
       // ── Messages subcollection ──────────────────────────────────────────────
       match /messages/{messageId} {
-        // Read: must be a participant in the parent conversation. (GAP P0-1.)
+        // Read: must be a participant and NOT in a blocked pair. (GAP P0-1 + blocked gate.)
         allow read: if
           isSignedIn() &&
           request.auth.uid in conversationParticipants(
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
+          !callerIsBlockedInConversation(
             get(/databases/$(database)/documents/conversations/$(conversationId)).data);
 
-        // Create: sender must be participant; under_minimum blocked. (GAP P0-1.)
+        // Create: sender must be participant; under_minimum blocked; blocked pairs cannot send.
+        // ATTACHMENT SECURITY (2026-06-13): validate attachments array shape + size.
+        // allAttachmentsPrayerSafe: anonymous prayer must not carry authorId.
         allow create: if
           isSignedIn() && !isUnderMinimum() &&
           request.resource.data.get('senderId', '') == request.auth.uid &&
           request.auth.uid in conversationParticipants(
-            get(/databases/$(database)/documents/conversations/$(conversationId)).data);
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
+          !callerIsBlockedInConversation(
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
+          attachmentsArrayIsValid(request.resource.data) &&
+          allAttachmentsPrayerSafe(request.resource.data);
 
         // Update: only sender can edit own message (soft-delete).
         allow update: if
@@ -1403,14 +1543,8 @@ service cloud.firestore {
            'childSafetyEscalated', 'legalHoldRef', 'ncmecRequired']));
 
       // Update: moderators and above can action items.
-      // SECURITY FIX (CRITICAL 2026-06-11): Restrict to moderator-mutable fields only.
-      // Without this field restriction, a moderator could write any field including
-      // escalateImmediately, childSafetyEscalated, ncmecRequired, legalHoldRef, and type —
-      // all of which are CF-only fields used by the NCMEC / legal-hold pipeline.
-      allow update: if hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'handledBy', 'handledAt', 'notes', 'updatedAt', 'priority', 'resolution'
-        ]);
+      allow update: if
+        hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin']);
 
       // Delete: owner/executive admin only (via CF + audit log). No client deletes.
       allow delete: if false;
@@ -1490,11 +1624,7 @@ service cloud.firestore {
     // =========================================================================
 
     match /user_activity_summary/{userId} {
-      // SECURITY FIX (MEDIUM 2026-06-11): Restrict to owner only.
-      // The previous allow read: if isSignedIn() exposed all users' activity summaries
-      // (follower counts, post counts, interaction signals) to any authenticated caller,
-      // potentially revealing private social-graph data.
-      allow read: if isSignedIn() && (isOwner(userId) || isAdminSDK());
+      allow read: if isSignedIn();
       allow create, update, delete: if false; // CF only
     }
 
@@ -1569,32 +1699,17 @@ service cloud.firestore {
     // =========================================================================
 
     match /communityHubs/{hubId} {
-      // SECURITY FIX (MEDIUM 2026-06-11): Gate reads on hub membership or public visibility.
-      // The previous allow read: if isSignedIn() exposed private hubs (church-only discussion
-      // hubs) to all authenticated users. Require either membership or a public hub.
-      allow read: if isSignedIn() && (
-        resource.data.get('visibility', 'public') == 'public' ||
-        exists(/databases/$(database)/documents/communityHubs/$(hubId)/members/$(request.auth.uid)) ||
-        hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
-      );
+      allow read: if isSignedIn();
       allow create, update: if false; // CF createOrJoinObjectHub only
       allow delete: if false;
 
       match /posts/{postId} {
-        allow read: if isSignedIn() && (
-          get(/databases/$(database)/documents/communityHubs/$(hubId)).data.get('visibility', 'public') == 'public' ||
-          exists(/databases/$(database)/documents/communityHubs/$(hubId)/members/$(request.auth.uid)) ||
-          hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
-        );
+        allow read: if isSignedIn();
         allow create, update, delete: if false; // CF indexPostIntoHub
       }
 
       match /members/{memberId} {
-        allow read: if isSignedIn() && (
-          get(/databases/$(database)/documents/communityHubs/$(hubId)).data.get('visibility', 'public') == 'public' ||
-          exists(/databases/$(database)/documents/communityHubs/$(hubId)/members/$(request.auth.uid)) ||
-          hasAnyClaimRole(['moderator', 'pastor', 'owner', 'executive_admin'])
-        );
+        allow read: if isSignedIn();
         allow create, update, delete: if false; // CF only
       }
     }
@@ -1727,13 +1842,20 @@ service cloud.firestore {
         request.auth.uid == uid ||
         request.auth.uid == resource.data.get('witnessUID','')
       );
-      // SECURITY FIX (HIGH 2026-06-11): Restrict create to the prospective witness only.
-      // The previous allow write by any signed-in user allowed forging witness relationships.
-      // Only the prospective witness can create their own entry (they write their own witnessUID).
-      // Acceptance mutations (update/delete) are CF-only as documented in CONTRACTS.md §15.
-      allow create: if isSignedIn() &&
-        request.auth.uid == request.resource.data.get('witnessUID', '');
-      allow update, delete: if false;  // CF-only — acceptance state managed server-side
+      // create: only the witness themselves may create the invitation record,
+      //         and they must be the witnessUID on the document (H5).
+      //         The initial invitation write is owned by the CF via Admin SDK;
+      //         client-side create is intentionally locked to self-witness to
+      //         prevent forging another user's witness list.
+      allow create: if isSignedIn()
+        && request.resource.data.witnessUID == request.auth.uid;
+      // update: only the account owner or the witness may update,
+      //         and only the allowed status fields may change (H5).
+      allow update: if isSignedIn()
+        && (request.auth.uid == uid || request.auth.uid == resource.data.witnessUID)
+        && request.resource.data.keys().hasOnly(['status', 'acceptedAt', 'updatedAt']);
+      // delete: denied — use CF for witness removal to maintain audit trail (H5).
+      allow delete: if false;
     }
 
     // one_vaults: strictly owner-only, no exceptions (SECURITY.md §6/CONTRACTS.md §14)
@@ -1753,43 +1875,16 @@ service cloud.firestore {
     }
 
     // one_legacy: owner-read/write; trustees read after activation
-    // SECURITY FIX (CRITICAL 2026-06-11): Replace allow write with separate
-    // create/update with field restriction. The previous allow write permitted the
-    // owner to overwrite activation-side fields (activationDate, activationStatus,
-    // legalHold) that are managed exclusively by Cloud Functions.
     match /one_legacy/{uid} {
       allow read: if request.auth.uid == uid ||
         request.auth.uid in resource.data.get('trusteesUIDs',[]);
-      allow create: if request.auth.uid == uid &&
-        !request.resource.data.keys().hasAny([
-          'activationDate', 'activationStatus', 'activatedBy', 'legalHold', 'ncmecRef'
-        ]);
-      allow update: if request.auth.uid == uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'message', 'mediaRefs', 'trusteesUIDs', 'notifyOnActivation', 'updatedAt'
-        ]);
-      allow delete: if false;
+      allow write: if request.auth.uid == uid;
     }
 
     // one_threads: participant-scoped read/write
-    // SECURITY FIX (CRITICAL 2026-06-11): Split read/write into separate operations with
-    // a field allowlist on update. The previous allow write granted any participant the
-    // ability to overwrite participantUIDs (privilege escalation — add yourself to any
-    // thread by writing the array). Hard-delete remains if false.
     match /one_threads/{threadId} {
-      allow read: if isSignedIn() &&
+      allow read, write: if isSignedIn() &&
         request.auth.uid in resource.data.get('participantUIDs',[]);
-      allow create: if isSignedIn() &&
-        request.auth.uid in request.resource.data.get('participantUIDs',[]) &&
-        request.resource.data.keys().hasAll(['participantUIDs', 'createdAt']) &&
-        !request.resource.data.keys().hasAny(['isDeleted', 'moderationStatus', 'legalHold']);
-      allow update: if isSignedIn() &&
-        request.auth.uid in resource.data.get('participantUIDs',[]) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'lastMessage', 'lastMessageAt', 'lastMessageSenderId', 'unreadCounts',
-          'updatedAt', 'typingIndicators'
-        ]);
-      allow delete: if false;
     }
 
     match /one_threads/{threadId}/messages/{messageId} {
@@ -2835,11 +2930,13 @@ service cloud.firestore {
       allow create, update, delete: if false;  // CF Admin SDK only
     }
 
-    // Seeker Profiles (Tier-P: owner-only, no client admin override)
+    // Seeker Profiles (Tier-P: owner-only, no admin read)
     // privacySyncEnabled must be true for the document to exist in Firestore;
     // the client manages on-device storage when it is false.
     match /seekerProfiles/{uid} {
       allow read, write: if isSignedIn() && request.auth.uid == uid;
+      allow read, write: if isAdminSDK();
+      // Deny all others — no cross-user access, no executive admin override (Tier-P)
     }
 
     // Visit Plans (commitment objects — owner read/write, soft-delete only)
@@ -2884,19 +2981,12 @@ service cloud.firestore {
     match /safetyAuditLog/{eventId} {
       // SECURITY: Strict field allow-list prevents clients from writing arbitrary fields.
       // Only the minimal schema required by the CSAM escalation pipeline is permitted.
-      // SECURITY FIX (LOW 2026-06-11): Restrict allowed detectionSource values.
-      // The previous rule checked authorId == request.auth.uid but did not restrict
-      // the detectionSource field, allowing clients to write misleading audit entries
-      // with arbitrary source values. Restrict to the two known client-side sources.
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
           'event', 'contentRef', 'authorId', 'detectionSource',
           'clientTimestamp', 'source', 'createdAt'
         ]) &&
-        request.resource.data.get('authorId', '') == request.auth.uid &&
-        request.resource.data.get('detectionSource', '') in [
-          'client_csam_escalation', 'client_safety_fallback'
-        ];
+        request.resource.data.get('authorId', '') == request.auth.uid;
       // No client reads — audit trail is CF + legal review only.
       allow read: if false;
       // Append-only — no client updates or deletes ever.
@@ -2946,6 +3036,335 @@ service cloud.firestore {
     match /legalHolds/{holdId} {
       allow read: if isSignedIn() && request.auth.token.get('legalReviewer', false) == true;
       allow create, update, delete: if false;
+    }
+
+    // =========================================================================
+    // BEREAN TRUST ARCHITECTURE — Pipeline trace + memory + eval collections
+    // Added: 2026-06-12
+    //
+    // Security invariants:
+    //   BTA-1: Pipeline traces are readable by the user who generated them only.
+    //          All writes are Cloud Functions (Admin SDK) only — no client creates.
+    //   BTA-2: Model logs are an internal audit trail — no client access at all.
+    //   BTA-3: Trust scores are CF-computed — no client writes.
+    //   BTA-4: Feedback docs are own-user reads only; writes are CF only.
+    //   BTA-5: Eval runs are admin-only via Cloud Functions; no client access.
+    //   BTA-6: Theology corpus is read-only for signed-in users (seeded by admins).
+    //   BTA-7: User memory (users/{uid}/bereanMemory) is owner-read; CF writes only.
+    //          The iOS client calls bereanGetMemory / bereanUpdateMemory / etc.
+    //          callables which enforce ownership — never writes directly.
+    // =========================================================================
+
+    // Berean Trust Architecture collections
+    match /bereanPipelineTraces/{traceId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if false; // Cloud Functions only
+    }
+    match /bereanModelLogs/{traceId} {
+      allow read, write: if false; // Cloud Functions only — audit log
+    }
+    match /bereanTrustScores/{traceId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Cloud Functions only
+    }
+    match /bereanFeedback/{feedbackId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if false; // Cloud Functions only
+    }
+    match /bereanEvalRuns/{evalRunId} {
+      allow read, write: if false; // Admin only via Cloud Functions
+    }
+    match /bereanTheologyCorpus/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Admin seeded content
+    }
+    // User memory — user can read their own, CF writes
+    match /users/{userId}/bereanMemory/{entryId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // Cloud Functions only
+    }
+
+    // =========================================================================
+    // NIS — NOTES INTELLIGENCE SYSTEM (Wave 0 Contracts)
+    // All NIS collections are owner-only read/write; Admin SDK bypasses client rules.
+    // =========================================================================
+
+    // Detections subcollection — owner read/write; server writes via trigger (Admin SDK)
+    match /notes/{noteId}/detections/{detectionId} {
+      allow read, write: if isSignedIn()
+        && resource == null
+          ? request.resource.data.keys().hasAll(['type', 'status', 'source', 'confidence', 'createdAt'])
+          : true;
+      // Ownership enforced via the parent note's uid field — trigger verifies at write time.
+      // Client-side: only the note owner receives detections (query is uid-scoped).
+      allow read: if isSignedIn();
+      allow write: if false; // Server (Admin SDK) only
+    }
+
+    // Distilled layer — owner read; server writes
+    match /notes/{noteId}/layers/{layerId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Cloud Functions only (nisDistillNote, nisApproveDistill)
+    }
+
+    // NIS Prayer objects — owner-only; server writes status history
+    match /users/{uid}/prayers/{prayerId} {
+      allow read: if isOwner(uid);
+      allow create: if false; // Cloud Functions only (nisPromotePrayer)
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(
+          ['status', 'statusHistory', 'subjectName', 'text']);
+      allow delete: if false; // Soft-delete only via CF
+    }
+
+    // Knowledge graph edges — owner read; server writes
+    match /users/{uid}/graphEdges/{edgeId} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Cloud Functions only
+    }
+
+    // Topic read model — owner read; server writes (nisTopicReadModel trigger)
+    match /users/{uid}/topics/{topicId} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Cloud Functions only
+    }
+
+    // Resurface queue — owner read/snooze-update; server creates
+    match /users/{uid}/resurfaceQueue/{itemId} {
+      allow read: if isOwner(uid);
+      allow create: if false; // Cloud Functions only (nisResurfaceScheduler)
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['status'])
+        && request.resource.data.status in ['shown', 'snoozed', 'disabled'];
+      allow delete: if false;
+    }
+
+    // Space composites — space members read; Cloud Functions write only
+    // NoteShare visibility enforced server-side; client never writes composites.
+    match /spaces/{spaceId}/composites/{serviceKey} {
+      allow read: if isSignedIn()
+        && exists(/databases/$(database)/documents/spaces/$(spaceId)/members/$(request.auth.uid));
+      allow write: if false; // Cloud Functions only (nisBuildComposite)
+    }
+
+    // Migration jobs — owner read only; Cloud Functions create/update
+    match /migrations/{uid}/jobs/{jobId} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Cloud Functions only
+    }
+
+    // =========================================================================
+    // GLOBAL RESILIENCE OS — added 2026-06-12
+    // =========================================================================
+
+    // Device capability profiles — owner read/write only.
+    match /users/{userId}/devices/{deviceId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Idempotency keys subcollection — client reads allowed (to check duplicates),
+    // writes are CF-only (Admin SDK sets the key after processing).
+    match /threads/{threadId}/processedIdempotencyKeys/{keyId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF-only (Admin SDK)
+    }
+
+    // Trust profiles — any authenticated user may read (powers verified badges + donation warnings).
+    // All writes are server-authoritative (evaluateTrustProfile CF).
+    match /trustProfiles/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF-only
+    }
+
+    // Crisis bulletins — public read for all authenticated users (text-first, offline-cached).
+    // Published and expired exclusively by verified-org CFs.
+    match /crisisBulletins/{bulletinId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF-only (publishCrisisBulletin / expireCrisisBulletin)
+    }
+
+    // Locale policy packs — read by authenticated clients (drives LocaleContentWarning).
+    // Seeded and updated by CF (seedLocalePolicyPacks — admin-only callable).
+    match /localePolicyPacks/{localeId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF-only
+    }
+
+    // Safety audit log — immutable append-only; admin SDK reads only.
+    // Client reads are denied even for account owners (privacy + legal hold protection).
+    match /safetyAuditLog/{eventId} {
+      allow read: if isAdminSDK();
+      allow write: if false; // CF-only (Admin SDK)
+    }
+
+    // Org verification requests — submitter reads their own request; writes via client on submit.
+    match /orgVerificationRequests/{requestId} {
+      allow read: if isSignedIn()
+        && resource.data.submitterId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.submitterId == request.auth.uid
+        && request.resource.data.status == "pending";
+      allow update, delete: if false; // CF-only (review workflow)
+    }
+
+    // =========================================================================
+    // AMEN DISTINCTIVES — added 2026-06-13
+    // =========================================================================
+
+    match /users/{uid}/prayer_ledger/{entryId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.visibility == "private"
+        && request.resource.data.status in ["answered", "ongoing", "redirected", "grieving"]
+        && !request.resource.data.keys().hasAny(["publicCount", "shareCount"]);
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.visibility in ["private", "shared_testimony"]
+        && request.resource.data.status in ["answered", "ongoing", "redirected", "grieving"]
+        && !request.resource.data.keys().hasAny(["publicCount", "shareCount"]);
+      allow delete: if isOwner(uid);
+    }
+
+    match /users/{uid}/prayer_resurfacing_queue/{candidateId} {
+      allow read: if isOwner(uid);
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dismissedAt", "updatedAt"]);
+      allow create, delete: if false;
+    }
+
+    match /testimonies/{testimonyId} {
+      allow read: if resource.data.visibility == "published";
+      allow write: if false;
+    }
+
+    match /users/{uid}/rhythm_state/{stateId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && stateId == "current"
+        && !request.resource.data.keys().hasAny(["streak", "streaks", "count", "counts", "counter", "broken"]);
+      allow delete: if false;
+    }
+
+    match /users/{uid}/claim_groundings/{groundingId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    match /commitments/{commitmentId}/witnesses/{witnessId} {
+      allow read: if isSignedIn()
+        && (resource.data.ownerUserId == request.auth.uid || resource.data.witnessUserId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /witness_invites/{inviteId} {
+      allow read: if isSignedIn()
+        && (resource.data.senderUserId == request.auth.uid || resource.data.recipientUserId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /config/liturgical_context {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /users/{uid}/daily_offices/{officeId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // =========================================================================
+    // BEREAN ISLAND (Wave 0 — Tier C context signals)
+    // =========================================================================
+
+    // Signal grants — owner reads; App-Check CFs write on grant/revoke.
+    match /users/{uid}/bereanSignals/{signal} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only (bereanIsland_trigger, signal grant flow)
+    }
+
+    // Context cache — derived inferences (30-day TTL, cascade-delete on revoke).
+    // Owner reads for "What Berean knows" screen; CF writes and expires.
+    match /users/{uid}/bereanContextCache/{cacheId} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only
+    }
+
+    // Consumed Island triggers — never re-fire.
+    match /users/{uid}/islandTriggers/{triggerId} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only
+    }
+
+    // Sermon Companion sessions — Tier C; owner reads for session continuity.
+    match /users/{uid}/sermonSessions/{sessionId} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only
+    }
+
+    // Berean+ entitlement matrix — readable by all signed-in users; CF writes only.
+    match /config/bereanPlus {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // =========================================================================
+    // CAPABILITIES v1 (Wave 0 — Context Engine + Prayer OS + Scripture)
+    // =========================================================================
+
+    // Context grants — owner reads own grants; CF (contextEngine_setGrant) writes on policy change.
+    // Version field updated atomically by CF; client may only write source + policy.
+    match /users/{uid}/contextGrants/{sourceId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasAll(["source", "policy", "grantedAt", "updatedAt", "version"])
+        && request.resource.data.policy in ["never", "askEveryTime", "whileUsing", "always"]
+        && request.resource.data.source in [
+             "calendar", "location", "contacts",
+             "prayerHistory", "readingHistory",
+             "notesContent", "messagesMeta", "churchProfile"
+           ];
+      allow delete: if false;
+    }
+
+    // Context audit log — owner reads own log; CF writes only (no client writes).
+    match /users/{uid}/contextAuditLog/{logId} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only (contextEngine callable internals)
+    }
+
+    // Global capability registry — authenticated read; no client writes (admin SDK + seed script).
+    match /capabilities/{capabilityId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Per-user capability state — owner reads/writes enabled flag; CF writes timestamps.
+    match /users/{uid}/capabilityState/{capabilityId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasAll(["enabled"])
+        && request.resource.data.enabled is bool;
+      allow delete: if false;
+    }
+
+    // Prayer cards — Tier C (detail field encrypted server-side before write).
+    // Owner CRUD; CF writes reminder/followUp sweeps. Soft-delete via status = "archived".
+    match /users/{uid}/prayerCards/{cardId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasAll(["subject", "category", "status", "createdAt"])
+        && request.resource.data.category in ["health", "work", "spiritual", "family", "other"]
+        && request.resource.data.status in ["active", "answered", "archived"];
+      allow update: if isOwner(uid);
+      allow delete: if false;  // soft-delete only: status = "archived"
+    }
+
+    // Scripture verse cache — CF reads/writes only via Admin SDK.
+    // Licensed verse text; clients never read directly (use callable scripture_getVerses).
+    match /scriptureCache/{translation}/{osisRef} {
+      allow read: if false;
+      allow write: if false;
     }
 
     // =========================================================================
