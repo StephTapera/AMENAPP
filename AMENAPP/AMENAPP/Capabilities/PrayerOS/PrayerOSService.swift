@@ -216,8 +216,17 @@ final class PrayerOSService: ObservableObject {
     /// Decodes a Firebase callable response to the target Codable type.
     /// Uses `JSONSerialization` → `JSONDecoder` with ISO8601 date strategy,
     /// consistent with other AMEN callable patterns (see CapabilityRegistryStore).
+    ///
+    /// Wire/model key mismatch note: the backend sends `cardId` for PrayerCard objects,
+    /// but the frozen Swift model (CapabilityModels.swift) uses `id`. This helper
+    /// normalises the mismatch by remapping `cardId` → `id` in any nested dicts before
+    /// handing off to `JSONDecoder`, without touching the frozen model.
     private func decodeResponse<T: Decodable>(_ type: T.Type, from data: Any) throws -> T {
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: data) else {
+        guard let mutableData = data as? [String: Any] else {
+            throw PrayerOSError.invalidResponse
+        }
+        let remapped = remapCardIdKeys(in: mutableData)
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: remapped) else {
             throw PrayerOSError.invalidResponse
         }
         let decoder = JSONDecoder()
@@ -238,6 +247,23 @@ final class PrayerOSService: ObservableObject {
         } catch {
             throw PrayerOSError.invalidResponse
         }
+    }
+
+    /// Recursively walks a `[String: Any]` response dict and renames the wire key
+    /// `"cardId"` to `"id"` so it aligns with `PrayerCard.id` in the frozen model.
+    private func remapCardIdKeys(in dict: [String: Any]) -> [String: Any] {
+        var result: [String: Any] = [:]
+        for (key, value) in dict {
+            let newKey = key == "cardId" ? "id" : key
+            if let nestedDict = value as? [String: Any] {
+                result[newKey] = remapCardIdKeys(in: nestedDict)
+            } else if let nestedArray = value as? [[String: Any]] {
+                result[newKey] = nestedArray.map { remapCardIdKeys(in: $0) }
+            } else {
+                result[newKey] = value
+            }
+        }
+        return result
     }
 }
 
