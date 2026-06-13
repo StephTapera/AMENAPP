@@ -47,13 +47,50 @@ struct PrayerCardsListView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        if service.isLoading {
+        // CAP-W3-QA: show error state when loadCards throws — service.error is set on failure
+        if let loadError = service.error {
+            errorView(loadError)
+        } else if service.isLoading {
             loadingView
         } else if service.cards.isEmpty {
             emptyStateView
         } else {
             cardListView
         }
+    }
+
+    // MARK: - Error state (CAP-W3-QA: previously missing — try? silently discarded errors)
+
+    private func errorView(_ error: Error) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+
+            Text("Couldn't Load Prayers")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            Text(error.localizedDescription)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            Button {
+                Task { try? await service.loadCards(status: statusFilter) }
+            } label: {
+                Label("Try Again", systemImage: "arrow.clockwise")
+                    .font(.body.weight(.medium))
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityLabel("Retry loading prayers")
+            .accessibilityHint("Double-tap to reload your prayer cards")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+        .accessibilityElement(children: .contain)
     }
 
     private var loadingView: some View {

@@ -14,6 +14,8 @@
 //   • Result rows labeled "<reference>: <snippet>"
 //   • Insert button title adapts to CapabilitySurface
 //   • Dynamic Type: all text uses text styles
+//
+// iPad: .presentationDetents([.medium, .large]) ensures this sheet is not full-screen.
 
 import SwiftUI
 
@@ -61,6 +63,7 @@ struct VerseLookupView: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
     }
 
     // MARK: - Content
@@ -77,6 +80,8 @@ struct VerseLookupView: View {
                 Spacer()
             } else if let error = searchError {
                 errorView(error)
+            } else if query.isEmpty {
+                instructionalState
             } else {
                 resultsList
             }
@@ -92,7 +97,7 @@ struct VerseLookupView: View {
     }
 
     private var searchField: some View {
-        TextField("John 3:16 or \"God is love\"", text: $query)
+        TextField("Search by reference or keyword…", text: $query)
             .textFieldStyle(.roundedBorder)
             .focused($isQueryFocused)
             .padding()
@@ -104,12 +109,37 @@ struct VerseLookupView: View {
             .onChange(of: query) { _, newValue in
                 // Cancel previous debounce, start a new 500 ms window
                 debounceTask?.cancel()
+                guard !newValue.isEmpty else {
+                    results = []
+                    return
+                }
                 debounceTask = Task {
                     try? await Task.sleep(nanoseconds: 500_000_000)
                     guard !Task.isCancelled else { return }
                     await search()
                 }
             }
+    }
+
+    /// Shown when the search field is empty and the feature is enabled.
+    private var instructionalState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "text.book.closed")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text("Find a verse")
+                .font(.headline)
+            Text("Try "John 3:16" for a specific reference, or "God is love" to search by keyword.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Search for a verse by reference like John 3:16, or by keyword like God is love.")
     }
 
     @ViewBuilder
