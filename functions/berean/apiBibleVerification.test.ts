@@ -454,3 +454,50 @@ if (require.main === module) {
     process.exitCode = 1
   })
 }
+
+// ── Jest-compatible wrapper ───────────────────────────────────────────────────
+// Each entry in the runAllTests list is re-expressed as a jest test so that
+// jest picks up this file as a valid test suite.
+
+describe('apiBibleVerification helpers', () => {
+  // T1 — exact match
+  test('T1: exact match → verified (sim=1.0)', () => testExactMatch())
+  test('T1: near-exact match still verified (sim≥0.85)', () => testNearExactMatchStillVerified())
+  // T2 — paraphrase
+  test('T2: paraphrase → mismatch (sim<0.85)', () => testParaphraseMismatch())
+  test('T2: mismatch result includes canonicalText', () => testMismatchIncludesCanonicalText())
+  // T3 — fabricated ref
+  test('T3: fabricated book (Hezekiah) → parse null → unresolvable', () => testFabricatedBookUnresolvable())
+  test('T3: out-of-range chapter (Revelation 23) → passageId built, API decides', () => testFabricatedChapterUnresolvable())
+  test('T3: non-canonical book (Esdras) → parse null → unresolvable', () => testNonCanonicalBookUnresolvable())
+  test('T3: malformed ref → parse null → unresolvable', () => testMalformedRefUnresolvable())
+  // T4 — API error
+  test('T4: null from fetch → unresolvable', () => testApiBibleErrorMapsToUnresolvable())
+  test('T4: non-2xx status → unresolvable', () => testApiBibleNonOkStatusUnresolvable())
+  // T5 — timeout
+  test('T5: AbortError recognized as timeout → unresolvable', () => testApiBibleTimeoutUnresolvable())
+  test('T5: timeout constant is 5000ms', () => testTimeoutConstantIs5Seconds())
+  // T6 — over 20 refs
+  test('T6: 21 refs → throws invalid-argument', () => testOver20RefsThrows())
+  test('T6: exactly 20 refs → no throw', () => testExactly20RefsDoesNotThrow())
+  // Text normalization
+  test('normalizeText: strips verse numbers', () => testNormalizeStripsVerseNumbers())
+  test('normalizeText: strips pilcrow', () => testNormalizeStripsPilcrow())
+  test('normalizeText: strips brackets', () => testNormalizeStripsBrackets())
+  test('normalizeText: casefolds', () => testNormalizeCasefolds())
+  test('normalizeText: collapses whitespace', () => testNormalizeCollapseWhitespace())
+  // parseRefToPassageId
+  test('parseRef: John 3:16 → JHN.3.16', () => testParseJohn316())
+  test('parseRef: Genesis 1:1 → GEN.1.1', () => testParseGenesis11())
+  test('parseRef: Romans 8:28 → ROM.8.28', () => testParseRomans828())
+  test('parseRef: 1 Corinthians 13:4 → 1CO.13.4', () => testParseFirstCorinthians134())
+  test('parseRef: Psalm 23:1 → PSA.23.1', () => testParsePsalm231())
+  // Jaccard similarity
+  test('jaccard: identical strings → 1.0', () => testJaccardIdenticalStrings())
+  test('jaccard: two empty strings → 1.0', () => testJaccardEmptyStrings())
+  test('jaccard: one empty string → 0.0', () => testJaccardOneEmpty())
+  test('jaccard: no overlap → 0.0', () => testJaccardNoOverlap())
+  test('jaccard: half overlap → ~0.333', () => testJaccardHalfOverlap())
+  // Rate limit constants
+  test('rate limit: 30 calls / 60s window', () => testRateLimitConstants())
+})

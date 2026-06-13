@@ -19,6 +19,7 @@
     "testMatch": [
       "**/src/discussion/**/*.test.ts",
       "**/src/sanctuary/**/*.test.ts",
+      "**/berean/**/*.test.ts",
       "**/test/ageTier.test.js",
       "**/test/phoneAuthPii.test.js",
       "**/test/safety-rules.test.js",
