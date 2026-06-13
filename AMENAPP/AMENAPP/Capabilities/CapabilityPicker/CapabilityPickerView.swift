@@ -68,8 +68,12 @@ struct CapabilityPickerView: View {
             headerRow
             Divider()
                 .opacity(0.4)
+            // CAP-W3-QA: check loadError before falling through to empty-state,
+            // so network failures surface a retry option instead of "No capabilities".
             if store.isLoading {
                 loadingRow
+            } else if store.loadError != nil {
+                errorRow
             } else if surfaceCapabilities.isEmpty {
                 emptyStateRow
             } else {
@@ -223,6 +227,26 @@ struct CapabilityPickerView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
         .accessibilityLabel("Loading capabilities")
+    }
+
+    // MARK: - Error state (CAP-W3-QA: previously missing — loadError was set but never surfaced)
+
+    private var errorRow: some View {
+        VStack(spacing: 8) {
+            Text("Couldn't load capabilities")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+            Button("Retry") {
+                Task { await store.loadCapabilities(for: coordinator.surface) }
+            }
+            .font(.caption)
+            .accessibilityLabel("Retry loading capabilities")
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .padding(.horizontal, 14)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Couldn't load capabilities. Double-tap Retry to try again.")
     }
 
     // MARK: - Empty state
