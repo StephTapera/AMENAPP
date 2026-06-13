@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELAH — Prayer Chain</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --breath-enter: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --breath-duration-enter: 450ms;
+    --breath-duration-settle: 700ms;
+    --glass-bg: rgba(255,255,255,0.12);
+    --glass-filter: blur(20px) saturate(180%);
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --chain-gold: #B8860B;
+    --deep-blue: #2C3E6B;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    background: linear-gradient(160deg, #1A2240 0%, #2C3E6B 40%, #3D5080 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px;
+    color: #fff;
+  }
+
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes ambientPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1.0; }
+  }
+
+  @keyframes beadDrop {
+    from { opacity: 0; transform: translateY(-8px) scale(0.9); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .card-wrapper {
+    width: 100%;
+    max-width: 390px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .page-sub {
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 8px;
+  }
+
+  /* Composer card */
+  .composer-card {
+    background: rgba(255,255,255,0.10);
+    backdrop-filter: var(--glass-filter);
+    -webkit-backdrop-filter: var(--glass-filter);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 4px 28px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.15);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex;
+    background: rgba(0,0,0,0.2);
+    padding: 4px;
+    margin: 16px 16px 0;
+    border-radius: 14px;
+    gap: 2px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.55);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--breath-duration-enter) var(--breath-enter),
+                color var(--breath-duration-enter) var(--breath-enter);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .tab-btn.active {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .tab-icon {
+    font-size: 14px;
+  }
+
+  /* Tab panels */
+  .tab-panel {
+    padding: 20px;
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+  }
+
+  /* Voice panel */
+  .voice-recorder {
+    text-align: center;
+  }
+
+  .record-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(184, 134, 11, 0.25);
+    border: 2px solid rgba(184, 134, 11, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin: 0 auto 16px;
+    transition: transform var(--breath-duration-enter) var(--breath-enter),
+                background var(--breath-duration-enter) var(--breath-enter);
+    font-size: 28px;
+  }
+
+  .record-btn:hover {
+    transform: scale(1.05);
+    background: rgba(184, 134, 11, 0.4);
+  }
+
+  .record-btn.recording {
+    background: rgba(220, 50, 50, 0.3);
+    border-color: rgba(220, 50, 50, 0.7);
+    animation: ambientPulse 1.5s ease-in-out infinite alternate;
+  }
+
+  .voice-timer {
+    font-size: 32px;
+    font-weight: 200;
+    color: #fff;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .voice-limit {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .voice-waveform {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 32px;
+    margin: 16px 0;
+  }
+
+  .wave-bar {
+    width: 3px;
+    border-radius: 2px;
+    background: rgba(184, 134, 11, 0.6);
+    animation: waveAnim 0.8s ease-in-out infinite alternate;
+  }
+
+  @keyframes waveAnim {
+    from { height: 4px; }
+    to { height: var(--h, 20px); }
+  }
+
+  /* Verse panel */
+  .verse-search {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #fff;
+    font-size: 15px;
+    width: 100%;
+    font-family: inherit;
+    outline: none;
+    margin-bottom: 14px;
+  }
+
+  .verse-search::placeholder { color: rgba(255,255,255,0.4); }
+
+  .verse-results {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .verse-item {
+    background: rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background var(--breath-duration-enter) var(--breath-enter);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .verse-item:hover, .verse-item.selected {
+    background: rgba(184, 134, 11, 0.2);
+    border-color: rgba(184, 134, 11, 0.4);
+  }
+
+  .verse-ref {
+    font-size: 12px;
+    font-weight: 600;
+    color: #C4A060;
+    margin-bottom: 4px;
+  }
+
+  .verse-text {
+    font-size: 14px;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  /* Text panel */
+  .text-area {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 14px;
+    color: #fff;
+    font-size: 15px;
+    width: 100%;
+    min-height: 100px;
+    font-family: inherit;
+    outline: none;
+    resize: none;
+    line-height: 1.6;
+  }
+
+  .text-area::placeholder { color: rgba(255,255,255,0.35); }
+
+  .char-count {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    text-align: right;
+    margin-top: 8px;
+  }
+
+  .char-count.near-limit {
+    color: #C4A060;
+  }
+
+  /* Add to chain button */
+  .btn-add-chain {
+    width: 100%;
+    background: rgba(184, 134, 11, 0.3);
+    border: 1px solid rgba(184, 134, 11, 0.5);
+    border-radius: 14px;
+    padding: 14px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 16px;
+    transition: background var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  .btn-add-chain:hover {
+    background: rgba(184, 134, 11, 0.45);
+  }
+
+  /* Chain progress */
+  .chain-card {
+    background: rgba(255,255,255,0.09);
+    backdrop-filter: var(--glass-filter);
+    -webkit-backdrop-filter: var(--glass-filter);
+    border-radius: 24px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.12);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 100ms both;
+  }
+
+  .chain-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 20px;
+  }
+
+  .chain-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+
+  .chain-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    animation: beadDrop var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .chain-item:nth-child(1) { animation-delay: 0ms; }
+  .chain-item:nth-child(2) { animation-delay: 80ms; }
+  .chain-item:nth-child(3) { animation-delay: 160ms; }
+  .chain-item:nth-child(4) { animation-delay: 240ms; }
+
+  .bead-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 36px;
+    flex-shrink: 0;
+  }
+
+  .bead {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.25);
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+  }
+
+  .bead-type {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(30,40,70,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+  }
+
+  .chain-line {
+    width: 2px;
+    height: 24px;
+    background: rgba(184, 134, 11, 0.25);
+    margin: 2px auto;
+  }
+
+  .chain-content {
+    flex: 1;
+    padding: 0 0 20px 12px;
+  }
+
+  .chain-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 3px;
+  }
+
+  .chain-excerpt {
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.4;
+    font-style: italic;
+  }
+
+  /* Artifact playback */
+  .artifact-card {
+    background: rgba(184, 134, 11, 0.12);
+    border-radius: 18px;
+    padding: 16px;
+    border: 1px solid rgba(184, 134, 11, 0.25);
+  }
+
+  .artifact-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #C4A060;
+    margin-bottom: 12px;
+  }
+
+  .artifact-names {
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+
+  .play-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .play-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(184, 134, 11, 0.35);
+    border: 1px solid rgba(184, 134, 11, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: #fff;
+    flex-shrink: 0;
+    transition: transform var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  .play-btn:hover { transform: scale(1.05); }
+
+  .play-track {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .play-progress {
+    height: 100%;
+    width: 35%;
+    background: #C4A060;
+    border-radius: 2px;
+  }
+
+  .play-duration {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="card-wrapper">
+  <div>
+    <h1 class="page-title">Prayer Chain</h1>
+    <p class="page-sub">Each link carries a voice, a verse, or a word.</p>
+  </div>
+
+  <!-- Composer -->
+  <div class="composer-card" role="main" aria-label="Prayer chain composer">
+    <div class="tab-bar" role="tablist" aria-label="Compose your link">
+      <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-voice" id="tab-voice" onclick="switchTab('voice')">
+        <span class="tab-icon" aria-hidden="true">&#x1F3A4;</span> Voice
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-verse" id="tab-verse" onclick="switchTab('verse')">
+        <span class="tab-icon" aria-hidden="true">&#x1F4C3;</span> Verse
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-text" id="tab-text" onclick="switchTab('text')">
+        <span class="tab-icon" aria-hidden="true">&#x270D;</span> Text
+      </button>
+    </div>
+
+    <!-- Voice panel -->
+    <div class="tab-panel active" id="panel-voice" role="tabpanel" aria-labelledby="tab-voice">
+      <div class="voice-recorder">
+        <div class="voice-waveform" aria-hidden="true">
+          <div class="wave-bar" style="--h:8px;"></div>
+          <div class="wave-bar" style="--h:16px; animation-delay:0.1s;"></div>
+          <div class="wave-bar" style="--h:24px; animation-delay:0.2s;"></div>
+          <div class="wave-bar" style="--h:14px; animation-delay:0.3s;"></div>
+          <div class="wave-bar" style="--h:20px; animation-delay:0.15s;"></div>
+          <div class="wave-bar" style="--h:10px; animation-delay:0.25s;"></div>
+          <div class="wave-bar" style="--h:18px; animation-delay:0.05s;"></div>
+          <div class="wave-bar" style="--h:26px; animation-delay:0.35s;"></div>
+          <div class="wave-bar" style="--h:12px; animation-delay:0.2s;"></div>
+        </div>
+        <button class="record-btn" id="record-btn" onclick="toggleRecord()" aria-label="Record voice prayer, 20 second maximum" aria-pressed="false">
+          &#x1F3A4;
+        </button>
+        <div class="voice-timer" aria-live="polite" id="voice-timer">0:00</div>
+        <p class="voice-limit">Up to 20 seconds · Your words, unedited</p>
+      </div>
+      <button class="btn-add-chain" aria-label="Add voice link to prayer chain">Add to chain</button>
+    </div>
+
+    <!-- Verse panel -->
+    <div class="tab-panel" id="panel-verse" role="tabpanel" aria-labelledby="tab-verse">
+      <input class="verse-search" type="search" placeholder="Search scripture&#x2026;" aria-label="Search scripture by keyword or reference" value="peace">
+      <div class="verse-results" role="listbox" aria-label="Scripture search results">
+        <div class="verse-item selected" role="option" aria-selected="true" tabindex="0">
+          <div class="verse-ref">Philippians 4:7</div>
+          <div class="verse-text">"And the peace of God, which surpasses all understanding, will guard your hearts and your minds in Christ Jesus."</div>
+        </div>
+        <div class="verse-item" role="option" aria-selected="false" tabindex="0">
+          <div class="verse-ref">Isaiah 26:3</div>
+          <div class="verse-text">"You keep him in perfect peace whose mind is stayed on you, because he trusts in you."</div>
+        </div>
+        <div class="verse-item" role="option" aria-selected="false" tabindex="0">
+          <div class="verse-ref">John 14:27</div>
+          <div class="verse-text">"Peace I leave with you; my peace I give to you. Not as the world gives do I give to you."</div>
+        </div>
+      </div>
+      <button class="btn-add-chain" aria-label="Add selected verse to prayer chain">Add Philippians 4:7 to chain</button>
+    </div>
+
+    <!-- Text panel -->
+    <div class="tab-panel" id="panel-text" role="tabpanel" aria-labelledby="tab-text">
+      <textarea class="text-area" id="text-input" placeholder="Write a prayer, a word of encouragement, or a reflection&#x2026;" maxlength="280" aria-label="Written prayer — 280 characters maximum" oninput="updateCount(this)"></textarea>
+      <div class="char-count" id="char-count" aria-live="polite">280 remaining</div>
+      <button class="btn-add-chain" aria-label="Add written prayer to chain">Add to chain</button>
+    </div>
+  </div>
+
+  <!-- Chain progress view -->
+  <div class="chain-card" role="region" aria-label="Prayer chain — 4 links">
+    <p class="chain-label">Chain in progress · 4 links</p>
+    <div class="chain-list" aria-label="Prayer chain links">
+      <div class="chain-item">
+        <div class="bead-col">
+          <div class="bead" style="background:#6B7A8D;" aria-label="Sarah K — verse link">
+            SK
+            <span class="bead-type" aria-hidden="true">&#x1F4C3;</span>
+          </div>
+          <div class="chain-line" aria-hidden="true"></div>
+        </div>
+        <div class="chain-content">
+          <div class="chain-name">Sarah K.</div>
+          <div class="chain-excerpt">Psalm 23:1 — "The Lord is my shepherd, I lack nothing."</div>
+        </div>
+      </div>
+
+      <div class="chain-item">
+        <div class="bead-col">
+          <div class="bead" style="background:#8D6B7A;" aria-label="Marcus C — voice link">
+            MC
+            <span class="bead-type" aria-hidden="true">&#x1F3A4;</span>
+          </div>
+          <div class="chain-line" aria-hidden="true"></div>
+        </div>
+        <div class="chain-content">
+          <div class="chain-name">Marcus C.</div>
+          <div class="chain-excerpt">Voice · 0:18</div>
+        </div>
+      </div>
+
+      <div class="chain-item">
+        <div class="bead-col">
+          <div class="bead" style="background:#7A8D6B;" aria-label="Amara N — text link">
+            AN
+            <span class="bead-type" aria-hidden="true">&#x270D;</span>
+          </div>
+          <div class="chain-line" aria-hidden="true"></div>
+        </div>
+        <div class="chain-content">
+          <div class="chain-name">Amara N.</div>
+          <div class="chain-excerpt">"Praying for rest for your family. You are held."</div>
+        </div>
+      </div>
+
+      <div class="chain-item">
+        <div class="bead-col">
+          <div class="bead" style="background:#C4A060;" aria-label="David L — verse link">
+            DL
+            <span class="bead-type" aria-hidden="true">&#x1F4C3;</span>
+          </div>
+        </div>
+        <div class="chain-content">
+          <div class="chain-name">David L.</div>
+          <div class="chain-excerpt">Romans 8:28 — "And we know that in all things God works for the good of those who love him."</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Woven artifact playback -->
+    <div class="artifact-card" role="region" aria-label="Woven chain artifact — playback">
+      <p class="artifact-label">Woven artifact</p>
+      <p class="artifact-names">Sarah · Marcus · Amara · David — praying for James &amp; family</p>
+      <div class="play-row">
+        <button class="play-btn" aria-label="Play woven prayer chain — 1 minute 12 seconds total">&#x25B6;</button>
+        <div class="play-track" role="progressbar" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100" aria-label="35% played">
+          <div class="play-progress"></div>
+        </div>
+        <span class="play-duration">1:12</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+    document.getElementById('tab-' + name).classList.add('active');
+    document.getElementById('tab-' + name).setAttribute('aria-selected', 'true');
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+
+  let recording = false;
+  let seconds = 0;
+  let timer;
+
+  function toggleRecord() {
+    const btn = document.getElementById('record-btn');
+    const display = document.getElementById('voice-timer');
+    recording = !recording;
+    btn.setAttribute('aria-pressed', recording);
+    if (recording) {
+      btn.classList.add('recording');
+      btn.textContent = '⏹';
+      timer = setInterval(() => {
+        seconds++;
+        const s = seconds % 60;
+        const m = Math.floor(seconds / 60);
+        display.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+        if (seconds >= 20) toggleRecord();
+      }, 1000);
+    } else {
+      btn.classList.remove('recording');
+      btn.textContent = '🎤';
+      clearInterval(timer);
+    }
+  }
+
+  function updateCount(el) {
+    const remaining = 280 - el.value.length;
+    const display = document.getElementById('char-count');
+    display.textContent = remaining + ' remaining';
+    display.className = 'char-count' + (remaining < 40 ? ' near-limit' : '');
+  }
+</script>
+</body>
+</html>

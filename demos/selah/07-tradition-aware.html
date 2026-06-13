@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELAH — Tradition-Aware Berean</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --breath-enter: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --breath-duration-enter: 450ms;
+    --breath-duration-settle: 700ms;
+    --glass-filter: blur(20px) saturate(180%);
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --berean-blue: #1E3A5F;
+    --common-ground: #2C4A3E;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    background: linear-gradient(160deg, #F0EEF8 0%, #E8F0F0 50%, #F0F4EC 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    color: var(--text-primary);
+  }
+
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes ambientPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1.0; }
+  }
+
+  .wrapper {
+    width: 100%;
+    max-width: 390px;
+  }
+
+  /* Question card */
+  .question-card {
+    background: rgba(255,255,255,0.90);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 3px 16px rgba(0,0,0,0.07);
+    animation: cardEnter var(--breath-duration-enter) var(--breath-enter) both;
+  }
+
+  .q-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+  }
+
+  .q-text {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+
+  .berean-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    background: rgba(30, 58, 95, 0.08);
+    border-radius: 10px;
+    padding: 5px 10px;
+  }
+
+  .berean-dot-sm {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--berean-blue);
+    animation: ambientPulse 4s ease-in-out infinite alternate;
+  }
+
+  .berean-badge-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--berean-blue);
+  }
+
+  /* Common ground */
+  .common-ground-card {
+    background: rgba(44, 74, 62, 0.08);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1.5px solid rgba(44, 74, 62, 0.18);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 50ms both;
+  }
+
+  .common-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--common-ground);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .common-text {
+    font-size: 18px;
+    font-weight: 400;
+    color: #1A2E23;
+    line-height: 1.55;
+  }
+
+  /* Traditions grid */
+  .traditions-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    padding: 0 2px;
+    animation: cardEnter var(--breath-duration-enter) var(--breath-enter) 80ms both;
+  }
+
+  .traditions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 100ms both;
+  }
+
+  @media (max-width: 360px) {
+    .traditions-grid { grid-template-columns: 1fr; }
+  }
+
+  .tradition-card {
+    background: rgba(255,255,255,0.88);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    transition: transform var(--breath-duration-enter) var(--breath-enter);
+    cursor: pointer;
+  }
+
+  .tradition-card:hover { transform: translateY(-2px); }
+
+  .tradition-header-row {
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tradition-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tradition-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .tradition-body {
+    padding: 10px 14px 12px;
+  }
+
+  .tradition-view {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  /* Accordion (mobile fallback) */
+  details {
+    background: rgba(255,255,255,0.88);
+    border-radius: 14px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: none; /* shown at narrow width via JS/media */
+  }
+
+  details summary {
+    padding: 14px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+  }
+
+  details summary::-webkit-details-marker { display: none; }
+
+  details summary::after {
+    content: '›';
+    font-size: 18px;
+    color: var(--text-secondary);
+    transition: transform var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  details[open] summary::after { transform: rotate(90deg); }
+
+  details .detail-body {
+    padding: 0 16px 14px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* Sources */
+  .sources-card {
+    background: rgba(255,255,255,0.75);
+    border-radius: 18px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 200ms both;
+  }
+
+  .sources-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+  }
+
+  .source-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .source-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+
+  .source-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* No-winner note */
+  .no-winner {
+    background: rgba(30, 58, 95, 0.06);
+    border-radius: 14px;
+    padding: 14px 16px;
+    text-align: center;
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 250ms both;
+  }
+
+  .no-winner-text {
+    font-size: 13px;
+    color: var(--berean-blue);
+    line-height: 1.6;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- Question -->
+  <div class="question-card" role="region" aria-label="Question asked to Berean">
+    <p class="q-label">Your question</p>
+    <p class="q-text">"What do different Christian traditions believe about predestination and free will?"</p>
+    <div class="berean-badge" role="note" aria-label="Berean response">
+      <span class="berean-dot-sm" aria-hidden="true"></span>
+      <span class="berean-badge-text">Berean · Tradition-aware response</span>
+    </div>
+  </div>
+
+  <!-- Common ground -->
+  <div class="common-ground-card" role="region" aria-label="Common ground across traditions">
+    <p class="common-label">
+      <span aria-hidden="true">&#x1F91D;</span>
+      Shared across traditions
+    </p>
+    <p class="common-text">
+      All major Christian traditions affirm that God is sovereign, that human beings bear moral responsibility, and that salvation is ultimately God's gift — not earned by human effort alone. The diversity emerges in how these truths are held together.
+    </p>
+  </div>
+
+  <!-- Tradition views (grid) -->
+  <p class="traditions-header" id="traditions-heading">How different traditions approach this</p>
+
+  <div class="traditions-grid" role="list" aria-labelledby="traditions-heading">
+
+    <div class="tradition-card" role="listitem" aria-label="Reformed tradition view">
+      <div class="tradition-header-row">
+        <div class="tradition-color" style="background:#2C4070;" aria-hidden="true"></div>
+        <span class="tradition-name">Reformed</span>
+      </div>
+      <div class="tradition-body">
+        <p class="tradition-view">God's sovereign election is unconditional. Faith itself is a gift given to the elect (TULIP). Human will is free to choose, but always within the bounds of one's nature.</p>
+      </div>
+    </div>
+
+    <div class="tradition-card" role="listitem" aria-label="Catholic tradition view">
+      <div class="tradition-header-row">
+        <div class="tradition-color" style="background:#8B2020;" aria-hidden="true"></div>
+        <span class="tradition-name">Catholic</span>
+      </div>
+      <div class="tradition-body">
+        <p class="tradition-view">Grace and free will cooperate. God's foreknowledge does not compel human choice. Predestination is understood in light of God's knowledge of human response (Molinism, Thomism debate).</p>
+      </div>
+    </div>
+
+    <div class="tradition-card" role="listitem" aria-label="Orthodox tradition view">
+      <div class="tradition-header-row">
+        <div class="tradition-color" style="background:#70502C;" aria-hidden="true"></div>
+        <span class="tradition-name">Orthodox</span>
+      </div>
+      <div class="tradition-body">
+        <p class="tradition-view">Emphasizes synergy — human and divine cooperation. God wills all to be saved; human freedom is real and essential. Predestination is God's foreknowledge, not fatalistic decree.</p>
+      </div>
+    </div>
+
+    <div class="tradition-card" role="listitem" aria-label="Wesleyan tradition view">
+      <div class="tradition-header-row">
+        <div class="tradition-color" style="background:#1A5A3A;" aria-hidden="true"></div>
+        <span class="tradition-name">Wesleyan</span>
+      </div>
+      <div class="tradition-body">
+        <p class="tradition-view">Prevenient grace enables genuine free will for all. God foreknows but does not foreordain specific individuals for damnation. Universal atonement; resistible grace.</p>
+      </div>
+    </div>
+
+    <div class="tradition-card" role="listitem" aria-label="Pentecostal tradition view">
+      <div class="tradition-header-row">
+        <div class="tradition-color" style="background:#5A3070;" aria-hidden="true"></div>
+        <span class="tradition-name">Pentecostal</span>
+      </div>
+      <div class="tradition-body">
+        <p class="tradition-view">Broadly Wesleyan-Arminian. Emphasizes the Spirit's dynamic, universal work. Salvation is available to all who respond. Election is corporate (in Christ) rather than individual.</p>
+      </div>
+    </div>
+
+    <div class="tradition-card" role="listitem" aria-label="Anabaptist tradition view">
+      <div class="tradition-header-row">
+        <div class="tradition-color" style="background:#4A5A2C;" aria-hidden="true"></div>
+        <span class="tradition-name">Anabaptist</span>
+      </div>
+      <div class="tradition-body">
+        <p class="tradition-view">Discipleship and community witness center stage. Doctrine takes a back seat to lived response. Salvation understood as ongoing, communal transformation more than a juridical transaction.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sources -->
+  <div class="sources-card" role="region" aria-label="Source citations">
+    <p class="sources-label">Sources</p>
+    <div class="source-item">
+      <div class="source-dot" aria-hidden="true"></div>
+      <p class="source-text">Westminster Confession of Faith (1647), Chapters III, IX</p>
+    </div>
+    <div class="source-item">
+      <div class="source-dot" aria-hidden="true"></div>
+      <p class="source-text">Catechism of the Catholic Church §1996–2005 (Grace and Justification)</p>
+    </div>
+    <div class="source-item">
+      <div class="source-dot" aria-hidden="true"></div>
+      <p class="source-text">John Wesley, "On Predestination" (1773); Sermon 58</p>
+    </div>
+    <div class="source-item">
+      <div class="source-dot" aria-hidden="true"></div>
+      <p class="source-text">Orthodox Study Bible, Commentary on Romans 8–9</p>
+    </div>
+  </div>
+
+  <!-- No-winner note -->
+  <div class="no-winner" role="note" aria-label="Berean editorial note">
+    <p class="no-winner-text">
+      Berean presents these views to inform, not to adjudicate. Each tradition has thought carefully and faithfully. Your community's discernment matters more than any algorithm's verdict.
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELAH — Aegis C59 Safety Banner</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --breath-enter: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --breath-duration-enter: 450ms;
+    --breath-duration-settle: 700ms;
+    --glass-filter: blur(20px) saturate(180%);
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --amber-bg: rgba(200, 134, 10, 0.09);
+    --amber-border: rgba(200, 134, 10, 0.28);
+    --amber-text: #7A4F00;
+    --amber-icon: #C8860A;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    background: linear-gradient(160deg, #F0ECE8 0%, #E8ECF0 50%, #EDE8F0 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    color: var(--text-primary);
+  }
+
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes bannerSlide {
+    from { opacity: 0; transform: translateY(-12px); max-height: 0; }
+    to { opacity: 1; transform: translateY(0); max-height: 600px; }
+  }
+
+  @keyframes ambientPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1.0; }
+  }
+
+  .wrapper {
+    width: 100%;
+    max-width: 390px;
+  }
+
+  .page-header {
+    margin-bottom: 24px;
+    animation: cardEnter var(--breath-duration-enter) var(--breath-enter) both;
+  }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .page-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* DM conversation card */
+  .dm-card {
+    background: rgba(255,255,255,0.90);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .dm-header {
+    padding: 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .dm-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #8D6B7A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .dm-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .dm-status {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  /* Messages */
+  .messages {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .bubble {
+    max-width: 80%;
+    border-radius: 18px;
+    padding: 11px 14px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .bubble-them {
+    background: rgba(107,107,107,0.10);
+    color: var(--text-primary);
+    border-bottom-left-radius: 6px;
+    align-self: flex-start;
+  }
+
+  .bubble-me {
+    background: #1E3A5F;
+    color: #fff;
+    border-bottom-right-radius: 6px;
+    align-self: flex-end;
+  }
+
+  .bubble-them.flagged {
+    background: rgba(200, 134, 10, 0.07);
+    border: 1px solid rgba(200, 134, 10, 0.15);
+  }
+
+  /* AEGIS banner — AMBER not red */
+  .aegis-banner {
+    background: var(--amber-bg);
+    border: 1px solid var(--amber-border);
+    border-radius: 16px;
+    padding: 16px;
+    margin: 4px 16px 8px;
+    animation: bannerSlide var(--breath-duration-settle) var(--breath-enter) 200ms both;
+    overflow: hidden;
+  }
+
+  .banner-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .banner-icon-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex: 1;
+  }
+
+  .banner-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    animation: ambientPulse 4s ease-in-out infinite alternate;
+  }
+
+  .banner-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--amber-text);
+    line-height: 1.4;
+  }
+
+  .banner-dismiss {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--amber-text);
+    font-size: 18px;
+    padding: 0;
+    opacity: 0.6;
+    line-height: 1;
+    transition: opacity var(--breath-duration-enter) var(--breath-enter);
+    flex-shrink: 0;
+  }
+
+  .banner-dismiss:hover { opacity: 1; }
+
+  .banner-body {
+    font-size: 14px;
+    color: var(--amber-text);
+    line-height: 1.6;
+    margin-bottom: 14px;
+    opacity: 0.9;
+  }
+
+  /* Resources */
+  .resources-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--amber-text);
+    margin-bottom: 8px;
+    opacity: 0.75;
+  }
+
+  .resource-links {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .resource-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.65);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--breath-duration-enter) var(--breath-enter);
+    border: none;
+    font-family: inherit;
+    text-align: left;
+    width: 100%;
+  }
+
+  .resource-link:hover { background: rgba(255,255,255,0.90); }
+
+  .resource-link-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .resource-link-info h5 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--amber-text);
+    margin-bottom: 2px;
+  }
+
+  .resource-link-info p {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .resource-arrow {
+    margin-left: auto;
+    color: var(--amber-text);
+    opacity: 0.5;
+    font-size: 14px;
+  }
+
+  /* Design note callout */
+  .design-note {
+    background: rgba(255,255,255,0.70);
+    border-radius: 18px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 300ms both;
+  }
+
+  .design-note-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+  }
+
+  .design-principles {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .principle {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .principle-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(45, 106, 79, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #2D6A4F;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .principle-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .principle-cross {
+    background: rgba(200, 50, 50, 0.12);
+    color: #8B1A1A;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="page-header">
+    <h1 class="page-title">Aegis C59 — Safety Banner</h1>
+    <p class="page-sub">Recipient-facing. Amber, not red. No accusation.</p>
+  </div>
+
+  <!-- DM conversation with banner -->
+  <div class="dm-card" role="region" aria-label="Direct message conversation">
+    <div class="dm-header">
+      <div class="dm-avatar" aria-hidden="true">JR</div>
+      <div>
+        <p class="dm-name">Jordan R.</p>
+        <p class="dm-status">Community · 3 messages</p>
+      </div>
+    </div>
+
+    <div class="messages" aria-label="Message thread">
+      <div class="bubble bubble-them" role="article">
+        Hey, I saw your testimony post. Really resonated with what you shared about that season.
+      </div>
+      <div class="bubble bubble-me" role="article">
+        Thank you, it was a vulnerable one to write. Glad it connected.
+      </div>
+      <div class="bubble bubble-them flagged" role="article" aria-label="Message that triggered a gentle safety note">
+        You seem like the kind of person who really understands things other people don't. Not many people are as spiritually discerning as you. You shouldn't need your community group — they wouldn't get it like I do.
+      </div>
+    </div>
+
+    <!-- AEGIS banner — amber, gentle, dismissible -->
+    <div class="aegis-banner" id="aegis-banner" role="alert" aria-live="polite" aria-label="Gentle safety note">
+      <div class="banner-header">
+        <div class="banner-icon-row">
+          <span class="banner-icon" aria-hidden="true">&#x26A0;</span>
+          <p class="banner-title">A gentle note from AMEN</p>
+        </div>
+        <button class="banner-dismiss" onclick="dismissBanner()" aria-label="Dismiss this note">&#x2715;</button>
+      </div>
+      <p class="banner-body">
+        This message contains language that sometimes appears in unhealthy relationship patterns — like encouraging isolation from your community. You're not alone, and your connections here matter.
+      </p>
+      <p class="resources-label">Some resources, if helpful</p>
+      <div class="resource-links">
+        <button class="resource-link" aria-label="Talk to a counselor — loveisrespect.org">
+          <span class="resource-link-icon" aria-hidden="true">&#x1F4AC;</span>
+          <div class="resource-link-info">
+            <h5>Talk to a counselor</h5>
+            <p>loveisrespect.org · Free, confidential</p>
+          </div>
+          <span class="resource-arrow" aria-hidden="true">›</span>
+        </button>
+        <button class="resource-link" aria-label="Healthy relationships guide from Focus on the Family">
+          <span class="resource-link-icon" aria-hidden="true">&#x1F4D6;</span>
+          <div class="resource-link-info">
+            <h5>Healthy relationships guide</h5>
+            <p>Focus on the Family · Christian perspective</p>
+          </div>
+          <span class="resource-arrow" aria-hidden="true">›</span>
+        </button>
+        <button class="resource-link" aria-label="Talk with your pastor or a trusted person in your community">
+          <span class="resource-link-icon" aria-hidden="true">&#x1F91D;</span>
+          <div class="resource-link-info">
+            <h5>Talk with your pastor</h5>
+            <p>Or a trusted person in your community</p>
+          </div>
+          <span class="resource-arrow" aria-hidden="true">›</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Design principles -->
+  <div class="design-note" role="region" aria-label="Aegis C59 design principles">
+    <p class="design-note-label">Aegis C59 Design Principles</p>
+    <div class="design-principles">
+      <div class="principle">
+        <div class="principle-check" aria-hidden="true">&#x2713;</div>
+        <p class="principle-text">Amber tone — warm concern, not alarm or accusation</p>
+      </div>
+      <div class="principle">
+        <div class="principle-check" aria-hidden="true">&#x2713;</div>
+        <p class="principle-text">Recipient-facing only — sender sees nothing</p>
+      </div>
+      <div class="principle">
+        <div class="principle-check" aria-hidden="true">&#x2713;</div>
+        <p class="principle-text">Dismissible — respect for recipient autonomy</p>
+      </div>
+      <div class="principle">
+        <div class="principle-check" aria-hidden="true">&#x2713;</div>
+        <p class="principle-text">Resources offered, never forced</p>
+      </div>
+      <div class="principle">
+        <div class="principle-check principle-cross" aria-hidden="true">&#x2717;</div>
+        <p class="principle-text">Never says "this person is abusing you" — language describes patterns, not people</p>
+      </div>
+      <div class="principle">
+        <div class="principle-check principle-cross" aria-hidden="true">&#x2717;</div>
+        <p class="principle-text">Never red banners, sirens, or panic-inducing language</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function dismissBanner() {
+    const banner = document.getElementById('aegis-banner');
+    banner.style.opacity = '0';
+    banner.style.maxHeight = '0';
+    banner.style.padding = '0 16px';
+    banner.style.margin = '0 16px';
+    banner.style.transition = 'opacity 400ms ease, max-height 500ms ease, padding 400ms ease, margin 400ms ease';
+    setTimeout(() => { banner.style.display = 'none'; }, 500);
+  }
+</script>
+</body>
+</html>

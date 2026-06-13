@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELAH — Demo Index</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --breath-enter: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --breath-duration-enter: 450ms;
+    --breath-duration-settle: 700ms;
+    --glass-filter: blur(20px) saturate(180%);
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    background: linear-gradient(160deg, #E8E4F0 0%, #E0EBE4 40%, #EBE4D4 80%, #E4DDE8 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 20px 80px;
+    color: var(--text-primary);
+  }
+
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes ambientPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1.0; }
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .selah-word {
+    font-size: 12px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: rgba(26,26,26,0.4);
+    margin-bottom: 12px;
+  }
+
+  .header h1 {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+
+  .header p {
+    font-size: 16px;
+    color: var(--text-secondary);
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  /* Demo grid */
+  .demo-grid {
+    width: 100%;
+    max-width: 760px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+
+  .demo-card {
+    background: rgba(255,255,255,0.88);
+    border-radius: 20px;
+    padding: 20px 22px;
+    box-shadow: 0 3px 16px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.04);
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    transition: transform var(--breath-duration-enter) var(--breath-enter),
+                box-shadow var(--breath-duration-enter) var(--breath-enter);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .demo-card:nth-child(1) { animation-delay: 0ms; }
+  .demo-card:nth-child(2) { animation-delay: 40ms; }
+  .demo-card:nth-child(3) { animation-delay: 80ms; }
+  .demo-card:nth-child(4) { animation-delay: 120ms; }
+  .demo-card:nth-child(5) { animation-delay: 160ms; }
+  .demo-card:nth-child(6) { animation-delay: 200ms; }
+  .demo-card:nth-child(7) { animation-delay: 240ms; }
+  .demo-card:nth-child(8) { animation-delay: 280ms; }
+  .demo-card:nth-child(9) { animation-delay: 320ms; }
+  .demo-card:nth-child(10) { animation-delay: 360ms; }
+
+  .demo-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
+  }
+
+  .demo-num {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .demo-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .demo-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .demo-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .demo-arrow {
+    font-size: 18px;
+    color: rgba(107,107,107,0.35);
+    flex-shrink: 0;
+    margin-top: 12px;
+  }
+
+  /* Token reference */
+  .tokens-section {
+    width: 100%;
+    max-width: 760px;
+    margin-top: 48px;
+    background: rgba(255,255,255,0.70);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 400ms both;
+  }
+
+  .tokens-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+  }
+
+  .token-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+
+  .token-row:last-child { border-bottom: none; }
+
+  .token-swatch {
+    width: 32px;
+    height: 20px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .token-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 140px;
+    flex-shrink: 0;
+  }
+
+  .token-value {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: 'SF Mono', 'Menlo', monospace;
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <p class="selah-word">Selah</p>
+  <h1>AMEN — Selah Demos</h1>
+  <p>10 interaction prototypes for the Selah social layer. Human-first, spiritually grounded, WCAG AA compliant.</p>
+</header>
+
+<main>
+  <nav class="demo-grid" aria-label="Selah demo files">
+
+    <a href="01-commitment-card.html" class="demo-card" aria-label="Demo 1: Commitment Card">
+      <div class="demo-num" style="background: #2D6A4F;" aria-hidden="true">01</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Commitment Card</h2>
+        <p class="demo-desc">Prayer commitment + close-the-loop prompt. Lapsed state shows grace, never shame. Selah dim moment on completion.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="02-table-card.html" class="demo-card" aria-label="Demo 2: Table Card">
+      <div class="demo-num" style="background: #4A5240;" aria-hidden="true">02</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Table Card</h2>
+        <p class="demo-desc">Small group card capped at 8, sunset countdown phrased with calm, last-seat state without urgency language.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="03-prayer-chain.html" class="demo-card" aria-label="Demo 3: Prayer Chain">
+      <div class="demo-num" style="background: #2C3E6B;" aria-hidden="true">03</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Prayer Chain</h2>
+        <p class="demo-desc">Composer with Voice (20s max) / Verse picker / Text (280 chars). Bead progress view. Woven artifact playback — no counters.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="04-testimony-editor.html" class="demo-card" aria-label="Demo 4: Testimony Editor">
+      <div class="demo-num" style="background: #2C2B5E;" aria-hidden="true">04</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Testimony Editor</h2>
+        <p class="demo-desc">Before / Encounter / After panels, C2PA provenance manifest badge, publish gated until all sections complete.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="05-remix-lineage.html" class="demo-card" aria-label="Demo 5: Remix Lineage">
+      <div class="demo-num" style="background: #2C4A3E;" aria-hidden="true">05</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Remix Lineage</h2>
+        <p class="demo-desc">"Build upon" action on postcards. Root → parent → child lineage tree with attribution. Zero counters anywhere.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="06-berean-co-creator.html" class="demo-card" aria-label="Demo 6: Berean Co-Creator">
+      <div class="demo-num" style="background: #1E3A5F;" aria-hidden="true">06</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Berean Co-Creator</h2>
+        <p class="demo-desc">Block editor with 1 ambient dismissible suggestion chip, explicit invoke button, Living Memory echo below the block.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="07-tradition-aware.html" class="demo-card" aria-label="Demo 7: Tradition-Aware Berean">
+      <div class="demo-num" style="background: #3A2C5E;" aria-hidden="true">07</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Tradition-Aware</h2>
+        <p class="demo-desc">Doctrinal answer with common ground statement, 6-tradition parallel view cards, citations. No winner declared.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="08-why-am-i-seeing-this.html" class="demo-card" aria-label="Demo 8: Why Am I Seeing This">
+      <div class="demo-num" style="background: #5E3A2C;" aria-hidden="true">08</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Why Am I Seeing This?</h2>
+        <p class="demo-desc">Bottom sheet with 2–3 warm plain-language reasons. No algorithmic jargon. One-tap hide option.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="09-aegis-c59-banner.html" class="demo-card" aria-label="Demo 9: Aegis C59 Safety Banner">
+      <div class="demo-num" style="background: #7A4F00;" aria-hidden="true">09</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Aegis C59 Banner</h2>
+        <p class="demo-desc">Recipient-facing gentle amber banner for isolation tactics. Resources offered. Dismissible. No accusation, no red.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+    <a href="10-youth-mode.html" class="demo-card" aria-label="Demo 10: Youth Mode">
+      <div class="demo-num" style="background: #2D6A4F;" aria-hidden="true">10</div>
+      <div class="demo-info">
+        <h2 class="demo-title">Youth Mode</h2>
+        <p class="demo-desc">Breathing room spacer cards, pacing message, no infinite scroll. Guardian category view — no content details. DM silently locked.</p>
+      </div>
+      <span class="demo-arrow" aria-hidden="true">›</span>
+    </a>
+
+  </nav>
+
+  <!-- Design token reference -->
+  <aside class="tokens-section" role="complementary" aria-label="Design system tokens used across demos">
+    <p class="tokens-title">Design Tokens — Applied Across All Demos</p>
+    <div class="token-row">
+      <div class="token-swatch" style="background: rgba(255,255,255,0.12); backdrop-filter: blur(20px);"></div>
+      <span class="token-name">Glass surface</span>
+      <span class="token-value">rgba(255,255,255,0.12) · blur(20px) saturate(180%)</span>
+    </div>
+    <div class="token-row">
+      <div class="token-swatch" style="background: #1A1A1A;"></div>
+      <span class="token-name">Primary text</span>
+      <span class="token-value">#1A1A1A — 4.5:1+ contrast on glass</span>
+    </div>
+    <div class="token-row">
+      <div class="token-swatch" style="background: #6B6B6B;"></div>
+      <span class="token-name">Secondary text</span>
+      <span class="token-value">#6B6B6B — 4.6:1 on white glass</span>
+    </div>
+    <div class="token-row">
+      <div class="token-swatch" style="background: cubic-bezier(0.25, 0.46, 0.45, 0.94); background: #4A88CC;"></div>
+      <span class="token-name">Breath curve</span>
+      <span class="token-value">cubic-bezier(0.25, 0.46, 0.45, 0.94) · 450ms enter / 700ms settle</span>
+    </div>
+    <div class="token-row">
+      <div class="token-swatch" style="background: linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,255,255,1));"></div>
+      <span class="token-name">Ambient pulse</span>
+      <span class="token-value">4s ease-in-out infinite alternate · opacity 0.7→1.0</span>
+    </div>
+    <div class="token-row">
+      <div class="token-swatch" style="background: rgba(0,0,0,0.15);"></div>
+      <span class="token-name">Selah dim</span>
+      <span class="token-value">opacity 0.85 for 1.2s on key moments</span>
+    </div>
+  </aside>
+</main>
+
+</body>
+</html>

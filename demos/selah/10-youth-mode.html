@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELAH — Youth Mode</title>
+<style>
+  *, *::before, *::before { box-sizing: border-box; margin: 0; padding: 0; }
+  *::after { box-sizing: border-box; }
+
+  :root {
+    --breath-enter: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --breath-duration-enter: 450ms;
+    --breath-duration-settle: 700ms;
+    --glass-filter: blur(20px) saturate(180%);
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --youth-green: #2D6A4F;
+    --youth-leaf: rgba(45, 106, 79, 0.15);
+    --pace-bg: rgba(45, 106, 79, 0.08);
+    --pace-border: rgba(45, 106, 79, 0.22);
+    --guardian-bg: rgba(44, 43, 94, 0.07);
+    --guardian-border: rgba(44, 43, 94, 0.18);
+    --locked-bg: rgba(107,107,107,0.08);
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    background: linear-gradient(160deg, #E4F0EC 0%, #F0F4E0 40%, #EAE4F0 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    color: var(--text-primary);
+  }
+
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes ambientPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1.0; }
+  }
+
+  @keyframes leafSway {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+  }
+
+  .wrapper {
+    width: 100%;
+    max-width: 390px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Tabs: Youth Feed / Guardian View */
+  .tab-switcher {
+    display: flex;
+    background: rgba(255,255,255,0.75);
+    border-radius: 16px;
+    padding: 4px;
+    gap: 4px;
+    animation: cardEnter var(--breath-duration-enter) var(--breath-enter) both;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .tab-opt {
+    flex: 1;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--breath-duration-enter) var(--breath-enter),
+                color var(--breath-duration-enter) var(--breath-enter);
+    text-align: center;
+  }
+
+  .tab-opt.active {
+    background: #fff;
+    color: var(--text-primary);
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+
+  /* Feed view */
+  .feed-view, .guardian-view {
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .feed-view.active, .guardian-view.active {
+    display: flex;
+  }
+
+  /* Feed card */
+  .feed-card {
+    background: rgba(255,255,255,0.88);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.04);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .card-author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .card-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .card-author-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .card-author-role {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .card-body {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--text-primary);
+  }
+
+  /* Spacer card (breathing room) */
+  .spacer-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 18px;
+    background: rgba(45, 106, 79, 0.06);
+    border-radius: 16px;
+    border: 1px dashed rgba(45, 106, 79, 0.25);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .spacer-leaf {
+    font-size: 16px;
+    animation: leafSway 4s ease-in-out infinite;
+  }
+
+  .spacer-text {
+    font-size: 13px;
+    color: var(--youth-green);
+    font-style: italic;
+  }
+
+  /* Pacing message */
+  .pacing-card {
+    background: var(--pace-bg);
+    border-radius: 18px;
+    padding: 16px 18px;
+    border: 1px solid var(--pace-border);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+    text-align: center;
+  }
+
+  .pacing-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+    display: block;
+    animation: ambientPulse 4s ease-in-out infinite alternate;
+  }
+
+  .pacing-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--youth-green);
+    margin-bottom: 6px;
+  }
+
+  .pacing-text {
+    font-size: 14px;
+    color: #2A5040;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+
+  .pacing-btn {
+    background: var(--youth-green);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 11px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  .pacing-btn:hover { opacity: 0.88; }
+
+  /* No infinite scroll */
+  .feed-end {
+    text-align: center;
+    padding: 16px;
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .feed-end-text {
+    font-size: 14px;
+    color: rgba(107,107,107,0.6);
+    font-style: italic;
+  }
+
+  /* Guardian view */
+  .guardian-header {
+    background: rgba(255,255,255,0.88);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.07);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+  }
+
+  .guardian-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+  }
+
+  .youth-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .youth-meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  /* Category summary */
+  .category-card {
+    background: rgba(255,255,255,0.88);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.07);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 80ms both;
+  }
+
+  .category-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+  }
+
+  .category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .category-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .category-icon-box {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .category-text h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .category-text p {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .category-bar-wrap {
+    margin-top: 4px;
+    height: 3px;
+    background: rgba(0,0,0,0.07);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .category-bar {
+    height: 100%;
+    border-radius: 2px;
+    animation: ambientPulse 4s ease-in-out infinite alternate;
+  }
+
+  /* Privacy note */
+  .privacy-note {
+    background: var(--guardian-bg);
+    border-radius: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--guardian-border);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 160ms both;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .privacy-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .privacy-text {
+    font-size: 13px;
+    color: #2C2B5E;
+    line-height: 1.55;
+  }
+
+  /* Locked DM state */
+  .locked-dm-card {
+    background: rgba(255,255,255,0.70);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 200ms both;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .lock-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(107,107,107,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .lock-text h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .lock-text p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .lock-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: rgba(107,107,107,0.5);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- Tab switcher -->
+  <div class="tab-switcher" role="tablist" aria-label="Youth Mode views">
+    <button class="tab-opt active" role="tab" aria-selected="true" aria-controls="feed-view" id="tab-feed" onclick="switchView('feed')">
+      Youth Feed
+    </button>
+    <button class="tab-opt" role="tab" aria-selected="false" aria-controls="guardian-view" id="tab-guardian" onclick="switchView('guardian')">
+      Guardian View
+    </button>
+  </div>
+
+  <!-- Youth Feed -->
+  <div class="feed-view active" id="feed-view" role="tabpanel" aria-labelledby="tab-feed">
+
+    <!-- Card 1 -->
+    <div class="feed-card" role="article" aria-label="Pastor James post about Psalm 23">
+      <div class="card-author">
+        <div class="card-avatar" style="background:#6B7A8D;" aria-hidden="true">JO</div>
+        <div>
+          <p class="card-author-name">Pastor James O.</p>
+          <p class="card-author-role">Shepherd · Youth Leader</p>
+        </div>
+      </div>
+      <p class="card-body">Psalm 23 says "He makes me lie down." Not "he asks me" — he makes me. Rest is built into how God leads us. It's not laziness. It's trust.</p>
+    </div>
+
+    <!-- Spacer card 1 -->
+    <div class="spacer-card" role="separator" aria-label="Breathing room spacer — take a breath before continuing">
+      <span class="spacer-leaf" aria-hidden="true">&#x1F343;</span>
+      <span class="spacer-text">Take a breath before continuing</span>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="feed-card" role="article" aria-label="Amara N post about prayer">
+      <div class="card-author">
+        <div class="card-avatar" style="background:#7A8D6B;" aria-hidden="true">AN</div>
+        <div>
+          <p class="card-author-name">Amara N.</p>
+          <p class="card-author-role">Youth Group · Member</p>
+        </div>
+      </div>
+      <p class="card-body">I used to think prayer had to be perfect. Now I just talk. Sometimes it's just "I don't know what I need but you do." That feels like enough.</p>
+    </div>
+
+    <!-- Spacer card 2 -->
+    <div class="spacer-card" role="separator" aria-label="Breathing room spacer — there's no rush here">
+      <span class="spacer-leaf" aria-hidden="true">&#x1F343;</span>
+      <span class="spacer-text">There's no rush here</span>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="feed-card" role="article" aria-label="Scripture card — Matthew 11:28">
+      <div class="card-author">
+        <div class="card-avatar" style="background:#C4A060;" aria-hidden="true">&#x1F4D6;</div>
+        <div>
+          <p class="card-author-name">Daily Scripture</p>
+          <p class="card-author-role">Matthew 11:28</p>
+        </div>
+      </div>
+      <p class="card-body">"Come to me, all you who are weary and burdened, and I will give you rest."</p>
+    </div>
+
+    <!-- Pacing message (no infinite scroll) -->
+    <div class="pacing-card" role="region" aria-label="Gentle pacing check-in">
+      <span class="pacing-icon" aria-hidden="true">&#x1F342;</span>
+      <h3 class="pacing-title">Take a moment before continuing</h3>
+      <p class="pacing-text">
+        You've seen a few things. There's wisdom in pausing — let what you've read settle before moving on.
+      </p>
+      <button class="pacing-btn" aria-label="Continue to more content after a moment">
+        Continue when ready
+      </button>
+    </div>
+
+    <!-- Feed end — no infinite scroll arrow -->
+    <div class="feed-end" role="contentinfo" aria-label="End of current content">
+      <p class="feed-end-text">That's everything for now. More tomorrow.</p>
+    </div>
+
+  </div>
+
+  <!-- Guardian View -->
+  <div class="guardian-view" id="guardian-view" role="tabpanel" aria-labelledby="tab-guardian">
+
+    <!-- Youth summary header -->
+    <div class="guardian-header" role="region" aria-label="Marcus's weekly summary for guardian">
+      <p class="guardian-label">Guardian view for</p>
+      <h2 class="youth-name">Marcus (14)</h2>
+      <p class="youth-meta">This week · June 8–13, 2026</p>
+    </div>
+
+    <!-- Category summary — NO content details -->
+    <div class="category-card" role="region" aria-label="Activity categories this week — no content details shown">
+      <p class="category-label">Marcus's week — categories only</p>
+      <div class="category-list">
+        <div class="category-row">
+          <div class="category-icon-box" style="background:rgba(30,58,95,0.10);" aria-hidden="true">&#x1F4D6;</div>
+          <div class="category-text">
+            <h4>Scripture</h4>
+            <p>Engaged with 4 passages</p>
+            <div class="category-bar-wrap">
+              <div class="category-bar" style="width:70%; background:#2C4A8D;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="category-row">
+          <div class="category-icon-box" style="background:rgba(45,106,79,0.10);" aria-hidden="true">&#x1F64F;</div>
+          <div class="category-text">
+            <h4>Prayer</h4>
+            <p>Joined 2 prayer chains</p>
+            <div class="category-bar-wrap">
+              <div class="category-bar" style="width:50%; background:#2D6A4F;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="category-row">
+          <div class="category-icon-box" style="background:rgba(107,107,107,0.10);" aria-hidden="true">&#x1F465;</div>
+          <div class="category-text">
+            <h4>Community</h4>
+            <p>Active in Youth Group Table</p>
+            <div class="category-bar-wrap">
+              <div class="category-bar" style="width:85%; background:#6B6B8D;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Privacy note -->
+    <div class="privacy-note" role="note" aria-label="Privacy note for guardian view">
+      <span class="privacy-icon" aria-hidden="true">&#x1F512;</span>
+      <p class="privacy-text">
+        Guardian view shows activity categories — not specific posts, messages, or reflections. Marcus's personal thoughts and conversations remain private.
+      </p>
+    </div>
+
+    <!-- Locked DM attempt from unverified adult (silently locked from sender side) -->
+    <div class="locked-dm-card" role="region" aria-label="DM access status — locked for unverified contacts">
+      <div class="lock-icon-box" aria-hidden="true">&#x1F512;</div>
+      <div class="lock-text">
+        <h4>Direct messages</h4>
+        <p>DMs from adults outside Marcus's verified community are quietly unavailable. No notification sent to the sender.</p>
+      </div>
+      <span class="lock-label" aria-hidden="true">Silently locked</span>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  function switchView(name) {
+    document.querySelectorAll('.tab-opt').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
+    document.querySelectorAll('.feed-view, .guardian-view').forEach(p => {
+      p.classList.remove('active');
+    });
+    document.getElementById('tab-' + name).classList.add('active');
+    document.getElementById('tab-' + name).setAttribute('aria-selected', 'true');
+    document.getElementById(name + '-view').classList.add('active');
+  }
+</script>
+</body>
+</html>

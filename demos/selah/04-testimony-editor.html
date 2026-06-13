@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SELAH — Testimony Editor</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --breath-enter: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --breath-duration-enter: 450ms;
+    --breath-duration-settle: 700ms;
+    --glass-filter: blur(20px) saturate(180%);
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --deep-indigo: #2C2B5E;
+    --gold: #B8860B;
+    --verified-green: #1A6B3A;
+    --selah-dim: 0.85;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    background: linear-gradient(160deg, #E8E4F4 0%, #D4C8E8 50%, #E4EBF4 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    color: var(--text-primary);
+  }
+
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes ambientPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1.0; }
+  }
+
+  @keyframes selahDim {
+    0% { opacity: 1; }
+    20% { opacity: var(--selah-dim); }
+    80% { opacity: var(--selah-dim); }
+    100% { opacity: 1; }
+  }
+
+  .editor-wrapper {
+    width: 100%;
+    max-width: 390px;
+  }
+
+  /* Header */
+  .editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    animation: cardEnter var(--breath-duration-enter) var(--breath-enter) both;
+  }
+
+  .editor-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .draft-badge {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: rgba(107,107,107,0.12);
+    border-radius: 8px;
+    padding: 4px 10px;
+  }
+
+  /* Progress tracker */
+  .progress-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    animation: cardEnter var(--breath-duration-enter) var(--breath-enter) 50ms both;
+  }
+
+  .progress-step {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(44, 43, 94, 0.12);
+    overflow: hidden;
+    transition: background var(--breath-duration-settle) var(--breath-enter);
+  }
+
+  .progress-step.filled {
+    background: var(--deep-indigo);
+  }
+
+  .progress-step.partial {
+    background: linear-gradient(90deg, var(--deep-indigo) 60%, rgba(44,43,94,0.12) 60%);
+  }
+
+  /* Panel cards */
+  .panel-card {
+    background: rgba(255,255,255,0.88);
+    border-radius: 20px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 3px 16px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.04);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) both;
+    border: 1.5px solid transparent;
+    transition: border-color var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  .panel-card:nth-child(1) { animation-delay: 0ms; }
+  .panel-card:nth-child(2) { animation-delay: 80ms; }
+  .panel-card:nth-child(3) { animation-delay: 160ms; }
+
+  .panel-card.focused {
+    border-color: rgba(44, 43, 94, 0.25);
+  }
+
+  .panel-header {
+    padding: 16px 18px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .icon-before { background: rgba(107, 107, 107, 0.12); }
+  .icon-encounter { background: rgba(44, 43, 94, 0.12); }
+  .icon-after { background: rgba(26, 107, 58, 0.12); }
+
+  .panel-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.1px;
+  }
+
+  .panel-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 1px;
+  }
+
+  .check-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid rgba(107,107,107,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: transparent;
+    transition: border-color var(--breath-duration-enter) var(--breath-enter),
+                background var(--breath-duration-enter) var(--breath-enter),
+                color var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  .check-icon.complete {
+    border-color: var(--verified-green);
+    background: var(--verified-green);
+    color: #fff;
+  }
+
+  .panel-textarea {
+    width: 100%;
+    background: none;
+    border: none;
+    outline: none;
+    padding: 12px 18px 16px;
+    font-size: 15px;
+    color: var(--text-primary);
+    font-family: inherit;
+    line-height: 1.65;
+    resize: none;
+    min-height: 80px;
+  }
+
+  .panel-textarea::placeholder { color: rgba(107,107,107,0.5); }
+
+  /* Media attach */
+  .media-row {
+    padding: 0 18px 14px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .media-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(107,107,107,0.08);
+    border: none;
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  .media-btn:hover { background: rgba(107,107,107,0.15); }
+
+  /* C2PA badge */
+  .c2pa-section {
+    background: rgba(255,255,255,0.75);
+    border-radius: 20px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 240ms both;
+    border: 1.5px solid rgba(26, 107, 58, 0.2);
+  }
+
+  .c2pa-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .c2pa-shield {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(26, 107, 58, 0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    animation: ambientPulse 4s ease-in-out infinite alternate;
+  }
+
+  .c2pa-info h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--verified-green);
+    margin-bottom: 3px;
+  }
+
+  .c2pa-info p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .c2pa-pending {
+    opacity: 0.5;
+  }
+
+  .c2pa-pending .c2pa-shield {
+    background: rgba(107,107,107,0.08);
+    animation: none;
+  }
+
+  .c2pa-pending h4 {
+    color: var(--text-secondary) !important;
+  }
+
+  /* Publish button */
+  .publish-section {
+    animation: cardEnter var(--breath-duration-settle) var(--breath-enter) 300ms both;
+  }
+
+  .btn-publish {
+    width: 100%;
+    border-radius: 18px;
+    padding: 17px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity var(--breath-duration-enter) var(--breath-enter),
+                transform var(--breath-duration-enter) var(--breath-enter),
+                background var(--breath-duration-enter) var(--breath-enter);
+  }
+
+  .btn-publish:disabled {
+    background: rgba(107,107,107,0.15);
+    color: rgba(107,107,107,0.5);
+    border: none;
+    cursor: not-allowed;
+  }
+
+  .btn-publish.ready {
+    background: var(--deep-indigo);
+    color: #fff;
+    border: none;
+  }
+
+  .btn-publish.ready:hover {
+    opacity: 0.92;
+    transform: scale(0.99);
+  }
+
+  .publish-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+
+  /* Selah dim moment */
+  .selah-moment {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(44,43,94,0.15);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .selah-moment.active {
+    display: flex;
+    animation: selahDim 1.2s ease-in-out both;
+  }
+</style>
+</head>
+<body>
+
+<div class="editor-wrapper">
+  <!-- Header -->
+  <div class="editor-header">
+    <h1 class="editor-title">Your Testimony</h1>
+    <span class="draft-badge">Draft</span>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-row" role="progressbar" aria-label="Testimony sections: Before complete, Encounter in progress, After incomplete" aria-valuenow="1" aria-valuemin="0" aria-valuemax="3">
+    <div class="progress-step filled" aria-hidden="true"></div>
+    <div class="progress-step partial" aria-hidden="true"></div>
+    <div class="progress-step" aria-hidden="true"></div>
+  </div>
+
+  <!-- Before Panel -->
+  <div class="panel-card focused" id="card-before" role="region" aria-label="Before section">
+    <div class="panel-header">
+      <div class="panel-label-row">
+        <div class="panel-icon icon-before" aria-hidden="true">&#x1F4AD;</div>
+        <div>
+          <p class="panel-title">Before</p>
+          <p class="panel-subtitle">Where you were</p>
+        </div>
+      </div>
+      <div class="check-icon complete" id="check-before" aria-label="Before section complete" role="img">&#x2713;</div>
+    </div>
+    <textarea class="panel-textarea" placeholder="Describe where you were — emotionally, spiritually, relationally — before this encounter with God&#x2026;" aria-label="Before section — describe where you were" oninput="onType('before', this)">I had been carrying a heaviness for months that I couldn't name. Work pressure, distance from God, going through motions at church. I was exhausted in a way sleep couldn't fix.</textarea>
+  </div>
+
+  <!-- Encounter Panel -->
+  <div class="panel-card" id="card-encounter" role="region" aria-label="Encounter section">
+    <div class="panel-header">
+      <div class="panel-label-row">
+        <div class="panel-icon icon-encounter" aria-hidden="true">&#x2728;</div>
+        <div>
+          <p class="panel-title">Encounter</p>
+          <p class="panel-subtitle">What God did</p>
+        </div>
+      </div>
+      <div class="check-icon" id="check-encounter" aria-label="Encounter section incomplete" role="img"></div>
+    </div>
+    <textarea class="panel-textarea" placeholder="What happened? A conversation, a moment in prayer, a verse that broke through&#x2026;" aria-label="Encounter section — what God did" oninput="onType('encounter', this)">At a quiet Tuesday morning service — I almost didn&#x27;t go — the pastor read Psalm 46:10. Something broke open.</textarea>
+    <div class="media-row">
+      <button class="media-btn" aria-label="Attach photo">&#x1F4F7; Photo</button>
+      <button class="media-btn" aria-label="Attach audio">&#x1F3A4; Audio</button>
+      <button class="media-btn" aria-label="Attach video">&#x1F39E; Video</button>
+    </div>
+  </div>
+
+  <!-- After Panel -->
+  <div class="panel-card" id="card-after" role="region" aria-label="After section">
+    <div class="panel-header">
+      <div class="panel-label-row">
+        <div class="panel-icon icon-after" aria-hidden="true">&#x1F33F;</div>
+        <div>
+          <p class="panel-title">After</p>
+          <p class="panel-subtitle">What changed</p>
+        </div>
+      </div>
+      <div class="check-icon" id="check-after" aria-label="After section incomplete" role="img"></div>
+    </div>
+    <textarea class="panel-textarea" placeholder="What is different now? How are you still being changed?" aria-label="After section — what changed" oninput="onType('after', this)"></textarea>
+  </div>
+
+  <!-- C2PA Manifest -->
+  <div class="c2pa-section c2pa-pending" id="c2pa-badge" role="region" aria-label="Content provenance status">
+    <div class="c2pa-row">
+      <div class="c2pa-shield" aria-hidden="true">&#x1F6E1;</div>
+      <div class="c2pa-info">
+        <h4 id="c2pa-title">Provenance pending</h4>
+        <p id="c2pa-desc">Complete all three sections to generate a C2PA manifest. Your testimony's origin will be cryptographically signed.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Publish -->
+  <div class="publish-section">
+    <button class="btn-publish" id="publish-btn" disabled aria-label="Publish testimony — complete all sections and provenance manifest first" aria-disabled="true">
+      Publish Testimony
+    </button>
+    <p class="publish-note" id="publish-note">Complete Before, Encounter, and After to publish</p>
+  </div>
+</div>
+
+<!-- Selah dim on publish -->
+<div class="selah-moment" id="selah-moment" role="status" aria-live="polite" aria-label="Selah — your testimony is now woven into the community's story"></div>
+
+<script>
+  const sections = { before: true, encounter: false, after: false };
+
+  function onType(section, el) {
+    const hasContent = el.value.trim().length > 10;
+    sections[section] = hasContent;
+
+    const check = document.getElementById('check-' + section);
+    if (hasContent) {
+      check.classList.add('complete');
+      check.textContent = '✓';
+      check.setAttribute('aria-label', section.charAt(0).toUpperCase() + section.slice(1) + ' section complete');
+    } else {
+      check.classList.remove('complete');
+      check.textContent = '';
+      check.setAttribute('aria-label', section.charAt(0).toUpperCase() + section.slice(1) + ' section incomplete');
+    }
+    updatePublish();
+  }
+
+  function updatePublish() {
+    const allDone = sections.before && sections.encounter && sections.after;
+    const btn = document.getElementById('publish-btn');
+    const note = document.getElementById('publish-note');
+    const c2pa = document.getElementById('c2pa-badge');
+    const c2paTitle = document.getElementById('c2pa-title');
+    const c2paDesc = document.getElementById('c2pa-desc');
+
+    if (allDone) {
+      btn.disabled = false;
+      btn.classList.add('ready');
+      btn.setAttribute('aria-disabled', 'false');
+      btn.setAttribute('aria-label', 'Publish testimony — provenance verified');
+      note.textContent = 'Your testimony will be published with a provenance manifest.';
+      c2pa.classList.remove('c2pa-pending');
+      c2paTitle.textContent = 'Provenance verified';
+      c2paDesc.textContent = 'A C2PA content manifest has been generated. Your testimony\'s origin is cryptographically signed and verifiable.';
+      btn.onclick = triggerSelah;
+    } else {
+      btn.disabled = true;
+      btn.classList.remove('ready');
+      btn.setAttribute('aria-disabled', 'true');
+      const missing = [];
+      if (!sections.before) missing.push('Before');
+      if (!sections.encounter) missing.push('Encounter');
+      if (!sections.after) missing.push('After');
+      note.textContent = 'Complete ' + missing.join(', ') + ' to publish';
+    }
+  }
+
+  function triggerSelah() {
+    const el = document.getElementById('selah-moment');
+    el.classList.add('active');
+    setTimeout(() => { el.classList.remove('active'); }, 1200);
+  }
+</script>
+</body>
+</html>
