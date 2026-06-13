@@ -24,7 +24,7 @@ struct VerseCardView: View {
 
     // MARK: State
 
-    @StateObject private var service = ScriptureDetectionService()
+    @StateObject private var service = ScriptureIntelligenceDetectionService()
     @State private var selectedTranslation: BibleTranslation = .BSB
     @State private var verse: VerseCard? = nil
     @State private var isLoading = false
