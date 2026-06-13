@@ -14,14 +14,15 @@ These rules override default Claude Code behavior for this repository. Read them
 - Always deploy from repo root
 - Always use targeted codebase: `firebase deploy --only functions:default` or `firebase deploy --only functions:creator`
 - For single functions: `firebase deploy --only functions:creator:functionName`
-- All new functions must declare `region: "us-central1"` explicitly
+- **Region rule:** Deploy new functions to `us-central1` if `gcloud run services list --region us-central1 | wc -l` < 950. Otherwise deploy to `us-east1`. NEVER deploy to a region without adding an entry to the **Interim Region Table** in `docs/FUNCTION_INVENTORY.md`. Silent region choices are forbidden.
 - Log all deploy output to `deploy-logs/`
 
 See `docs/deploy-topology.md` for full topology, codebase map, and KnownDrift list.
+See `docs/FUNCTION_INVENTORY.md` for Interim Region Table and deletion candidate list.
 
 ## us-central1 Quota Warning
 
-As of 2026-06-12, us-central1 Cloud Run service quota is exhausted (~1007 services). Creating new us-central1 functions will fail with HTTP 429. Do NOT attempt to deploy new functions to us-central1 without first confirming quota has been freed. See `docs/deploy-topology.md §us-central1 Quota Warning` for resolution steps.
+As of 2026-06-13, us-central1 is at **999/1000** Cloud Run services. Creating new us-central1 functions will fail with HTTP 429. Deploy to us-east1 instead and add to Interim Region Table. Quota reclamation plan: 522 DEAD services identified in `docs/FUNCTION_INVENTORY.md` — requires human approval before deletion. See `docs/deploy-topology.md §us-central1 Quota Warning` for resolution steps.
 
 ## cloud-functions/ is QUARANTINED
 

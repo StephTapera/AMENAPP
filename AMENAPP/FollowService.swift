@@ -146,28 +146,12 @@ class FollowService: ObservableObject {
         let isPrivate = targetUserDoc.data()?["isPrivate"] as? Bool ?? false
         
         if isPrivate {
-            // Check if request already sent (depends on knowing isPrivate, so sequential is fine)
-            let existingRequest = try await db.collection("followRequests")
-                .whereField("fromUserId", isEqualTo: currentUserId)
-                .whereField("toUserId", isEqualTo: userId)
-                .whereField("status", isEqualTo: "pending")
-                .limit(to: 1)
-                .getDocuments()
-            
-            guard existingRequest.documents.isEmpty else {
-                dlog("⚠️ Follow request already pending for user: \(userId)")
-                return
-            }
-            
-            // Create a pending follow request
-            let requestData: [String: Any] = [
-                "fromUserId": currentUserId,
-                "toUserId": userId,
-                "status": "pending",
-                "createdAt": FieldValue.serverTimestamp()
-            ]
-            try await db.collection("followRequests").addDocument(data: requestData)
-            dlog("✅ Follow request sent to private account: \(userId)")
+            // Route private-account follow requests through callable.
+            // createFollow callable handles idempotency, GUARDIAN flag, rate limiting,
+            // subcollection write, and the server-side notification in one atomic call.
+            let callable = Functions.functions(region: "us-central1").httpsCallable("createFollow")
+            _ = try await callable.call(["followingId": userId])
+            dlog("✅ Follow request sent to private account via CF: \(userId)")
             return
         }
         
@@ -180,7 +164,7 @@ class FollowService: ObservableObject {
             // atomically writes follows + follows_index + counter increments.
             // Firestore rules now gate follows_index on CF-only writes, so this
             // callable is the only valid write path.
-            let callable = Functions.functions(region: "us-east1").httpsCallable("createFollow")
+            let callable = Functions.functions(region: "us-central1").httpsCallable("createFollow")
             _ = try await callable.call(["followingId": userId])
             dlog("✅ Followed user successfully via CF")
 
@@ -246,64 +230,13 @@ class FollowService: ObservableObject {
         // Optimistically update local state FIRST (prevents double-tap)
         following.remove(userId)
         
-        // Find the follow relationship
-        let followQuery = db.collection(FirebaseManager.CollectionPath.follows)
-            .whereField("followerId", isEqualTo: currentUserId)
-            .whereField("followingId", isEqualTo: userId)
-            .limit(to: 1)
-        
-        let snapshot = try await followQuery.getDocuments()
-        
-        guard let followDoc = snapshot.documents.first else {
-            dlog("⚠️ Not following this user")
-            return
-        }
-        
-        let followDocRef = followDoc.reference
-        let targetUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
-        let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
-
-        // Pre-read current counts so we can apply a floor of 0 in the batch write.
-        // FieldValue.increment(-1) can produce negative counts on concurrent unfollows;
-        // reading first and using max(0, count - 1) prevents that.
-        // The Firestore isCounterUpdate() rule allows a delta of [-1, 0, 1], so a 0 delta
-        // (when count is already 0) is still accepted.
-        async let targetSnapTask = targetUserRef.getDocument()
-        async let currentSnapTask = currentUserRef.getDocument()
-        let (targetSnap, currentSnap) = try await (targetSnapTask, currentSnapTask)
-        let newFollowersCount = max(0, (targetSnap.data()?["followersCount"] as? Int ?? 0) - 1)
-        let newFollowingCount = max(0, (currentSnap.data()?["followingCount"] as? Int ?? 0) - 1)
-
-        // Use a batch write instead of a transaction for unfollow.
-        // Transactions require every doc to be read before write (for security rule evaluation
-        // of resource.data). The follows_index delete was failing because there was no prior
-        // transaction.getDocument(indexRef), leaving resource.data null when the rule checked
-        // resource.data.get('followerId'). A batch write with the computed values avoids this
-        // entirely — the rules' isCounterUpdate() check passes because the delta is ±1 (or 0).
-        let batch = db.batch()
-        batch.deleteDocument(followDocRef)
-        batch.updateData([
-            "followersCount": newFollowersCount,
-            "updatedAt": FieldValue.serverTimestamp()
-        ], forDocument: targetUserRef)
-        batch.updateData([
-            "followingCount": newFollowingCount,
-            "updatedAt": FieldValue.serverTimestamp()
-        ], forDocument: currentUserRef)
-
-        // Only delete the index doc if it actually exists — a missing index doc causes
-        // resource==null in Firestore rules, which would deny the entire batch (Code=7).
-        let indexRef = db.collection("follows_index").document("\(currentUserId)_\(userId)")
-        let indexSnap = try? await indexRef.getDocument()
-        if indexSnap?.exists == true {
-            batch.deleteDocument(indexRef)
-        }
-
+        // createUnfollow callable: atomically deletes follows + follows_index + decrements counters.
+        // Removes the pre-read + batch write that was previously client-side.
         do {
-            try await batch.commit()
+            let callable = Functions.functions(region: "us-central1").httpsCallable("createUnfollow")
+            _ = try await callable.call(["followingId": userId])
         } catch {
-            dlog("❌ Unfollow batch failed: \(error)")
-            // Revert optimistic update on error
+            dlog("❌ createUnfollow CF failed: \(error)")
             following.insert(userId)
             throw error
         }
@@ -428,45 +361,10 @@ class FollowService: ObservableObject {
         
         dlog("👥 Removing follower: \(followerId)")
         
-        // Find the follow relationship where they follow you
-        let followQuery = db.collection(FirebaseManager.CollectionPath.follows)
-            .whereField("followerId", isEqualTo: followerId)
-            .whereField("followingId", isEqualTo: currentUserId)
-            .limit(to: 1)
-        
-        let snapshot = try await followQuery.getDocuments()
-        
-        guard let followDoc = snapshot.documents.first else {
-            dlog("⚠️ No follow relationship found")
-            return
-        }
-        
-        let followDocRef = followDoc.reference
-        let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
-        let followerRef = db.collection(FirebaseManager.CollectionPath.users).document(followerId)
-        
-        // P1 FIX: Transaction with clamped decrements to prevent negative counts
-        _ = try await db.runTransaction { transaction, errorPointer in
-            let currentSnap: DocumentSnapshot
-            let followerSnap: DocumentSnapshot
-            do {
-                currentSnap = try transaction.getDocument(currentUserRef)
-                followerSnap = try transaction.getDocument(followerRef)
-            } catch let fetchError as NSError {
-                errorPointer?.pointee = fetchError
-                return nil
-            }
-            let newFollowers = max(0, (currentSnap.data()?["followersCount"] as? Int ?? 0) - 1)
-            let newFollowing = max(0, (followerSnap.data()?["followingCount"] as? Int ?? 0) - 1)
-            transaction.deleteDocument(followDocRef)
-            transaction.updateData(["followersCount": newFollowers, "updatedAt": Date()], forDocument: currentUserRef)
-            transaction.updateData(["followingCount": newFollowing, "updatedAt": Date()], forDocument: followerRef)
-            // Remove follows_index so the removed follower loses private-content access
-            let indexRef = self.db.collection("follows_index").document("\(followerId)_\(currentUserId)")
-            transaction.deleteDocument(indexRef)
-            return nil
-        }
-        dlog("✅ Follower removed successfully")
+        // removeFollower callable: atomically deletes follows + follows_index + decrements counters.
+        let callable = Functions.functions(region: "us-central1").httpsCallable("removeFollower")
+        _ = try await callable.call(["followerId": followerId])
+        dlog("✅ Follower removed via CF")
 
         // Invalidate privacy cache for the removed follower
         PrivacyAccessControl.shared.invalidate(userId: followerId)

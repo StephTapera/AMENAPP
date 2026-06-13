@@ -307,3 +307,25 @@ export function checkDeploymentGate(results: EvalSuiteResult[]): {
     failures,
   };
 }
+
+// ─── EvalTestCase alias ───────────────────────────────────────────────────────
+// Ported from Backend/functions/src/berean/evaluationHarness.ts — lets the
+// evalSuites imported from the creator codebase compile without modification.
+
+export interface GradeResult {
+  passed: boolean;
+  score?: number;
+  reason?: string;
+}
+
+export interface EvalTestCase {
+  id: string;
+  category: string;
+  riskLevel: "low" | "medium" | "high" | "critical";
+  prompt?: string;
+  input?: string | Record<string, unknown>;
+  systemContext?: string;
+  expectedBehavior: string;
+  grader: (response: any) => boolean | GradeResult;
+  tags?: string[];
+}
