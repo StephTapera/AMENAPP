@@ -382,6 +382,36 @@ async function runBereanPipeline(input, db) {
     // If retrieval fails, continue with empty chunks — non-fatal.
     // ── STAGE 4 — GENERATION ──────────────────────────────────────────────────
     const s4 = await timedStage("stage4_generation", pipelineStartMs, async () => {
+        // P0-06 GUARDIAN HOOK: hard short-circuit for crisis queries.
+        // If the Safety intent was detected, check for high-risk crisis patterns before
+        // calling the model. This guarantees crisis resources surface IMMEDIATELY —
+        // the model is never called for these patterns, preventing any delay.
+        const hasSafetyIntent = intentClasses.includes("Safety");
+        if (hasSafetyIntent) {
+            const crisisPatterns = [
+                /\b(end my life|kill myself|want to die|take my life|no reason to live|suicide|suicidal)\b/i,
+                /\b(going to hurt myself|cut myself|overdose|hang myself|jump off)\b/i,
+                /\b(better off dead|better off without me|can't go on|cannot go on)\b/i,
+            ];
+            const isCrisis = crisisPatterns.some((p) => p.test(input.query));
+            if (isCrisis) {
+                return {
+                    rawText: JSON.stringify({
+                        answer: "I care about you and what you're going through. " +
+                            "If you're having thoughts of hurting yourself, please reach out for support right now:\n\n" +
+                            "• **988 Suicide & Crisis Lifeline**: Call or text 988 (US)\n" +
+                            "• **Crisis Text Line**: Text HOME to 741741\n" +
+                            "• **International Association for Suicide Prevention**: https://www.iasp.info/resources/Crisis_Centres/\n\n" +
+                            "You don't have to face this alone. I'm here with you, and so are trained counselors who can help.",
+                        context: "Crisis response — GUARDIAN hook active",
+                        interpretations: [],
+                        assumptions: [],
+                        unknowns: [],
+                    }),
+                    taskClass: "safety",
+                };
+            }
+        }
         const useTheologicalModel = intentClasses.includes("Theology") || intentClasses.includes("Bible");
         const taskClass = useTheologicalModel ? "theological" : "conversational";
         const constitutionSummary = bereanConstitution_1.BEREAN_CONSTITUTION
@@ -393,6 +423,13 @@ async function runBereanPipeline(input, db) {
             "You operate under strict constitutional constraints. Critical rules:",
             constitutionSummary,
             "",
+            // GUARDIAN HOOK: inject safety routing instruction when Safety intent detected
+            hasSafetyIntent
+                ? "GUARDIAN HOOK ACTIVE:\nSafety signals were detected. If any part of the query relates to self-harm, " +
+                    "abuse, crisis, or immediate danger: (1) Surface crisis resources (988, Crisis Text Line) first. " +
+                    "(2) Acknowledge the person with warmth. (3) Do not minimize or spiritualize their distress. " +
+                    "Only after confirming the user is safe may you continue with pastoral content."
+                : "",
             "You must structure your answer as valid JSON matching this exact shape:",
             '{ "answer": string, "context": string, "interpretations": string[], "assumptions": string[], "unknowns": string[] }',
             "",

@@ -2418,34 +2418,14 @@ class DiscoveryLandingFeedService: ObservableObject {
         isLoadingVerse = true
         defer { isLoadingVerse = false }
 
-        // Try Scripture API first
-        let apiKey = "" // API key configured via Firebase Remote Config
-        let bibleId = "de4e12af7f28f599-02" // KJV
-        let verseIds = ["PSA.23.1", "JHN.3.16", "ROM.8.28", "PHP.4.13", "ISA.40.31",
-                        "JER.29.11", "PSA.46.1", "PRO.3.5", "MAT.28.20", "ROM.5.8"]
-        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
-        let todayIndex = (dayOfYear - 1) % verseIds.count
-        let verseId = verseIds[todayIndex]
+        // INFRA-4: Direct client-side calls to scripture.api.bible are forbidden —
+        // the client must never hold API.Bible credentials.
+        // TODO(INFRA-4): route through a getDailyVerse CF callable when provisioned.
+        // Until then, serve from the curated local fallback below.
 
-        if let url = URL(string: "https://api.scripture.api.bible/v1/bibles/\(bibleId)/verses/\(verseId)?content-type=text&include-notes=false&include-titles=false&include-chapter-numbers=false&include-verse-numbers=false") {
-            var req = URLRequest(url: url)
-            req.setValue(apiKey, forHTTPHeaderField: "api-key")
-            if let (data, _) = try? await URLSession.shared.data(for: req),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let verseData = json["data"] as? [String: Any],
-               let content = verseData["content"] as? String,
-               let refData = verseData["reference"] as? String {
-                dailyVerse = DiscoveryLandingDailyVerseData(
-                    reference: refData,
-                    text: content.trimmingCharacters(in: .whitespacesAndNewlines),
-                    bookName: "",
-                    testament: todayIndex < 5 ? "Old Testament" : "New Testament",
-                    discussionCount: Int.random(in: 12...89),
-                    saveCount: Int.random(in: 8...45)
-                )
-                return
-            }
-        }
+        let verseCount = 10
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        let todayIndex = (dayOfYear - 1) % verseCount
 
         // Fallback: local top 10 verses
         let fallback: [(ref: String, text: String, testament: String)] = [
