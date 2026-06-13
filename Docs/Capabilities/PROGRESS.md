@@ -53,3 +53,8 @@ Wave 1 lanes begin after Wave 0 green-build gate passes.
 | B | scripts/seedCapabilities.ts — idempotent seed: prayer_os, scripture_intelligence, verse_lookup | 394e8be6 | DONE |
 | B | tsconfig.capabilities.json — noEmit 0 errors | a582fb23 | DONE |
 | B | referenceParser.test.ts — 65 tests passing | a582fb23 | DONE |
+| E | ScriptureIntelligenceDetectionService.swift — 800ms debounce, Task cancel, flag gate, getVerse callable | 2ed3630f | DONE |
+| E | VerseCardView.swift — translation switcher BSB/WEB/KJV, insert action, VoiceOver, .regularMaterial glass | 1bb97615 | DONE |
+| E | ScriptureIntelligenceView.swift — ViewModifier + env key + detecting badge + standalone list view | 1bb97615 | DONE |
+| E | VerseLookupView.swift — search + 500ms debounce + result list + surface-aware VerseInsertPreview + flag gate | 1bb97615 | DONE |
+| E | VerseLookupService.swift — thin async wrapper for scripture_searchVerses + scripture_getVerses | 1bb97615 | DONE |
