@@ -4,26 +4,26 @@
 // Provides a `.scriptureIntelligence(onInsertVerse:)` ViewModifier that:
 //   • Overlays a "Detecting references..." status indicator (bottom-aligned) while detection runs
 //   • Presents a VerseCardView popover when the user taps a detected reference
-//   • Injects the shared ScriptureDetectionService via Environment so child views can
-//     call `detectReferences(in:)` without needing to own the service.
+//   • Injects the shared ScriptureIntelligenceDetectionService via Environment so child views
+//     can call `detectReferences(in:)` without needing to own the service.
 //
 // Also exposes ScriptureIntelligenceView as a standalone view for use in navigation stacks
 // that need to present the detection surface without embedding a live editor.
 //
 // Flag gate: AMENFeatureFlags.shared.scriptureIntelligenceEnabled — checked inside
-//   ScriptureDetectionService; the modifier itself is always applicable.
+//   ScriptureIntelligenceDetectionService; the modifier itself is always applicable.
 
 import SwiftUI
 
 // MARK: - Environment Key
 
 private struct DetectionServiceKey: EnvironmentKey {
-    static let defaultValue: ScriptureDetectionService? = nil
+    static let defaultValue: ScriptureIntelligenceDetectionService? = nil
 }
 
 extension EnvironmentValues {
-    /// The shared ScriptureDetectionService injected by ScriptureIntelligenceModifier.
-    var detectionService: ScriptureDetectionService? {
+    /// The shared ScriptureIntelligenceDetectionService injected by ScriptureIntelligenceModifier.
+    var detectionService: ScriptureIntelligenceDetectionService? {
         get { self[DetectionServiceKey.self] }
         set { self[DetectionServiceKey.self] = newValue }
     }
@@ -37,12 +37,12 @@ struct ScriptureIntelligenceModifier: ViewModifier {
 
     // MARK: State
 
-    @StateObject private var detectionService = ScriptureDetectionService()
+    @StateObject private var detectionService = ScriptureIntelligenceDetectionService()
     @State private var selectedRef: ScriptureRef? = nil
 
     // MARK: Input
 
-    /// Called when the user taps "Insert Verse" in the verse card popover.
+    /// Called when the user inserts a verse from the verse card popover.
     var onInsertVerse: ((VerseCard) -> Void)?
 
     // MARK: Body
@@ -80,7 +80,7 @@ struct ScriptureIntelligenceModifier: ViewModifier {
             ProgressView()
                 .scaleEffect(0.7)
                 .accessibilityHidden(true)
-            Text("Detecting references…")
+            Text("Detecting references\u{2026}")
                 .font(.caption)
         }
         .padding(.horizontal, 12)
@@ -95,7 +95,7 @@ struct ScriptureIntelligenceModifier: ViewModifier {
 
 extension View {
     /// Wraps a view in the scripture intelligence detection system.
-    /// The injected `ScriptureDetectionService` is accessible via
+    /// The injected `ScriptureIntelligenceDetectionService` is accessible via
     /// `@Environment(\.detectionService)` in descendant views.
     ///
     /// - Parameter onInsertVerse: Called when the user inserts a verse into the editor.
@@ -116,7 +116,7 @@ struct ScriptureIntelligenceView: View {
     /// Called when the user chooses to insert a resolved verse into the calling surface.
     var onInsertVerse: ((VerseCard) -> Void)? = nil
 
-    @StateObject private var service = ScriptureDetectionService()
+    @StateObject private var service = ScriptureIntelligenceDetectionService()
     @State private var selectedRef: ScriptureRef? = nil
 
     var body: some View {
@@ -124,7 +124,7 @@ struct ScriptureIntelligenceView: View {
             if service.isDetecting {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.8)
-                    Text("Detecting references…")
+                    Text("Detecting references\u{2026}")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

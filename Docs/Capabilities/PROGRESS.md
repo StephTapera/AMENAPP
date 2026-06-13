@@ -41,3 +41,7 @@ Wave 1 lanes begin after Wave 0 green-build gate passes.
 | C | CapabilityComposerCoordinator.swift — @ word-boundary detection, picker toggle, insertion pipeline | 4b004059 | DONE |
 | C | CapabilityPickerView.swift — glass panel, VoiceOver, Dynamic Type, reduced motion/transparency | 4f20a9d8 | DONE |
 | C | ContextSettingsView.swift — real callable fetch + policy picker + coming-soon device sources | e5a61859 | DONE |
+| D | PrayerOSService.swift — loadCards/createCard/updateCard/completeFollowUp callables + flag gate + cardId→id remapper | 20f95b42 | DONE |
+| D | PrayerOSCardSheet.swift — create/edit Form sheet: subject/type/category/detail/reminder/follow-up + dedupe banner | aaf1c29f | DONE |
+| D | PrayerCardsListView.swift — list + PrayerCardRow + PrayerCardDetailView + status filter | 22407e97 | DONE |
+| D | PrayerFollowUpBanner.swift — deep-link follow-up reminder banner + safe Array subscript | b06925b7 | DONE |
