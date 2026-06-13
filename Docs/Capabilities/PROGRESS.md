@@ -58,3 +58,17 @@ Wave 1 lanes begin after Wave 0 green-build gate passes.
 | E | ScriptureIntelligenceView.swift — ViewModifier + env key + detecting badge + standalone list view | 1bb97615 | DONE |
 | E | VerseLookupView.swift — search + 500ms debounce + result list + surface-aware VerseInsertPreview + flag gate | 1bb97615 | DONE |
 | E | VerseLookupService.swift — thin async wrapper for scripture_searchVerses + scripture_getVerses | 1bb97615 | DONE |
+
+---
+
+## Wave 2 — INTEGRATOR
+
+| Lane | Item | Commit | Status |
+|---|---|---|---|
+| W2 | functions/tsconfig.capabilities.json — npx tsc --noEmit passes (0 errors) | (pending) | DONE |
+| W2 | functions/lib/capabilities/ — compiled output: contextEngine + prayerOS + scripture + registry | (pending) | DONE |
+| W2 | functions/index.js — wire 12 new exports: contextEngine (3) + capabilityRegistry (1) + prayerOS (5) + scripture (3) | (pending) | DONE |
+| W2 | UnifiedChatView.swift — @StateObject capabilityCoordinator + handleMessageTextChanged hook + CapabilityPickerView overlay | (pending) | DONE |
+| W2 | Type-compatibility audit — 0 module-level conflicts; nested PrayerCategory/PrayerStatus duplicates shadow cleanly | (pending) | DONE |
+| W2 | Docs/Capabilities/E2E_RESULTS.md — 13-step verification, Steps 1–12 PASS, Step 13 PARTIAL (Settings mount gap) | (pending) | DONE |
+| W2 | PROGRESS.md — Wave 2 section appended | (pending) | DONE |

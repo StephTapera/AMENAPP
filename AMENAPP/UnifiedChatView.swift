@@ -260,6 +260,11 @@ struct UnifiedChatView: View {
     // MARK: — Voice Message Recording
     @StateObject private var voiceViewModel = VoiceMessageViewModel()
 
+    // MARK: — Capabilities v1: @ Picker
+    // Gated by capabilityPickerEnabled flag. Shows CapabilityPickerView when "@" typed
+    // at a word boundary. Coordinator routes selection to the appropriate entry flow.
+    @StateObject private var capabilityCoordinator = CapabilityComposerCoordinator(surface: .messages)
+
     // MARK: — Safety Gateway state
     @State private var safetyStrikeCount = 0
     @State private var safetyStrikeReason = ""
@@ -619,6 +624,15 @@ struct UnifiedChatView: View {
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .animation(.spring(response: 0.32, dampingFraction: 0.75), value: nudge)
+        }
+
+        // Capabilities v1: @ picker panel — gated by capabilityPickerEnabled flag.
+        // Appears above the input bar when the user types "@" at a word boundary.
+        if AMENFeatureFlags.shared.capabilityPickerEnabled {
+            CapabilityPickerView(coordinator: capabilityCoordinator)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.spring(response: 0.32, dampingFraction: 0.80),
+                           value: capabilityCoordinator.isPickerVisible)
         }
 
         // Compact input bar — collapses smoothly when scrolled into history.
@@ -2652,6 +2666,8 @@ struct UnifiedChatView: View {
         handleTypingIndicator(isTyping: !newValue.isEmpty)
         chatLinkController.handleTextChange(newValue)
         resolveMessageAttachmentIfNeeded(for: newValue)
+        // Capabilities v1: feed text to @ picker coordinator (flag-gated internally)
+        capabilityCoordinator.handleTextChange(newValue, cursorPosition: newValue.utf16.count)
         if !newValue.isEmpty {
             smartReplySuggestions = []
         }

@@ -1911,3 +1911,65 @@ exports.sanctuaryReactionField   = sanctuary.sanctuaryReactionField;
 exports.sanctuaryRoomSync        = sanctuary.sanctuaryRoomSync;
 exports.sanctuarySearch          = sanctuary.sanctuarySearch;
 exports.sanctuaryWeeklyDigest    = sanctuary.sanctuaryWeeklyDigest;
+
+// ============================================================================
+// CAPABILITIES v1 — Context Engine + Prayer OS + Scripture Intelligence + Registry
+// All callables: App Check enforced, Auth required, UID-scoped.
+// All flags default OFF — flip individually in Firebase Remote Config after
+// staging E2E verification passes (Docs/Capabilities/E2E_RESULTS.md).
+//
+// Context Engine:
+//   contextEngine_getGrants   — returns all 8 grant states (no App Check — settings UI)
+//   contextEngine_setGrant    — upserts a context grant (App Check enforced)
+//   contextEngine_getAuditLog — paginated audit log (no App Check — settings UI)
+//
+// Capability Registry:
+//   capabilityRegistry_list   — surface-filtered active capabilities (no App Check)
+//
+// Prayer OS:
+//   prayerOS_createCard       — create prayer card with context dedupe check
+//   prayerOS_updateCard       — partial update prayer card fields
+//   prayerOS_listCards        — paginated list by status
+//   prayerOS_completeFollowUp — mark follow-up complete
+//   prayerOS_followUpSweep    — scheduled every 15 min: send follow-up notifications
+//
+// Scripture Intelligence:
+//   scripture_detectReferences — deterministic 66-book OSIS parser (no LLM)
+//   scripture_getVerses        — verse lookup via Firestore cache + API.Bible
+//   scripture_searchVerses     — keyword/reference search over known corpus
+//
+// Deploy individually:
+//   firebase deploy --only functions:default:contextEngine_getGrants --project amen-5e359
+//   firebase deploy --only functions:default:contextEngine_setGrant --project amen-5e359
+//   firebase deploy --only functions:default:contextEngine_getAuditLog --project amen-5e359
+//   firebase deploy --only functions:default:capabilityRegistry_list --project amen-5e359
+//   firebase deploy --only functions:default:prayerOS_createCard --project amen-5e359
+//   firebase deploy --only functions:default:prayerOS_updateCard --project amen-5e359
+//   firebase deploy --only functions:default:prayerOS_listCards --project amen-5e359
+//   firebase deploy --only functions:default:prayerOS_completeFollowUp --project amen-5e359
+//   firebase deploy --only functions:default:prayerOS_followUpSweep --project amen-5e359
+//   firebase deploy --only functions:default:scripture_detectReferences --project amen-5e359
+//   firebase deploy --only functions:default:scripture_getVerses --project amen-5e359
+//   firebase deploy --only functions:default:scripture_searchVerses --project amen-5e359
+// Prerequisite: npx tsc -p functions/tsconfig.capabilities.json (compiles to lib/capabilities/)
+// ============================================================================
+
+const contextEngine = require("./lib/capabilities/contextEngine");
+exports.contextEngine_getGrants   = contextEngine.contextEngine_getGrants;
+exports.contextEngine_setGrant    = contextEngine.contextEngine_setGrant;
+exports.contextEngine_getAuditLog = contextEngine.contextEngine_getAuditLog;
+
+const capabilityRegistry = require("./lib/capabilities/capabilities/registry");
+exports.capabilityRegistry_list = capabilityRegistry.capabilityRegistry_list;
+
+const capabilityPrayerOS = require("./lib/capabilities/capabilities/prayerOS");
+exports.prayerOS_createCard       = capabilityPrayerOS.prayerOS_createCard;
+exports.prayerOS_updateCard       = capabilityPrayerOS.prayerOS_updateCard;
+exports.prayerOS_listCards        = capabilityPrayerOS.prayerOS_listCards;
+exports.prayerOS_completeFollowUp = capabilityPrayerOS.prayerOS_completeFollowUp;
+exports.prayerOS_followUpSweep    = capabilityPrayerOS.prayerOS_followUpSweep;
+
+const capabilityScripture = require("./lib/capabilities/capabilities/scripture");
+exports.scripture_detectReferences = capabilityScripture.scripture_detectReferences;
+exports.scripture_getVerses        = capabilityScripture.scripture_getVerses;
+exports.scripture_searchVerses     = capabilityScripture.scripture_searchVerses;
