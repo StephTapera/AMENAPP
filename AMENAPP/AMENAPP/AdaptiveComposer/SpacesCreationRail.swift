@@ -18,6 +18,8 @@ struct SpacesCreationRail: View {
     let onAttachmentReady: (ComposerAttachment) -> Void
     @Binding var currentText: String
 
+    @State private var showMoreSheet = false
+
     private let spacesTools: [ToolID] = [.bible, .prayerRequest, .event, .poll, .file, .task, .video]
 
     init(currentText: Binding<String>,
@@ -45,8 +47,7 @@ struct SpacesCreationRail: View {
                     }
                 }
 
-                // More button
-                Button(action: { /* TODO: show expanded sheet */ }) {
+                Button(action: { showMoreSheet = true }) {
                     VStack(spacing: 2) {
                         Image(systemName: "ellipsis")
                             .font(.body)
@@ -68,6 +69,14 @@ struct SpacesCreationRail: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Space creation tools")
+        .sheet(isPresented: $showMoreSheet) {
+            SpacesExpandedToolSheet(onToolSelected: { toolId in
+                showMoreSheet = false
+                onToolSelected(toolId)
+            })
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Rail Background
@@ -108,5 +117,53 @@ private struct SpacesRailButton: View {
         .frame(minWidth: 44, minHeight: 44)
         .accessibilityLabel(tool.title)
         .accessibilityHint("Add \(tool.title) to the space")
+    }
+}
+
+// MARK: - SpacesExpandedToolSheet
+
+private struct SpacesExpandedToolSheet: View {
+    let onToolSelected: (ToolID) -> Void
+
+    private let extendedTools: [ToolID] = [
+        .music, .podcast, .location, .checklist,
+        .donation, .volunteerSignup, .announcement, .rsvpCard,
+        .directionsCard, .reminder, .discussionThread, .ministryInterestForm
+    ]
+
+    private let columns = [GridItem(.adaptive(minimum: 72, maximum: 100), spacing: 12)]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(extendedTools, id: \.self) { toolId in
+                        if let tool = CreationTool.registry.first(where: { $0.id == toolId }) {
+                            Button {
+                                onToolSelected(toolId)
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: tool.icon)
+                                        .font(.title2)
+                                        .frame(width: 48, height: 48)
+                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                                    Text(tool.title)
+                                        .font(.caption2)
+                                        .multilineTextAlignment(.center)
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .accessibilityLabel(tool.title)
+                            .accessibilityHint("Add \(tool.title) to the space")
+                        }
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("More Tools")
+            .navigationBarTitleDisplayMode(.inline)
+        }
     }
 }

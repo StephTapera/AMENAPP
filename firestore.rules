@@ -3129,6 +3129,161 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // GLOBAL RESILIENCE OS — added 2026-06-12
+    // =========================================================================
+
+    // Device capability profiles — owner read/write only.
+    match /users/{userId}/devices/{deviceId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Idempotency keys subcollection — client reads allowed (to check duplicates),
+    // writes are CF-only (Admin SDK sets the key after processing).
+    match /threads/{threadId}/processedIdempotencyKeys/{keyId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF-only (Admin SDK)
+    }
+
+    // Trust profiles — any authenticated user may read (powers verified badges + donation warnings).
+    // All writes are server-authoritative (evaluateTrustProfile CF).
+    match /trustProfiles/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF-only
+    }
+
+    // Crisis bulletins — public read for all authenticated users (text-first, offline-cached).
+    // Published and expired exclusively by verified-org CFs.
+    match /crisisBulletins/{bulletinId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF-only (publishCrisisBulletin / expireCrisisBulletin)
+    }
+
+    // Locale policy packs — read by authenticated clients (drives LocaleContentWarning).
+    // Seeded and updated by CF (seedLocalePolicyPacks — admin-only callable).
+    match /localePolicyPacks/{localeId} {
+      allow read: if isSignedIn();
+      allow write: if false; // CF-only
+    }
+
+    // Safety audit log — immutable append-only; admin SDK reads only.
+    // Client reads are denied even for account owners (privacy + legal hold protection).
+    match /safetyAuditLog/{eventId} {
+      allow read: if isAdminSDK();
+      allow write: if false; // CF-only (Admin SDK)
+    }
+
+    // Org verification requests — submitter reads their own request; writes via client on submit.
+    match /orgVerificationRequests/{requestId} {
+      allow read: if isSignedIn()
+        && resource.data.submitterId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.submitterId == request.auth.uid
+        && request.resource.data.status == "pending";
+      allow update, delete: if false; // CF-only (review workflow)
+    }
+
+    // =========================================================================
+    // AMEN DISTINCTIVES — added 2026-06-13
+    // =========================================================================
+
+    match /users/{uid}/prayer_ledger/{entryId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.visibility == "private"
+        && request.resource.data.status in ["answered", "ongoing", "redirected", "grieving"]
+        && !request.resource.data.keys().hasAny(["publicCount", "shareCount"]);
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.visibility in ["private", "shared_testimony"]
+        && request.resource.data.status in ["answered", "ongoing", "redirected", "grieving"]
+        && !request.resource.data.keys().hasAny(["publicCount", "shareCount"]);
+      allow delete: if isOwner(uid);
+    }
+
+    match /users/{uid}/prayer_resurfacing_queue/{candidateId} {
+      allow read: if isOwner(uid);
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["dismissedAt", "updatedAt"]);
+      allow create, delete: if false;
+    }
+
+    match /testimonies/{testimonyId} {
+      allow read: if resource.data.visibility == "published";
+      allow write: if false;
+    }
+
+    match /users/{uid}/rhythm_state/{stateId} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && stateId == "current"
+        && !request.resource.data.keys().hasAny(["streak", "streaks", "count", "counts", "counter", "broken"]);
+      allow delete: if false;
+    }
+
+    match /users/{uid}/claim_groundings/{groundingId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    match /commitments/{commitmentId}/witnesses/{witnessId} {
+      allow read: if isSignedIn()
+        && (resource.data.ownerUserId == request.auth.uid || resource.data.witnessUserId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /witness_invites/{inviteId} {
+      allow read: if isSignedIn()
+        && (resource.data.senderUserId == request.auth.uid || resource.data.recipientUserId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /config/liturgical_context {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /users/{uid}/daily_offices/{officeId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // =========================================================================
+    // BEREAN ISLAND (Wave 0 — Tier C context signals)
+    // =========================================================================
+
+    // Signal grants — owner reads; App-Check CFs write on grant/revoke.
+    match /users/{uid}/bereanSignals/{signal} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only (bereanIsland_trigger, signal grant flow)
+    }
+
+    // Context cache — derived inferences (30-day TTL, cascade-delete on revoke).
+    // Owner reads for "What Berean knows" screen; CF writes and expires.
+    match /users/{uid}/bereanContextCache/{cacheId} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only
+    }
+
+    // Consumed Island triggers — never re-fire.
+    match /users/{uid}/islandTriggers/{triggerId} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only
+    }
+
+    // Sermon Companion sessions — Tier C; owner reads for session continuity.
+    match /users/{uid}/sermonSessions/{sessionId} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only
+    }
+
+    // Berean+ entitlement matrix — readable by all signed-in users; CF writes only.
+    match /config/bereanPlus {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.
     // Fail closed — add new collections explicitly, never rely on this to permit.
