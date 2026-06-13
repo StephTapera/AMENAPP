@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "rootDir": "src/berean",
+    "outDir": "lib/berean",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "types": ["node", "jest"]
+  },
+  "include": ["src/berean/**/*.ts"],
+  "exclude": ["src/berean/**/*.test.ts"]
+}
