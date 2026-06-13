@@ -54,17 +54,56 @@ final class BereanContextActionEngine: ObservableObject {
             guard let data = result.data as? [String: Any] else {
                 throw BereanContextActionError.invalidResponse
             }
+            let rawScriptureRefs = data["scriptureReferences"] as? [String] ?? []
+
+            // SWEEP-1: Route scriptureReferences through verifyWithAPIPipeline before render.
+            // claimedTexts is empty — the CF response provides refs only, not verse bodies.
+            // The pipeline will still look them up for canonical text and detect mismatches.
+            let verificationReport: ScriptureReferenceValidator.ScriptureVerificationReport
+            if rawScriptureRefs.isEmpty {
+                verificationReport = ScriptureReferenceValidator.ScriptureVerificationReport(
+                    verifiedRefs: [],
+                    mismatchRefs: [],
+                    unresolvableRefs: [],
+                    epistemicDeclaration: .empty
+                )
+            } else {
+                verificationReport = await ScriptureReferenceValidator.verifyWithAPIPipeline(
+                    references: rawScriptureRefs,
+                    claimedTexts: [:],
+                    translation: "KJV",
+                    mode: constitutionResult.requiredMode
+                )
+            }
+
+            // Apply mode policy: blockOnMismatch modes (.guard, .discern) strip mismatch refs;
+            // annotateOnMismatch modes keep all refs but the EpistemicDeclaration records unknowns.
+            let verifiedScriptureRefs: [String]
+            let policy = BereanConstitutionalReviewGate.scriptureVerificationPolicy(
+                for: constitutionResult.requiredMode
+            )
+            switch policy {
+            case .blockOnMismatch:
+                let mismatchRefSet = Set(verificationReport.mismatchRefs.map(\.ref))
+                let unresolvableRefSet = Set(verificationReport.unresolvableRefs)
+                verifiedScriptureRefs = rawScriptureRefs.filter {
+                    !mismatchRefSet.contains($0) && !unresolvableRefSet.contains($0)
+                }
+            case .annotateOnMismatch:
+                verifiedScriptureRefs = rawScriptureRefs
+            }
+
             let response = BereanContextActionResult(
                 id: data["id"] as? String ?? UUID().uuidString,
                 action: action,
                 title: data["title"] as? String ?? action.title,
                 answer: data["answer"] as? String ?? "",
-                scriptureReferences: data["scriptureReferences"] as? [String] ?? [],
+                scriptureReferences: verifiedScriptureRefs,
                 suggestedActions: data["suggestedActions"] as? [String] ?? [],
                 safetyNotice: data["safetyNotice"] as? String,
                 threadId: data["threadId"] as? String,
                 constitutionalMode: constitutionResult.requiredMode,
-                epistemicDeclaration: EpistemicDeclaration.empty
+                epistemicDeclaration: verificationReport.epistemicDeclaration
             )
             lastResult = response
             AMENAnalyticsService.shared.track(.bereanStudyActionCompleted(action: action.rawValue))
