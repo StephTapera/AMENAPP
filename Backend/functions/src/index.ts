@@ -134,6 +134,7 @@ export * from "./antiHarassmentEnforcement";
 export * from "./accountSuspension";
 export * from "./twoFactorAuth";
 export * from "./accountLifecycle";
+export * from "./distinctives";
 
 // Safety Reporting — server-side report creation with validation
 // HIGH-3: submitReport callable validates reason, verifies evidence, computes
@@ -229,6 +230,12 @@ export * from "./churchVisitLifecycle";
 export * from "./churchJourney";
 export * from "./churchDiscovery";
 export * from "./spiritualSystems";
+
+// Selah Safety & Transparency (System D: feedWhyAmISeeingThis + aegisC59 + youthMode)
+// generateFeedExplanation — warm-language feed explanation, cached at feedExplanations/{id}
+// enforceYouthDMPolicy   — C60 youth DM policy + C59 signal detection
+// detectAegisC59         — spiritual abuse pattern detection (Tier S/C only, never Tier P)
+export * from "./selahSafety";
 
 // Post Creation Finalizer — text moderation, status transition (publishing→published),
 // Algolia indexing. Feed fanout for followers-only posts is in feedBuilder.ts.

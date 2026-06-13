@@ -27,7 +27,7 @@ enum ConsentScope: String, Codable, CaseIterable, Hashable {
     case eventsRead, eventsRSVP, profileRead, opportunityPost
 }
 
-// MARK: - X3: Provider Capability
+// MARK: - X3: Provider SystemCapability
 
 struct ProviderCapabilitySet: OptionSet {
     let rawValue: Int

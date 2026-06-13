@@ -7,7 +7,7 @@ enum Tier: String, Codable, CaseIterable, Sendable {
     case creator
 }
 
-enum Capability: String, Codable, CaseIterable, Sendable {
+enum SystemCapability: String, Codable, CaseIterable, Sendable {
     case signalBus
     case permissionsCenter
     case crisisDampening
@@ -44,7 +44,7 @@ enum GateReason: Codable, Equatable, Sendable {
 }
 
 protocol EntitlementGating {
-    func canAccess(_ capability: Capability) async -> GateDecision
+    func canAccess(_ capability: SystemCapability) async -> GateDecision
 }
 
 struct GateDecision: Codable, Equatable, Sendable {

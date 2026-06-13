@@ -59,7 +59,7 @@ final class VerseAttachmentViewModel: ObservableObject {
     
     @Published var showFullSheet = false
     @Published var searchQuery = ""
-    @Published var selectedTranslation: BibleTranslation = .NIV
+    @Published var selectedTranslation: LocalBibleTranslation = .NIV
     @Published var selectedFilter: VerseSearchMode = .all
     @Published var searchResults: [SmartVerseResult] = []
     @Published var selectedSearchVerse: BibleVerse?

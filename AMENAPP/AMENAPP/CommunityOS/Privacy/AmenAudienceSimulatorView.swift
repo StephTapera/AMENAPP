@@ -135,7 +135,7 @@ private struct AudienceRow: View {
                 .foregroundStyle(Color(uiColor: .label))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Capability columns: Posts · Profile · DMs
+            // SystemCapability columns: Posts · Profile · DMs
             HStack(spacing: 8) {
                 capabilityChip(
                     label: "Posts",
@@ -157,7 +157,7 @@ private struct AudienceRow: View {
         .accessibilityLabel(rowAccessibilityLabel)
     }
 
-    // MARK: - Capability Chip
+    // MARK: - SystemCapability Chip
 
     private func capabilityChip(label: String, allowed: Bool) -> some View {
         HStack(spacing: 3) {

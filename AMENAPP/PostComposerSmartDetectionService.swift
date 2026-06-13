@@ -6,6 +6,7 @@ actor PostComposerSmartDetectionService {
         var results: [DetectedPostContextItem] = []
         results += detectIntent(in: text)
         results += detectTopicTags(in: text)
+        results += detectScriptureReferences(in: text)
         results += detectLinks(in: text)
         results += detectLinkTrustSignals(in: text)
         results += detectDates(in: text)
@@ -23,11 +24,10 @@ actor PostComposerSmartDetectionService {
         let matches = detector.matches(in: text, options: [], range: range)
         return matches.compactMap { match -> DetectedPostContextItem? in
             guard let url = match.url else { return nil }
-            let display = url.host ?? url.absoluteString
             return DetectedPostContextItem(
                 id: UUID(),
                 type: .link,
-                displayText: display,
+                displayText: linkDisplayLabel(for: url),
                 rawValue: url.absoluteString
             )
         }
@@ -40,28 +40,29 @@ actor PostComposerSmartDetectionService {
 
         let range = NSRange(text.startIndex..., in: text)
         let matches = detector.matches(in: text, options: [], range: range)
-        let shortenedHosts = ["bit.ly", "tinyurl.com", "t.co", "lnkd.in", "goo.gl", "buff.ly"]
+        let shortenedHosts = ["bit.ly", "tinyurl.com", "t.co", "lnkd.in", "goo.gl", "buff.ly", "rebrand.ly", "cutt.ly"]
+        let givingTerms = ["give", "giving", "donate", "donation", "tithe", "offering"]
+        let loginTerms = ["login", "signin", "sign-in", "account", "checkout"]
 
         return matches.compactMap { match -> DetectedPostContextItem? in
             guard let url = match.url else { return nil }
             let host = url.host?.lowercased() ?? ""
+            let fullURL = url.absoluteString.lowercased()
 
             if url.scheme?.lowercased() == "http" {
-                return DetectedPostContextItem(
-                    id: UUID(),
-                    type: .linkTrust,
-                    displayText: "Check HTTP link",
-                    rawValue: url.absoluteString
-                )
+                return trustItem(label: "Check HTTP link", url: url)
             }
 
             if shortenedHosts.contains(host) {
-                return DetectedPostContextItem(
-                    id: UUID(),
-                    type: .linkTrust,
-                    displayText: "Short link",
-                    rawValue: url.absoluteString
-                )
+                return trustItem(label: "Short link", url: url)
+            }
+
+            if givingTerms.contains(where: { fullURL.contains($0) }) {
+                return trustItem(label: "Giving link", url: url)
+            }
+
+            if loginTerms.contains(where: { fullURL.contains($0) }) {
+                return trustItem(label: "Login required link", url: url)
             }
 
             return nil
@@ -73,10 +74,13 @@ actor PostComposerSmartDetectionService {
         let candidates: [(keywords: [String], label: String, rawValue: String)] = [
             (["please pray", "pray for", "prayer", "healing", "anxious", "struggling"], "Prayer draft", "prayer"),
             (["testimony", "god did", "breakthrough", "answered prayer", "miracle"], "Testimony draft", "testimony"),
+            (["devotional", "reflection", "quiet time", "what god is showing"], "Devotional draft", "devotional"),
             (["what do you think", "has anyone", "question", "thoughts on", "how do"], "Question draft", "question"),
-            (["join us", "register", "rsvp", "service", "event", "tonight", "tomorrow"], "Announcement draft", "announcement"),
-            (["scripture", "verse", "bible says", "devotional", "psalm", "john "], "Scripture draft", "verse"),
-            (["worship", "song", "playlist", "lyrics", "album"], "Worship draft", "worship")
+            (["join us", "register", "rsvp", "service", "event", "tonight", "tomorrow", "wednesday", "sunday"], "Announcement draft", "announcement"),
+            (["scripture", "verse", "bible says", "psalm", "john "], "Scripture draft", "verse"),
+            (["worship", "song", "playlist", "lyrics", "album"], "Worship draft", "worship"),
+            (["pastor", "pastoral", "care team", "elder", "leader"], "Pastoral note", "pastoral"),
+            (["poll", "vote", "which should", "what should we"], "Poll draft", "poll")
         ]
 
         guard let match = candidates.first(where: { candidate in
@@ -100,9 +104,9 @@ actor PostComposerSmartDetectionService {
         let tagRules: [(tag: String, keywords: [String])] = [
             ("#Prayer", ["pray", "prayer", "healing", "intercede", "anxious", "burden"]),
             ("#Testimony", ["testimony", "answered prayer", "miracle", "breakthrough", "god did"]),
-            ("#BibleStudy", ["scripture", "verse", "bible", "devotional", "study", "psalm"]),
-            ("#Worship", ["worship", "song", "hymn", "playlist", "lyrics", "praise"]),
-            ("#ChurchUpdate", ["service", "church", "announcement", "volunteer", "register", "rsvp"]),
+            ("#BibleStudy", ["scripture", "verse", "bible", "devotional", "study", "psalm", "romans", "gospel"]),
+            ("#Worship", ["worship", "song", "hymn", "playlist", "lyrics", "praise", "album"]),
+            ("#ChurchUpdate", ["service", "church", "announcement", "volunteer", "register", "rsvp", "event"]),
             ("#Question", ["?", "question", "thoughts", "has anyone", "what do you think"])
         ]
 
@@ -113,6 +117,36 @@ actor PostComposerSmartDetectionService {
                 type: .topicTag,
                 displayText: rule.tag,
                 rawValue: rule.tag
+            )
+        }
+    }
+
+    func detectScriptureReferences(in text: String) -> [DetectedPostContextItem] {
+        let bookNames = [
+            "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua", "Judges", "Ruth",
+            "Samuel", "Kings", "Chronicles", "Ezra", "Nehemiah", "Esther", "Job", "Psalm", "Psalms",
+            "Proverbs", "Ecclesiastes", "Song of Solomon", "Isaiah", "Jeremiah", "Lamentations",
+            "Ezekiel", "Daniel", "Hosea", "Joel", "Amos", "Obadiah", "Jonah", "Micah", "Nahum",
+            "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi", "Matthew", "Mark", "Luke",
+            "John", "Acts", "Romans", "Corinthians", "Galatians", "Ephesians", "Philippians",
+            "Colossians", "Thessalonians", "Timothy", "Titus", "Philemon", "Hebrews", "James",
+            "Peter", "Jude", "Revelation"
+        ]
+        let booksPattern = bookNames.map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: "|")
+        let pattern = #"\b(?:[1-3]\s*)?(?:"# + booksPattern + #")\s+\d{1,3}(?::\d{1,3}(?:-\d{1,3})?)?\b"#
+
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return []
+        }
+
+        return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match in
+            guard let range = Range(match.range, in: text) else { return nil }
+            let reference = String(text[range])
+            return DetectedPostContextItem(
+                id: UUID(),
+                type: .book,
+                displayText: "Add context for \(reference)",
+                rawValue: reference
             )
         }
     }
@@ -219,6 +253,41 @@ actor PostComposerSmartDetectionService {
                 rawValue: "personal_context"
             )
         ]
+    }
+
+    private func trustItem(label: String, url: URL) -> DetectedPostContextItem {
+        DetectedPostContextItem(
+            id: UUID(),
+            type: .linkTrust,
+            displayText: label,
+            rawValue: url.absoluteString
+        )
+    }
+
+    private func linkDisplayLabel(for url: URL) -> String {
+        let host = url.host?.lowercased() ?? ""
+        let fullURL = url.absoluteString.lowercased()
+
+        if host.contains("youtube.com") || host.contains("youtu.be") {
+            if fullURL.contains("shorts") { return "YouTube Short" }
+            if fullURL.contains("live") { return "YouTube livestream" }
+            return "YouTube video"
+        }
+
+        if host.contains("spotify.com") { return "Spotify link" }
+        if host.contains("music.apple.com") { return "Apple Music link" }
+        if host.contains("podcasts.apple.com") || fullURL.contains("podcast") { return "Podcast link" }
+        if host.contains("bible") || host.contains("youversion") || host.contains("logos.com") { return "Bible link" }
+        if host.contains("eventbrite") || fullURL.contains("event") || fullURL.contains("rsvp") { return "Event link" }
+        if host.contains("maps.google") || host.contains("maps.apple") || fullURL.contains("/maps") { return "Map link" }
+        if fullURL.hasSuffix(".pdf") || fullURL.contains(".pdf?") { return "PDF resource" }
+        if ["instagram.com", "tiktok.com", "x.com", "twitter.com", "threads.net", "facebook.com", "linkedin.com"].contains(where: { host.contains($0) }) {
+            return "Social link"
+        }
+        if fullURL.contains("give") || fullURL.contains("donate") || fullURL.contains("tithe") { return "Giving link" }
+        if host.contains("church") || host.contains("ministry") || host.contains("sermon") { return "Church resource" }
+
+        return url.host ?? url.absoluteString
     }
 
     private func deduplicated(_ items: [DetectedPostContextItem]) -> [DetectedPostContextItem] {

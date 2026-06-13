@@ -179,7 +179,7 @@ struct OfflineContactExportView: View {
                 } label: {
                     Text("Open Settings")
                         .font(.subheadline)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
 
@@ -235,7 +235,7 @@ struct OfflineContactExportView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(Color.accentColor.opacity(0.15), in: Capsule())
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
             }

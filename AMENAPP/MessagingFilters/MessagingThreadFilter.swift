@@ -114,7 +114,7 @@ public extension MessagingThreadFilter {
     }
 }
 
-// MARK: - Capability Derivation from AppMessage
+// MARK: - SystemCapability Derivation from AppMessage
 
 @available(iOS 17.0, *)
 public enum MessagingThreadFilterAvailability {

@@ -1,6 +1,6 @@
 // InlineTranslationControl.swift
 // AMEN — Global Resilience System
-// Inline pill-button translation control with iOS 17.4+ TranslationSession support
+// Inline pill-button translation control with iOS 18+ TranslationSession support
 // and a server-side fallback via NotificationCenter for older OS versions.
 //
 // Only renders when GlobalResilienceFeatureFlags.shared.autoTranslateEnabled is true.
@@ -116,7 +116,7 @@ struct InlineTranslationControl: View {
                 .accessibilityHint("Translates this message inline")
             }
         }
-        // iOS 17.4+: attach TranslationSession configuration modifier.
+        // iOS 18+: attach TranslationSession configuration modifier.
         // Wrapped in a @ViewBuilder extension to satisfy the availability constraint.
         .applyTranslationSessionIfAvailable(
             originalText: originalText,
@@ -143,7 +143,7 @@ struct InlineTranslationControl: View {
         guard !isTranslating, translatedText == nil else { return }
         isTranslating = true
 
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18.0, *) {
             // Translation is handled by TranslationSessionModifier via a trigger.
             // Post a notification to the modifier to initiate the session.
             NotificationCenter.default.post(
@@ -168,9 +168,9 @@ struct InlineTranslationControl: View {
 
 // MARK: - TranslationSessionModifier
 
-/// Wraps the iOS 17.4+ TranslationSession machinery in a ViewModifier so that
+/// Wraps the iOS 18+ TranslationSession machinery in a ViewModifier so that
 /// InlineTranslationControl compiles cleanly on older OS targets.
-@available(iOS 17.4, *)
+@available(iOS 18.0, *)
 private struct TranslationSessionModifier: ViewModifier {
 
     let originalText: String
@@ -197,13 +197,13 @@ private struct TranslationSessionModifier: ViewModifier {
                       text == originalText else { return }
 
                 // Build the configuration; source language is optional (auto-detect).
-                let sourceLocale: Locale? = detectedLanguage.flatMap {
+                let sourceLanguage: Locale.Language? = detectedLanguage.flatMap {
                     guard !$0.isEmpty else { return nil }
-                    return Locale(identifier: $0)
+                    return Locale.Language(identifier: $0)
                 }
                 translationConfig = TranslationSession.Configuration(
-                    source: sourceLocale,
-                    target: Locale.current
+                    source: sourceLanguage,
+                    target: Locale.current.language
                 )
             }
     }
@@ -216,7 +216,7 @@ extension Notification.Name {
     static let inlineTranslationRequested = Notification.Name("gr_inlineTranslationRequested")
 }
 
-// MARK: - iOS < 17.4 stub modifier
+// MARK: - iOS < 18 stub modifier
 
 /// No-op modifier used when Translation is unavailable so the call site compiles.
 private struct NoOpTranslationModifier: ViewModifier {
@@ -226,14 +226,14 @@ private struct NoOpTranslationModifier: ViewModifier {
 // MARK: - View helper for conditional Translation modifier
 
 private extension View {
-    /// Applies `TranslationSessionModifier` on iOS 17.4+ and is a no-op on older OS.
+    /// Applies `TranslationSessionModifier` on iOS 18+ and is a no-op on older OS.
     @ViewBuilder
     func applyTranslationSessionIfAvailable(
         originalText: String,
         detectedLanguage: String?,
         onTranslated: @escaping (String) -> Void
     ) -> some View {
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18.0, *) {
             self.modifier(TranslationSessionModifier(
                 originalText: originalText,
                 detectedLanguage: detectedLanguage,

@@ -19,7 +19,7 @@ import UniformTypeIdentifiers
 
 // MARK: - Org Type
 
-private enum OrgType: String, CaseIterable, Identifiable {
+private enum GlobalResilienceOrgType: String, CaseIterable, Identifiable {
     case church      = "church"
     case ministry    = "ministry"
     case charity     = "charity"
@@ -78,7 +78,7 @@ struct OrgVerificationFlow: View {
 
     // MARK: Step 1 state
 
-    @State private var selectedOrgType: OrgType? = nil
+    @State private var selectedOrgType: GlobalResilienceOrgType? = nil
 
     // MARK: Step 2 state
 
@@ -167,8 +167,8 @@ struct OrgVerificationFlow: View {
                     .padding(.horizontal)
                     .padding(.top, 8)
 
-                ForEach(OrgType.allCases) { orgType in
-                    OrgTypeCard(
+                ForEach(GlobalResilienceOrgType.allCases) { orgType in
+                    GlobalResilienceOrgTypeCard(
                         orgType: orgType,
                         isSelected: selectedOrgType == orgType
                     ) {
@@ -482,21 +482,25 @@ struct OrgVerificationFlow: View {
         let assetId = UUID().uuidString
         let storagePath = "orgVerificationDocs/\(uid)/\(assetId)/\(url.lastPathComponent)"
 
-        let taskId = ResumableUploadManager.shared.uploadMedia(
-            localURL: url,
-            destinationStoragePath: storagePath,
-            metadata: [
-                "contentType": mimeType(for: url),
-                "submitterId":  uid,
-                "assetId":      assetId
-            ]
-        )
+        Task {
+            let taskId = await ResumableUploadManager.shared.uploadMedia(
+                localURL: url,
+                destinationStoragePath: storagePath,
+                metadata: [
+                    "contentType": mimeType(for: url),
+                    "submitterId":  uid,
+                    "assetId":      assetId
+                ]
+            )
 
-        uploadTaskId = taskId
+            await MainActor.run {
+                uploadTaskId = taskId
 
-        // Watch for upload completion via the manager's progress dictionary.
-        // When progress reaches 1.0 we treat the assetId as confirmed.
-        documentAssetId = assetId
+                // Watch for upload completion via the manager's progress dictionary.
+                // When progress reaches 1.0 we treat the assetId as confirmed.
+                documentAssetId = assetId
+            }
+        }
     }
 
     private func mimeType(for url: URL) -> String {
@@ -522,7 +526,7 @@ struct OrgVerificationFlow: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(disabled ? Color.secondary.opacity(0.2) : Color.blue)
-                .foregroundStyle(disabled ? .secondary : .white)
+                .foregroundStyle(disabled ? Color.secondary : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -549,11 +553,11 @@ struct OrgVerificationFlow: View {
     }
 }
 
-// MARK: - OrgTypeCard
+// MARK: - GlobalResilienceOrgTypeCard
 
-private struct OrgTypeCard: View {
+private struct GlobalResilienceOrgTypeCard: View {
 
-    let orgType: OrgType
+    let orgType: GlobalResilienceOrgType
     let isSelected: Bool
     let onTap: () -> Void
 

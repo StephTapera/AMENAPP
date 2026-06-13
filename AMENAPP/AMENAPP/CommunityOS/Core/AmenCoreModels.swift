@@ -40,7 +40,7 @@ enum PrayerVisibility: String, Codable, Sendable {
     case `private`   = "private"
 }
 
-// PrayerStatus is defined in CommunityOS/Prayer/PrayerModels.swift (canonical, with display helpers)
+// CommunityPrayerStatus is defined in CommunityOS/Prayer/PrayerModels.swift (canonical, with display helpers)
 // DiscussionRoomType is defined in CommunityOS/Discussion/DiscussionModels.swift (canonical, 8 cases)
 
 // MARK: - StudyType
@@ -249,7 +249,7 @@ struct AmenPrayer: SpawnableObject {
     var visibility: PrayerVisibility
     var prayedCount: Int                 // denormalized; CF-updated
     var followUpRequested: Bool
-    var status: PrayerStatus
+    var status: CommunityPrayerStatus
     var covenantId: String?
     var roomId: String?
     var sourceMessageId: String?

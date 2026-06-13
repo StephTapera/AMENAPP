@@ -51,6 +51,8 @@
 	<false/>
 	<key>GOOGLE_VISION_API_KEY</key>
 	<string>$(GOOGLE_VISION_API_KEY)</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Lets you export trusted contacts for offline access during emergencies — contacts never leave your device except in the file you explicitly save.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>

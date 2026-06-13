@@ -11,7 +11,7 @@ import SwiftUI
 struct VerseMiniDrawerView: View {
     @Binding var searchText: String
     @Binding var selectedVerse: BibleVerse?
-    @Binding var translation: BibleTranslation
+    @Binding var translation: LocalBibleTranslation
     @ObservedObject var searchEngine: VerseSmartSearchEngine
     @ObservedObject var baseViewModel: AttachVerseViewModel
     

@@ -58,7 +58,7 @@ class LiquidGlassVerseSearchService: ObservableObject {
     @Published var results: [BibleVerse] = []
     @Published var isLoading = false
     @Published var searchIntent: VerseSearchIntent = .topic
-    @Published var selectedTranslation: BibleTranslation = .NIV
+    @Published var selectedTranslation: LocalBibleTranslation = .NIV
     
     private var searchTask: Task<Void, Never>?
     
@@ -785,7 +785,7 @@ struct LiquidGlassVerseFullDrawerView: View {
     private var translationPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(BibleTranslation.allCases, id: \.self) { translation in
+                ForEach(LocalBibleTranslation.allCases, id: \.self) { translation in
                     Button {
                         withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                             searchService.selectedTranslation = translation

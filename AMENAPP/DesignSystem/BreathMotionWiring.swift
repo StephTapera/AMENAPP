@@ -9,6 +9,13 @@
 //
 // Do NOT add .ultraThinMaterial anywhere in this file.
 // All animations MUST pass through Motion.adaptive(animation:reduceMotion:isAmbient:).
+//
+// TARGET MEMBERSHIP NOTE:
+// This file depends on BreathMotion.swift (frozen Wave 0 contract).
+// BreathMotion.swift declares `enum Motion` with the 3-arg adaptive overload;
+// Motion.swift declares the same `enum Motion` with the 1-arg overload.
+// When both are added to the Xcode target, convert BreathMotion.swift's
+// `enum Motion { }` block to `extension Motion { }` to resolve the conflict.
 
 import SwiftUI
 import UIKit

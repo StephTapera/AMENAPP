@@ -1,4 +1,4 @@
-// WhyAmISeeingThisSheet.swift
+// GlobalResilienceWhyAmISeeingThisSheet.swift
 // AMEN — Global Resilience System
 //
 // SwiftUI sheet that explains why a specific post appeared in the user's feed.
@@ -7,7 +7,7 @@
 //
 // Usage:
 //   .sheet(isPresented: $showWhySheet) {
-//       WhyAmISeeingThisSheet(postId: post.id)
+//       GlobalResilienceWhyAmISeeingThisSheet(postId: post.id)
 //   }
 
 import SwiftUI
@@ -74,7 +74,7 @@ private final class WhyAmISeeingThisViewModel: ObservableObject {
 ///
 /// Parameters:
 ///   - postId: The Firestore document ID of the post being explained.
-struct WhyAmISeeingThisSheet: View {
+struct GlobalResilienceWhyAmISeeingThisSheet: View {
 
     let postId: String
 

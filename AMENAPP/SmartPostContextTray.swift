@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Models
 
 enum DetectedPostContextType {
-    case link, music, book, podcast, place, date, sensitiveSignal, intent, topicTag, audienceRisk, linkTrust
+    case link, music, book, podcast, place, date, sensitiveSignal, intent, topicTag, topicMismatch, audienceRisk, linkTrust
 
     var icon: String {
         switch self {
@@ -16,6 +16,7 @@ enum DetectedPostContextType {
         case .sensitiveSignal: return "exclamationmark.triangle"
         case .intent:          return "sparkles"
         case .topicTag:        return "tag"
+        case .topicMismatch:   return "tag.slash"
         case .audienceRisk:    return "person.2.badge.gearshape"
         case .linkTrust:       return "checkmark.shield"
         }
@@ -25,13 +26,14 @@ enum DetectedPostContextType {
         switch self {
         case .link:            return "Add Preview"
         case .music:           return "Attach Music"
-        case .book:            return "Attach Book"
+        case .book:            return "Add Verse Context"
         case .podcast:         return "Attach Podcast"
         case .place:           return "Tag Place"
         case .date:            return "Create Reminder"
         case .sensitiveSignal: return "Review Content"
         case .intent:          return "Use Suggestion"
         case .topicTag:        return "Add Topic"
+        case .topicMismatch:   return "Review Topic"
         case .audienceRisk:    return "Review Audience"
         case .linkTrust:       return "Review Link"
         }
@@ -39,7 +41,7 @@ enum DetectedPostContextType {
 
     var tint: Color {
         switch self {
-        case .sensitiveSignal, .audienceRisk:
+        case .sensitiveSignal, .audienceRisk, .topicMismatch:
             return .orange
         case .linkTrust:
             return .blue
@@ -57,7 +59,7 @@ struct DetectedPostContextItem: Identifiable {
 }
 
 enum PostContextAction {
-    case addLinkPreview, attachMusic, createReminder, saveAsMemory, addTopicTag, adjustAudience, dismiss
+    case addLinkPreview, attachMusic, createReminder, saveAsMemory, addTopicTag, addVerseContext, adjustAudience, dismiss
 }
 
 enum SmartComposerReviewSeverity {
@@ -183,7 +185,7 @@ struct SmartPostContextTray: View {
         .overlay(
             Capsule()
                 .stroke(
-                    item.type == .sensitiveSignal || item.type == .audienceRisk ? Color.orange.opacity(0.4) : Color.white.opacity(0.4),
+                    item.type == .sensitiveSignal || item.type == .audienceRisk || item.type == .topicMismatch ? Color.orange.opacity(0.4) : Color.white.opacity(0.4),
                     lineWidth: 0.6
                 )
         )
@@ -194,8 +196,10 @@ struct SmartPostContextTray: View {
         case .link:            return .addLinkPreview
         case .music:           return .attachMusic
         case .date:            return .createReminder
+        case .book:            return .addVerseContext
         case .sensitiveSignal: return .saveAsMemory
         case .topicTag:        return .addTopicTag
+        case .topicMismatch:   return .addTopicTag
         case .audienceRisk:    return .adjustAudience
         case .linkTrust:       return .addLinkPreview
         default:               return .addLinkPreview

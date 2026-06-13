@@ -2269,6 +2269,8 @@ final class AMENFeatureFlags: ObservableObject {
         prayerOSEnabled              = config["prayer_os"].boolValue
         scriptureIntelligenceEnabled = config["scripture_intelligence"].boolValue
         verseLookupInlineEnabled     = config["verse_lookup_inline"].boolValue
+
+        syncSelahFlags(config)
     }
 
     private func syncSpiritualOSAppStorageFlags(_ config: RemoteConfig) {
@@ -2335,6 +2337,51 @@ final class AMENFeatureFlags: ObservableObject {
         let hash = uid.utf8.reduce(UInt32(5381)) { ($0 &* 33) &+ UInt32($1) }
         let bucket = Int(hash % 100)
         return bucket < explainVideoRolloutPercent
+    }
+
+    // MARK: - SELAH Build: Motion & Ambient
+    @Published private(set) var breathMotion: Bool = false
+    @Published private(set) var selahMoments: Bool = false
+    @Published private(set) var liturgicalTheming: Bool = false
+
+    // MARK: - SELAH Build: Connection
+    @Published private(set) var commitmentConnections: Bool = false
+    @Published private(set) var tables: Bool = false
+    @Published private(set) var prayerChains: Bool = false
+
+    // MARK: - SELAH Build: Creation
+    @Published private(set) var testimonies: Bool = false
+    @Published private(set) var remixLineage: Bool = false
+    @Published private(set) var bereanCoCreator: Bool = false
+
+    // MARK: - SELAH Build: Berean Intelligence
+    @Published private(set) var bereanPersonalContext: Bool = false
+    @Published private(set) var bereanTraditionAware: Bool = false
+    @Published private(set) var bereanNotebooksGroups: Bool = false
+    @Published private(set) var bereanRoomFirst: Bool = false
+
+    // MARK: - SELAH Build: Safety & Transparency
+    @Published private(set) var feedWhyAmISeeingThis: Bool = false
+    @Published private(set) var aegisC59: Bool = false
+    @Published private(set) var youthMode: Bool = false
+
+    private func syncSelahFlags(_ config: RemoteConfig) {
+        breathMotion              = config["selah_breath_motion"].boolValue
+        selahMoments              = config["selah_moments"].boolValue
+        liturgicalTheming         = config["selah_liturgical_theming"].boolValue
+        commitmentConnections     = config["selah_commitment_connections"].boolValue
+        tables                    = config["selah_tables"].boolValue
+        prayerChains              = config["selah_prayer_chains"].boolValue
+        testimonies               = config["selah_testimonies"].boolValue
+        remixLineage              = config["selah_remix_lineage"].boolValue
+        bereanCoCreator           = config["selah_berean_co_creator"].boolValue
+        bereanPersonalContext     = config["selah_berean_personal_context"].boolValue
+        bereanTraditionAware      = config["selah_berean_tradition_aware"].boolValue
+        bereanNotebooksGroups     = config["selah_berean_notebooks_groups"].boolValue
+        bereanRoomFirst           = config["selah_berean_room_first"].boolValue
+        feedWhyAmISeeingThis      = config["selah_feed_why_am_i_seeing_this"].boolValue
+        aegisC59                  = config["selah_aegis_c59"].boolValue
+        youthMode                 = config["selah_youth_mode"].boolValue
     }
 }
 

@@ -11,7 +11,7 @@ import Combine
 // MARK: - Shared Scripture Reference Model
 
 /// A scripture reference with theme annotation used across Berean engines.
-/// Named BereanScriptureRef to avoid collision with SemanticTopicService.ScriptureRef.
+/// Named BereanScriptureRef to avoid collision with SemanticTopicService.ParsedScriptureRef.
 struct BereanScriptureRef: Identifiable, Codable {
     var id: String = UUID().uuidString
     let reference: String   // e.g. "John 3:16"

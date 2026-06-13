@@ -17,7 +17,7 @@ struct ScriptureDetailRoute: View {
     @State private var nearbyVerses: [(reference: String, text: String)] = []
     @State private var chapterVerses: [BibleVerse] = []
     @State private var showFullChapter = false
-    @State private var selectedTranslation: BibleTranslation
+    @State private var selectedTranslation: LocalBibleTranslation
     @State private var isLoading = true
     @State private var error: String?
     @State private var appear = false
@@ -25,7 +25,7 @@ struct ScriptureDetailRoute: View {
     init(context: SelahLaunchContext, onDismiss: @escaping () -> Void) {
         self.context = context
         self.onDismiss = onDismiss
-        self._selectedTranslation = State(initialValue: BibleTranslation(rawValue: context.translationPreference) ?? .NIV)
+        self._selectedTranslation = State(initialValue: LocalBibleTranslation(rawValue: context.translationPreference) ?? .NIV)
     }
     
     var body: some View {
@@ -196,7 +196,7 @@ struct ScriptureDetailRoute: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(BibleTranslation.allCases, id: \.self) { translation in
+                    ForEach(LocalBibleTranslation.allCases, id: \.self) { translation in
                         Button {
                             withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.8))) {
                                 selectedTranslation = translation

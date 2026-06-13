@@ -103,7 +103,7 @@ struct AudioFeedCard: View {
                     .fill(Color.accentColor.opacity(0.15))
                     .frame(width: 40, height: 40)
                 Image(systemName: "mic.fill")
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                     .font(.system(size: 16, weight: .semibold))
             }
 
@@ -181,7 +181,7 @@ struct AudioFeedCard: View {
                 } label: {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 44))
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                         .symbolEffect(.bounce, value: isPlaying)
                 }
                 .accessibilityLabel(isPlaying ? "Pause" : "Play")
@@ -212,7 +212,7 @@ struct AudioFeedCard: View {
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity)
             .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .foregroundStyle(.accentColor)
+            .foregroundStyle(Color.accentColor)
         }
         .accessibilityLabel("Play audio, approximately \(estimatedDataKb) kilobytes")
     }

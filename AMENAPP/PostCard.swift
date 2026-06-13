@@ -4867,7 +4867,14 @@ private struct PostCardSheetsModifier: ViewModifier {
             .presentationCornerRadius(24)
             .presentationBackground(.regularMaterial)
         case .whyThisPost(let post):
-            WhyAmISeeingThisSheet(post: post, reasons: feedReasonsBuilder(post))
+            // SELAH W4: use V2 explanation sheet when feedWhyAmISeeingThis flag is ON;
+            // fall back to V1 (GlobalResilience) so existing behavior is preserved.
+            if AMENFeatureFlags.shared.feedWhyAmISeeingThis,
+               let postId = post.firebaseId ?? (post.firestoreId.isEmpty ? nil : post.firestoreId) {
+                WhyAmISeeingThisSheetV2(feedItemId: postId)
+            } else {
+                WhyAmISeeingThisSheet(post: post, reasons: feedReasonsBuilder(post))
+            }
         case .userProfile(let userId):
             UserProfileView(userId: userId, showsDismissButton: true)
         case .mentionedProfile(let userId):

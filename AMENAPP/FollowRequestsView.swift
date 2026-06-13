@@ -11,6 +11,7 @@ import SwiftUI
 import Combine
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Follow Request Model
 
@@ -303,9 +304,10 @@ class FollowRequestsViewModel: ObservableObject {
         isLoading = true
         
         do {
-            // Fetch pending follow requests
-            let snapshot = try await db.collection("followRequests")
-                .whereField("toUserId", isEqualTo: currentUserId)
+            // Fetch pending follow requests from server-authoritative subcollection path.
+            // createFollow callable writes requests to users/{uid}/followRequests/{requesterId}.
+            let snapshot = try await db.collection("users").document(currentUserId)
+                .collection("followRequests")
                 .whereField("status", isEqualTo: FollowRequest.RequestStatus.pending.rawValue)
                 .order(by: "createdAt", descending: true)
                 .getDocuments()
@@ -359,97 +361,25 @@ class FollowRequestsViewModel: ObservableObject {
         processingRequestIds.insert(requestId)
         defer { processingRequestIds.remove(requestId) }
         
-        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
-        
         do {
-            // CORRECT ACCEPT LOGIC:
-            // The requester (fromUserId) wants to follow the current user (toUserId).
-            // Accepting means: create a follows doc where follower=fromUserId, following=currentUserId.
-            // We do NOT call followUser() because that would make the current user follow the requester.
-            
-            let fromUserId = request.fromUserId
+            // acceptFollowRequest callable: atomically deletes request, creates follow+index, updates counters.
+            let callable = Functions.functions(region: "us-central1").httpsCallable("acceptFollowRequest")
+            _ = try await callable.call(["requesterId": request.fromUserId])
 
-            // Guard against duplicate follow if request was accepted elsewhere
-            let existingFollow = try await db.collection("follows")
-                .whereField("followerId", isEqualTo: fromUserId)
-                .whereField("followingId", isEqualTo: currentUserId)
-                .limit(to: 1)
-                .getDocuments()
-
-            let batch = db.batch()
-
-            if existingFollow.documents.isEmpty {
-                // 1. Create the follow relationship: requester → current user
-                let followRef = db.collection("follows").document()
-                batch.setData([
-                    "followerId": fromUserId,
-                    "followingId": currentUserId,
-                    "createdAt": FieldValue.serverTimestamp()
-                ], forDocument: followRef)
-
-                // 2. Increment follower count for current user
-                let currentUserRef = db.collection("users").document(currentUserId)
-                batch.updateData([
-                    "followersCount": FieldValue.increment(Int64(1)),
-                    "updatedAt": FieldValue.serverTimestamp()
-                ], forDocument: currentUserRef)
-
-                // 3. Increment following count for the requester
-                let requesterRef = db.collection("users").document(fromUserId)
-                batch.updateData([
-                    "followingCount": FieldValue.increment(Int64(1)),
-                    "updatedAt": FieldValue.serverTimestamp()
-                ], forDocument: requesterRef)
-            }
-
-            // 4. Update request status to accepted
-            let requestRef = db.collection("followRequests").document(requestId)
-            batch.updateData([
-                "status": FollowRequest.RequestStatus.accepted.rawValue,
-                "respondedAt": FieldValue.serverTimestamp()
-            ], forDocument: requestRef)
-
-            try await batch.commit()
-            
-            // Remove from local array immediately
             requests.removeAll { $0.id == request.id }
-            
-            dlog("✅ Accepted follow request from: \(fromUserId)")
-            
-            // Notify the requester that their follow request was accepted
-            let acceptorDoc = try? await db.collection("users").document(currentUserId).getDocument()
-            let acceptorName = acceptorDoc?.data()?["displayName"] as? String ?? "Someone"
-            let acceptedNotification: [String: Any] = [
-                "toUserId": fromUserId,
-                "type": "followRequestAccepted",
-                "fromUserId": currentUserId,
-                "fromUserName": acceptorName,
-                "message": "\(acceptorName) accepted your follow request",
-                "createdAt": FieldValue.serverTimestamp(),
-                "isRead": false
-            ]
-            do {
-                try await db.collection("users").document(fromUserId)
-                    .collection("notifications").addDocument(data: acceptedNotification)
-            } catch {
-                print("FollowRequestsView: failed to send follow-accepted notification — \(error.localizedDescription)")
-            }
-            
-            // Invalidate privacy cache so the requester's content access updates
-            PrivacyAccessControl.shared.invalidate(userId: fromUserId)
+            dlog("✅ Accepted follow request via CF: \(request.fromUserId)")
+
+            PrivacyAccessControl.shared.invalidate(userId: request.fromUserId)
             NotificationCenter.default.post(
                 name: .followRelationshipChanged,
                 object: nil,
-                userInfo: ["userId": fromUserId]
+                userInfo: ["userId": request.fromUserId]
             )
-            
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
-            
         } catch {
             self.error = error.localizedDescription
             dlog("❌ Failed to accept request: \(error)")
-            
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.error)
         }
@@ -471,20 +401,15 @@ class FollowRequestsViewModel: ObservableObject {
         defer { processingRequestIds.remove(requestId) }
         
         do {
-            // Delete the request document (cleaner than marking rejected — avoids accumulation)
-            try await db.collection("followRequests").document(requestId).delete()
-            
-            // Remove from local array
-            requests.removeAll { $0.id == request.id }
-            
-            dlog("✅ Rejected/deleted follow request from: \(request.fromUserId)")
+            // rejectFollowRequest callable: deletes from users/{uid}/followRequests/{requesterId}
+            let callable = Functions.functions(region: "us-central1").httpsCallable("rejectFollowRequest")
+            _ = try await callable.call(["requesterId": request.fromUserId])
 
-            // Invalidate privacy cache so the requester's pending state clears
+            requests.removeAll { $0.id == request.id }
+            dlog("✅ Rejected follow request via CF: \(request.fromUserId)")
             PrivacyAccessControl.shared.invalidate(userId: request.fromUserId)
-            
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
-            
         } catch {
             self.error = error.localizedDescription
             dlog("❌ Failed to reject request: \(error)")
@@ -518,33 +443,11 @@ class FollowRequestService {
             throw NSError(domain: "FollowRequestService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         
-        // Check if request already exists
-        let existingSnapshot = try await db.collection("followRequests")
-            .whereField("fromUserId", isEqualTo: currentUserId)
-            .whereField("toUserId", isEqualTo: toUserId)
-            .whereField("status", isEqualTo: FollowRequest.RequestStatus.pending.rawValue)
-            .limit(to: 1)
-            .getDocuments()
-        
-        guard existingSnapshot.documents.isEmpty else {
-            dlog("⚠️ Follow request already sent")
-            return
-        }
-        
-        // Create new request
-        let request = FollowRequest(
-            fromUserId: currentUserId,
-            toUserId: toUserId,
-            createdAt: Date(),
-            status: .pending
-        )
-        
-        try db.collection("followRequests").document().setData(from: request)
-        
-        dlog("✅ Follow request sent to: \(toUserId)")
-        
-        // Send notification
-        try await createFollowRequestNotification(toUserId: toUserId)
+        // Route through createFollow callable — handles private/public routing, idempotency,
+        // subcollection write (users/{uid}/followRequests/{requesterId}), and server notification.
+        let callable = Functions.functions(region: "us-central1").httpsCallable("createFollow")
+        _ = try await callable.call(["followingId": toUserId])
+        dlog("✅ Follow request sent via CF: \(toUserId)")
     }
     
     /// Check if a follow request is pending
@@ -554,14 +457,10 @@ class FollowRequestService {
         }
         
         do {
-            let snapshot = try await db.collection("followRequests")
-                .whereField("fromUserId", isEqualTo: currentUserId)
-                .whereField("toUserId", isEqualTo: toUserId)
-                .whereField("status", isEqualTo: FollowRequest.RequestStatus.pending.rawValue)
-                .limit(to: 1)
-                .getDocuments()
-            
-            return !snapshot.documents.isEmpty
+            // Check subcollection path used by createFollow callable
+            let doc = try await db.collection("users").document(toUserId)
+                .collection("followRequests").document(currentUserId).getDocument()
+            return doc.exists && (doc.data()?["status"] as? String) == "pending"
         } catch {
             dlog("❌ Error checking pending request: \(error)")
             return false
@@ -570,45 +469,10 @@ class FollowRequestService {
     
     /// Cancel a pending follow request
     func cancelFollowRequest(toUserId: String) async throws {
-        guard let currentUserId = Auth.auth().currentUser?.uid else {
-            throw NSError(domain: "FollowRequestService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
-        }
-        
-        let snapshot = try await db.collection("followRequests")
-            .whereField("fromUserId", isEqualTo: currentUserId)
-            .whereField("toUserId", isEqualTo: toUserId)
-            .whereField("status", isEqualTo: FollowRequest.RequestStatus.pending.rawValue)
-            .limit(to: 1)
-            .getDocuments()
-        
-        for document in snapshot.documents {
-            try await document.reference.delete()
-        }
-        
-        dlog("✅ Cancelled follow request to: \(toUserId)")
-    }
-    
-    private func createFollowRequestNotification(toUserId: String) async throws {
-        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
-        
-        // Fetch current user's name
-        let userDoc = try await db.collection("users").document(currentUserId).getDocument()
-        let displayName = userDoc.data()?["displayName"] as? String ?? "Someone"
-        
-        let notification: [String: Any] = [
-            "toUserId": toUserId,
-            "type": "followRequest",
-            "fromUserId": currentUserId,
-            "fromUserName": displayName,
-            "message": "\(displayName) wants to follow you",
-            "createdAt": FieldValue.serverTimestamp(),
-            "isRead": false
-        ]
-        
-        try await db.collection("users").document(toUserId)
-            .collection("notifications").addDocument(data: notification)
-        
-        dlog("✅ Follow request notification created for user: \(toUserId)")
+        // cancelFollowRequest callable deletes from users/{targetId}/followRequests/{requesterId}
+        let callable = Functions.functions(region: "us-central1").httpsCallable("cancelFollowRequest")
+        _ = try await callable.call(["targetId": toUserId])
+        dlog("✅ Cancelled follow request via CF: \(toUserId)")
     }
 }
 

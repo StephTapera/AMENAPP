@@ -256,8 +256,13 @@ Functions that should consolidate back to us-central1 once quota is available (<
 
 | Function | Current Region | Ideal Region | iOS Call Site |
 |----------|---------------|--------------|---------------|
-| `createFollow` | us-east1 | us-central1 | `FollowService.swift:167` |
-| `createUnfollow` | us-east1 | us-central1 | `FollowService.swift:236` |
+| `createFollow` | us-east1 | us-central1 | `FollowService.swift:183` |
+| `createUnfollow` | us-east1 | us-central1 | `FollowService.swift` |
+| `acceptFollowRequest` | us-east1 | us-central1 | No iOS call (server-to-server) |
+| `rejectFollowRequest` | us-east1 | us-central1 | No iOS call (server-to-server) |
+| `cancelFollowRequest` | us-east1 | us-central1 | No iOS call (server-to-server) |
+| `removeFollower` | us-east1 | us-central1 | No iOS call (server-to-server) |
+| `onAccountPrivacyChange` | us-east1 | us-central1 | Firestore trigger (no iOS call) |
 | `blockRelationshipCleanupTrigger` | us-east1 | us-central1 | Firestore trigger (no iOS call) |
 | `reconcileFollowCounts` | us-east1 | us-central1 | Cloud Scheduler |
 | `revokeNotificationsOnCommentDelete` | us-east1 | us-central1 | Firestore trigger |
@@ -267,10 +272,10 @@ Functions that should consolidate back to us-central1 once quota is available (<
 | `bereanConstitutionalPipeline` | us-east1 | us-east1 | `BereanConstitutionalPipeline.swift:266` ← KEEP in east1; iOS already wired |
 | `bereanSubmitFeedback` | us-east1 | us-east1 | `BereanConstitutionalPipeline.swift:242` |
 | `verifyScriptureText` | us-east1 | us-east1 | (internal berean use) |
-| `processMediaUpload` | us-east1 | us-east1 | GlobalResilience (keep east1) |
-| `getMediaVariant` | us-east1 | us-east1 | GlobalResilience |
-| `sendMessageGlobal` | us-east1 | us-east1 | GlobalResilience |
-| `getThreadOfflineCache` | us-east1 | us-east1 | GlobalResilience |
+| `processMediaUpload` | us-east1 | us-central1 | GlobalResilience iOS uses `Functions.functions()` (default=us-central1); source updated |
+| `getMediaVariant` | us-east1 | us-central1 | GlobalResilience iOS uses `Functions.functions()` (default=us-central1); source updated |
+| `sendMessageGlobal` | us-east1 | us-central1 | GlobalResilience iOS uses `Functions.functions()` (default=us-central1); source updated |
+| `getThreadOfflineCache` | us-east1 | us-central1 | GlobalResilience iOS uses `Functions.functions()` (default=us-central1); source updated |
 | `moderateUploadedDMVideo` | us-west1 | us-west1 | Storage trigger — bucket in us-west1 |
 | `moderateUploadedImage` | us-west1 | us-west1 | Storage trigger — bucket in us-west1 |
 

@@ -94,7 +94,7 @@ struct BereanFeedbackView: View {
         let val = rc.configValue(forKey: "berean_feedback_enabled")
         // Default true for beta: if no remote value is set the raw string is "",
         // so we treat missing as true.
-        guard val.source != .default || val.stringValue?.isEmpty == false else { return true }
+        guard val.source != .default || !val.stringValue.isEmpty else { return true }
         return val.boolValue
     }
 

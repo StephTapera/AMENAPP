@@ -239,8 +239,7 @@ final class VoiceRecordingEngine: ObservableObject {
             // On-device not supported → retry without the flag.
             let nsError = error as NSError
             let isOnDeviceUnsupported =
-                nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 203 ||
-                nsError.domain == SFSpeechErrorDomain && nsError.code == SFSpeechErrorCode.notAuthorized.rawValue
+                nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 203
 
             if !isOnDeviceUnsupported {
                 // Try without requiresOnDeviceRecognition.

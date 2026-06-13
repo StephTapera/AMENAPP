@@ -5,7 +5,7 @@
 //  Displays the AI-generated devotional in a scrollable card stack:
 //  • ScriptureCard (opening + additional verses)
 //  • ReflectionCard
-//  • PrayerCard
+//  • PrayerCardView
 //  • PracticeCard (Live It Out)
 //  • CommunityCompanionCard (optional)
 //  • GuardrailNoticeCard (optional)

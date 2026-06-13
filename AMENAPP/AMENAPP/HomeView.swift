@@ -169,6 +169,7 @@ struct HomeView: View {
             mainScrollContent
                 .navigationTitle("AMEN")
                 .navigationBarTitleDisplayMode(.inline)
+                .adaptiveNavigation(title: "AMEN")
                 // Auto-hide header when scrolling down
                 .toolbar(showToolbar ? .visible : .hidden, for: .navigationBar)
                 .toolbar {
@@ -453,6 +454,9 @@ struct HomeView: View {
             .modifier(ScrollOffsetTracker { _, newOffset in
                 handleScroll(offset: -newOffset)
             })
+            .adaptiveSurfaceScrollDriver()   // Feed AdaptiveSurfaceEngine from this scroll view
+            .adaptiveScrollEdgeEffect()      // iOS 26: blur content under status bar
+            .adaptiveToolbarMinimize()       // iOS 26: compress nav bar on scroll
             .refreshable {
                 await refreshCurrentCategory()
                 withAnimation(.easeOut(duration: 0.18)) {

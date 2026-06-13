@@ -27,7 +27,14 @@ final class NISEditorBridge: ObservableObject {
     private var pollTask: Task<Void, Never>?
 
     // MARK: Init
-    init(service: NISService = FirebaseNISService.shared) {
+
+    /// Convenience initialiser used by `@StateObject` in views — uses the default Firebase service.
+    convenience init() {
+        self.init(service: FirebaseNISService.shared)
+    }
+
+    /// Designated initialiser for testing or DI.
+    init(service: NISService) {
         self.service = service
     }
 

@@ -203,7 +203,7 @@ struct OrgProfileView: View {
             // Follow + Message buttons
             actionButtons
 
-            // Capability section (church type only)
+            // SystemCapability section (church type only)
             if profile.orgType == .church {
                 ChurchCapabilitySection(
                     churchId: profile.id,
@@ -421,7 +421,7 @@ private struct CommunityOSOpportunityCardRow: View {
         OrgProfileView(
             profile: .preview,
             onFollow: {},
-            onCapabilityTap: { cap in print("Capability tapped: \(cap)") }
+            onCapabilityTap: { cap in print("SystemCapability tapped: \(cap)") }
         )
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

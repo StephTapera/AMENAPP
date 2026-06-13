@@ -213,7 +213,7 @@ struct TodayPrayersContent: View {
             
             // Prayer items
             ForEach(prayers) { prayer in
-                PrayerCard(
+                PrayerCardView(
                     prayer: prayer,
                     isCompleted: completedPrayers.contains(prayer.id)
                 ) {
@@ -231,7 +231,7 @@ struct TodayPrayersContent: View {
 }
 
 // MARK: - Prayer Card
-struct PrayerCard: View {
+struct PrayerCardView: View {
     let prayer: EnhancedPrayerItem
     let isCompleted: Bool
     let onComplete: () -> Void

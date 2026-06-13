@@ -137,7 +137,7 @@ private struct ChurchCapabilityChip: View {
 
 // MARK: - Preview
 
-#Preview("Church Capability Section") {
+#Preview("Church SystemCapability Section") {
     VStack(alignment: .leading, spacing: 16) {
         Text("All Capabilities")
             .font(.headline)

@@ -244,7 +244,7 @@ struct ScriptureHighlight: Codable, Identifiable, Hashable {
 
 // MARK: - Search
 
-struct ScriptureSearchResult: Identifiable, Equatable {
+struct SelahSearchResult: Identifiable, Equatable {
     let id: UUID
     let reference: ScriptureReference
     let translationId: String
@@ -277,7 +277,7 @@ enum SelahBibleTranslationAvailability: Equatable {
 typealias SelahBibleBook = BibleBook
 typealias SelahBibleVerse = BibleVerse
 typealias SelahBibleChapter = BibleChapter
-typealias SelahScriptureSearchResult = ScriptureSearchResult
+typealias SelahScriptureSearchResult = SelahSearchResult
 typealias SelahScriptureReaderPreferences = ScriptureReaderPreferences
 typealias SelahLastReadScripturePosition = LastReadScripturePosition
 typealias SelahSavedScripture = SavedScripture

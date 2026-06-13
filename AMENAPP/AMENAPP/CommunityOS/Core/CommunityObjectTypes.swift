@@ -81,7 +81,7 @@ struct SpawnProvenance: Codable, Equatable, Hashable, Sendable {
 // MARK: - ObjectCapability
 
 /// The shared capability vocabulary for all Amen objects.
-/// Source: C1 §2 "Shared Capability Set".
+/// Source: C1 §2 "Shared SystemCapability Set".
 /// No object exposes capabilities beyond this set.
 enum ObjectCapability: String, Codable, CaseIterable, Sendable {
     case view     = "view"

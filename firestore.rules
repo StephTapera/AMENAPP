@@ -375,6 +375,25 @@ service cloud.firestore {
         || !attachment.get('isAnonymous', false)
         || !('authorId' in attachment);
     }
+
+    // Verify all attachments in a write are safe for anonymous prayer (no authorId leak).
+    // Uses Firestore Rules list.all() to iterate over the array.
+    function allAttachmentsPrayerSafe(data) {
+      return !('attachments' in data)
+        || data.attachments.size() == 0
+        || data.attachments.all(a, anonymousPrayerIsSafe(a));
+    }
+
+    // Verify no church-only attachment types are written to non-church collections.
+    // Pass churchId: the caller must be a church member to use church-only types.
+    function noUnauthorizedChurchAttachments(data, churchId) {
+      return !('attachments' in data)
+        || data.attachments.size() == 0
+        || !data.attachments.exists(a,
+            isChurchOnlyAttachmentType(a.get('type', ''))
+          )
+        || isChurchMember(churchId);
+    }
     // === END ADAPTIVE COMPOSER ATTACHMENT HELPERS ===
 
     // =========================================================================
@@ -702,8 +721,10 @@ service cloud.firestore {
           request.resource.data.get('publicConfirmed', false) == true) &&
         // [MINOR] ownerUidEncrypted must not be set by client (CF only)
         !request.resource.data.keys().hasAny(['ownerUidEncrypted']) &&
-        // ATTACHMENT SECURITY (2026-06-11): validate attachments array shape + size
-        attachmentsArrayIsValid(request.resource.data);
+        // ATTACHMENT SECURITY (2026-06-11): validate attachments array shape + size.
+        // ATTACHMENT SECURITY (2026-06-13): anonymous prayer must not carry authorId (I-6 extension).
+        attachmentsArrayIsValid(request.resource.data) &&
+        allAttachmentsPrayerSafe(request.resource.data);
 
       // Update: owner can update own post; moderators/admins can soft-delete.
       // Provenance must never change. isDeleted can only go false → true.
@@ -1307,13 +1328,17 @@ service cloud.firestore {
             get(/databases/$(database)/documents/conversations/$(conversationId)).data);
 
         // Create: sender must be participant; under_minimum blocked; blocked pairs cannot send.
+        // ATTACHMENT SECURITY (2026-06-13): validate attachments array shape + size.
+        // allAttachmentsPrayerSafe: anonymous prayer must not carry authorId.
         allow create: if
           isSignedIn() && !isUnderMinimum() &&
           request.resource.data.get('senderId', '') == request.auth.uid &&
           request.auth.uid in conversationParticipants(
             get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
           !callerIsBlockedInConversation(
-            get(/databases/$(database)/documents/conversations/$(conversationId)).data);
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
+          attachmentsArrayIsValid(request.resource.data) &&
+          allAttachmentsPrayerSafe(request.resource.data);
 
         // Update: only sender can edit own message (soft-delete).
         allow update: if
@@ -3281,6 +3306,75 @@ service cloud.firestore {
     match /config/bereanPlus {
       allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    // =========================================================================
+    // SELAH BUILD — WAVE 0 COLLECTIONS
+    // Added 2026-06-13. All writes are CF-only; client reads scoped to participants.
+    // =========================================================================
+
+    // Commitment connections — Tier C; read by both parties only.
+    match /commitments/{commitmentId} {
+      allow read: if isSignedIn() &&
+        request.auth.uid in resource.data.parties;
+      allow write: if false;  // CF only (CommitmentConnectionService callables)
+    }
+
+    // Tables (small groups) — Tier C; members read, CF writes.
+    match /tables/{tableId} {
+      allow read: if isSignedIn() &&
+        request.auth.uid in resource.data.members;
+      allow write: if false;  // CF only (joinTable transaction, sunsetTable)
+    }
+
+    // Table shared notebooks — same membership gate as the Table itself.
+    match /tables/{tableId}/notebookEntries/{entryId} {
+      allow read: if isSignedIn() &&
+        exists(/databases/$(database)/documents/tables/$(tableId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/tables/$(tableId)).data.members;
+      allow write: if false;  // CF only (BereanGroupNotebookService)
+    }
+
+    // Table discussion guides — readable by Table members.
+    match /tables/{tableId}/discussionGuides/{guideId} {
+      allow read: if isSignedIn() &&
+        exists(/databases/$(database)/documents/tables/$(tableId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/tables/$(tableId)).data.members;
+      allow write: if false;  // CF only (generateDiscussionGuide)
+    }
+
+    // Prayer chains — Tier C; readable by requester and chain members only.
+    match /prayerChains/{chainId} {
+      allow read: if isSignedIn() &&
+        (request.auth.uid == resource.data.requestRef ||
+         request.auth.uid in resource.data.memberUids);
+      allow write: if false;  // CF only (assemblePrayerChain)
+    }
+
+    // Remix lineage — public attribution, any signed-in user may read; CF writes.
+    match /remixLineage/{lineageId} {
+      allow read: if isSignedIn();
+      allow write: if false;  // CF only (createRemixLineage)
+    }
+
+    // Feed explanations — Tier S; readable by the feed recipient only.
+    match /feedExplanations/{explanationId} {
+      allow read: if isSignedIn() &&
+        request.auth.uid == resource.data.recipientUid;
+      allow write: if false;  // CF only (generateFeedExplanation)
+    }
+
+    // Youth mode profiles — owner reads/writes (service layer only, not raw client).
+    match /youthModeProfiles/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // CF only (enforceYouthDMPolicy, YouthModeService activate)
+    }
+
+    // C2PA manifests — readable by the testimony author; CF writes.
+    match /c2paManifests/{manifestId} {
+      allow read: if isSignedIn() &&
+        request.auth.uid == resource.data.authorUid;
+      allow write: if false;  // CF only (generateC2PAManifest)
     }
 
     // =========================================================================

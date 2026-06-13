@@ -1,6 +1,6 @@
 # Deploy Topology — AMEN Firebase Functions
 
-Last updated: 2026-06-12
+Last updated: 2026-06-13
 
 ## The Three Codebases
 
@@ -27,14 +27,17 @@ The `cloud-functions/` directory has its own `firebase.json` (codebase `quaranti
 
 ## us-central1 Quota Warning
 
-As of 2026-06-12, the `us-central1` region has ~1007 Cloud Run services deployed, which is at or near the default quota (1000 services per region). Deploying new functions to `us-central1` will fail with HTTP 429 until quota is freed.
+As of 2026-06-13, the `us-central1` region is at exactly **999/1000** Cloud Run service quota. Deploying new functions to `us-central1` will fail with HTTP 429 until quota is freed.
 
-**To free quota before adding new functions:**
-1. Open [GCP Cloud Run Console](https://console.cloud.google.com/run?project=amen-5e359)
-2. Identify and delete Cloud Run services from removed/orphaned functions
-3. Or request a quota increase: IAM & Admin → Quotas → Cloud Run → "Maximum number of services per region"
+**Quota reclamation plan (from docs/FUNCTION_INVENTORY.md):**
+- 413 services are ACTIVE-WIRED (do not delete)
+- 64 are ACTIVE-ORPHAN (in source, but not re-exported from index.js — review before deleting)
+- **522 are DEAD** (no source in any JS file — safe to delete after human approval)
+- Deleting 522 DEAD services would bring us-central1 to ~477 — comfortable headroom
 
-**Orphaned creator functions:** The creator codebase has ~120 Cloud Run services at `us-central1` that no longer have corresponding source code in `Backend/functions/src/`. These are stale from previous deployments. A human should audit and delete them before any new `creator` codebase deploys. **Do not run `firebase deploy --only functions:creator --force`** without first verifying which of these orphans are still receiving traffic (check Cloud Run metrics in GCP Console).
+**Before deleting:** Read `docs/FUNCTION_INVENTORY.md` for the full classified list and batch-delete commands. This is the human gate.
+
+**Consolidation trigger:** When us-central1 < 850 services, move interim us-east1 functions back. See Interim Region Table in FUNCTION_INVENTORY.md.
 
 ## KnownDrift — Functions Held at us-east1 Pending Coordinated Migration
 

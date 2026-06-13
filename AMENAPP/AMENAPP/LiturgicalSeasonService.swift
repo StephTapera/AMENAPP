@@ -27,7 +27,7 @@ final class LiturgicalSeasonService: ObservableObject {
 
     static let shared = LiturgicalSeasonService()
 
-    @Published private(set) var currentSeason: LiturgicalSeason
+    @Published private(set) var currentSeason: LiturgicalThemeSeason
     @Published private(set) var currentTheme: SeasonTheme
 
     private init() {
@@ -40,12 +40,12 @@ final class LiturgicalSeasonService: ObservableObject {
     // MARK: - Public API
 
     /// Returns the liturgical season for any given date.
-    func season(for date: Date) -> LiturgicalSeason {
+    func season(for date: Date) -> LiturgicalThemeSeason {
         LiturgicalSeasonService.computeSeason(for: date)
     }
 
     /// Returns the SeasonTheme for a given liturgical season.
-    func theme(for season: LiturgicalSeason) -> SeasonTheme {
+    func theme(for season: LiturgicalThemeSeason) -> SeasonTheme {
         LiturgicalSeasonService.computeTheme(for: season)
     }
 
@@ -79,11 +79,11 @@ final class LiturgicalSeasonService: ObservableObject {
 
     // MARK: - Season computation
 
-    static func computeSeason(for date: Date) -> LiturgicalSeason {
+    static func computeSeason(for date: Date) -> LiturgicalThemeSeason {
         let cal = Calendar(identifier: .gregorian)
         let year = cal.component(.year, from: date)
         let month = cal.component(.month, from: date)
-        let dayOfYear = cal.ordinality(of: .day, in: .year, for: date) ?? 1
+        let currentDayOfYear = cal.ordinality(of: .day, in: .year, for: date) ?? 1
 
         // --- Easter and its derived feasts (current year) ---
         let easter = easterDate(year: year)
@@ -106,44 +106,44 @@ final class LiturgicalSeasonService: ObservableObject {
         let dec25DOY = dayOfYear(month: 12, day: 25, year: year, cal: cal)
 
         // Jan 1–5: Christmas season (carryover from previous year's Christmas)
-        if dayOfYear < jan6DOY {
+        if currentDayOfYear < jan6DOY {
             // Jan 1 – Jan 5 is still the Christmas season
             return .christmas
         }
 
         // Jan 6 – Ash Wednesday: Epiphany
-        if dayOfYear >= jan6DOY && dayOfYear < ashWednesdayDOY {
+        if currentDayOfYear >= jan6DOY && currentDayOfYear < ashWednesdayDOY {
             return .epiphany
         }
 
         // Ash Wednesday – Palm Sunday (exclusive): Lent
-        if dayOfYear >= ashWednesdayDOY && dayOfYear < palmSundayDOY {
+        if currentDayOfYear >= ashWednesdayDOY && currentDayOfYear < palmSundayDOY {
             return .lent
         }
 
         // Palm Sunday – Holy Saturday (Easter - 1): Holy Week
-        if dayOfYear >= palmSundayDOY && dayOfYear < easterDOY {
+        if currentDayOfYear >= palmSundayDOY && currentDayOfYear < easterDOY {
             return .holyWeek
         }
 
         // Easter Sunday – Pentecost Saturday (Pentecost + 0): Easter season
-        if dayOfYear >= easterDOY && dayOfYear <= pentecostDOY {
+        if currentDayOfYear >= easterDOY && currentDayOfYear <= pentecostDOY {
             return .easter
         }
 
         // Day after Pentecost – Advent start: Ordinary Time II
         // (Ordinary Time I is Jan 6–Ash Wed handled above as Epiphany in this model)
-        if dayOfYear > pentecostDOY && dayOfYear < adventStartDOY {
+        if currentDayOfYear > pentecostDOY && currentDayOfYear < adventStartDOY {
             return .ordinaryTime
         }
 
         // Advent: advent start – Dec 24
-        if dayOfYear >= adventStartDOY && dayOfYear < dec25DOY {
+        if currentDayOfYear >= adventStartDOY && currentDayOfYear < dec25DOY {
             return .advent
         }
 
         // Dec 25 – Dec 31: Christmas
-        if dayOfYear >= dec25DOY {
+        if currentDayOfYear >= dec25DOY {
             return .christmas
         }
 
@@ -153,7 +153,7 @@ final class LiturgicalSeasonService: ObservableObject {
 
     // MARK: - Theme registry
 
-    static func computeTheme(for season: LiturgicalSeason) -> SeasonTheme {
+    static func computeTheme(for season: LiturgicalThemeSeason) -> SeasonTheme {
         switch season {
         case .advent:
             return SeasonTheme(

@@ -9,7 +9,7 @@
 //   • careSignalsRouteToHumans — checkConviction() routes care signals via the proxy
 //   • crisisSignalsNeverAIOnly — enforced upstream by conviction + care routing
 //
-// Capability reference sets:
+// SystemCapability reference sets:
 //   C1–C5   messaging safety (input gate)
 //   C6–C10  AI output safety (output gate)
 //   C45–C47 child safety (upload scan)
@@ -28,7 +28,7 @@ final class AmenConnectSpacesAegisService: ObservableObject {
 
     private let proxy = AmenConnectSpacesCallableProxy.shared
 
-    // MARK: - Capability ref sets
+    // MARK: - SystemCapability ref sets
 
     /// Messaging safety capabilities (C1–C5).
     private static let inputCapabilityRefs: [String] = ["C1", "C2", "C3", "C4", "C5"]

@@ -18,6 +18,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Relationship Edge (directional)
 
@@ -343,42 +344,18 @@ final class InteractionPolicyEngine {
     // MARK: - Follow Request
 
     func requestFollow(requesterID: String, recipientID: String, source: FollowRequestSource = .profile) async throws -> FollowEdgeState {
-        // Block check
         guard !(await isBlockedEitherWay(requesterID, recipientID)) else {
             throw InteractionError.blocked
         }
-
-        let recipientDoc = try await db.collection("users").document(recipientID).getDocument()
-        let isPrivate = recipientDoc.data()?["isPrivate"] as? Bool ?? false
-
-        if !isPrivate {
-            // Public account → immediate follow
-            try await createFollowEdge(from: requesterID, to: recipientID)
-            return .following
-        }
-
-        // Private account → check for existing pending request
-        let existing = try await db.collection("followRequests")
-            .whereField("requesterId", isEqualTo: requesterID)
-            .whereField("recipientId", isEqualTo: recipientID)
-            .whereField("status", isEqualTo: FollowRequestStatus.pending.rawValue)
-            .limit(to: 1)
-            .getDocuments()
-
-        if !existing.documents.isEmpty {
+        // createFollow callable handles public/private routing, idempotency, GUARDIAN flag,
+        // rate limiting, atomic writes, and server-side notification in one call.
+        let callable = Functions.functions(region: "us-central1").httpsCallable("createFollow")
+        let result = try await callable.call(["followingId": recipientID])
+        let data = result.data as? [String: Any]
+        if data?["requestSent"] as? Bool == true || data?["requestAlreadySent"] as? Bool == true {
             return .requestedOutgoing
         }
-
-        // Create new request
-        let request = FollowRequestEnhanced(
-            requesterId: requesterID,
-            recipientId: recipientID,
-            source: source
-        )
-        let ref = db.collection("followRequests").document()
-        try ref.setData(from: request)
-
-        return .requestedOutgoing
+        return .following
     }
 
     // MARK: - Accept Follow Request
@@ -391,53 +368,28 @@ final class InteractionPolicyEngine {
               data["status"] as? String == FollowRequestStatus.pending.rawValue else {
             throw InteractionError.invalidRequest
         }
-
         let requesterID = data["requesterId"] as? String ?? ""
-
-        // Atomic: create follow edge + update request status
-        let batch = db.batch()
-        batch.updateData([
-            "status": FollowRequestStatus.approved.rawValue,
-            "decidedAt": FieldValue.serverTimestamp(),
-            "decisionBy": recipientID
-        ], forDocument: ref)
-
-        let followRef = db.collection("follows").document("\(requesterID)_\(recipientID)")
-        batch.setData([
-            "followerId": requesterID,
-            "followingId": recipientID,
-            "createdAt": FieldValue.serverTimestamp()
-        ], forDocument: followRef)
-
-        try await batch.commit()
+        // Route through callable — atomically deletes request, creates follow edges, updates counters.
+        let callable = Functions.functions(region: "us-central1").httpsCallable("acceptFollowRequest")
+        _ = try await callable.call(["requesterId": requesterID])
     }
 
     // MARK: - Deny Follow Request
 
     func denyFollowRequest(requestID: String, recipientID: String) async throws {
         let ref = db.collection("followRequests").document(requestID)
-        try await ref.updateData([
-            "status": FollowRequestStatus.denied.rawValue,
-            "decidedAt": FieldValue.serverTimestamp(),
-            "decisionBy": recipientID
-        ])
+        let doc = try await ref.getDocument()
+        guard let requesterID = doc.data()?["requesterId"] as? String else { return }
+        let callable = Functions.functions(region: "us-central1").httpsCallable("rejectFollowRequest")
+        _ = try await callable.call(["requesterId": requesterID])
     }
 
     // MARK: - Cancel Follow Request
 
     func cancelFollowRequest(requesterID: String, recipientID: String) async throws {
-        let snap = try await db.collection("followRequests")
-            .whereField("requesterId", isEqualTo: requesterID)
-            .whereField("recipientId", isEqualTo: recipientID)
-            .whereField("status", isEqualTo: FollowRequestStatus.pending.rawValue)
-            .limit(to: 1)
-            .getDocuments()
-
-        guard let doc = snap.documents.first else { return }
-        try await doc.reference.updateData([
-            "status": FollowRequestStatus.cancelled.rawValue,
-            "decidedAt": FieldValue.serverTimestamp()
-        ])
+        // cancelFollowRequest callable deletes the request from users/{targetId}/followRequests/{requesterId}
+        let callable = Functions.functions(region: "us-central1").httpsCallable("cancelFollowRequest")
+        _ = try await callable.call(["targetId": recipientID])
     }
 
     // MARK: - Accept Message Request
@@ -628,15 +580,6 @@ final class InteractionPolicyEngine {
         } catch {
             return false
         }
-    }
-
-    private func createFollowEdge(from: String, to: String) async throws {
-        let ref = db.collection("follows").document("\(from)_\(to)")
-        try await ref.setData([
-            "followerId": from,
-            "followingId": to,
-            "createdAt": FieldValue.serverTimestamp()
-        ])
     }
 
     private enum RiskTier {

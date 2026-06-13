@@ -200,13 +200,4 @@ struct BereanCoCreatorToolbarButton: View {
     }
 }
 
-// MARK: - Breath animation shim
-// References the frozen Breath tokens from the BreathMotion system.
-// If Breath is not yet in scope (other agents build first), use a safe fallback.
-
-private extension Animation {
-    static var inhale: Animation {
-        // Breath.inhale from the frozen BreathMotion contracts
-        .spring(response: 0.45, dampingFraction: 0.7)
-    }
-}
+// Breath.inhale is the canonical frozen token from DesignSystem/BreathMotion.swift.

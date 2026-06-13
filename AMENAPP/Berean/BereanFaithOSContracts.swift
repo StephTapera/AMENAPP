@@ -6,7 +6,7 @@
 
 import Foundation
 
-// MARK: - Capability Tier
+// MARK: - SystemCapability Tier
 
 enum BereanCapabilityTier: String, Codable, CaseIterable, Comparable {
     case free = "FREE"

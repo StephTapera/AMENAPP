@@ -172,11 +172,26 @@ export const createFollow = onCall({ region: "us-east1" }, async (request) => {
             .doc(followerId)
             .set({
                 requesterId: followerId,
+                fromUserId: followerId,   // iOS FollowRequest model compat
                 targetId: followingId,
+                toUserId: followingId,    // iOS FollowRequest model compat
                 status: "pending",
                 guardianRouted: isAdultToMinor,
                 createdAt: now,
             });
+
+        // Server-side follow-request notification (deterministic ID prevents duplicates)
+        await db
+            .collection("users")
+            .doc(followingId as string)
+            .collection("notifications")
+            .doc(`follow_req_${followerId}`)
+            .set({
+                type: "followRequest",
+                actorId: followerId,
+                isRead: false,
+                createdAt: now,
+            }, { merge: true });
 
         functions.logger.info(
             `[createFollow] Follow request: ${followerId} → ${followingId}` +

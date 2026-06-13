@@ -141,7 +141,7 @@ enum ChainLinkKind: Codable {
 
 // MARK: - Testimony
 
-struct Testimony: Codable, Identifiable {
+struct CreationTestimony: Codable, Identifiable {
     var id: String
     var authorUid: String
     var before: TestimonySection
@@ -190,14 +190,14 @@ enum FeedReasonCode: String, Codable {
          friendEngaged, trendingInCommunity, liturgicalSeason, bookmarkedTopic
 }
 
-// MARK: - LiturgicalSeason + SeasonTheme
+// MARK: - LiturgicalThemeSeason + SeasonTheme
 
-enum LiturgicalSeason: String, Codable {
+enum LiturgicalThemeSeason: String, Codable {
     case advent, christmas, epiphany, lent, holyWeek, easter, pentecost, ordinaryTime
 }
 
 struct SeasonTheme: Codable {
-    var season: LiturgicalSeason
+    var season: LiturgicalThemeSeason
     var glassTintHex: String            // WCAG AA required against all text styles
     var iconVariantKey: String
     var heyFeedToneKey: String

@@ -446,8 +446,8 @@ struct BereanResponseFooter: View {
     let confidence: String
     let userId: String
 
-    private var trustLevel: TrustLevel {
-        TrustLevel.from(score: trustScore)
+    private var trustLevel: BereanResponseTrustLevel {
+        BereanResponseTrustLevel.from(score: trustScore)
     }
 
     private var trustExplanation: String {

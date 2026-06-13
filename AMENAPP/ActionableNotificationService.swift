@@ -1,6 +1,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 import UserNotifications
 import Combine
 
@@ -411,8 +412,8 @@ class ActionableNotificationService: ObservableObject {
             }
         case .declineFollow:
             if let followerId = entityId {
-                try await db.collection("users").document(currentUserId)
-                    .collection("followRequests").document(followerId).delete()
+                let callable = Functions.functions(region: "us-central1").httpsCallable("rejectFollowRequest")
+                _ = try await callable.call(["requesterId": followerId])
             }
         case .markPrayed:
             if let prayerId = entityId {
@@ -467,11 +468,10 @@ class ActionableNotificationService: ObservableObject {
     }
 
     private func acceptFollowRequest(followerId: String, userId: String) async throws {
-        let batch = db.batch()
-        let followerRef = db.collection("users").document(userId).collection("followers").document(followerId)
-        let followingRef = db.collection("users").document(followerId).collection("following").document(userId)
-        batch.setData(["followedAt": FieldValue.serverTimestamp()], forDocument: followerRef)
-        batch.setData(["followedAt": FieldValue.serverTimestamp()], forDocument: followingRef)
-        try await batch.commit()
+        // Route through server callable — atomically deletes request doc, creates
+        // follows + follows_index edges, and increments counters.
+        // `userId` (the target) is already authenticated; callable reads request.auth.uid as targetId.
+        let callable = Functions.functions(region: "us-central1").httpsCallable("acceptFollowRequest")
+        _ = try await callable.call(["requesterId": followerId])
     }
 }

@@ -165,8 +165,73 @@ Kill switch order if rollback needed: orb → pill → cards → rail → intent
 
 ## Human Deploy Steps
 
-1. **Emulator test (pre-deploy):** `cd Backend/rules-tests && npm test` — validate `allAttachmentsPrayerSafe` list.all() syntax
-2. **Firestore rules:** `firebase deploy --only firestore:rules --project amen-5e359`
-3. **Cloud Functions:** `firebase deploy --only functions:creator:unfurlLink,functions:creator:generateCalendarPayload,functions:creator:incrementVolunteerSlot,functions:creator:aggregatePrayerCount`
-4. **iOS build:** `xcodebuild -scheme AMENAPP -destination 'generic/platform=iOS' build -clonedSourcePackagesDirPath ./SourcePackages.nosync -derivedDataPath ./DerivedData.nosync`
-5. **Remote Config:** enable flags per rollout table above
+### Step 1 — Emulator Rules Test (VERIFY BEFORE RULES DEPLOY)
+```
+cd Backend/rules-tests && npm test
+```
+**Status:** ⚠️ DID NOT RUN — The Firebase emulator suite is not running. The jest.globalSetup.ts checks for reachability on ports 8080 (Firestore), 9000 (Database), and 9199 (Storage) and aborts before any tests execute. To run the suite, first start the emulators: firebase emulators:start --only firestore,database,storage (from the repo root), then re-run npm test in Backend/rules-tests. Alternatively, use: firebase emulators:exec --only firestore,database,storage "cd Backend/rules-tests && npm test"
+Output excerpt:
+```
+Error: Jest: Got error running globalSetup - /Users/stephtapera/Desktop/AMEN/AMENAPP copy/Backend/rules-tests/jest.globalSetup.ts, reason: 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Firebase emulator is not running.
+  Could not reach 127.0.0.1 on port(s): 8080, 9000, 9199.
+
+  Start the emulator in another terminal:
+      firebase emulators:start --only firestore,database,storage
+
+  Or run everything in one command:
+      firebase emulators:exec --only firestore,database,storage "cd Backend/rules-tests && npm test"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXIT_CODE: 1
+```
+
+### Step 2 — Firestore Rules
+**Status: PENDING CONSOLIDATED RULES DEPLOY**
+Do NOT deploy this lane's rules snapshot standalone. The rules file has had edits from 3+ workflows today. Deploy ONCE from the final merged tree after the master inventory run reconciles all rule edits.
+
+Pending changes logged for consolidated deploy:
+- `allAttachmentsPrayerSafe()` — list.all() iteration over attachments array
+- `noUnauthorizedChurchAttachments()` — church-only type enforcement helper  
+- `attachmentsArrayIsValid` enforced in conversations/messages create (was missing)
+- `allAttachmentsPrayerSafe` enforced in posts create + conversations/messages create
+
+Command (run from repo root, human-gated): `firebase deploy --only firestore:rules --project amen-5e359`
+
+### Step 3 — Cloud Functions (creator codebase)
+**Source region declared:** `us-east1` ✅ correct (us-east1, not blocked by us-central1 quota)
+
+| Function | Deployed? | Status |
+|---|---|---|
+| `unfurlLink` | ✅ Yes | UPDATE — safe |
+| `generateCalendarPayload` | ✅ Yes | UPDATE — safe |
+| `incrementVolunteerSlot` | ✅ Yes | UPDATE — safe |
+| `aggregatePrayerCount` | ✅ Yes | UPDATE — safe |
+
+Deploy command (from repo root, human-gated):
+`firebase deploy --only functions:creator:unfurlLink,functions:creator:generateCalendarPayload,functions:creator:incrementVolunteerSlot,functions:creator:aggregatePrayerCount`
+
+### Step 4 — iOS Build Verification
+**SHA:** `8d018bbbb19ec1bbcd27537aa135a1dd2afebf33`
+**Outcome:** ❌ BUILD FAILED
+Errors:
+- CodeSign failed for AMENWidgetExtensionExtension.appex: resource fork, Finder information, or similar detritus not allowed (target 'AMENWidgetExtensionExtension' from project 'AMENAPP')
+- Building project AMENAPP with scheme AMENAPP — 2 failures total
+- Command CodeSign failed with a nonzero exit code
+- warning: Run script build phase 'Run Script' will be run during every build because it does not specify any outputs (target 'AMENAPP')
+- All Swift compilation succeeded; failure is at code-signing stage only
+Notes: Build ran to completion of Swift compilation but failed at the CodeSign step for AMENWidgetExtensionExtension.appex. The error 'resource fork, Finder information, or similar detritus not allowed' indicates macOS extended attributes (xattrs) on the widget extension bundle. Fix: run 'xattr -rc /Users/stephtapera/Desktop/AMEN/AMENAPP copy/DerivedData.nosync/Build/Products/Debug-iphoneos/AMENWidgetExtensionExtension.appex' and retry, or do a clean build (rm -rf DerivedData.nosync). This is an environment/tooling issue, not a source code error. Lock was acquired and released cleanly.
+
+### Step 5 — Remote Config Flags
+Enable per rollout table after Steps 2–3 complete. All flags remain OFF until then.
+
+---
+
+## Lane Status
+
+| Lane | Status | Flags | Rules | Functions | iOS Build |
+|---|---|---|---|---|---|
+| Adaptive Composer | **LIVE-ON-RELEASE** | All 5 OFF | Pending consolidated deploy | All 4 deployed (updates safe) | ❌ Failed |
+
+**LIVE-ON-RELEASE means:** all code committed, all flags OFF, no user-visible change until flags enabled. Lane is blocked from production feature enablement until: (a) consolidated rules deploy, (b) CF deploy, (c) iOS build verified.

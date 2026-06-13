@@ -119,6 +119,24 @@ exports.userAccountDeletionCascade = (0, https_1.onCall)(async (request) => {
     // A collection-group query finds all of them regardless of which event they
     // belong to, then deletes them in pages to avoid orphaning stale RSVP data.
     await deleteEventRsvpsForUser(userId);
+    // ── Phase 7c: P0-9 — aiBibleStudyConversations (root collection) ────────
+    // Contains user-typed Bible study queries and AI responses keyed by userId.
+    // Each conversation doc also has a `messages` subcollection.
+    // App Store 5.1.1(v) / GDPR Art.17.
+    // BACKFILL REQUIRED: Run one-time admin script to delete aiBibleStudyConversations
+    // for users already in the deletion audit log. If no audit log exists, log as P1.
+    await deleteAiBibleStudyConversations(userId);
+    // ── Phase 7d: P0-9 — realtimeSessions (root collection) ─────────────────
+    // Voice/prayer realtime session records written by createRealtimeSession CF.
+    // Subcollections: analyticsEvents, scriptureReferences.
+    // Field is `createdBy` (audit finding A13-006).
+    await deleteRealtimeSessions(userId);
+    // TODO(P1 — Pinecone): Delete user vectors from Pinecone index.
+    // Namespace format: userId (embeddings are namespaced by UID).
+    // Requires PINECONE_API_KEY + PINECONE_INDEX_NAME env vars.
+    // When available, call: pineconeIndex.delete1({ deleteAll: true, namespace: userId })
+    // Tracked as P1 because Pinecone is not yet provisioned for production
+    // (see Backend/functions/src/berean/bereanMemory.ts:435).
     // ── Phase 8: Delete Firebase Auth account ────────────────────────────
     try {
         await admin.auth().deleteUser(userId);
@@ -257,6 +275,14 @@ async function deleteUserSubcollections(userId) {
         "prayerRequests",
         "churchNotes",
         "deviceTokens",
+        // P0-10: AI/Berean conversation stores — contain user-typed prayer, personal
+        // questions, and AI responses. Must be deleted on account removal.
+        // App Store 5.1.1(v) / GDPR Art.17.
+        // BACKFILL REQUIRED: Run one-time admin script to delete chatHistory and
+        // bereanConversations for users in the deletion audit log. If no audit log
+        // exists, log this as P1 follow-up.
+        "chatHistory", // BereanChatView.swift:254 — AI assistant reply log
+        "bereanConversations", // BereanConversationService.swift + premiumBereanCallables.ts
     ];
     await Promise.allSettled(subcollections.map((sub) => deleteSubcollection(userId, sub)));
 }
@@ -270,6 +296,68 @@ async function deleteSubcollection(userId, subcollection) {
         snap.docs.forEach((doc) => batch.delete(doc.ref));
         await batch.commit();
         if (snap.size < 500)
+            break;
+    }
+}
+/**
+ * Drains all documents from an arbitrary collection reference (by ref, not path).
+ * Used for nested subcollections on root-collection documents.
+ */
+async function drainCollectionRef(ref) {
+    while (true) {
+        const snap = await ref.limit(500).get();
+        if (snap.empty)
+            break;
+        const batch = db.batch();
+        snap.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        if (snap.size < 500)
+            break;
+    }
+}
+/**
+ * P0-9: Deletes all aiBibleStudyConversations documents for a user, including
+ * their `messages` subcollection (user-typed queries + AI responses).
+ * Root collection keyed by the `userId` field.
+ */
+async function deleteAiBibleStudyConversations(userId) {
+    while (true) {
+        const snap = await db
+            .collection("aiBibleStudyConversations")
+            .where("userId", "==", userId)
+            .limit(100)
+            .get();
+        if (snap.empty)
+            break;
+        for (const convDoc of snap.docs) {
+            // Delete messages subcollection before the conversation doc
+            await drainCollectionRef(convDoc.ref.collection("messages"));
+            await convDoc.ref.delete();
+        }
+        if (snap.size < 100)
+            break;
+    }
+}
+/**
+ * P0-9 (A13-006): Deletes all realtimeSessions documents created by a user,
+ * including `analyticsEvents` and `scriptureReferences` subcollections.
+ * Root collection keyed by the `createdBy` field.
+ */
+async function deleteRealtimeSessions(userId) {
+    while (true) {
+        const snap = await db
+            .collection("realtimeSessions")
+            .where("createdBy", "==", userId)
+            .limit(100)
+            .get();
+        if (snap.empty)
+            break;
+        for (const sessionDoc of snap.docs) {
+            await drainCollectionRef(sessionDoc.ref.collection("analyticsEvents"));
+            await drainCollectionRef(sessionDoc.ref.collection("scriptureReferences"));
+            await sessionDoc.ref.delete();
+        }
+        if (snap.size < 100)
             break;
     }
 }

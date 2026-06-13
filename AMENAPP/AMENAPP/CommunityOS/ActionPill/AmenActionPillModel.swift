@@ -6,7 +6,7 @@
 //
 // Design contract: C3 §8 "Toolbar / Action Pill pattern"
 // Intent taxonomy:  C2 §2 (11 canonical intents)
-// Capability set:   ObjectCapability.capabilities(for:) in AmenCoreModels.swift
+// SystemCapability set:   ObjectCapability.capabilities(for:) in AmenCoreModels.swift
 //
 // Anti-engagement rule: PillAction NEVER surfaces view/like counts or comparative metrics.
 // All composition intents route through AmenUniversalComposer (A3).

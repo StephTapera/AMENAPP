@@ -69,7 +69,7 @@ final class AmenChildSafetyService: ObservableObject {
     }
 
     // =========================================================================
-    // MARK: - Capability Checks
+    // MARK: - SystemCapability Checks
     // =========================================================================
 
     /// Returns true if the given capability is blocked for the specified user.

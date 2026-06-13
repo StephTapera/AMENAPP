@@ -169,7 +169,7 @@ final class BereanPipelineClient: ObservableObject {
         // C-2: Encode query to [String: Any] payload for the callable.
         let payload: [String: Any]
         do {
-            payload = try query.asDictionary()
+            payload = try query.bereanPipelineDictionary()
         } catch {
             dlog("[BereanPipelineClient] payload serialisation failed: \(error.localizedDescription)")
             throw BereanError.invalidResponse
@@ -230,7 +230,7 @@ private extension Encodable {
     /// Encodes `self` to a `[String: Any]` dictionary suitable for Firebase callable payloads.
     /// - Throws: `EncodingError` or `BereanPipelineClient.BereanError.invalidResponse`
     ///   (the caller wraps this).
-    func asDictionary() throws -> [String: Any] {
+    func bereanPipelineDictionary() throws -> [String: Any] {
         let data = try JSONEncoder().encode(self)
         guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw BereanPipelineClient.BereanError.invalidResponse

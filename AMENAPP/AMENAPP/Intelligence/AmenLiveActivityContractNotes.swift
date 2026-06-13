@@ -90,7 +90,7 @@
 // STEP 5: Enable Push Notifications capability on AMENAPP target
 // ============================================================
 //
-// Path:  Xcode → AMENAPP target → Signing & Capabilities → + Capability
+// Path:  Xcode → AMENAPP target → Signing & Capabilities → + SystemCapability
 // Add:   Push Notifications
 //
 // Remote Live Activity updates arrive via APNs using a special

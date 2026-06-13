@@ -117,10 +117,10 @@ enum PrayerType: String, Codable, CaseIterable {
     }
 }
 
-// MARK: - PrayerStatus
+// MARK: - CommunityPrayerStatus
 
 /// Lifecycle status of a prayer request.
-enum PrayerStatus: String, Codable, CaseIterable, Sendable {
+enum CommunityPrayerStatus: String, Codable, CaseIterable, Sendable {
     /// Prayer is active and awaiting or receiving intercession
     case active = "active"
     /// Prayer has an update from the author
@@ -169,7 +169,7 @@ struct PrayerRequest: Identifiable, Codable {
     /// Privacy level — defaults to .private
     var privacyLevel: PrayerPrivacyLevel
     /// Lifecycle status
-    var status: PrayerStatus
+    var status: CommunityPrayerStatus
     /// UIDs of prayer partners who are actively interceding
     var partnerIds: [String]
     /// When true, the author has opted in to reminder notifications for this prayer

@@ -118,7 +118,7 @@ struct CommitmentCardView: View {
             }
         }
         .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
         .breathButton()
         .onAppear {
             // Show close-the-loop prompt if we are past closeTheLoopAt and nudge was sent

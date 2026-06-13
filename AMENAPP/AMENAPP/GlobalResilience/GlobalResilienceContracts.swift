@@ -57,7 +57,7 @@ enum VerificationTier: String, Codable {
     case eventHost
 }
 
-// MARK: - Device Capability Profile
+// MARK: - Device SystemCapability Profile
 
 struct DeviceCapabilityProfile: Codable {
     /// Canonical platform string, e.g. "ios", "ipados", "visionos"
@@ -114,7 +114,7 @@ struct FeedRankingSignals: Codable {
 
 // MARK: - Language Metadata
 
-struct ContentLanguageMetadata: Codable {
+struct GlobalResilienceContentLanguageMetadata: Codable {
     let detectedLanguages: [String]
     let codeSwitch: Bool
     /// 0.0–1.0 detection confidence

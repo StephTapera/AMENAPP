@@ -6,7 +6,7 @@
 //  Bridges MusicKit with the Dynamic Island Live Activity for worship music.
 //
 //  SETUP REQUIRED (one-time, in Xcode):
-//  1. Target AMENAPP → Signing & Capabilities → + Capability → MusicKit
+//  1. Target AMENAPP → Signing & Capabilities → + SystemCapability → MusicKit
 //  2. Target AMENAPP → Info tab → add NSAppleMusicUsageDescription:
 //     "AMEN uses Apple Music to play worship songs in your Church Notes."
 //

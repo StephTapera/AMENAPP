@@ -25,7 +25,7 @@ struct SelahMomentConfig {
 
 // MARK: - Motion
 
-enum Motion {
+extension Motion {
     /// Returns the full animation in normal mode; collapses to near-instant for reduce-motion.
     /// Pass ambient=true only for looping/ambient animations — those collapse to zero duration
     /// so they simply do not animate for reduce-motion users.

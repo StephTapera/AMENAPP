@@ -9,32 +9,6 @@
 //
 // Onboarding use:
 //   DataAccessSettingsView.asOnboardingStep(onContinue: { ... })
-//
-// FIRESTORE RULES DIFF — merge into firestore.rules:
-//
-//   match /users/{userId}/devices/{deviceId} {
-//     allow read, write: if request.auth.uid == userId;
-//   }
-//   match /threads/{threadId}/processedIdempotencyKeys/{keyId} {
-//     allow read: if request.auth != null;
-//     allow write: if false; // CF-only
-//   }
-//   match /trustProfiles/{userId} {
-//     allow read: if request.auth != null;
-//     allow write: if false; // CF-only
-//   }
-//   match /crisisBulletins/{bulletinId} {
-//     allow read: if request.auth != null;
-//     allow write: if false; // CF-only
-//   }
-//   match /localePolicyPacks/{localeId} {
-//     allow read: if request.auth != null;
-//     allow write: if false; // CF-only
-//   }
-//   match /safetyAuditLog/{eventId} {
-//     allow read: if false;
-//     allow write: if false; // CF-only
-//   }
 
 import SwiftUI
 import FirebaseFirestore

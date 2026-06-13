@@ -13,6 +13,7 @@
 
 import Foundation
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Pending Upload Record
 
@@ -77,6 +78,13 @@ final class ResumableUploadManager: NSObject, ObservableObject, URLSessionTaskDe
 
     // MARK: - Public API
 
+    /// Fetches the current Firebase user's ID token without forcing a refresh.
+    /// Returns an empty string if no user is signed in or the fetch fails.
+    private func freshIdToken() async -> String {
+        guard let user = Auth.auth().currentUser else { return "" }
+        return (try? await user.getIDToken(forcingRefresh: false)) ?? ""
+    }
+
     /// Creates a resumable upload task and returns a stable task identifier.
     /// The identifier can be used to observe `progress` and match completion notifications.
     @discardableResult
@@ -84,14 +92,16 @@ final class ResumableUploadManager: NSObject, ObservableObject, URLSessionTaskDe
         localURL: URL,
         destinationStoragePath: String,
         metadata: [String: String]
-    ) -> String {
+    ) async -> String {
         let taskId = UUID().uuidString
+        let idToken = await freshIdToken()
 
         guard let request = makeUploadRequest(
             taskId: taskId,
             localURL: localURL,
             destinationStoragePath: destinationStoragePath,
-            metadata: metadata
+            metadata: metadata,
+            idToken: idToken
         ) else {
             postFailure(taskId: taskId, destinationPath: destinationStoragePath,
                         error: UploadError.invalidRequest)
@@ -151,11 +161,13 @@ final class ResumableUploadManager: NSObject, ObservableObject, URLSessionTaskDe
                         continue
                     }
 
+                    let idToken = await self.freshIdToken()
                     guard let request = self.makeUploadRequest(
                         taskId: record.taskIdentifier,
                         localURL: record.localURL,
                         destinationStoragePath: record.destinationStoragePath,
-                        metadata: record.metadata
+                        metadata: record.metadata,
+                        idToken: idToken
                     ) else {
                         self.postFailure(
                             taskId: record.taskIdentifier,
@@ -275,7 +287,8 @@ final class ResumableUploadManager: NSObject, ObservableObject, URLSessionTaskDe
         taskId: String,
         localURL: URL,
         destinationStoragePath: String,
-        metadata: [String: String]
+        metadata: [String: String],
+        idToken: String
     ) -> URLRequest? {
         // Firebase Storage REST: POST /upload/storage/v1/b/{bucket}/o?uploadType=multipart
         let encodedPath = destinationStoragePath
@@ -295,10 +308,11 @@ final class ResumableUploadManager: NSObject, ObservableObject, URLSessionTaskDe
             "multipart/related; boundary=\(boundary)",
             forHTTPHeaderField: "Content-Type"
         )
-        // Firebase Storage requires an Authorization header at runtime.
-        // The actual token is injected by AMENFirebaseAuthInterceptor (existing infra).
-        // We leave a placeholder here; the interceptor runs before the task fires.
-        request.setValue("Bearer __AMEN_ID_TOKEN__", forHTTPHeaderField: "Authorization")
+        // Inject the Firebase ID token fetched before task creation.
+        // Empty token (no signed-in user) will produce a 401 — correct behaviour.
+        if !idToken.isEmpty {
+            request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+        }
 
         // Encode custom metadata as JSON for the Firebase object metadata part.
         var firestoreMetadata: [String: Any] = [

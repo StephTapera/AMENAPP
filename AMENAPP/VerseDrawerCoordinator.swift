@@ -20,7 +20,7 @@ struct VerseDrawerCoordinator: View {
     @State private var selectedDetent: PresentationDetent = .medium
     @State private var searchText = ""
     @State private var selectedVerse: BibleVerse?
-    @State private var selectedTranslation: BibleTranslation = .NIV
+    @State private var selectedTranslation: LocalBibleTranslation = .NIV
 
     // Whether the user has manually expanded to full
     private var isExpanded: Bool { selectedDetent == .large }

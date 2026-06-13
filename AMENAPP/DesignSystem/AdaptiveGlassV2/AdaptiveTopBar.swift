@@ -91,7 +91,7 @@ public struct AdaptiveToolbarMinimizeModifier: ViewModifier {
         guard AMENFeatureFlags.shared.adaptiveGlassV2Enabled else {
             return AnyView(content)
         }
-        if #available(iOS 26, *) {
+        if #available(iOS 27, *) {
             return AnyView(content.toolbarMinimizeBehavior(.onScrollDown, for: .navigationBar))
         } else {
             return AnyView(content)

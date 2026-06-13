@@ -11,7 +11,7 @@ import SwiftUI
 struct VerseFullDrawerView: View {
     @Binding var searchText: String
     @Binding var selectedVerse: BibleVerse?
-    @Binding var translation: BibleTranslation
+    @Binding var translation: LocalBibleTranslation
     @ObservedObject var searchEngine: VerseSmartSearchEngine
     @ObservedObject var baseViewModel: AttachVerseViewModel
     
@@ -179,7 +179,7 @@ struct VerseFullDrawerView: View {
     private var translationPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(BibleTranslation.allCases, id: \.self) { trans in
+                ForEach(LocalBibleTranslation.allCases, id: \.self) { trans in
                     VerseGlassCapsuleButton(
                         trans.rawValue,
                         isSelected: translation == trans

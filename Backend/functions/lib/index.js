@@ -149,6 +149,7 @@ __exportStar(require("./antiHarassmentEnforcement"), exports);
 __exportStar(require("./accountSuspension"), exports);
 __exportStar(require("./twoFactorAuth"), exports);
 __exportStar(require("./accountLifecycle"), exports);
+__exportStar(require("./distinctives"), exports);
 // Safety Reporting — server-side report creation with validation
 // HIGH-3: submitReport callable validates reason, verifies evidence, computes
 // escalationTier and priority server-side. Direct client writes to userReports

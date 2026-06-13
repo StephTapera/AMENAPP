@@ -50,7 +50,7 @@ final class EnforcementLadderService {
         trustProfile?.accountStatus == .banned
     }
 
-    // MARK: - Capability Checks
+    // MARK: - SystemCapability Checks
 
     /// Returns true if the current user is allowed to post.
     var canPost: Bool {

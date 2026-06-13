@@ -101,6 +101,9 @@ struct CreatePostView: View {
     // MARK: - Creator Draft AI assistant
     @State private var showingCreatorDraftSheet = false
 
+    // MARK: - Testimony Editor (SELAH W4: guided 3-panel testimony composer)
+    @State private var showingTestimonyEditor = false
+
     // MARK: - Toolbar expand/collapse
     @State private var isToolbarExpanded = false
 
@@ -237,6 +240,9 @@ struct CreatePostView: View {
     @State private var isThreadMode = false
     @State private var threadPosts: [String] = [""]  // Array of thread post texts
     @State private var currentThreadIndex = 0
+
+    // MARK: - Adaptive Composer Attachments (composer_adaptive_rail flag)
+    @State private var composerAttachments: [ComposerAttachment] = []
 
     // MARK: - Smart Post Context Detection
     @State private var postDetectedItems: [DetectedPostContextItem] = []
@@ -546,9 +552,11 @@ struct CreatePostView: View {
             ComposerLinkPreview(controller: linkController)
                 .animation(.amenSpringStandard, value: linkController.activeURL)
 
-            // Inline toolbar — simple gray icons
-            threadsAttachmentBar
-                .padding(.top, 8)
+            // Inline toolbar — hidden when adaptive rail is enabled (composer_adaptive_rail flag)
+            if !AMENFeatureFlags.shared.composerAdaptiveRailEnabled {
+                threadsAttachmentBar
+                    .padding(.top, 8)
+            }
         }
     }
     
@@ -991,6 +999,14 @@ struct CreatePostView: View {
     // MARK: - Sheet Modifiers Group 2
     private func applySheetModifiers2<Content: View>(_ content: Content) -> some View {
         content
+            // SELAH W4: guided testimony editor — only shown when testimonies flag is ON
+            .sheet(isPresented: $showingTestimonyEditor) {
+                if AMENFeatureFlags.shared.testimonies {
+                    TestimonyEditorView()
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
+                }
+            }
             .sheet(isPresented: $showingMusicBrowser) {
                 MusicBrowseSheet(selectedMusic: $attachedMusic)
             }
@@ -1325,6 +1341,15 @@ struct CreatePostView: View {
                 severity: .note,
                 actions: [.openTopicTags]
             ))
+        } else if !selectedTopicTag.isEmpty,
+                  !suggestedTopicTags.isEmpty,
+                  !suggestedTopicTags.contains(selectedTopicTag) {
+            notes.append(SmartComposerReviewNote(
+                title: "Topic may not match",
+                message: "Your selected topic is \(selectedTopicTag), but this draft looks closer to \(suggestedTopicTags.prefix(2).joined(separator: " or ")).",
+                severity: .warning,
+                actions: [.openTopicTags]
+            ))
         }
 
         if postDetectedItems.contains(where: { $0.type == .link }) && linkController.activeURL == nil && linkURL.isEmpty {
@@ -1502,6 +1527,8 @@ struct CreatePostView: View {
             showSmartComposerReview = true
         case .addTopicTag:
             selectedTopicTag = item.rawValue
+        case .addVerseContext:
+            showingVersePickerSheet = true
         case .adjustAudience:
             showSmartComposerReview = true
         case .dismiss:
@@ -1956,6 +1983,13 @@ struct CreatePostView: View {
             attachmentBarIcon("sparkles", label: "Draft with Berean AI", recommended: recommended) {
                 showingCreatorDraftSheet = true
                 AMENAnalyticsService.shared.track(.commOSCreatorDraftRequested(draftType: selectedCategory.rawValue))
+            }
+
+            // SELAH W4: Guided testimony composer — only shown when testimonies flag is ON
+            if AMENFeatureFlags.shared.testimonies {
+                attachmentBarIcon("text.badge.star", label: "Write guided testimony", recommended: recommended) {
+                    showingTestimonyEditor = true
+                }
             }
 
             if AMENFeatureFlags.shared.musicAttachmentEnabled {
@@ -2835,6 +2869,15 @@ struct CreatePostView: View {
                                 }
                             }
                         }
+                        .dockedCreationRail(
+                            surface: .post,
+                            currentText: $postText,
+                            isEnabled: AMENFeatureFlags.shared.composerAdaptiveRailEnabled,
+                            onToolSelected: { _ in },
+                            onAttachmentReady: { attachment in
+                                composerAttachments.append(attachment)
+                            }
+                        )
 
                     // Placeholder overlay
                     if postText.isEmpty {

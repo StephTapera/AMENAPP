@@ -163,6 +163,7 @@ function errorPipelineOutput(trace, reason) {
             trustScore: 0,
             reviewVerdict: "error",
             isVerified: false,
+            isAiGenerated: true,
         },
         trace,
     };
@@ -212,6 +213,7 @@ async function legacyPipelineCall(input, db) {
             trustScore: 0,
             reviewVerdict: "legacy",
             isVerified: false,
+            isAiGenerated: true,
         },
         trace,
     };
@@ -246,6 +248,7 @@ async function runBereanPipeline(input, db) {
             trustScore: 0,
             reviewVerdict: "error",
             isVerified: false,
+            isAiGenerated: true,
         },
         trace: {
             traceId: "unavailable",
@@ -719,6 +722,7 @@ async function runBereanPipeline(input, db) {
             trustScore,
             reviewVerdict: reviewResult.overallVerdict,
             isVerified: reviewResult.overallVerdict !== "fail",
+            isAiGenerated: true,
         };
         // ── Write completed trace to Firestore ──────────────────────────────────
         const completedTrace = {
@@ -737,6 +741,7 @@ async function runBereanPipeline(input, db) {
             reviewVerdict: reviewResult.overallVerdict,
             intentClasses,
             isHighRisk,
+            isAiGenerated: true,
         }, { merge: true })
             .catch((err) => {
             // Non-fatal: trace write failure must not block user response.

@@ -571,7 +571,7 @@ struct PrayerRoomView: View {
             let privacyRaw = data["privacyLevel"] as? String ?? PrayerPrivacyLevel.private.rawValue
             let prayerTypeRaw = data["prayerType"] as? String ?? PrayerType.request.rawValue
             let statusRaw = data["status"] as? String
-                ?? ((data["isAnswered"] as? Bool) == true ? PrayerStatus.answered.rawValue : PrayerStatus.active.rawValue)
+                ?? ((data["isAnswered"] as? Bool) == true ? CommunityPrayerStatus.answered.rawValue : CommunityPrayerStatus.active.rawValue)
             let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
 
             prayer = PrayerRequest(
@@ -581,7 +581,7 @@ struct PrayerRoomView: View {
                 body: body,
                 prayerType: PrayerType(rawValue: prayerTypeRaw) ?? .request,
                 privacyLevel: PrayerPrivacyLevel(rawValue: privacyRaw) ?? .private,
-                status: PrayerStatus(rawValue: statusRaw) ?? .active,
+                status: CommunityPrayerStatus(rawValue: statusRaw) ?? .active,
                 partnerIds: data["partnerIds"] as? [String] ?? [],
                 reminderEnabled: data["reminderScheduled"] as? Bool ?? data["reminderEnabled"] as? Bool ?? false,
                 provenance: nil,

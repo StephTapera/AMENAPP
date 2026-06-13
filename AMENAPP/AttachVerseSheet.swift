@@ -78,7 +78,7 @@ struct AttachableVerse: Identifiable, Equatable {
     let translation: String
 }
 
-enum BibleTranslation: String, CaseIterable {
+enum LocalBibleTranslation: String, CaseIterable {
     case NIV, ESV, KJV, NKJV, NLT, NASB
 
     var apiVersion: ScripturePassage.BibleVersion {
@@ -199,7 +199,7 @@ enum LocalVerseLibrary {
 
     // MARK: - Smart fuzzy search
 
-    static func search(_ query: String, translation: BibleTranslation) -> [AttachableVerse] {
+    static func search(_ query: String, translation: LocalBibleTranslation) -> [AttachableVerse] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
 
@@ -248,7 +248,7 @@ enum LocalVerseLibrary {
 @MainActor
 class AttachVerseViewModel: ObservableObject {
     @Published var searchText = ""
-    @Published var selectedTranslation: BibleTranslation = .NIV
+    @Published var selectedTranslation: LocalBibleTranslation = .NIV
     @Published var results: [AttachableVerse] = []
     @Published var selectedVerse: AttachableVerse? = nil
     @Published var isLoading = false
@@ -471,7 +471,7 @@ struct AttachVerseSheet: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(BibleTranslation.allCases, id: \.self) { t in
+                    ForEach(LocalBibleTranslation.allCases, id: \.self) { t in
                         Button {
                             withAnimation(Motion.adaptive(.spring(response: 0.25, dampingFraction: 0.75))) {
                                 vm.selectedTranslation = t

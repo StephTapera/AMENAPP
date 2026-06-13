@@ -4,7 +4,7 @@
 // Phase 1 Core Spine: resolves the capability set for a given
 // (objectType, viewerRole, audience) triple.
 //
-// Source contracts: C1 §2 "Shared Capability Set" capability table.
+// Source contracts: C1 §2 "Shared SystemCapability Set" capability table.
 // `ContentAudience` is defined in ContentOSModels.swift — not redefined here.
 
 import Foundation

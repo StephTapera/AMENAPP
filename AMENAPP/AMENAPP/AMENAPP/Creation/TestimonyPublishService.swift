@@ -1,5 +1,5 @@
-// TestimonyPublishService.swift
-// AMEN App — Testimony publish + C2PA provenance pipeline
+// CreationTestimonyPublishService.swift
+// AMEN App — CreationTestimony publish + C2PA provenance pipeline
 //
 // C2PA provenance manifest is non-negotiable:
 //   publish() ALWAYS fails with an error if c2paManifestRef is empty.
@@ -54,7 +54,7 @@ final class TestimonyPublishService: ObservableObject {
     /// Calls the generateC2PAManifest Cloud Function.
     /// Returns the manifestRef string (e.g. "c2paManifests/testimonyId").
     /// Throws TestimonyPublishError.manifestGenerationFailed on any failure.
-    func prepareManifest(for testimony: Testimony) async throws -> String {
+    func prepareManifest(for testimony: CreationTestimony) async throws -> String {
         guard AMENFeatureFlags.shared.testimonies else {
             throw TestimonyPublishError.flagDisabled
         }
@@ -89,7 +89,7 @@ final class TestimonyPublishService: ObservableObject {
 
     /// Writes testimony to Firestore at testimonies/{id}.
     /// Hard-fails if c2paManifestRef is empty — no bypass.
-    func publish(_ testimony: Testimony) async throws {
+    func publish(_ testimony: CreationTestimony) async throws {
         guard AMENFeatureFlags.shared.testimonies else {
             throw TestimonyPublishError.flagDisabled
         }
@@ -105,7 +105,7 @@ final class TestimonyPublishService: ObservableObject {
 
         var mutableTestimony = testimony
         // Ensure author is the authenticated user
-        mutableTestimony = Testimony(
+        mutableTestimony = CreationTestimony(
             id: testimony.id,
             authorUid: uid,
             before: testimony.before,
@@ -146,7 +146,7 @@ final class TestimonyPublishService: ObservableObject {
     // MARK: - Fetch
 
     /// Fetches the authenticated user's published testimonies as an async stream.
-    func myTestimonies(uid: String) -> AsyncThrowingStream<[Testimony], Error> {
+    func myTestimonies(uid: String) -> AsyncThrowingStream<[CreationTestimony], Error> {
         AsyncThrowingStream { continuation in
             let listener = db.collection("testimonies")
                 .whereField("authorUid", isEqualTo: uid)
@@ -160,7 +160,7 @@ final class TestimonyPublishService: ObservableObject {
                         continuation.yield([])
                         return
                     }
-                    let testimonies: [Testimony] = docs.compactMap { doc in
+                    let testimonies: [CreationTestimony] = docs.compactMap { doc in
                         let d = doc.data()
                         guard
                             let id = d["id"] as? String,
@@ -177,7 +177,7 @@ final class TestimonyPublishService: ObservableObject {
                             let ts = d["createdAt"] as? Timestamp
                         else { return nil }
 
-                        return Testimony(
+                        return CreationTestimony(
                             id: id,
                             authorUid: authorUid,
                             before: TestimonySection(

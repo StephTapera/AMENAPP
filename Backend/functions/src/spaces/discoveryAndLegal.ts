@@ -168,6 +168,30 @@ export const activateSpaceMembership = onCall(
             throw new HttpsError("not-found", "Space not found.");
         }
 
+        // C60: Youth Interaction Shield — block private-Space joins that would
+        // allow an unverified adult to reach a youth user via Space channels.
+        // Public community Spaces (isPublic: true) are not a DM bypass vector;
+        // only private Spaces (isPublic: false) require this check.
+        const spaceData = spaceSnap.data() ?? {};
+        if (!spaceData.isPublic) {
+            const youthProfileSnap = await db.doc(`youthModeProfiles/${uid}`).get();
+            if (youthProfileSnap.exists) {
+                const youthProfile = youthProfileSnap.data() ?? {};
+                if (youthProfile.dmPolicy === "verifiedAdultsBlocked") {
+                    const spaceCreatorUid: string = spaceData.createdBy ?? "";
+                    if (spaceCreatorUid && spaceCreatorUid !== uid) {
+                        const creatorSnap = await db.doc(`users/${spaceCreatorUid}`).get();
+                        const creatorAgeVerified = creatorSnap.data()?.ageVerified === true;
+                        if (!creatorAgeVerified) {
+                            // Silent block: do NOT expose youth status to the creator.
+                            // From the youth user's client this throws; the creator sees nothing.
+                            throw new HttpsError("permission-denied", "Space not available.");
+                        }
+                    }
+                }
+            }
+        }
+
         await db.doc(`spaces/${spaceId}/members/${uid}`).set({
             userId: uid,
             tierId,

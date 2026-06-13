@@ -24,7 +24,7 @@ class VerseSmartSearchEngine: ObservableObject {
     )
     
     /// Main search entry point with intelligent routing
-    func search(query: String, translation: BibleTranslation, baseViewModel: AttachVerseViewModel) async {
+    func search(query: String, translation: LocalBibleTranslation, baseViewModel: AttachVerseViewModel) async {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             results = []
@@ -82,7 +82,7 @@ class VerseSmartSearchEngine: ObservableObject {
         return regex.firstMatch(in: text, options: [], range: range) != nil
     }
     
-    private func searchByReference(_ ref: String, translation: BibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
+    private func searchByReference(_ ref: String, translation: LocalBibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
         do {
             let passage = try await YouVersionBibleService.shared.fetchVerse(
                 reference: ref,
@@ -114,7 +114,7 @@ class VerseSmartSearchEngine: ObservableObject {
         return nil
     }
     
-    private func searchByTopic(_ topic: VerseTopic, translation: BibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
+    private func searchByTopic(_ topic: VerseTopic, translation: LocalBibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
         // Use first few keywords to search
         let primaryKeywords = Array(topic.keywords.prefix(3)).joined(separator: " ")
         return await searchByKeyword(primaryKeywords, translation: translation, baseViewModel: baseViewModel)
@@ -135,7 +135,7 @@ class VerseSmartSearchEngine: ObservableObject {
         return nil
     }
     
-    private func searchByPerson(_ person: BiblicalPerson, translation: BibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
+    private func searchByPerson(_ person: BiblicalPerson, translation: LocalBibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
         // Search using person's primary name
         let searchTerm = person.searchTerms.first ?? person.rawValue
         return await searchByKeyword(searchTerm, translation: translation, baseViewModel: baseViewModel)
@@ -164,7 +164,7 @@ class VerseSmartSearchEngine: ObservableObject {
         return nil
     }
     
-    private func searchBySeasonal(_ seasonal: SeasonalContext, translation: BibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
+    private func searchBySeasonal(_ seasonal: SeasonalContext, translation: LocalBibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
         // Use seasonal keywords
         let keywords = seasonal.keywords.prefix(2).joined(separator: " ")
         return await searchByKeyword(keywords, translation: translation, baseViewModel: baseViewModel)
@@ -172,7 +172,7 @@ class VerseSmartSearchEngine: ObservableObject {
     
     // MARK: - General Keyword Search
     
-    private func searchByKeyword(_ query: String, translation: BibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
+    private func searchByKeyword(_ query: String, translation: LocalBibleTranslation, baseViewModel: AttachVerseViewModel) async -> [BibleVerse] {
         do {
             let passages = try await YouVersionBibleService.shared.searchVerses(
                 query: query,
@@ -257,7 +257,7 @@ class VerseSmartSearchEngine: ObservableObject {
     
     // MARK: - Quick Popular/Recent Suggestions
     
-    func getPopularVerses(translation: BibleTranslation) -> [SmartVerseResult] {
+    func getPopularVerses(translation: LocalBibleTranslation) -> [SmartVerseResult] {
         let popular = [
             "John 3:16",
             "Philippians 4:13",
@@ -279,7 +279,7 @@ class VerseSmartSearchEngine: ObservableObject {
         }
     }
 
-    func getTopicalSuggestions(topic: VerseTopic, translation: BibleTranslation) -> [SmartVerseResult] {
+    func getTopicalSuggestions(topic: VerseTopic, translation: LocalBibleTranslation) -> [SmartVerseResult] {
         let keywords = topic.keywords.first ?? topic.rawValue
         let verses = LocalVerseLibrary.search(keywords, translation: translation).map { makeBibleVerse(from: $0) }
 
