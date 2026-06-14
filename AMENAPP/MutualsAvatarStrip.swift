@@ -10,12 +10,7 @@
 
 import SwiftUI
 
-// MARK: - Safe subscript
-
-private extension Array {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
+// subscript(safe:) — canonical definition in SafeSubscriptExtension.swift
 }
 
 // MARK: - Main Strip

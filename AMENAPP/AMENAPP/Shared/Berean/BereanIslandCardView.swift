@@ -30,7 +30,11 @@ struct IslandCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24))
         // VoiceOver: expose actions via the custom-action rotor so assistive
         // technology can reach them without swiping into the scroll view.
+        // VoiceOver: card is a single element whose double-tap activates the first action
+        // (typically Save). The custom-action rotor covers all remaining actions.
         .accessibilityElement(children: .contain)
+        .accessibilityActivationPoint(CGPoint(x: 0.5, y: 0.5))
+        .accessibilityAddTraits(.isButton)
         .accessibilityActions {
             ForEach(card.actions, id: \.self) { action in
                 Button(action.accessibilityLabel) { onAction(action) }

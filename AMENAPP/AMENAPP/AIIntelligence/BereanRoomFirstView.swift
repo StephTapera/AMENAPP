@@ -77,7 +77,7 @@ struct BereanRoomFirstView: View {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
                     .font(.caption)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                 Text("Berean's perspective")
                     .font(.caption)
                     .fontWeight(.semibold)

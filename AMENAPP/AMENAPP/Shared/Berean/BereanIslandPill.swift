@@ -151,7 +151,7 @@ private struct CompactPill: View {
                 }
             }
             .padding(.horizontal, 16)
-            .frame(height: 44)
+            .frame(minHeight: 44)       // minHeight allows text to expand at large AX sizes
             .background(.ultraThinMaterial)
             .clipShape(Capsule())
             .overlay(Capsule().stroke(.separator, lineWidth: 0.5))
@@ -334,7 +334,7 @@ private struct LiveSessionBar: View {
             .accessibilityLabel("End \(session.statusLine)")
         }
         .padding(.horizontal, 16)
-        .frame(height: 52)
+        .frame(minHeight: 52)
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
         .overlay(Capsule().stroke(.separator, lineWidth: 0.5))

@@ -130,7 +130,7 @@ struct VerseLookupView: View {
                 .accessibilityHidden(true)
             Text("Find a verse")
                 .font(.headline)
-            Text("Try "John 3:16" for a specific reference, or "God is love" to search by keyword.")
+            Text("Try \u{201C}John 3:16\u{201D} for a specific reference, or \u{201C}God is love\u{201D} to search by keyword.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

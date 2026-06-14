@@ -14,7 +14,7 @@ import FirebaseFirestore
 
 // MARK: - Models
 
-struct PrayerChain: Identifiable, Codable {
+struct LegacyPrayerChain: Identifiable, Codable {
     var id: String = UUID().uuidString
     var title: String
     var description: String
@@ -85,8 +85,8 @@ class PrayerChainService: ObservableObject {
     private lazy var db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
-    @Published var activeChains: [PrayerChain] = []
-    @Published var myChains: [PrayerChain] = []
+    @Published var activeChains: [LegacyPrayerChain] = []
+    @Published var myChains: [LegacyPrayerChain] = []
     @Published var isLoading = false
 
     private init() {}
@@ -96,13 +96,13 @@ class PrayerChainService: ObservableObject {
     func createChain(
         title: String,
         description: String,
-        category: PrayerChain.PrayerChainCategory,
+        category: LegacyPrayerChain.PrayerChainCategory,
         isPrivate: Bool,
         scheduledAt: Date? = nil
     ) async throws -> String {
         guard let user = Auth.auth().currentUser else { throw PrayerChainError.notAuthenticated }
 
-        let chain = PrayerChain(
+        let chain = LegacyPrayerChain(
             title: title,
             description: description,
             creatorId: user.uid,
@@ -154,7 +154,7 @@ class PrayerChainService: ObservableObject {
 
     func startChain(_ chainId: String) async throws {
         try await db.collection("prayerChains").document(chainId).updateData([
-            "status": PrayerChain.ChainStatus.active.rawValue,
+            "status": LegacyPrayerChain.ChainStatus.active.rawValue,
             "currentIndex": 0
         ])
         // Notify first participant via Cloud Function
@@ -167,7 +167,7 @@ class PrayerChainService: ObservableObject {
 
         let ref = db.collection("prayerChains").document(chainId)
         let doc = try await ref.getDocument()
-        guard var chain = try? doc.data(as: PrayerChain.self) else { return }
+        guard var chain = try? doc.data(as: LegacyPrayerChain.self) else { return }
 
         // Mark current participant as completed
         if let idx = chain.participants.firstIndex(where: { $0.id == uid && $0.status == .active }) {
@@ -201,14 +201,14 @@ class PrayerChainService: ObservableObject {
 
         listener = db.collection("prayerChains")
             .whereField("status", in: [
-                PrayerChain.ChainStatus.gathering.rawValue,
-                PrayerChain.ChainStatus.active.rawValue
+                LegacyPrayerChain.ChainStatus.gathering.rawValue,
+                LegacyPrayerChain.ChainStatus.active.rawValue
             ])
             .order(by: "createdAt", descending: true)
             .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self, let docs = snapshot?.documents else { return }
-                let chains = docs.compactMap { try? $0.data(as: PrayerChain.self) }
+                let chains = docs.compactMap { try? $0.data(as: LegacyPrayerChain.self) }
                 self.activeChains = chains.filter { !$0.isPrivate || $0.participants.contains(where: { $0.id == uid }) }
                 self.myChains = chains.filter { $0.creatorId == uid || $0.participants.contains(where: { $0.id == uid }) }
                 self.isLoading = false

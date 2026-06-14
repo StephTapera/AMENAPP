@@ -1,9 +1,21 @@
 // BereanIslandStateMachine.swift
 // AMEN — Berean Island Wave 1
 //
-// @Observable state machine for the Berean Island in-app pill.
-// Enforces: ≤3 proactive suggestions/day, quiet hours (10 PM–7 AM),
-// Sabbath mode passthrough, consumed-ID dedup, cross-launch persistence.
+// @Observable @MainActor state machine for the Berean Island in-app pill.
+//
+// Gate invariants (all must pass before fire() changes state):
+//   1. Consumed-ID dedup   — each trigger ID fires at most once ever.
+//   2. Daily promo cap     — ≤3 proactive suggestions per calendar day (local timezone).
+//                           Counter persisted in UserDefaults; resets at local midnight.
+//   3. Quiet hours         — blocked 22:00–07:00 local time (hour >= 22 || hour < 7).
+//   4. Sabbath mode        — delegates to SabbathModeService.shared.currentState.
+//                           Sabbath window = Sunday 00:00–24:00, user's local timezone.
+//                           User can change the Sabbath day in Settings (SabbathModeService
+//                           stores the preference). Sundown convention is NOT used unless the
+//                           existing SabbathModeService adopts it — we delegate entirely.
+//
+// Live session staleness: sessions older than maxLiveSessionAge (30 min) are discarded
+// on restore. Dead sessions are never resurrected.
 //
 // Feature flag: AMENFeatureFlags.bereanIslandEnabled
 
@@ -29,9 +41,10 @@ final class IslandStateMachine {
 
     // MARK: - Constants
 
-    private static let dailyPromoLimit = 3
-    private static let quietStart      = 22   // 10 PM
-    private static let quietEnd        = 7    // 7 AM
+    private static let dailyPromoLimit      = 3
+    private static let quietStart           = 22   // 10 PM (22:00)
+    private static let quietEnd             = 7    // 7 AM  (07:00) — quiet when h >= 22 || h < 7
+    private static let maxLiveSessionAge    = TimeInterval(30 * 60) // 30 minutes
 
     // MARK: - Init
 
@@ -159,6 +172,13 @@ final class IslandStateMachine {
             let data = UserDefaults.standard.data(forKey: Key.liveSession),
             let session = try? JSONDecoder().decode(IslandLiveSession.self, from: data)
         else { return }
+
+        // Discard stale sessions — never resurface a session older than maxLiveSessionAge.
+        guard Date().timeIntervalSince(session.startedAt) < Self.maxLiveSessionAge else {
+            UserDefaults.standard.removeObject(forKey: Key.liveSession)
+            return
+        }
+
         state = .live(session: session)
     }
 }

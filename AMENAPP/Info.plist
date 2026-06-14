@@ -51,6 +51,8 @@
 	<false/>
 	<key>GOOGLE_VISION_API_KEY</key>
 	<string>$(GOOGLE_VISION_API_KEY)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Berean Lens uses the camera to analyze scripture, sermon content, and events in your environment.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>Lets you export trusted contacts for offline access during emergencies — contacts never leave your device except in the file you explicitly save.</string>
 	<key>NSUserActivityTypes</key>

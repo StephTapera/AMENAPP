@@ -8,14 +8,7 @@
 
 import SwiftUI
 
-// MARK: - Array safe subscript
-
-extension Array {
-    /// Returns the element at `index` if the index is valid, otherwise `nil`.
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
+// subscript(safe:) — canonical definition in SafeSubscriptExtension.swift
 
 // MARK: - PrayerFollowUpBanner
 

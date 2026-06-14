@@ -178,9 +178,9 @@ struct BereanLensView: View {
                     resultCard = card
                     isAnalyzing = false
                 }
-            } catch is LensError {
+            } catch let le as LensError {
                 await MainActor.run {
-                    analysisError = lensErrorMessage(error as! LensError)
+                    analysisError = lensErrorMessage(le)
                     isAnalyzing = false
                 }
             } catch {

@@ -253,7 +253,8 @@ struct InboxSwipeRow<Content: View>: View {
                     }
                 }
                 .foregroundStyle(.white)
-                .frame(width: w, maxHeight: .infinity)
+                .frame(width: w)
+                .frame(maxHeight: .infinity)
                 .background(color)
                 .contentShape(Rectangle())
             }

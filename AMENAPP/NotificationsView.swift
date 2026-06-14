@@ -1641,11 +1641,7 @@ private struct FollowBackButton: View {
     }
 }
 
-// MARK: - Safe Array subscript (notifications)
-private extension Array {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
+// subscript(safe:) — canonical definition in SafeSubscriptExtension.swift
 }
 
 // MARK: - Quick Actions Sheet

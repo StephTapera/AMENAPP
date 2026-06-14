@@ -10,7 +10,7 @@ import SwiftUI
 struct PrayerChainView: View {
     @StateObject private var service = PrayerChainService.shared
     @State private var showCreateSheet = false
-    @State private var selectedChain: PrayerChain?
+    @State private var selectedChain: LegacyPrayerChain?
 
     var body: some View {
         ScrollView {
@@ -109,7 +109,7 @@ struct PrayerChainView: View {
 // MARK: - Chain Card
 
 struct PrayerChainCard: View {
-    let chain: PrayerChain
+    let chain: LegacyPrayerChain
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -210,7 +210,7 @@ struct CreatePrayerChainSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var description = ""
-    @State private var category: PrayerChain.PrayerChainCategory = .intercession
+    @State private var category: LegacyPrayerChain.PrayerChainCategory = .intercession
     @State private var isPrivate = false
     @State private var isCreating = false
 
@@ -227,7 +227,7 @@ struct CreatePrayerChainSheet: View {
 
                 Section {
                     Picker("Category", selection: $category) {
-                        ForEach(PrayerChain.PrayerChainCategory.allCases, id: \.self) { cat in
+                        ForEach(LegacyPrayerChain.PrayerChainCategory.allCases, id: \.self) { cat in
                             Label(cat.rawValue, systemImage: cat.icon).tag(cat)
                         }
                     }
@@ -269,7 +269,7 @@ struct CreatePrayerChainSheet: View {
 // MARK: - Detail Sheet
 
 struct PrayerChainDetailSheet: View {
-    let chain: PrayerChain
+    let chain: LegacyPrayerChain
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

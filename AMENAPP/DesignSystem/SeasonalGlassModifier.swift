@@ -61,26 +61,4 @@ extension View {
     }
 }
 
-// MARK: - Color hex initializer (local, avoids re-declaring if already elsewhere)
-//
-// If Color(hex:) is already declared in the project, this extension will
-// conflict and should be removed. The pattern is shared across the codebase;
-// check for an existing Color+Hex.swift before keeping this copy.
-
-private extension Color {
-    /// Initialises a Color from a hex string like "#3B1F6E" or "3B1F6E".
-    /// Returns Color.clear for malformed input (fails closed — never crashes).
-    init(hex: String) {
-        let sanitised = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "#", with: "")
-        guard sanitised.count == 6,
-              let value = UInt64(sanitised, radix: 16) else {
-            self = .clear
-            return
-        }
-        let r = Double((value >> 16) & 0xFF) / 255.0
-        let g = Double((value >> 8)  & 0xFF) / 255.0
-        let b = Double(value          & 0xFF) / 255.0
-        self = Color(red: r, green: g, blue: b)
-    }
-}
+// Color(hex:) — canonical definition in Color+Hex.swift; local copy removed.

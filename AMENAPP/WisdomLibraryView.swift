@@ -1195,13 +1195,7 @@ private struct WLErrorRetryView: View {
     }
 }
 
-// MARK: - Safe Array Index
-
-private extension Array {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
+// subscript(safe:) — canonical definition lives in SafeSubscriptExtension.swift
 
 // MARK: - Analytics stub (defined in AffiliateLinkBuilder.swift)
 // WLBookAnalytics used above references the enum defined in AffiliateLinkBuilder.swift
