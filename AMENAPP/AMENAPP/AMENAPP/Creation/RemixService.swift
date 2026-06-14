@@ -18,7 +18,7 @@ final class RemixService: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let functions = Functions.functions(region: "us-central1")
+    private let functions = Functions.functions(region: "us-east1")
     private let db = Firestore.firestore()
 
     // MARK: - Create Remix

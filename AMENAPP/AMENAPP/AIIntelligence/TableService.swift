@@ -16,7 +16,7 @@ final class TableService: ObservableObject {
     // MARK: - Dependencies
 
     private let db = Firestore.firestore()
-    private let functions = Functions.functions(region: "us-central1")
+    private let functions = Functions.functions(region: "us-east1")
 
     // MARK: - Create
 
@@ -86,8 +86,9 @@ final class TableService: ObservableObject {
         }
 
         // Server-side transaction via Cloud Function (authoritative).
+        // uid is NOT passed in the payload — the CF reads it from request.auth.uid.
         let callable = functions.httpsCallable("joinTable")
-        _ = try await callable.call(["tableId": tableId, "uid": uid])
+        _ = try await callable.call(["tableId": tableId])
     }
 
     // MARK: - Leave

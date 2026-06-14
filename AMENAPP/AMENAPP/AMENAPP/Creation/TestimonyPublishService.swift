@@ -10,6 +10,8 @@
 //                             → returns manifestRef string
 //   2. publish(_:)            → hard-fails if manifestRef is empty
 //                             → writes to testimonies/{id}
+//                             → writes remix lineage record (root artifact)
+//                               when selah_remix_lineage flag is ON
 //
 // Flag-gated: AMENFeatureFlags.shared.testimonies
 
@@ -46,7 +48,7 @@ final class TestimonyPublishService: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let functions = Functions.functions(region: "us-central1")
+    private let functions = Functions.functions(region: "us-east1")
     private let db = Firestore.firestore()
 
     // MARK: - C2PA Manifest
@@ -140,6 +142,20 @@ final class TestimonyPublishService: ObservableObject {
             try await db.collection("testimonies").document(mutableTestimony.id).setData(docData)
         } catch {
             throw TestimonyPublishError.firestoreWriteFailed(error.localizedDescription)
+        }
+
+        // Remix lineage: seed the root artifact record so future "Build upon this"
+        // taps have a valid lineage chain to attach to. Fires only when the flag is
+        // ON; a failure here is non-fatal (publish already succeeded).
+        if AMENFeatureFlags.shared.remixLineage {
+            Task {
+                let remixService = RemixService()
+                _ = try? await remixService.createRemix(
+                    parentArtifactId: mutableTestimony.id,
+                    childArtifactId: mutableTestimony.id,
+                    creatorUid: uid
+                )
+            }
         }
     }
 

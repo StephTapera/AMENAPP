@@ -19,7 +19,7 @@ final class FeedExplanationService: ObservableObject, FeedTransparencyProviding 
     static let shared = FeedExplanationService()
 
     private let db = Firestore.firestore()
-    private let functions = Functions.functions()
+    private let functions = Functions.functions(region: "us-east1")
 
     // In-memory cache to avoid redundant Firestore reads within a session.
     private var cache: [String: FeedExplanation] = [:]

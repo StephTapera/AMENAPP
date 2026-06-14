@@ -21,7 +21,7 @@ import FirebaseAuth
 final class AegisC59Detector: ObservableObject, AegisPatternDetecting {
 
     static let shared = AegisC59Detector()
-    private let functions = Functions.functions()
+    private let functions = Functions.functions(region: "us-east1")
     private init() {}
 
     // MARK: - C59: Spiritual Abuse Pattern Detection

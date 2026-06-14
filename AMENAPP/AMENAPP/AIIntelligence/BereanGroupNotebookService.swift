@@ -39,7 +39,7 @@ final class BereanGroupNotebookService: ObservableObject {
     static let shared = BereanGroupNotebookService()
 
     private let db = Firestore.firestore()
-    private lazy var functions = Functions.functions(region: "us-central1")
+    private lazy var functions = Functions.functions(region: "us-east1")
 
     @Published var isLoading = false
     @Published var errorMessage: String?
