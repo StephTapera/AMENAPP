@@ -39,7 +39,7 @@ struct BASTopBarStudyAccessory: BASTopBarAccessoryProvider {
                         selectedTranslation = t
                     } label: {
                         Text(t)
-                            .font(.system(size: 12, weight: selectedTranslation == t ? .semibold : .regular))
+                            .font(.caption.weight(selectedTranslation == t ? .semibold : .regular))
                             .foregroundStyle(
                                 selectedTranslation == t ? Color.white : Color.basInk.opacity(0.75)
                             )
@@ -53,7 +53,8 @@ struct BASTopBarStudyAccessory: BASTopBarAccessoryProvider {
                             )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(t) translation")
+                    .accessibilityLabel("\(t) translation\(selectedTranslation == t ? ", selected" : "")")
+                    .accessibilityHint(selectedTranslation == t ? "" : "Switches Bible translation to \(t)")
                     .accessibilityAddTraits(selectedTranslation == t ? [.isSelected, .isButton] : .isButton)
                 }
             }
@@ -72,10 +73,10 @@ struct BASTopBarPrivateAccessory: BASTopBarAccessoryProvider {
     @ViewBuilder func accessoryContent() -> some View {
         HStack(spacing: 5) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundStyle(Color.basWineRed)
             Text("Private")
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundStyle(Color.basInk.opacity(0.75))
         }
         .accessibilityLabel(accessibilityLabel)
@@ -97,10 +98,10 @@ struct BASTopBarSafetyAccessory: BASTopBarAccessoryProvider {
     @ViewBuilder func accessoryContent() -> some View {
         HStack(spacing: 5) {
             Image(systemName: isPassing ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundStyle(isPassing ? Color.green : Color.orange)
             Text(isPassing ? "Safety: Passing" : "Review needed")
-                .font(.system(size: 12, weight: .medium))
+                .font(.caption.weight(.medium))
                 .foregroundStyle(Color.basInk.opacity(0.75))
         }
         .accessibilityLabel(isPassing
@@ -129,7 +130,7 @@ struct BASTopBarAgentAccessory: BASTopBarAccessoryProvider {
             if reduceMotion {
                 // Static indicator for reduced-motion preference
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(Color.basInk.opacity(0.6))
             } else {
                 // Animated three-dot loader
@@ -152,7 +153,7 @@ struct BASTopBarAgentAccessory: BASTopBarAccessoryProvider {
             }
 
             Text("Berean is working\u{2026}")
-                .font(.system(size: 12, weight: .medium))
+                .font(.caption.weight(.medium))
                 .foregroundStyle(Color.basInk.opacity(0.65))
         }
         .accessibilityLabel(accessibilityLabel)
@@ -222,8 +223,9 @@ struct BereanAgentTopBarView: View {
                 .accessibilityAddTraits(.isHeader)
 
             Image(systemName: "hands.sparkles")
-                .font(.system(size: 14, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundStyle(Color.basWineRed)
+                .accessibilityHidden(true)
         }
         .accessibilityLabel("Berean")
         .accessibilityAddTraits(.isHeader)
@@ -259,9 +261,9 @@ struct BereanAgentTopBarView: View {
 
     private var privateLockIcon: some View {
         Image(systemName: "lock.fill")
-            .font(.system(size: 14, weight: .medium))
+            .font(.footnote.weight(.medium))
             .foregroundStyle(Color.basInk.opacity(0.55))
-            .accessibilityLabel("Private mode")
+            .accessibilityLabel("Private mode active")
             .accessibilityAddTraits(.isStaticText)
     }
 }

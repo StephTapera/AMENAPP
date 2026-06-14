@@ -121,7 +121,7 @@ struct BereanAgentWorkspacesView: View {
                     ScrollView(.vertical, showsIndicators: false) {
                         LazyVStack(spacing: 12) {
                             if filteredWorkspaces.isEmpty {
-                                emptyState
+                                emptyState(for: selectedTab)
                                     .padding(.top, 40)
                             } else {
                                 ForEach(filteredWorkspaces) { workspace in
@@ -150,6 +150,7 @@ struct BereanAgentWorkspacesView: View {
                             .foregroundStyle(Color.basWineRed)
                     }
                     .accessibilityLabel("New Workspace")
+                    .accessibilityHint("Opens a sheet to create a new workspace")
                 }
             }
             .sheet(isPresented: $showCreate) {
@@ -201,29 +202,70 @@ struct BereanAgentWorkspacesView: View {
                                     )
                             )
                     }
-                    .accessibilityLabel("\(tab.displayName), \(isSelected ? "selected" : "")")
+                    .accessibilityLabel("\(tab.displayName)\(isSelected ? ", selected" : "")")
+                    .accessibilityHint(isSelected ? "" : "Filters workspaces to \(tab.displayName)")
+                    .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
                 }
             }
             .padding(.horizontal, 16)
         }
     }
 
-    // MARK: Empty State
+    // MARK: Empty States (per-tab)
 
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "rectangle.stack")
-                .font(.system(size: 44))
-                .foregroundStyle(Color.basInk.opacity(0.25))
-                .accessibilityHidden(true)
-            Text("No items in this workspace yet.")
-                .font(.subheadline)
-                .foregroundStyle(Color.basInk.opacity(0.5))
-                .multilineTextAlignment(.center)
+    @ViewBuilder
+    private func emptyState(for tab: BASWorkspaceTab) -> some View {
+        switch tab {
+        case .allContent, .createdByYou, .sharedWithYou, .church:
+            BASWorkspaceEmptyState(
+                icon: "rectangle.stack",
+                heading: "Your workspace is empty.",
+                subtext: "Create a Bible study, sermon workspace, or prayer group to get started.",
+                buttonLabel: "Create Workspace",
+                accessibilityDescription: "Your workspace is empty. Create a Bible study, sermon workspace, or prayer group to get started.",
+                onAction: { showCreate = true }
+            )
+
+        case .bibleStudies:
+            BASWorkspaceEmptyState(
+                icon: "book.closed",
+                heading: "No Bible studies yet.",
+                subtext: "Create one or ask Berean to help plan your next study.",
+                buttonLabel: "Start a Study",
+                accessibilityDescription: "No Bible studies yet. Create one or ask Berean to help plan your next study.",
+                onAction: { showCreate = true }
+            )
+
+        case .sermons:
+            BASWorkspaceEmptyState(
+                icon: "waveform.and.mic",
+                heading: "No sermons yet.",
+                subtext: "Berean can help outline your message — just tell it your passage and theme.",
+                buttonLabel: "Start Sermon Notes",
+                accessibilityDescription: "No sermons yet. Berean can help outline your message — just tell it your passage and theme.",
+                onAction: { showCreate = true }
+            )
+
+        case .prayerGroups:
+            BASWorkspaceEmptyState(
+                icon: "hands.and.sparkles",
+                heading: "No prayer groups yet.",
+                subtext: "Create a prayer room and invite your group.",
+                buttonLabel: "Create Prayer Room",
+                accessibilityDescription: "No prayer groups yet. Create a prayer room and invite your group.",
+                onAction: { showCreate = true }
+            )
+
+        case .devotionals:
+            BASWorkspaceEmptyState(
+                icon: "sunrise",
+                heading: "No devotionals yet.",
+                subtext: "Berean can help create a personal devotional plan.",
+                buttonLabel: "Create Devotional",
+                accessibilityDescription: "No devotionals yet. Berean can help create a personal devotional plan.",
+                onAction: { showCreate = true }
+            )
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("No items in this workspace yet.")
     }
 }
 
@@ -326,7 +368,7 @@ private extension BASWorkspaceRole {
     var chipForeground: Color {
         switch self {
         case .owner:        return Color.basWineRed
-        case .pastorAdmin:  return Color(hex: "92400E")   // amber-800-equivalent
+        case .pastorAdmin:  return Color(.systemOrange)
         case .contributor:  return Color.secondary
         case .viewer:       return Color.secondary
         case .prayerOnly:   return Color.secondary
@@ -336,7 +378,7 @@ private extension BASWorkspaceRole {
     var chipBackground: Color {
         switch self {
         case .owner:        return Color.basWineRed.opacity(0.12)
-        case .pastorAdmin:  return Color(hex: "FDE68A").opacity(0.45)  // amber tint
+        case .pastorAdmin:  return Color(.systemOrange).opacity(0.15)
         case .contributor:  return Color.basTan.opacity(0.7)
         case .viewer:       return Color.basTan.opacity(0.55)
         case .prayerOnly:   return Color.basTan.opacity(0.55)
@@ -351,6 +393,68 @@ private extension BASWorkspaceRole {
         case .viewer:       return "Viewer"
         case .prayerOnly:   return "Prayer Only"
         }
+    }
+}
+
+// MARK: - Workspace Empty State Component
+
+/// Reusable warm, faith-oriented empty state card for workspace tabs.
+/// Action button is wine-red filled pill; voice is direct and specific.
+private struct BASWorkspaceEmptyState: View {
+
+    let icon: String
+    let heading: String
+    let subtext: String
+    let buttonLabel: String
+    let accessibilityDescription: String
+    let onAction: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: icon)
+                .font(.largeTitle.weight(.light))
+                .foregroundStyle(Color.basInk.opacity(0.22))
+                .accessibilityHidden(true)
+
+            VStack(spacing: 8) {
+                Text(heading)
+                    .font(.system(.headline, design: .default, weight: .semibold))
+                    .foregroundStyle(Color.basInk)
+                    .multilineTextAlignment(.center)
+
+                Text(subtext)
+                    .font(.subheadline)
+                    .foregroundStyle(Color.basInk.opacity(0.55))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: onAction) {
+                Text(buttonLabel)
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 13)
+                    .background(
+                        Capsule()
+                            .fill(Color.basWineRed)
+                            .shadow(color: Color.basWineRed.opacity(0.28), radius: 8, x: 0, y: 3)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(accessibilityDescription)
+            .accessibilityHint("Double-tap to proceed")
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 36)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .animation(
+            reduceMotion ? nil : Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8)),
+            value: heading
+        )
     }
 }
 

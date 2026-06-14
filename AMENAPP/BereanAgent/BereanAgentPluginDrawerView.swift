@@ -92,7 +92,7 @@ struct BereanAgentPluginDrawerView: View {
     private var searchBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .regular))
+                .font(.subheadline.weight(.regular))
                 .foregroundStyle(Color.basInk.opacity(0.45))
                 .accessibilityHidden(true)
 
@@ -109,7 +109,7 @@ struct BereanAgentPluginDrawerView: View {
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
+                        .font(.subheadline)
                         .foregroundStyle(Color.basInk.opacity(0.4))
                 }
                 .accessibilityLabel("Clear search")
@@ -167,11 +167,11 @@ struct BereanAgentPluginDrawerView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 28, weight: .light))
+                .font(.title2.weight(.light))
                 .foregroundStyle(Color.basInk.opacity(0.25))
                 .accessibilityHidden(true)
 
-            Text("No tools match \"\(searchText)\".")
+            Text("No tools match your search.")
                 .font(.subheadline)
                 .foregroundStyle(Color.basInk.opacity(0.5))
 
@@ -182,8 +182,9 @@ struct BereanAgentPluginDrawerView: View {
         .multilineTextAlignment(.center)
         .padding(.horizontal, 32)
         .padding(.vertical, 32)
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("No tools match \"\(searchText)\". Try 'bible', 'prayer', or 'research'.")
+        .accessibilityLabel("No tools match your search. Try 'bible', 'prayer', or 'research'.")
     }
 }
 
@@ -225,8 +226,8 @@ private struct BASPluginDrawerRow: View {
             return Color.basInk.opacity(0.45)
         }
         switch plugin.currentScope {
-        case .readOnly:            return Color(hex: "1A6B35")   // green ink
-        case .askEveryTime, .importantActionsOnly: return Color(hex: "7A5200") // amber ink
+        case .readOnly:            return Color(.systemGreen).opacity(0.9)   // accessible green, adaptive
+        case .askEveryTime, .importantActionsOnly: return Color(.systemOrange).opacity(0.9) // amber, adaptive
         default:                   return Color.basInk.opacity(0.45)
         }
     }
@@ -236,8 +237,8 @@ private struct BASPluginDrawerRow: View {
             return Color.basInk.opacity(0.08)
         }
         switch plugin.currentScope {
-        case .readOnly:            return Color(hex: "D6F0E0")   // soft green
-        case .askEveryTime, .importantActionsOnly: return Color(hex: "FFF0CC") // soft amber
+        case .readOnly:            return Color(.systemGreen).opacity(0.15)   // soft green, adaptive
+        case .askEveryTime, .importantActionsOnly: return Color(.systemOrange).opacity(0.12) // soft amber, adaptive
         default:                   return Color.basInk.opacity(0.08)
         }
     }
@@ -249,7 +250,9 @@ private struct BASPluginDrawerRow: View {
     }
 
     private var accessibilityHint: String? {
-        isUnavailable ? "This tool is unavailable in the current privacy mode." : nil
+        isUnavailable
+            ? "This tool is unavailable in the current privacy mode."
+            : "Double-tap to add this tool to your message"
     }
 
     // MARK: Body
@@ -278,7 +281,7 @@ private struct BASPluginDrawerRow: View {
         HStack(spacing: 12) {
             // Plugin icon — wine-red when selected/available, muted when unavailable
             Image(systemName: plugin.id.iconToken)
-                .font(.system(size: 20, weight: .medium))
+                .font(.title3.weight(.medium))
                 .foregroundStyle(
                     isUnavailable
                         ? Color.basInk.opacity(0.25)
@@ -290,7 +293,7 @@ private struct BASPluginDrawerRow: View {
             // Name + scope description
             VStack(alignment: .leading, spacing: 2) {
                 Text(plugin.id.displayName)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(
                         isUnavailable ? Color.basInk.opacity(0.35) : Color.basInk
                     )
@@ -314,7 +317,7 @@ private struct BASPluginDrawerRow: View {
 
     private var scopeChip: some View {
         Text(scopeLabel)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.caption2.weight(.semibold))
             .foregroundStyle(chipForeground)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)

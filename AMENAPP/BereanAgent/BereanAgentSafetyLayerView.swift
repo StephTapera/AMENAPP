@@ -38,9 +38,9 @@ struct BereanAgentSafetyLayerView: View {
 
         var bannerForeground: Color {
             switch self {
-            case .allPassed:   return Color(hex: "1A6B2E")   // accessible green
-            case .hasAdvisory: return Color(hex: "7A4500")   // accessible amber
-            case .hasBlocking: return Color(hex: "6B2137")   // basWineRed
+            case .allPassed:   return Color(.systemGreen)
+            case .hasAdvisory: return Color(.systemOrange)
+            case .hasBlocking: return Color.basWineRed
             }
         }
 
@@ -144,22 +144,22 @@ struct BereanAgentSafetyLayerView: View {
         HStack(spacing: 12) {
             Image(systemName: "text.quote")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color(hex: "7A4500"))
+                .foregroundStyle(Color(.systemOrange))
                 .accessibilityHidden(true)
 
             Text("This response includes interpretation, not direct Scripture quotation.")
                 .font(.subheadline)
-                .foregroundStyle(Color(hex: "7A4500"))
+                .foregroundStyle(Color(.systemOrange))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "FFF3CC").opacity(0.85))
+        .background(Color(.systemOrange).opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color(hex: "D4A017").opacity(0.4), lineWidth: 1)
+                .strokeBorder(Color(.systemOrange).opacity(0.35), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
         .accessibilityElement(children: .combine)
@@ -184,7 +184,7 @@ struct BereanAgentSafetyLayerView: View {
             HStack(alignment: .top, spacing: 12) {
                 // Status icon
                 Image(systemName: statusIcon(for: result))
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.body.weight(.medium))
                     .foregroundStyle(statusIconColor(for: result))
                     .frame(width: 22, alignment: .center)
                     .padding(.top, 1)
@@ -329,28 +329,28 @@ struct BereanAgentSafetyLayerView: View {
 
     private func statusIconColor(for result: BASSafetyAuditResult) -> Color {
         if result.passed {
-            return Color(hex: "2E7D32")  // accessible green
+            return Color(.systemGreen)
         }
         switch result.severity {
-        case .info:      return Color(hex: "1565C0")  // accessible blue
-        case .advisory:  return Color(hex: "E65100")  // accessible amber
-        case .blocking:  return Color(hex: "B71C1C")  // accessible red
+        case .info:      return Color(.systemBlue)
+        case .advisory:  return Color(.systemOrange)
+        case .blocking:  return Color(.systemRed)
         }
     }
 
     private func severityBadgeForeground(_ severity: BASSeverityLevel) -> Color {
         switch severity {
-        case .info:     return Color(hex: "1565C0")
-        case .advisory: return Color(hex: "7A4500")
-        case .blocking: return Color(hex: "6B2137")
+        case .info:     return Color(.systemBlue)
+        case .advisory: return Color(.systemOrange)
+        case .blocking: return Color.basWineRed
         }
     }
 
     private func severityBadgeBackground(_ severity: BASSeverityLevel) -> Color {
         switch severity {
-        case .info:     return Color(hex: "E3F2FD")
-        case .advisory: return Color(hex: "FFF3CC")
-        case .blocking: return Color(hex: "FDECEA")
+        case .info:     return Color(.systemBlue).opacity(0.12)
+        case .advisory: return Color(.systemOrange).opacity(0.12)
+        case .blocking: return Color.basWineRed.opacity(0.10)
         }
     }
 

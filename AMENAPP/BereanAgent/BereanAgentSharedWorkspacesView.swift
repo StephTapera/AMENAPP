@@ -71,7 +71,8 @@ struct BereanAgentSharedWorkspacesView: View {
 
                 // Icon — wine-red, one accent element for this screen
                 Image(systemName: "hands.and.sparkles.fill")
-                    .font(.system(size: 64, weight: .regular))
+                    .font(.system(.largeTitle, design: .default).weight(.regular))
+                    .imageScale(.large)
                     .foregroundStyle(Color.basWineRed)
                     .accessibilityHidden(true)
 
@@ -101,6 +102,7 @@ struct BereanAgentSharedWorkspacesView: View {
                             .foregroundStyle(.white)
                     }
                     .accessibilityLabel("Start a study")
+                    .accessibilityHint("Creates a new shared Bible study workspace")
 
                     // Secondary — tan filled
                     Button(action: onImportNotes) {
@@ -112,6 +114,7 @@ struct BereanAgentSharedWorkspacesView: View {
                             .foregroundStyle(Color.basInk)
                     }
                     .accessibilityLabel("Import sermon notes")
+                    .accessibilityHint("Imports existing sermon notes into a workspace")
 
                     // Tertiary — outlined
                     Button(action: onInviteGroup) {
@@ -126,6 +129,7 @@ struct BereanAgentSharedWorkspacesView: View {
                             .foregroundStyle(Color.basInk)
                     }
                     .accessibilityLabel("Invite group")
+                    .accessibilityHint("Sends an invitation to join this workspace")
 
                     // Quaternary — text link style
                     Button(action: onBrowseTemplates) {
@@ -135,6 +139,7 @@ struct BereanAgentSharedWorkspacesView: View {
                             .foregroundStyle(Color.basInk.opacity(0.6))
                     }
                     .accessibilityLabel("Browse templates")
+                    .accessibilityHint("Opens a library of study and sermon templates")
                     .padding(.top, 4)
                 }
                 .padding(.horizontal, 24)
@@ -376,6 +381,7 @@ struct BereanAgentSharedWorkspacesView: View {
                             .foregroundStyle(Color.basWineRed)
                     }
                     .accessibilityLabel("Add a prayer request")
+                    .accessibilityHint("Opens a form to submit a new prayer request")
                     .padding(.top, 4)
                 }
             }
@@ -554,6 +560,7 @@ private struct BASDiscussionQuestionsStub: View {
                         .foregroundStyle(Color.basInk.opacity(0.6))
                 }
                 .accessibilityLabel("Add a discussion question")
+                .accessibilityHint("Appends a new question to the discussion list")
                 .padding(.top, 2)
             }
         }

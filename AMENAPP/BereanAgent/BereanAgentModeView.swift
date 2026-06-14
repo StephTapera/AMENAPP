@@ -4,9 +4,9 @@
 
 import SwiftUI
 
-// MARK: - Supporting Types (file-private)
+// MARK: - Supporting Types
 
-private struct BASPastTask: Identifiable {
+struct BASPastTask: Identifiable {
     let id = UUID()
     let summary: String
     let timestamp: String
@@ -21,7 +21,11 @@ struct BereanAgentModeView: View {
     let isRunning: Bool
     let activePlugins: [BASPlugin]
     let currentTask: String
+    /// Past tasks to display in Recent Tasks. Pass [] to show the "Ready to help" empty state.
+    let pastTasks: [BASPastTask]
     let onTaskSuggestionTapped: (String) -> Void
+    /// Called when the user taps "Ask Berean" from the empty state — host should focus the composer.
+    let onFocusComposer: () -> Void
     let onCancel: () -> Void
 
     // MARK: - Environment
@@ -37,12 +41,6 @@ struct BereanAgentModeView: View {
         "Build a prayer routine",
         "Summarize this meeting",
         "Audit my answer before I post"
-    ]
-
-    private let pastTasks: [BASPastTask] = [
-        BASPastTask(summary: "Explained John 15:5",       timestamp: "2h ago"),
-        BASPastTask(summary: "Outlined Romans 8 sermon",  timestamp: "Yesterday"),
-        BASPastTask(summary: "Created morning prayer",    timestamp: "2 days ago")
     ]
 
     // MARK: - Body
@@ -74,7 +72,7 @@ struct BereanAgentModeView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 28) {
                 Text("What should Berean do?")
-                    .font(.custom("Georgia", size: 28))
+                    .font(.system(.title, design: .serif).weight(.semibold))
                     .foregroundColor(.basInk)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -111,24 +109,69 @@ struct BereanAgentModeView: View {
                 .padding(.horizontal, 20)
                 .accessibilityAddTraits(.isHeader)
 
-            VStack(spacing: 0) {
-                ForEach(pastTasks) { task in
-                    BASPastTaskRow(task: task)
-                    if task.id != pastTasks.last?.id {
-                        Divider()
-                            .padding(.leading, 16)
-                            .opacity(0.35)
+            if pastTasks.isEmpty {
+                noTasksEmptyState
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(pastTasks) { task in
+                        BASPastTaskRow(task: task)
+                        if task.id != pastTasks.last?.id {
+                            Divider()
+                                .padding(.leading, 16)
+                                .opacity(0.35)
+                        }
                     }
                 }
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.basTan.opacity(0.7))
+                        .shadow(color: Color.basInk.opacity(0.12), radius: 12, x: 0, y: 4)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .padding(.horizontal, 20)
             }
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.basTan.opacity(0.7))
-                    .shadow(color: Color.basInk.opacity(0.12), radius: 12, x: 0, y: 4)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .padding(.horizontal, 20)
         }
+    }
+
+    // MARK: - No Tasks Empty State
+
+    private var noTasksEmptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "sparkles")
+                .font(.largeTitle.weight(.light))
+                .foregroundStyle(Color.basWineRed.opacity(0.45))
+                .accessibilityHidden(true)
+
+            VStack(spacing: 6) {
+                Text("Ready to help.")
+                    .font(.system(.headline, design: .default, weight: .semibold))
+                    .foregroundColor(.basInk)
+
+                Text("Ask a question, plan a study, or let Berean prepare something for you.")
+                    .font(.subheadline)
+                    .foregroundColor(.basInk.opacity(0.55))
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: onFocusComposer) {
+                Text("Ask Berean")
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(Color.basWineRed)
+                            .shadow(color: Color.basWineRed.opacity(0.30), radius: 8, x: 0, y: 3)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Ask Berean — open the composer to start a conversation")
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 32)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Running State
@@ -154,7 +197,7 @@ struct BereanAgentModeView: View {
     private var currentTaskBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "bolt.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundColor(.white)
                 .accessibilityHidden(true)
 
@@ -220,10 +263,10 @@ struct BereanAgentModeView: View {
         Button(action: onCancel) {
             HStack(spacing: 6) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .accessibilityHidden(true)
                 Text("Cancel")
-                    .font(.system(.body, design: .default, weight: .medium))
+                    .font(.body.weight(.medium))
             }
             .foregroundColor(.basInk)
             .frame(maxWidth: .infinity)
@@ -235,6 +278,7 @@ struct BereanAgentModeView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Cancel task")
+        .accessibilityHint("Stops the current Berean task")
     }
 }
 
@@ -261,6 +305,7 @@ private struct BASuggestionPill: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Suggest: \(text)")
+        .accessibilityHint("Double-tap to use this as your task")
     }
 }
 
@@ -282,7 +327,7 @@ private struct BASPastTaskRow: View {
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundColor(.basInk.opacity(0.35))
                 .accessibilityHidden(true)
         }
@@ -290,6 +335,7 @@ private struct BASPastTaskRow: View {
         .padding(.vertical, 13)
         .contentShape(Rectangle())
         .accessibilityLabel("\(task.summary), \(task.timestamp)")
+        .accessibilityHint("Double-tap to rerun this task")
         .accessibilityAddTraits(.isButton)
     }
 }
@@ -319,11 +365,11 @@ private struct BASActivePluginChip: View {
     private var statusColor: Color {
         switch plugin.currentScope {
         case .never_:
-            return Color(red: 0.78, green: 0.18, blue: 0.18) // warm red
+            return Color(.systemRed)
         case .privateMode:
-            return Color(red: 0.85, green: 0.47, blue: 0.02) // amber
+            return Color(.systemOrange)
         default:
-            return Color(red: 0.10, green: 0.47, blue: 0.29) // green
+            return Color(.systemGreen)
         }
     }
 
@@ -331,12 +377,12 @@ private struct BASActivePluginChip: View {
         HStack(spacing: 6) {
             if isPrivateMode {
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundColor(statusColor)
                     .accessibilityHidden(true)
             } else {
                 Image(systemName: plugin.id.iconToken)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(.basInk)
                     .accessibilityHidden(true)
             }
@@ -407,12 +453,30 @@ private struct BASThreeDotsProgress: View {
 // MARK: - Preview
 
 #if DEBUG
-#Preview("Idle State") {
+#Preview("Idle State — no past tasks") {
     BereanAgentModeView(
         isRunning: false,
         activePlugins: [],
         currentTask: "",
+        pastTasks: [],
         onTaskSuggestionTapped: { _ in },
+        onFocusComposer: {},
+        onCancel: {}
+    )
+}
+
+#Preview("Idle State — with past tasks") {
+    BereanAgentModeView(
+        isRunning: false,
+        activePlugins: [],
+        currentTask: "",
+        pastTasks: [
+            BASPastTask(summary: "Explained John 15:5",      timestamp: "2h ago"),
+            BASPastTask(summary: "Outlined Romans 8 sermon", timestamp: "Yesterday"),
+            BASPastTask(summary: "Created morning prayer",   timestamp: "2 days ago")
+        ],
+        onTaskSuggestionTapped: { _ in },
+        onFocusComposer: {},
         onCancel: {}
     )
 }
@@ -427,7 +491,9 @@ private struct BASThreeDotsProgress: View {
             BASPlugin(id: .church,   currentScope: .askEveryTime)
         ],
         currentTask: "Outline Romans 8 sermon with application points",
+        pastTasks: [],
         onTaskSuggestionTapped: { _ in },
+        onFocusComposer: {},
         onCancel: {}
     )
 }

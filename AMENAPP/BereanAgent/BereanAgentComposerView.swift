@@ -141,7 +141,7 @@ struct BereanAgentComposerView: View {
                 onPluginDrawerRequested()
             } label: {
                 Image(systemName: "at")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.body.weight(.medium))
                     .foregroundStyle(Color.basInk.opacity(0.7))
                     .frame(width: 36, height: 36)
             }
@@ -153,7 +153,7 @@ struct BereanAgentComposerView: View {
                 onVoiceRequested()
             } label: {
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.body.weight(.medium))
                     .foregroundStyle(Color.basInk.opacity(0.7))
                     .frame(width: 36, height: 36)
             }
@@ -168,9 +168,9 @@ struct BereanAgentComposerView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                     Text("Send")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                 }
                 .foregroundStyle(Color.white)
                 .padding(.horizontal, 16)
@@ -222,7 +222,7 @@ private struct BASSModeSelectorChip: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(mode.displayName)
-                .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                .font(.footnote.weight(isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? Color.white : Color.basInk)
 
             if isActive, onDismiss != nil {
@@ -230,10 +230,11 @@ private struct BASSModeSelectorChip: View {
                     onDismiss?()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(.caption2, design: .default).weight(.bold))
                         .foregroundStyle(Color.white.opacity(0.85))
                 }
                 .accessibilityLabel("Remove \(mode.displayName) mode")
+                .accessibilityHint("Deselects \(mode.displayName) mode and returns to Ask")
             }
         }
         .padding(.horizontal, 12)
@@ -246,7 +247,8 @@ private struct BASSModeSelectorChip: View {
         .onTapGesture {
             onTap()
         }
-        .accessibilityLabel("\(mode.displayName) mode")
+        .accessibilityLabel("\(mode.displayName) mode\(isActive ? ", selected" : "")")
+        .accessibilityHint(isActive ? "" : "Switches the composer to \(mode.displayName) mode")
         .accessibilityAddTraits(isActive ? [.isSelected, .isButton] : .isButton)
         .animation(
             reduceMotion ? nil : Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.8)),
@@ -262,9 +264,9 @@ private struct BASSPrivatePill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(.caption2, design: .default).weight(.medium))
             Text("Private")
-                .font(.system(size: 11, weight: .medium))
+                .font(.caption2.weight(.medium))
         }
         .foregroundStyle(Color.basInk.opacity(0.65))
         .padding(.horizontal, 8)

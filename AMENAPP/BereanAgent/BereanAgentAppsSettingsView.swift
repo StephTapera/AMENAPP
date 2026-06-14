@@ -155,18 +155,75 @@ struct BereanAgentAppsSettingsView: View {
 
     // MARK: Connected Apps Section
 
+    /// Apps that are neither blocked (§7) nor disabled.
+    private var enabledApps: [BASConnectedApp] {
+        registry.apps.filter { app in
+            app.id != .giving && app.id != .messages && app.isEnabled
+        }
+    }
+
     private var connectedAppsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Connected Apps")
 
-            VStack(spacing: 0) {
-                ForEach(Array(registry.apps.enumerated()), id: \.element.id) { index, app in
-                    appRow(app: app, isLast: index == registry.apps.count - 1)
+            if enabledApps.isEmpty {
+                zeroAppsEnabledEmptyState
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(registry.apps.enumerated()), id: \.element.id) { index, app in
+                        appRow(app: app, isLast: index == registry.apps.count - 1)
+                    }
                 }
+                .background(Color.basTan, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .shadow(color: Color.basInk.opacity(0.12), radius: 12, x: 0, y: 4)
             }
-            .background(Color.basTan, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: Color.basInk.opacity(0.12), radius: 12, x: 0, y: 4)
         }
+    }
+
+    // MARK: Zero-Apps Empty State
+
+    private var zeroAppsEnabledEmptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "square.grid.2x2")
+                .font(.largeTitle.weight(.light))
+                .foregroundStyle(Color.basInk.opacity(0.25))
+                .accessibilityHidden(true)
+
+            VStack(spacing: 6) {
+                Text("Connect apps to give Berean helpful context.")
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .foregroundColor(.basInk)
+                    .multilineTextAlignment(.center)
+
+                Text("Your Scripture library and calendar are great starting points.")
+                    .font(.footnote)
+                    .foregroundColor(.basInk.opacity(0.55))
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                registry.setEnabled(true, for: .bibleDotCom)
+            } label: {
+                Text("Connect Scripture")
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(Color.basWineRed)
+                            .shadow(color: Color.basWineRed.opacity(0.30), radius: 8, x: 0, y: 3)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Connect Scripture — enable Bible.com to give Berean helpful context")
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 28)
+        .frame(maxWidth: .infinity)
+        .background(Color.basTan, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: Color.basInk.opacity(0.12), radius: 12, x: 0, y: 4)
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -193,7 +250,7 @@ struct BereanAgentAppsSettingsView: View {
                     } else if app.id.isSensitive {
                         Text("Requires explicit grant each time")
                             .font(.caption2)
-                            .foregroundStyle(Color(hex: "B45309")) // amber
+                            .foregroundStyle(Color(.systemOrange))
                     }
                 }
 
@@ -348,13 +405,13 @@ struct BereanAgentAppScopeSheet: View {
                         Label {
                             Text("Requires explicit grant each time")
                                 .font(.footnote)
-                                .foregroundStyle(Color(hex: "B45309"))
+                                .foregroundStyle(Color(.systemOrange))
                         } icon: {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(Color(hex: "B45309"))
+                                .foregroundStyle(Color(.systemOrange))
                         }
                         .padding(12)
-                        .background(Color(hex: "FEF3C7"), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(Color(.systemOrange).opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("Sensitive app: requires explicit grant each time")
                     }
@@ -434,7 +491,8 @@ struct BereanAgentAppBrowserStubView: View {
 
             VStack(spacing: 20) {
                 Image(systemName: "square.grid.2x2.fill")
-                    .font(.system(size: 48))
+                    .font(.largeTitle)
+                    .imageScale(.large)
                     .foregroundStyle(Color.basInk.opacity(0.3))
                     .accessibilityHidden(true)
 
