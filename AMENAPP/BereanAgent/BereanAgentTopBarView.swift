@@ -232,29 +232,13 @@ struct BereanAgentTopBarView: View {
     }
 
     // MARK: Accessory Area
+    //
+    // C-4: No mode-name branching here. Dispatch is in BASComposerMode.topBarAccessoryView
+    // extension below so the top bar remains mode-agnostic.
 
     @ViewBuilder
     private var accessoryArea: some View {
-        switch activeMode {
-        case .study:
-            BASTopBarStudyAccessory(selectedTranslation: $studyTranslation)
-                .accessoryContent()
-
-        case .pray:
-            BASTopBarPrivateAccessory()
-                .accessoryContent()
-
-        case .post:
-            BASTopBarSafetyAccessory()
-                .accessoryContent()
-
-        case .agent:
-            BASTopBarAgentAccessory(reduceMotion: reduceMotion)
-                .accessoryContent()
-
-        default:
-            EmptyView()
-        }
+        activeMode.topBarAccessoryView(reduceMotion: reduceMotion, studyTranslation: $studyTranslation)
     }
 
     // MARK: Private Lock Icon
@@ -265,6 +249,33 @@ struct BereanAgentTopBarView: View {
             .foregroundStyle(Color.basInk.opacity(0.55))
             .accessibilityLabel("Private mode active")
             .accessibilityAddTraits(.isStaticText)
+    }
+}
+
+// MARK: - BASComposerMode: top-bar accessory dispatch (C-4)
+//
+// Keeps mode names out of BereanAgentTopBarView's view builder — the top bar
+// calls activeMode.topBarAccessoryView(...) without switching on cases itself.
+
+private extension BASComposerMode {
+    @ViewBuilder
+    func topBarAccessoryView(reduceMotion: Bool, studyTranslation: Binding<String>) -> some View {
+        switch self {
+        case .study:
+            BASTopBarStudyAccessory(selectedTranslation: studyTranslation)
+                .accessoryContent()
+        case .pray:
+            BASTopBarPrivateAccessory()
+                .accessoryContent()
+        case .post:
+            BASTopBarSafetyAccessory()
+                .accessoryContent()
+        case .agent:
+            BASTopBarAgentAccessory(reduceMotion: reduceMotion)
+                .accessoryContent()
+        default:
+            EmptyView()
+        }
     }
 }
 
