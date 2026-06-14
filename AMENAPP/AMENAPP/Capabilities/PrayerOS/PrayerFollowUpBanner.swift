@@ -43,52 +43,49 @@ struct PrayerFollowUpBanner: View {
     // MARK: Banner content
 
     private var bannerContent: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "bell.and.waveform")
-                .font(.title3)
-                .foregroundStyle(.accentColor)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Check in: \(card.subject.displayName)")
-                    .font(.headline)
-                    .lineLimit(1)
-
-                if let followUp = card.followUps[safe: followUpIndex],
-                   let note = followUp.note, !note.isEmpty {
-                    Text(note)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                if let followUp = card.followUps[safe: followUpIndex] {
-                    Text(followUp.dueAt, style: .date)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-
+        let followUp = card.followUps[safe: followUpIndex]
+        return HStack(alignment: .top, spacing: 12) {
+            bannerIcon
+            bannerTextStack(followUp: followUp)
             Spacer(minLength: 8)
-
             doneButton
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.quaternary, lineWidth: 0.5)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.quaternary, lineWidth: 0.5))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: "Mark done") {
-            Task { await markDone() }
-        }
+        .accessibilityAction(named: "Mark done") { Task { await markDone() } }
         .alert("Could Not Complete Follow-up", isPresented: $showErrorAlert, presenting: completionError) { _ in
             Button("OK", role: .cancel) {}
-        } message: { error in
-            Text(error.localizedDescription)
+        } message: { err in Text(err.localizedDescription) }
+    }
+
+    private var bannerIcon: some View {
+        Image(systemName: "bell.and.waveform")
+            .font(.title3)
+            .foregroundStyle(Color.accentColor)
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func bannerTextStack(followUp: PrayerFollowUp?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Check in: \(card.subject.displayName)")
+                .font(.headline)
+                .lineLimit(1)
+            if let note = followUp?.note, !note.isEmpty {
+                Text(note)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            if let dueAt = followUp?.dueAt {
+                Text(dueAt, style: .date)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 

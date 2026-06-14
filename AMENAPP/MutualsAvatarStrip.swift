@@ -11,7 +11,6 @@
 import SwiftUI
 
 // subscript(safe:) — canonical definition in SafeSubscriptExtension.swift
-}
 
 // MARK: - Main Strip
 

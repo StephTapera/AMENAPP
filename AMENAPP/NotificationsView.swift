@@ -1642,7 +1642,6 @@ private struct FollowBackButton: View {
 }
 
 // subscript(safe:) — canonical definition in SafeSubscriptExtension.swift
-}
 
 // MARK: - Quick Actions Sheet
 
