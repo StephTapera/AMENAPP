@@ -207,7 +207,7 @@ struct BereanAgentTopBarView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .glassEffect(in: .rect(cornerRadius: 24))
+            .amenGlassEffect(in: .rect(cornerRadius: 24))
             .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 4)
         }
         .padding(.horizontal, 16)

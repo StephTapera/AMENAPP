@@ -72,7 +72,7 @@ struct BereanAgentPluginDrawerView: View {
 
             pluginList
         }
-        .glassEffect(in: .rect(cornerRadius: 24))
+        .amenGlassEffect(in: .rect(cornerRadius: 24))
         .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: -4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Plugin selection drawer")

@@ -333,7 +333,7 @@ private struct BASWorkspaceCard: View {
                 .strokeBorder(Color.basTan, lineWidth: 1)
         )
         .shadow(color: Color.basInk.opacity(0.12), radius: 12, x: 0, y: 4)
-        .glassEffect(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .amenGlassEffect(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(workspace.name), \(workspace.role.accessibilityLabel), \(workspace.memberCount) members")
     }

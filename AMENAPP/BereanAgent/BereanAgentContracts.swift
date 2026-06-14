@@ -268,7 +268,7 @@ enum BASWorkspaceRole: String, Codable, CaseIterable {
 }
 
 /// Navigation tabs inside a BAS workspace.
-enum BASWorkspaceTab: String, CaseIterable, Identifiable {
+enum BASWorkspaceTab: String, CaseIterable, Identifiable, Codable {
     case allContent
     case createdByYou
     case sharedWithYou

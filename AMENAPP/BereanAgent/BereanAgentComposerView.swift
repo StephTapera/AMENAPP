@@ -63,7 +63,7 @@ struct BereanAgentComposerView: View {
                     .padding(.horizontal, 12)
                     .padding(.bottom, 12)
             }
-            .glassEffect(in: .rect(cornerRadius: 24))
+            .amenGlassEffect(in: .rect(cornerRadius: 24))
             .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 4)
         }
         .padding(.horizontal, 16)
