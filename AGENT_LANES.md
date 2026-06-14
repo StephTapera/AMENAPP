@@ -13,6 +13,7 @@
 > | Amen Pulse | (prior session) | — | see memory `project_amen_pulse_2026_06_10` |
 > | Gap Audit + P0 Fix Wave 1 | claude (this session) | `feature/connected-intelligence-20260609-r2` | AUDIT DONE — `GAP_BOARD.md` (86: 11 P0 / 50 P1 / 25 P2). FIX WAVE 1: P0-1/2/3/4/11 CLOSED + proven (emulator 18/18, jest 84/84); rules+PII bundled in `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` AWAITING HUMAN DEPLOY; P0-5/6/7/8/9/10 next. ⚠️ Codex row ~L118 is a duplicate of this audit mission. |
 > | Resolve Missing Package Products | Codex current session | — | RELEASED — FirebaseAI/FirebaseAILogic grep clean; package-graph/build verification routed to capable lane or human shell (see harness limit) |
+> | Berean Agent Surface (BAS) | BAS workflow | `feature/berean-island-w0` | IN PROGRESS — Wave 0 |
 >
 > **FLEET NAMING RULE (2026-06-11):** all new lane-local Swift components created by Spiritual OS Phase 2, Connect, AIL, Smart Composer, or any active swarm must take a lane prefix at creation (`SO*`, `Connect*`, `AIL*`, `SmartComposer*`, etc.). Shared primitives belong in GlassKit/contracts. New bare generic top-level names in app sources are treated as lint failures because they become redeclaration build breaks.
 >

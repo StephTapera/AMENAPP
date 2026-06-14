@@ -2271,6 +2271,7 @@ final class AMENFeatureFlags: ObservableObject {
         verseLookupInlineEnabled     = config["verse_lookup_inline"].boolValue
 
         syncSelahFlags(config)
+        syncBASFlags(config)
     }
 
     private func syncSpiritualOSAppStorageFlags(_ config: RemoteConfig) {
@@ -2382,6 +2383,28 @@ final class AMENFeatureFlags: ObservableObject {
         feedWhyAmISeeingThis      = config["selah_feed_why_am_i_seeing_this"].boolValue
         aegisC59                  = config["selah_aegis_c59"].boolValue
         youthMode                 = config["selah_youth_mode"].boolValue
+    }
+
+    // MARK: - Berean Agent Surface (BAS) — Wave 0
+    // All flags default OFF until a human flips Remote Config after verification.
+    // Remote Config keys: berean_agent_surface, berean_agent_permissions,
+    //   berean_agent_composer, berean_agent_plugins, berean_safety_layer,
+    //   berean_agent_workspaces
+
+    @Published private(set) var bereanAgentSurfaceEnabled: Bool = false
+    @Published private(set) var bereanAgentPermissionsEnabled: Bool = false
+    @Published private(set) var bereanAgentComposerEnabled: Bool = false
+    @Published private(set) var bereanAgentPluginsEnabled: Bool = false
+    @Published private(set) var bereanSafetyLayerEnabled: Bool = false
+    @Published private(set) var bereanAgentWorkspacesEnabled: Bool = false
+
+    private func syncBASFlags(_ config: RemoteConfig) {
+        bereanAgentSurfaceEnabled     = config["berean_agent_surface"].boolValue
+        bereanAgentPermissionsEnabled = config["berean_agent_permissions"].boolValue
+        bereanAgentComposerEnabled    = config["berean_agent_composer"].boolValue
+        bereanAgentPluginsEnabled     = config["berean_agent_plugins"].boolValue
+        bereanSafetyLayerEnabled      = config["berean_safety_layer"].boolValue
+        bereanAgentWorkspacesEnabled  = config["berean_agent_workspaces"].boolValue
     }
 }
 
