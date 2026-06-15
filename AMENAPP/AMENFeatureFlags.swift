@@ -2406,6 +2406,40 @@ final class AMENFeatureFlags: ObservableObject {
         bereanSafetyLayerEnabled      = config["berean_safety_layer"].boolValue
         bereanAgentWorkspacesEnabled  = config["berean_agent_workspaces"].boolValue
     }
+
+    // MARK: - Connect Discovery Engine
+    // All flags default OFF until human flips Remote Config after Wave 4 sign-off.
+    // RC keys: connect_discovery_enabled, connect_discovery_hero, connect_discovery_pills,
+    //   connect_discovery_search, connect_discovery_preview,
+    //   connect_discovery_adaptive_background, connect_discovery_dynamic_island,
+    //   connect_discovery_calm_cap
+    //
+    // ⚠️ FLAG PRECONDITION: connect_discovery_enabled must NOT be flipped until:
+    //   1. assembleDiscoveryFeed CF deployed to us-east1
+    //   2. searchDiscovery CF deployed to us-east1
+    //   3. safetyCache Firestore rules deployed
+    //   4. Firestore composite indexes deployed (see docs/DISCOVERY_SCHEMA.md)
+
+    @Published private(set) var connectDiscoveryEnabled: Bool = false
+    @Published private(set) var connectDiscoveryHeroEnabled: Bool = false
+    @Published private(set) var connectDiscoveryPillsEnabled: Bool = false
+    @Published private(set) var connectDiscoverySearchEnabled: Bool = false
+    @Published private(set) var connectDiscoveryPreviewEnabled: Bool = false
+    @Published private(set) var connectDiscoveryAdaptiveBackgroundEnabled: Bool = false
+    @Published private(set) var connectDiscoveryDynamicIslandEnabled: Bool = false
+    // calmCap flag: when ON tightens limits; when OFF still enforces v1 defaults
+    @Published private(set) var connectDiscoveryCalmCapEnabled: Bool = false
+
+    private func syncDiscoveryFlags(_ config: RemoteConfig) {
+        connectDiscoveryEnabled                   = config["connect_discovery_enabled"].boolValue
+        connectDiscoveryHeroEnabled               = config["connect_discovery_hero"].boolValue
+        connectDiscoveryPillsEnabled              = config["connect_discovery_pills"].boolValue
+        connectDiscoverySearchEnabled             = config["connect_discovery_search"].boolValue
+        connectDiscoveryPreviewEnabled            = config["connect_discovery_preview"].boolValue
+        connectDiscoveryAdaptiveBackgroundEnabled = config["connect_discovery_adaptive_background"].boolValue
+        connectDiscoveryDynamicIslandEnabled      = config["connect_discovery_dynamic_island"].boolValue
+        connectDiscoveryCalmCapEnabled            = config["connect_discovery_calm_cap"].boolValue
+    }
 }
 
 // MARK: - App Version Helper

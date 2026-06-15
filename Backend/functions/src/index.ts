@@ -149,6 +149,15 @@ export * from "./submitReport";
 // Closes the audit gap: moderationStatus was previously client-written with no server enforcement.
 export * from "./commentModerationEnforcement";
 
+// Connect Discovery Engine — server-driven, formation-ranked discovery surface
+// assembleDiscoveryFeed: candidate generation → formation ranking → safety stamp → shelf assembly
+// searchDiscovery: suggested (pre-typing) + Algolia instant results (post-typing)
+// Region: us-east1 (us-central1 at quota; see CLAUDE.md §us-central1 Quota Warning)
+// ⚠️ FLAG PRECONDITION: connect_discovery_enabled must NOT be flipped until both CFs
+//    are deployed, safetyCache rules are live, and Firestore indexes are created.
+export { assembleDiscoveryFeed } from "./discovery/assembleDiscoveryFeed";
+export { searchDiscovery } from "./discovery/searchDiscovery";
+
 // Media Scanning — Cloud Vision SafeSearch on every Storage upload
 // HIGH-1: Scans images for CSAM/explicit/violence signals on onFinalize.
 // VERY_LIKELY → delete file + suspend account
@@ -342,6 +351,11 @@ export {
 // Callables: evaluateRestMode, setRestModePolicy, resolvePostAILabel
 // Trigger:   onRestModePolicyWritten (restModePolicies/{userId})
 export * from "./restModeEvaluator";
+
+// Selah Creation — C2PA provenance manifest + remix lineage (us-east1, App Check required)
+// generateC2PAManifest — creates/idempotently returns a provenance manifest for a testimony
+// createRemixLineage   — transactional lineage write for remixed content
+export { generateC2PAManifest, createRemixLineage } from "./selahCreation";
 
 // Covenant OS — Paid Spiritual Community Operating System
 // Activity: createCovenantActivityEvent (callable, admin/server-only creation)
@@ -745,3 +759,16 @@ export * from "./composerAttachments";
 // Auth + App Check enforced. Idempotent sends (7-day TTL key). Privacy-aware FCM push.
 // Region: us-east1 (follow/privacy held at us-east1; globalResilience source at us-central1 pending quota; see docs/deploy-topology.md).
 export * from "./globalResilience/index";
+
+// Selah Connection OS — Tables (join/sunset), Commitments (close-the-loop nudge),
+// PrayerChains (assemble woven artifact).
+// Region: us-east1 (us-central1 quota exhausted 2026-06-14; see docs/deploy-topology.md).
+// Callables: joinTable, assemblePrayerChain
+// Scheduled: closeTheLoopNudge (every 6 hours), sunsetTable (every 24 hours)
+export { joinTable, assemblePrayerChain, closeTheLoopNudge, sunsetTable } from "./selahConnection";
+
+// Selah Berean Intelligence — Wave 3 Berean Island callables
+// generateDiscussionGuide — group notebook discussion guide for a Table (us-east1)
+// retrievePersonalContext — server-side Tier S + C context retrieval (us-east1)
+// Tier P (private/E2EE) is structurally impossible in this file.
+export { generateDiscussionGuide, retrievePersonalContext } from "./selahBerean";
