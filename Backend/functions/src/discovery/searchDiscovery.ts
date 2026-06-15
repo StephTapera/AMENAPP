@@ -63,10 +63,10 @@ async function buildPreTypingResult(
   const browseShelves: DiscoveryShelf[] = [
     {
       id: "browse-live",
-      kind: "liveNow",
+      kind: "liveNow" as const,
       title: "Live Now",
       subtitle: "Rooms happening right now",
-      style: "carousel",
+      style: "carousel" as const,
       items: stamped
         .filter((s) => s.candidate.type === "audioRoom" || s.candidate.type === "prayerRoom")
         .slice(0, 8)
@@ -74,10 +74,10 @@ async function buildPreTypingResult(
     },
     {
       id: "browse-communities",
-      kind: "newCommunities",
+      kind: "newCommunities" as const,
       title: "Communities",
       subtitle: "Spaces, groups, and ministries",
-      style: "grid",
+      style: "grid" as const,
       items: stamped
         .filter((s) => s.candidate.type === "space")
         .slice(0, 8)
