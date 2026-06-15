@@ -18,6 +18,7 @@
 
 import SwiftUI
 import Vision
+import FoundationModels
 import FirebaseFunctions
 import AVFoundation
 
@@ -52,7 +53,7 @@ struct BereanLensView: View {
                             .padding(.horizontal)
 
                         default:
-                            LensModeRow(selected: $selectedMode)
+                            LensModeRow(selected: $selectedMode, modes: availableModes)
                                 .padding(.horizontal)
 
                             CaptureArea(
@@ -133,8 +134,22 @@ struct BereanLensView: View {
             .ignoresSafeArea()
         }
         .onAppear {
+            enforceModeAvailability()
             checkCameraPermission()
         }
+    }
+
+    private var youthLensRestricted: Bool {
+        AMENFeatureFlags.shared.youthMode && YouthModeService.shared.isActive
+    }
+
+    private var availableModes: [LensMode] {
+        youthLensRestricted ? LensMode.ocrOnlyModes : LensMode.lensSelectableModes
+    }
+
+    private func enforceModeAvailability() {
+        guard !availableModes.contains(selectedMode) else { return }
+        selectedMode = .bible
     }
 
     // MARK: - Permission
@@ -170,9 +185,9 @@ struct BereanLensView: View {
 
         Task {
             do {
-                let ocrText = try await extractText(from: image)
+                let request = try await buildLensAnalyzeRequest(image: image, mode: selectedMode)
                 let card = try await withTimeout(seconds: 15) {
-                    try await callLensAnalyze(ocrText: ocrText, mode: selectedMode)
+                    try await callLensAnalyze(request: request)
                 }
                 await MainActor.run {
                     resultCard = card
@@ -225,24 +240,119 @@ struct BereanLensView: View {
         }
     }
 
+    // MARK: - On-device mode analysis
+
+    private func buildLensAnalyzeRequest(image: UIImage, mode: LensMode) async throws -> LensAnalyzeRequest {
+        if youthLensRestricted && !LensMode.ocrOnlyModes.contains(mode) {
+            throw LensError.modeUnavailable
+        }
+
+        switch mode {
+        case .bible, .sermon, .study:
+            let ocrText = try await extractText(from: image)
+            return LensAnalyzeRequest(mode: mode, ocrText: ocrText, derivedLabels: [:])
+
+        case .flyer:
+            let ocrText = try await extractText(from: image)
+            let documentLabels = await detectFlyerDocumentLabels(from: image, ocrText: ocrText)
+            let semanticLabels = await understandLocally(text: ocrText, baseLabels: documentLabels)
+            return LensAnalyzeRequest(mode: mode, ocrText: ocrText, derivedLabels: semanticLabels)
+
+        case .fellowship:
+            let ocrText = try await extractText(from: image)
+            let faceSummary = try await detectFacePresenceOnly(from: image)
+            let semanticLabels = await understandLocally(
+                text: ocrText,
+                baseLabels: [
+                    "peoplePresent": faceSummary.peoplePresent ? "true" : "false",
+                    "peoplePresenceSource": faceSummary.peoplePresent ? "face_detection_presence_only" : "none_detected"
+                ]
+            )
+            return LensAnalyzeRequest(mode: mode, ocrText: ocrText, derivedLabels: semanticLabels)
+
+        case .safety:
+            // DO NOT ENABLE — pending legal + Trust & Safety review (CSAM-handling exposure).
+            throw LensError.modeUnavailable
+        }
+    }
+
+    private func detectFlyerDocumentLabels(from image: UIImage, ocrText: String) async -> [String: String] {
+        let downscaled = image.downscaled(maxEdge: 1536)
+        guard let cgImage = downscaled.cgImage else {
+            return flyerHeuristicLabels(ocrText: ocrText, documentDetected: false)
+        }
+
+        let documentDetected = await withCheckedContinuation { continuation in
+            let request = VNDetectRectanglesRequest { request, _ in
+                let rectangles = request.results as? [VNRectangleObservation] ?? []
+                continuation.resume(returning: !rectangles.isEmpty)
+            }
+            request.maximumObservations = 4
+            request.minimumConfidence = 0.5
+
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(returning: false)
+            }
+        }
+
+        return flyerHeuristicLabels(ocrText: ocrText, documentDetected: documentDetected)
+    }
+
+    private func flyerHeuristicLabels(ocrText: String, documentDetected: Bool) -> [String: String] {
+        let lower = ocrText.lowercased()
+        let eventTerms = ["event", "service", "worship", "conference", "meeting", "registration", "rsvp"]
+        let hasEventLanguage = eventTerms.contains { lower.contains($0) }
+
+        return [
+            "documentDetected": documentDetected ? "true" : "false",
+            "documentType": hasEventLanguage ? "event_flyer" : "document",
+            "eventLanguagePresent": hasEventLanguage ? "true" : "false"
+        ]
+    }
+
+    private func detectFacePresenceOnly(from image: UIImage) async throws -> FacePresenceSummary {
+        let downscaled = image.downscaled(maxEdge: 1536)
+        guard let cgImage = downscaled.cgImage else { throw LensError.ocrFailed }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNDetectFaceRectanglesRequest { request, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let observations = request.results as? [VNFaceObservation] ?? []
+                // Local-only privacy boundary: bounding boxes are used only to derive
+                // presence. No boxes, landmarks, crops, geometry, or embeddings leave.
+                continuation.resume(returning: FacePresenceSummary(peoplePresent: !observations.isEmpty))
+            }
+
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+
+    private func understandLocally(text: String, baseLabels: [String: String]) async -> [String: String] {
+        if #available(iOS 26.0, *) {
+            let modelLabels = await FoundationLensSemanticEngine().labels(for: text)
+            return baseLabels.merging(modelLabels) { current, _ in current }
+        }
+        return baseLabels
+    }
+
     // MARK: - Callable
 
-    private func callLensAnalyze(ocrText: String, mode: LensMode) async throws -> IslandCard {
+    private func callLensAnalyze(request: LensAnalyzeRequest) async throws -> IslandCard {
         let functions = Functions.functions(region: "us-central1")
         let callable = functions.httpsCallable("bereanLens_analyze")
 
-        let payload: [String: Any] = [
-            "mode":    mode.rawValue,
-            "ocrText": ocrText,
-            "packet": [
-                "intent":      BereanIntent.ask.rawValue,
-                "surface":     BereanSurface.lens.rawValue,
-                "fields":      [] as [[String: Any]],
-                "assembledAt": ISO8601DateFormatter().string(from: Date())
-            ]
-        ]
-
-        let result = try await callable.call(payload)
+        let result = try await callable.call(request.payload)
 
         guard
             let dict = result.data as? [String: Any],
@@ -254,6 +364,33 @@ struct BereanLensView: View {
         }
 
         return card
+    }
+
+    private struct LensAnalyzeRequest: Sendable {
+        let mode: LensMode
+        let ocrText: String
+        let derivedLabels: [String: String]
+
+        var payload: [String: Any] {
+            var body: [String: Any] = [
+                "mode": mode.rawValue,
+                "ocrText": ocrText,
+                "packet": [
+                    "intent":      BereanIntent.ask.rawValue,
+                    "surface":     BereanSurface.lens.rawValue,
+                    "fields":      [] as [[String: Any]],
+                    "assembledAt": ISO8601DateFormatter().string(from: Date())
+                ]
+            ]
+            if !derivedLabels.isEmpty {
+                body["derivedLabels"] = derivedLabels
+            }
+            return body
+        }
+    }
+
+    private struct FacePresenceSummary: Sendable {
+        let peoplePresent: Bool
     }
 
     // MARK: - Timeout helper
@@ -278,6 +415,7 @@ struct BereanLensView: View {
         case .ocrFailed:         return "Couldn't read the image. Try a clearer photo."
         case .invalidResponse:   return "Berean couldn't analyze this content. Try another image."
         case .timeout:           return "The request timed out. Check your connection and try again."
+        case .modeUnavailable:   return "That Lens mode is unavailable in this build."
         }
     }
 
@@ -312,11 +450,16 @@ private enum LensError: Error {
     case ocrFailed
     case invalidResponse
     case timeout
+    case modeUnavailable
 }
 
 // MARK: - LensMode display helpers
 
 extension LensMode {
+    static let ocrOnlyModes: [LensMode] = [.bible, .sermon, .study]
+
+    static let lensSelectableModes: [LensMode] = [.bible, .sermon, .study, .flyer, .fellowship]
+
     var displayName: String {
         switch self {
         case .bible:      return "Bible"
@@ -336,6 +479,46 @@ extension LensMode {
         case .study:      return "graduationcap"
         case .safety:     return "shield"
         case .fellowship: return "person.3"
+        }
+    }
+}
+
+@available(iOS 26.0, *)
+@Generable
+private struct FoundationLensLabels {
+    @Guide(description: "Up to three coarse non-biometric labels from the visible OCR text, such as church event, sermon notes, or bible study")
+    var labels: [String]
+}
+
+@available(iOS 26.0, *)
+private struct FoundationLensSemanticEngine {
+    func labels(for text: String) async -> [String: String] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "[no text detected]" else { return [:] }
+
+        let model = SystemLanguageModel(useCase: .contentTagging)
+        guard case .available = model.availability else { return [:] }
+
+        do {
+            let session = LanguageModelSession(
+                model: model,
+                instructions: Instructions {
+                    "Return only coarse, non-biometric labels for OCR text from a Berean Lens capture."
+                    "Do not infer identity, age, ethnicity, health, or private attributes."
+                }
+            )
+            let response = try await session.respond(
+                to: Prompt(trimmed),
+                generating: FoundationLensLabels.self
+            )
+            let labels = response.content.labels
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                .filter { !$0.isEmpty }
+                .prefix(3)
+            guard !labels.isEmpty else { return [:] }
+            return ["localSemanticLabels": labels.joined(separator: ",")]
+        } catch {
+            return [:]
         }
     }
 }
@@ -370,11 +553,12 @@ private struct PermissionDeniedCard: View {
 
 private struct LensModeRow: View {
     @Binding var selected: LensMode
+    let modes: [LensMode]
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(LensMode.allCases, id: \.self) { mode in
+                ForEach(modes, id: \.self) { mode in
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             selected = mode
