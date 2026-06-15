@@ -11,14 +11,10 @@ import FirebaseFirestore
 @MainActor
 final class CommitmentConnectionService: ObservableObject {
 
-    // MARK: - Dependencies
-
     private let db = Firestore.firestore()
 
     // MARK: - Create
 
-    /// Creates a new CommitmentObject in Firestore at commitments/{id}.
-    /// Returns early with an error when the feature flag is off.
     func createCommitment(
         fromUid: String,
         toUid: String,
@@ -30,7 +26,7 @@ final class CommitmentConnectionService: ObservableObject {
         }
 
         let id = UUID().uuidString
-        let closeTheLoopAt = Date().addingTimeInterval(7 * 24 * 3600) // 7 days
+        let closeTheLoopAt = Date().addingTimeInterval(7 * 24 * 3600)
         let commitment = CommitmentObject(
             id: id,
             parties: [fromUid, toUid],
@@ -60,26 +56,16 @@ final class CommitmentConnectionService: ObservableObject {
 
     // MARK: - Nudge Scheduling
 
-    /// Schedules a close-the-loop nudge on the server side.
-    /// The Cloud Function closeTheLoopNudge handles actual delivery at closeTheLoopAt.
-    /// This client-side method marks intent — the nudge fires exactly once (open → nudged).
     func scheduleCloseTheLoopNudge(commitment: CommitmentObject) async {
         guard AMENFeatureFlags.shared.commitmentConnections else { return }
         guard commitment.loopState == .open else { return }
 
-        // Server-side scheduling is handled by the closeTheLoopNudge Cloud Function.
-        // Client-side: record that nudge scheduling was requested so the server
-        // query can pick it up. The actual FCM send + loopState update happens server-side.
-        let updateData: [String: Any] = [
-            "nudgeScheduled": true
-        ]
+        let updateData: [String: Any] = ["nudgeScheduled": true]
         try? await db.collection("commitments").document(commitment.id).updateData(updateData)
     }
 
     // MARK: - Complete
 
-    /// Marks a commitment as completed, transitions loopState to .closed.
-    /// Triggers a SelahMoment via SelahMomentService on the main actor.
     func completeCommitment(id: String) async throws {
         guard AMENFeatureFlags.shared.commitmentConnections else {
             throw CommitmentConnectionError.featureDisabled
@@ -91,14 +77,11 @@ final class CommitmentConnectionService: ObservableObject {
         ]
         try await db.collection("commitments").document(id).updateData(updateData)
 
-        // Trigger a SelahMoment for the completion milestone.
         SelahMomentService().trigger()
     }
 
     // MARK: - Lapse (gracefully)
 
-    /// Transitions a commitment to .lapsedGracefully.
-    /// No notification. No shame. Grace is enough.
     func lapseCommitmentGracefully(id: String) async throws {
         guard AMENFeatureFlags.shared.commitmentConnections else {
             throw CommitmentConnectionError.featureDisabled
@@ -109,12 +92,10 @@ final class CommitmentConnectionService: ObservableObject {
             "lapsedAt": Timestamp(date: Date())
         ]
         try await db.collection("commitments").document(id).updateData(updateData)
-        // No notification sent — no shame.
     }
 
     // MARK: - Live Stream
 
-    /// Returns an AsyncThrowingStream of open commitments for a given user.
     func commitments(for uid: String) -> AsyncThrowingStream<[CommitmentObject], Error> {
         AsyncThrowingStream { continuation in
             guard AMENFeatureFlags.shared.commitmentConnections else {

@@ -61,12 +61,15 @@
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>We'll send you reminders about church service times and when you're near your saved churches</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>AMEN uses this to understand how our community discovers spiritual content, so we can improve formation features for you.</string>
 	<key>SEARCH_SERVICE_URL</key>
 	<string>$(SEARCH_SERVICE_URL)</string>
 	<key>SPOTIFY_CLIENT_ID</key>
 	<string>$(SPOTIFY_CLIENT_ID)</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>audio</string>
 		<string>remote-notification</string>
 		<string>fetch</string>
 		<string>processing</string>

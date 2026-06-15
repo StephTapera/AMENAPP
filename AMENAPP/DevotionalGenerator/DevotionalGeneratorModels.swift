@@ -327,7 +327,7 @@ struct SpiritualRhythmSnapshot {
     let lastCompletedAt: Date?
 
     var streakDescription: String {
-        if currentStreakDays == 0 { return "Start your streak today" }
+        if currentStreakDays == 0 { return "Begin your devotional rhythm." }
         if currentStreakDays == 1 { return "1 day streak" }
         return "\(currentStreakDays) day streak"
     }

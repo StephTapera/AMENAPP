@@ -42,9 +42,9 @@ final class IslandStateMachine {
     // MARK: - Constants
 
     private static let dailyPromoLimit      = 3
-    private static let quietStart           = 22   // 10 PM (22:00)
-    private static let quietEnd             = 7    // 7 AM  (07:00) — quiet when h >= 22 || h < 7
-    private static let maxLiveSessionAge    = TimeInterval(30 * 60) // 30 minutes
+    private static let quietStart           = 22
+    private static let quietEnd             = 7
+    private static let maxLiveSessionAge    = TimeInterval(30 * 60)
 
     // MARK: - Init
 
@@ -54,8 +54,6 @@ final class IslandStateMachine {
 
     // MARK: - Public API
 
-    /// Attempt to surface a proactive suggestion.
-    /// Silent no-op when any gate blocks the trigger.
     func fire(trigger: IslandSuggestion) {
         guard canFire(id: trigger.id) else { return }
         markConsumed(id: trigger.id)
@@ -173,7 +171,6 @@ final class IslandStateMachine {
             let session = try? JSONDecoder().decode(IslandLiveSession.self, from: data)
         else { return }
 
-        // Discard stale sessions — never resurface a session older than maxLiveSessionAge.
         guard Date().timeIntervalSince(session.startedAt) < Self.maxLiveSessionAge else {
             UserDefaults.standard.removeObject(forKey: Key.liveSession)
             return

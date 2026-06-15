@@ -82,6 +82,20 @@ final class BereanChatViewModel: ObservableObject {
     // MARK: Send
 
     func send() {
+        // C-005: Network pre-check — fail fast before any API call.
+        guard AMENNetworkMonitor.shared.isConnected else {
+            errorMessage = "No internet connection. Please check your network and try again."
+            return
+        }
+
+        // A-003: COPPA guard — Tier B (13–15) and blocked accounts (under 13) must
+        // not access AI generation. Tier C (16–17) and Tier D (18+) are permitted.
+        guard AgeAssuranceService.shared.tier != .blocked &&
+              AgeAssuranceService.shared.tier != .tierB else {
+            errorMessage = "This feature is not available for your account."
+            return
+        }
+
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isThinking, !isAtLimit else { return }
 
@@ -116,15 +130,46 @@ final class BereanChatViewModel: ObservableObject {
 
         streamTask = Task {
             do {
+                // A-002: Route through constitutional safety gates.
+                // Crisis pre-screen runs synchronously before any API call.
+                // If a crisis signal is detected, abort and surface a crisis resource card.
+                // TODO: Full pipeline routing tracked in A-002 — requires
+                //       BereanPersonalityMode → BereanPipelineMode mapping before
+                //       BereanConstitutionalPipeline.shared.ask() can replace ClaudeService.
+                if CrisisDetectionService.shared.hasLocalCrisisSignal(in: text) {
+                    messages[assistantIndex].isStreaming = false
+                    messages[assistantIndex].content = "It sounds like you may be going through something really difficult. Please reach out to a trusted pastor or contact a crisis line: 988 Suicide & Crisis Lifeline (call or text 988)."
+                    isThinking = false
+                    if isStudyModeEnabled { resolveReasoning() }
+                    return
+                }
+
                 let stream = ClaudeService.shared.sendMessage(
                     text,
                     conversationHistory: history,
                     mode: currentMode
                 )
+
+                // C-020: First-token timeout. If no chunk arrives within 15 s, cancel
+                // and show a user-facing retry prompt.
+                var receivedFirstChunk = false
+                let timeoutTask = Task {
+                    try? await Task.sleep(for: .seconds(15))
+                    if !receivedFirstChunk {
+                        streamTask?.cancel()
+                        errorMessage = "Berean is taking too long — tap to try again."
+                    }
+                }
+
                 for try await chunk in stream {
                     try Task.checkCancellation()
+                    if !receivedFirstChunk {
+                        receivedFirstChunk = true
+                        timeoutTask.cancel()
+                    }
                     messages[assistantIndex].content += chunk
                 }
+                timeoutTask.cancel() // Ensure cleanup if loop exits normally
                 messages[assistantIndex].isStreaming = false
                 if self.isStudyModeEnabled {
                     self.resolveReasoning()

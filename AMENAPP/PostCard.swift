@@ -86,6 +86,9 @@ struct PostCard: View {
     @State private var isPraying = false
     @State private var prayingNowCount = 0
     @State private var isFasting = false
+
+    // SELAH: Commitment connection — instantiated once per card, flag-gated inside the service
+    private let commitmentService = CommitmentConnectionService()
     
     // Animation timing constants
     private let fastAnimationDuration: Double = 0.15
@@ -1569,7 +1572,7 @@ struct PostCard: View {
     )
     
     private static let lightbulbGradientInactive = LinearGradient(
-        colors: [Color.black.opacity(0.5), Color.black.opacity(0.5)],
+        colors: [Color(.label).opacity(0.45), Color(.label).opacity(0.45)],
         startPoint: .top,
         endPoint: .bottom
     )
@@ -2316,7 +2319,8 @@ struct PostCard: View {
             }
             .modifier(TranslationTaskBridge(config: appleTranslationConfig) { anySession in
                 guard #available(iOS 18, *) else { return }
-                await handleAppleTranslationSession(anySession as! Translation.TranslationSession)
+                guard let session = anySession as? Translation.TranslationSession else { return }
+                await handleAppleTranslationSession(session)
             })
     }
 
@@ -2734,6 +2738,8 @@ struct PostCard: View {
                         .font(AMENFont.semiBold(14))
                         .foregroundStyle(.primary)
                 }
+                // D-031: context label improvement tracked — add author name when API is available
+                .accessibilityLabel("Show more")
             }
         }
         .padding(.horizontal, 12)
@@ -3064,6 +3070,12 @@ struct PostCard: View {
                 Color(.systemBackground)
             }
         )
+        // SELAH W0: Apply liturgical season tint over the card surface.
+        // SeasonalGlassModifier reads LiturgicalSeasonService from the environment
+        // (injected at AMENAPPApp.swift:268) and is a no-op when the
+        // liturgicalTheming flag is OFF. No flag check needed here — the modifier
+        // guards itself internally.
+        .seasonalGlass()
         .overlay(alignment: .bottom) {
             // Threads-style: subtle, inset divider between posts
             Rectangle()
@@ -3478,12 +3490,7 @@ struct PostCard: View {
                         )
                 }
                 
-                if prayingNowCount > 0 {
-                    Text("\(prayingNowCount)")
-                        .font(AMENFont.semiBold(11))
-                        .foregroundStyle(isPraying ? Color.blue : Color.secondary)
-                        .contentTransition(.numericText())
-                }
+                // C-025: prayingNowCount not shown publicly — icon state only
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -3601,6 +3608,9 @@ struct PostCard: View {
                 logDebug("✅ Backend write SUCCESS", category: "LIGHTBULB")
                 logDebug("  AFTER: hasLitLightbulb=\(hasLitLightbulb), count=\(lightbulbCount)", category: "LIGHTBULB")
                 logDebug("  Note: Count will update via real-time observer", category: "LIGHTBULB")
+
+                // WR-03: Analytics for lightbulb action
+                AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "lightbulb"))
 
                 // Reset animation state
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -3821,6 +3831,11 @@ struct PostCard: View {
 
                 logDebug("✅ Backend write SUCCESS", category: "REPOST")
                 logDebug("  Backend returned: isReposted=\(isReposted)", category: "REPOST")
+
+                // WR-11: Analytics for repost action (only on repost, not un-repost)
+                if isReposted {
+                    AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "repost"))
+                }
 
                 // Update UI to match database state
                 await MainActor.run {
@@ -4302,6 +4317,26 @@ struct PostCard: View {
 
             if success {
                 dlog("✅ \(isPraying ? "Started" : "Stopped") praying for post")
+                // WR-12: Analytics for prayer action (only on start, not stop)
+                if isPraying {
+                    await MainActor.run {
+                        AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "prayer"))
+                    }
+                }
+                // SELAH: Create a prayer commitment when user starts praying (not stopping).
+                // Flag-gated; failure is silent — the pray tap is already recorded.
+                if isPraying,
+                   AMENFeatureFlags.shared.commitmentConnections,
+                   let fromUid = Auth.auth().currentUser?.uid,
+                   !post.authorId.isEmpty,
+                   fromUid != post.authorId {
+                    _ = try? await commitmentService.createCommitment(
+                        fromUid: fromUid,
+                        toUid: post.authorId,
+                        kind: .prayFor,
+                        requestRef: "posts/\(post.firestoreId)"
+                    )
+                }
             } else {
                 dlog("❌ Failed to \(isPraying ? "start" : "stop") praying")
                 await MainActor.run {
@@ -4313,7 +4348,7 @@ struct PostCard: View {
             }
         }
     }
-    
+
     private func toggleFasting() {
         dlog("🔥 toggleFasting() called")
         
@@ -4363,6 +4398,20 @@ struct PostCard: View {
                 await MainActor.run {
                     HapticManager.notification(type: .success)
                     ToastManager.shared.success(isFasting ? "Joined fast" : "Left fast")
+                }
+                // SELAH: Create a prayer-request commitment when the user joins a fast.
+                // Fires only on join (isFasting == true after toggle) and only when the
+                // feature flag is on. Errors are swallowed — the fast is already recorded.
+                if isFasting,
+                   AMENFeatureFlags.shared.commitmentConnections,
+                   let currentUid = Auth.auth().currentUser?.uid,
+                   !post.authorId.isEmpty {
+                    _ = try? await commitmentService.createCommitment(
+                        fromUid: currentUid,
+                        toUid: post.authorId,
+                        kind: .prayFor,
+                        requestRef: post.firestoreId
+                    )
                 }
             } else {
                 dlog("❌ Failed to \(isFasting ? "join" : "leave") fast")

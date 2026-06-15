@@ -14,7 +14,7 @@ import FirebaseFunctions
 
 // MARK: - Discovered space model
 
-struct DiscoveredSpace: Identifiable, Codable {
+struct DiscoveredSpace: Identifiable, Codable, Hashable {
     let id: String
     let name: String
     let tagline: String
@@ -408,6 +408,7 @@ struct AmenSpaceDiscoveryView: View {
     @State private var selectedInterests: Set<String> = []
     @State private var selectedTypes: Set<String> = []
     @State private var loadState: DiscoveryLoadState = .idle
+    @State private var selectedDiscoveredSpace: DiscoveredSpace?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -491,7 +492,11 @@ struct AmenSpaceDiscoveryView: View {
                                 } else {
                                     LazyVStack(spacing: 10) {
                                         ForEach(spaces) { space in
-                                            DiscoverySpaceCard(space: space)
+                                            // A-006: DiscoverySpaceCard tappable — navigates to AmenSpaceDetailView
+                                            NavigationLink(value: space) {
+                                                DiscoverySpaceCard(space: space)
+                                            }
+                                            .buttonStyle(.plain)
                                         }
                                     }
                                     .padding(.horizontal, 16)
@@ -520,6 +525,26 @@ struct AmenSpaceDiscoveryView: View {
             }
             .navigationTitle("Find Your Community")
             .navigationBarTitleDisplayMode(.large)
+            // A-006: Push to AmenSpaceDetailView when a discovery card is tapped.
+            // DiscoveredSpace is converted to a minimal AmenConnectSpacesSpace for navigation;
+            // the detail view re-fetches membership status on appear.
+            .navigationDestination(for: DiscoveredSpace.self) { discovered in
+                AmenSpaceDetailView(
+                    space: AmenConnectSpacesSpace(
+                        id: discovered.id,
+                        name: discovered.name,
+                        type: AmenConnectSpacesRoomType(rawValue: discovered.spaceType) ?? .smallGroup,
+                        memberIds: Array(repeating: "", count: discovered.memberCount),
+                        careSensitivity: false,
+                        createdBy: "",
+                        createdAt: Date(),
+                        updatedAt: Date()
+                    ),
+                    events: [],
+                    tiers: [],
+                    hostProfile: nil
+                )
+            }
             .onAppear {
                 // Do not auto-load with no filters — respect intent-driven model
             }

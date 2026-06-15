@@ -80,6 +80,9 @@ struct FollowBadgeView: View {
                     )
             }
         }
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+        .accessibilityLabel(isFollowed ? "Unfollow" : "Follow")
         .onTapGesture {
             if openMenuMode {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()

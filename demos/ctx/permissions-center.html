@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AMEN Permissions Center — Demo</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 390px; margin: 0 auto; padding: 24px; background: #f2f2f7; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: #666; margin-bottom: 24px; }
+  .section { background: white; border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .section-header { font-size: 13px; font-weight: 600; color: #888; padding: 12px 16px 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .row { display: flex; align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid #f2f2f7; }
+  .row:last-child { border-bottom: none; }
+  .row-text { flex: 1; }
+  .row-title { font-size: 15px; font-weight: 500; }
+  .row-desc { font-size: 13px; color: #666; margin-top: 2px; }
+  .row-example { font-size: 12px; color: #999; margin-top: 4px; display: none; }
+  .toggle { position: relative; width: 51px; height: 31px; flex-shrink: 0; margin-left: 12px; margin-top: 2px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: #ccc; border-radius: 31px; cursor: pointer; transition: background .3s; }
+  .slider:before { content: ""; position: absolute; height: 27px; width: 27px; left: 2px; bottom: 2px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .3s; }
+  input:checked + .slider { background: #34C759; }
+  input:checked + .slider:before { transform: translateX(20px); }
+  input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
+  .example-btn { font-size: 12px; color: #007AFF; cursor: pointer; margin-top: 4px; background: none; border: none; padding: 0; }
+  .privacy-note { font-size: 13px; color: #666; padding: 12px 16px; line-height: 1.5; }
+  .locked-badge { font-size: 11px; color: #888; margin-left: 6px; background: #f0f0f5; border-radius: 4px; padding: 1px 5px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<h1>Permissions</h1>
+<p class="subtitle">What flows where — you control everything.</p>
+
+<div class="section">
+  <div class="section-header">What flows where</div>
+  <div id="edges"></div>
+</div>
+
+<div class="section">
+  <p class="privacy-note">Your data never leaves your device without your explicit permission. Rhythm detection always happens on-device only.</p>
+</div>
+
+<script>
+const edges = [
+  {
+    id: "notesToMatching",
+    title: "Notes refine church matching",
+    desc: "Sermon themes adjust your church DNA score",
+    example: "You note a sermon on expository teaching → churches strong in that style rank higher",
+    on: false
+  },
+  {
+    id: "notesToGiving",
+    title: "Notes surface giving causes",
+    desc: "Note themes surface vetted nonprofits",
+    example: "You note a missions series → a vetted mission org card appears in Giving",
+    on: false
+  },
+  {
+    id: "messagesToPrayer",
+    title: "Messages suggest prayers",
+    desc: "Prayer requests in DMs become reminders",
+    example: "Friend says ‘pray for my dad’ → a chip appears to add it to your prayer list",
+    on: false
+  },
+  {
+    id: "locationToVisits",
+    title: "Location verifies church visits",
+    desc: "Entering a church during service counts as a visit",
+    example: "You enter Grace Church at 10am Sunday → a visit is quietly logged",
+    on: false
+  },
+  {
+    id: "givingToFeed",
+    title: "Giving shapes your feed",
+    desc: "Your giving history shapes what you see",
+    example: "You give to education causes → education ministries rank higher in your feed",
+    on: false
+  },
+  {
+    id: "activityToCheckIns",
+    title: "Activity enables gentle check-ins",
+    desc: "A quiet season may prompt a gentle check-in",
+    example: "No activity for 3 weeks → a single ‘How are you?’ card appears",
+    on: false
+  },
+  {
+    id: "graphToBerean",
+    title: "Berean reads your personal graph",
+    desc: "Berean answers questions from your notes and prayers",
+    example: "‘What did my pastor say about Romans 8?’ → Berean searches your own notes",
+    on: false
+  },
+  {
+    id: "graphToCohorts",
+    title: "Anonymous community matching",
+    desc: "Anonymized themes improve community suggestions",
+    example: "Your study themes match a group studying grief → they’re suggested (you’re anonymous to them)",
+    on: false
+  },
+  {
+    id: "activityToRhythm",
+    title: "Rhythm detection (on-device)",
+    desc: "Your spiritual cadence, measured privately on-device",
+    example: "You reflect every two Sundays → ‘Right on rhythm’ appears; silence if you miss one",
+    on: true,
+    locked: true
+  },
+  {
+    id: "crossDeviceContinuity",
+    title: "Continue across your devices",
+    desc: "Pick up where you left off on any device",
+    example: "Start a study on iPhone → your iPad shows ‘Pick up your Romans study’",
+    on: false
+  }
+];
+
+const container = document.getElementById('edges');
+
+edges.forEach(function(e) {
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  const lockedBadge = e.locked
+    ? '<span class="locked-badge">always on</span>'
+    : '';
+
+  row.innerHTML =
+    '<div class="row-text">' +
+      '<div class="row-title">' + e.title + lockedBadge + '</div>' +
+      '<div class="row-desc">' + e.desc + '</div>' +
+      '<button class="example-btn" onclick="toggleExample(\'' + e.id + '\')">See an example</button>' +
+      '<div class="row-example" id="ex-' + e.id + '">' + e.example + '</div>' +
+    '</div>' +
+    '<label class="toggle">' +
+      '<input type="checkbox"' + (e.on ? ' checked' : '') + (e.locked ? ' disabled' : '') + '>' +
+      '<span class="slider"></span>' +
+    '</label>';
+
+  container.appendChild(row);
+});
+
+function toggleExample(id) {
+  const el = document.getElementById('ex-' + id);
+  const btn = el.previousElementSibling;
+  const show = el.style.display !== 'block';
+  el.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? 'Hide example' : 'See an example';
+}
+</script>
+</body>
+</html>

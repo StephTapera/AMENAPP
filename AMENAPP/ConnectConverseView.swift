@@ -32,6 +32,7 @@ struct ConnectConverseView: View {
     @State private var isLoading = true
     @State private var showCreate = false
     @State private var appeared = false
+    @State private var loadError: String? = nil
 
     private let accentTeal = Color(red: 0.18, green: 0.55, blue: 0.60)
 
@@ -44,6 +45,12 @@ struct ConnectConverseView: View {
 
                 if isLoading {
                     ProgressView().padding(.top, 40)
+                } else if let error = loadError {
+                    VStack(spacing: 12) {
+                        Text(error).foregroundStyle(.secondary)
+                        Button("Try Again") { Task { await loadTopics() } }.buttonStyle(.bordered)
+                    }
+                    .padding(.top, 40)
                 } else if topics.isEmpty {
                     emptyState
                 } else {
@@ -161,12 +168,7 @@ struct ConnectConverseView: View {
                     Text("\(topic.replyCount)").font(.systemScaled(12))
                 }
                 .foregroundStyle(.secondary)
-
-                HStack(spacing: 4) {
-                    Image(systemName: "heart").font(.systemScaled(12))
-                    Text("\(topic.likeCount)").font(.systemScaled(12))
-                }
-                .foregroundStyle(.secondary)
+                // C-023: likeCount removed from public display — activity signal (replyCount) is sufficient
             }
         }
         .padding(16)
@@ -193,6 +195,8 @@ struct ConnectConverseView: View {
     // MARK: - Data
 
     private func loadTopics() async {
+        loadError = nil
+        isLoading = true
         lazy var db = Firestore.firestore()
         do {
             let snap = try await db.collection("conversations")
@@ -205,6 +209,7 @@ struct ConnectConverseView: View {
             }
         } catch {
             dlog("ConnectConverseView: Failed to load — \(error.localizedDescription)")
+            loadError = "Couldn't load discussions — tap to retry"
         }
         isLoading = false
     }

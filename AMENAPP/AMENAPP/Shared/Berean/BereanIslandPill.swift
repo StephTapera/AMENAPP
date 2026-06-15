@@ -151,7 +151,7 @@ private struct CompactPill: View {
                 }
             }
             .padding(.horizontal, 16)
-            .frame(minHeight: 44)       // minHeight allows text to expand at large AX sizes
+            .frame(minHeight: 44)
             .background(.ultraThinMaterial)
             .clipShape(Capsule())
             .overlay(Capsule().stroke(.separator, lineWidth: 0.5))
@@ -190,7 +190,6 @@ private struct ExpandedPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header
             HStack(spacing: 8) {
                 Image(systemName: "book.circle.fill")
                     .font(.system(size: 18))
@@ -206,7 +205,6 @@ private struct ExpandedPanel: View {
                 .accessibilityLabel("Close Berean")
             }
 
-            // Optional pre-fill label
             if let pre = context.prefill {
                 Text("\"\(pre)\"")
                     .font(.system(size: 13))
@@ -215,7 +213,6 @@ private struct ExpandedPanel: View {
                     .padding(.horizontal, 4)
             }
 
-            // Query field
             HStack(spacing: 8) {
                 TextField("Ask a question…", text: $queryText)
                     .textFieldStyle(.plain)
@@ -236,7 +233,6 @@ private struct ExpandedPanel: View {
             .background(.thinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            // Quick actions
             if !context.quickActions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -353,7 +349,6 @@ private struct SuggestionCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Action icon
             Image(systemName: suggestion.action.systemImage)
                 .font(.system(size: 20))
                 .foregroundStyle(Color.accentColor)
@@ -362,7 +357,6 @@ private struct SuggestionCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .accessibilityHidden(true)
 
-            // Message + context chips
             VStack(alignment: .leading, spacing: 4) {
                 Text(suggestion.message)
                     .font(.system(size: 14, weight: .medium))
@@ -385,7 +379,6 @@ private struct SuggestionCard: View {
 
             Spacer(minLength: 0)
 
-            // Accept / Dismiss buttons
             VStack(spacing: 6) {
                 Button(action: onAccept) {
                     Image(systemName: "checkmark")

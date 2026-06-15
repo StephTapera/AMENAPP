@@ -51,6 +51,10 @@ struct AMENAPPApp: App {
     // persists across launches and cannot be bypassed by clearing session state.
     @AppStorage("hasCompletedAgeVerification") private var hasCompletedAgeVerification = false
     @State private var ageGateEligible = false
+    // A-001: showAgeGate drives the fullScreenCover that blocks ContentView until the
+    // user has confirmed they are old enough. Separate from hasCompletedAgeVerification
+    // so it can be dismissed without writing to AppStorage on every launch.
+    @State private var showAgeGate = false
     @StateObject private var killSwitch = RemoteKillSwitch.shared
     @StateObject private var featureFlags = AMENFeatureFlags.shared
     @StateObject private var liturgicalContextStore = AmenLiturgicalContextStore.shared
@@ -147,10 +151,9 @@ struct AMENAPPApp: App {
         // This is synchronous but extremely cheap (~0.1ms).
         HapticManager.prepareAll()
 
-        // Boot Global Resilience OS: capability monitor, outbox, upload resume, flags, bulletins.
-        // All services are flag-gated internally; behaviour with gr_globalResilienceEnabled=false
-        // is identical to today — wire() is a no-op until flags are enabled server-side.
-        GlobalResilienceWiring.wire()
+        // GlobalResilienceWiring.wire() moved to AppDelegate.application(_:didFinishLaunchingWithOptions:)
+        // after FirebaseApp.configure() — CrisisBulletinService accesses Firestore immediately
+        // and crashes if called here before the AppDelegate has run.
 
         // PERFORMANCE: Defer singleton initialization to first use
         // Singletons will initialize lazily when first accessed
@@ -279,6 +282,19 @@ struct AMENAPPApp: App {
                         }
                 }
             }
+            // A-001: COPPA age gate — blocks access to ContentView until the user
+            // confirms they meet the minimum age requirement. The cover is shown when
+            // hasCompletedAgeVerification is false and is non-dismissible; AgeGateView
+            // sets both hasCompletedAgeVerification (AppStorage, persisted) and
+            // ageGateEligible (binding, dismisses this cover) on approval.
+            .fullScreenCover(isPresented: $showAgeGate) {
+                AgeGateView(isEligible: $ageGateEligible)
+                    .interactiveDismissDisabled(true)
+            }
+            .onChange(of: ageGateEligible) { _, eligible in
+                // Dismiss the cover once AgeGateView signals approval via the binding.
+                if eligible { showAgeGate = false }
+            }
             // Forced upgrade alert — shown when Remote Config minimum_app_version
             // is higher than the installed binary. Users must update before continuing.
             .alert("Update Required", isPresented: Binding(
@@ -294,6 +310,13 @@ struct AMENAPPApp: App {
                 Text("This version of AMEN is no longer supported. Please update to the latest version to continue.")
             }
             .onAppear {
+                    // A-001: Show COPPA age gate on first launch before any content is accessible.
+                    // hasCompletedAgeVerification is AppStorage-backed so it survives reinstalls
+                    // only if the keychain/iCloud backup also survives — deliberate, for COPPA audit.
+                    if !hasCompletedAgeVerification {
+                        showAgeGate = true
+                    }
+
                     // Attach passive touch observer for session-timeout activity tracking.
                     // Uses a gesture recognizer that immediately fails (never consumes touches),
                     // so this is safe on all iOS versions and does not affect hit testing.

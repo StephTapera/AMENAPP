@@ -205,6 +205,10 @@ enum AMENAnalyticsEvent {
     case commOSContactNoteSaved
     case commOSCreatorDraftRequested(draftType: String)
 
+    // Content Creation
+    case commentSubmitted(postId: String)
+    case postCreated(hasMedia: Bool, hasScripture: Bool)
+
     var name: String {
         switch self {
         case .feedSessionStarted: return "feed_session_started"
@@ -342,6 +346,8 @@ enum AMENAnalyticsEvent {
         case .commOSActionTapped: return "comm_os_action_tapped"
         case .commOSContactNoteSaved: return "comm_os_contact_note_saved"
         case .commOSCreatorDraftRequested: return "comm_os_creator_draft_requested"
+        case .commentSubmitted: return "comment_submitted"
+        case .postCreated: return "post_created"
         }
     }
 
@@ -469,6 +475,10 @@ enum AMENAnalyticsEvent {
             return ["action_key": actionKey]
         case .commOSCreatorDraftRequested(let draftType):
             return ["draft_type": draftType]
+        case .commentSubmitted(let postId):
+            return ["post_id": postId]
+        case .postCreated(let hasMedia, let hasScripture):
+            return ["has_media": hasMedia, "has_scripture": hasScripture]
         default:
             return [:]
         }

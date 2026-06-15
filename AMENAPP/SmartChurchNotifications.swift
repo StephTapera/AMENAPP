@@ -349,11 +349,15 @@ struct NotificationPreferences: Codable {
  - Action: "View Details"
  - Trigger: Smart algorithm
  
- #### Streak Notification
- - Title: "3 Weeks in a Row! 🔥"
- - Body: "You're building a great habit"
- - Action: "See Progress"
- - Trigger: Consistent attendance
+ // REMOVED: Streak notification template per product integrity rules (C-029).
+ // Streak-based notifications ("3 Weeks in a Row", "building a great habit") were removed
+ // to avoid gamification pressure. Use a content-triggered alternative instead:
+ //
+ // #### New Sermon Content Notification
+ // - Title: "New message from [Church Name]"
+ // - Body: "A new sermon has been posted. Catch up when you're ready."
+ // - Action: "Listen Now"
+ // - Trigger: Church posts new sermon content
  
  ### 4. **Community & Social Notifications**
  

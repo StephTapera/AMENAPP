@@ -49,7 +49,7 @@ struct TestimoniesView: View {
     enum TestimonyFilter: String, CaseIterable {
         case all = "All"
         case recent = "Recent"
-        case popular = "Popular"
+        case popular = "Featured"  // B-020: Renamed from "Popular" — editorial curation intent
         case following = "Following"
     }
     
@@ -70,7 +70,7 @@ struct TestimoniesView: View {
             // Already sorted by timestamp in RealtimePostService
             break
         case .popular:
-            // Intelligent popularity scoring (not just sum)
+            // AUDIT B-020: Replace engagement ranking with editorial curation before launch
             posts = testimonyAlgorithm.rankTestimonies(posts, for: testimonyAlgorithm.userPreferences)
         case .following:
             // Filter to posts from users the current user follows
@@ -932,8 +932,11 @@ struct TestimonyPostCard: View {
                             Circle()
                                 .stroke(Color.black.opacity(0.15), lineWidth: isFollowing ? 1 : 0)
                         )
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(isFollowing ? "Unfollow" : "Follow")
                 .symbolEffect(.bounce, value: isFollowing)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
                 .offset(x: 2, y: 2)
@@ -1042,7 +1045,10 @@ struct TestimonyPostCard: View {
                 .font(.systemScaled(18, weight: .semibold))
                 .foregroundStyle(Color.black.opacity(0.6))
                 .frame(width: 32, height: 32)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
+        .accessibilityLabel("More options")
     }
     
     private var headerView: some View {
@@ -1090,6 +1096,7 @@ struct TestimonyPostCard: View {
                     .stroke(hasAmened ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: hasAmened ? 1.5 : 1)
             )
         }
+        .accessibilityLabel(hasAmened ? "Remove Amen" : "Say Amen")
     }
     
     private func toggleAmen() async {
@@ -1154,6 +1161,7 @@ struct TestimonyPostCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Comment")
     }
     
     private var repostButton: some View {
@@ -1181,6 +1189,7 @@ struct TestimonyPostCard: View {
                     .stroke(hasReposted ? Color.green.opacity(0.3) : Color.black.opacity(0.1), lineWidth: 1)
             )
         }
+        .accessibilityLabel(hasReposted ? "Undo repost" : "Repost")
     }
     
     private func toggleRepost() async {
@@ -1240,6 +1249,7 @@ struct TestimonyPostCard: View {
                         .stroke(Color.black.opacity(0.1), lineWidth: 1)
                 )
         }
+        .accessibilityLabel("Share")
     }
     
     var body: some View {

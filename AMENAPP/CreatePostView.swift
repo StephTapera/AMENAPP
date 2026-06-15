@@ -4640,6 +4640,11 @@ struct CreatePostView: View {
 
                     // Record post for community guidelines eligibility tracking
                     CommunityGuidelinesEligibilityService.shared.recordPostPublished()
+
+                    // Analytics: track post creation with media and scripture signals
+                    let analyticsHasMedia = !(imageURLs?.isEmpty ?? true)
+                    let analyticsHasScripture = verseAttachmentVM.attachedScripture != nil || !attachedVerseReference.isEmpty
+                    AMENAnalyticsService.shared.track(.postCreated(hasMedia: analyticsHasMedia, hasScripture: analyticsHasScripture))
                     
                     // P0-2 FIX: Critical - cancellable dismiss task
                     scheduleDelayedAction(seconds: 0.15) {

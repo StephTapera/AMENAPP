@@ -360,7 +360,7 @@ struct TopIdeasView: View {
                             Image(systemName: "lightbulb.slash")
                                 .font(.systemScaled(48))
                                 .foregroundStyle(.secondary)
-                            Text("No trending ideas yet")
+                            Text("No featured ideas yet")
                                 .font(AMENFont.bold(18))
                             Text("Be the first to share a brilliant idea!")
                                 .font(AMENFont.regular(14))

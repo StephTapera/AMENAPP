@@ -556,8 +556,9 @@ final class DiscoveryService: ObservableObject {
         // Simple relevance ranking for suggestions
         // Full personalization can be added later with user interests
         return candidates.sorted { a, b in
-            let aScore = a.person.qualityScore + Double(a.person.followerCount) * 0.001
-            let bScore = b.person.qualityScore + Double(b.person.followerCount) * 0.001
+            // C-022: followerCount removed from sort — formation score only
+            let aScore = a.person.qualityScore
+            let bScore = b.person.qualityScore
             return aScore > bScore
         }
     }
@@ -722,7 +723,7 @@ final class DiscoveryService: ObservableObject {
                         mutualFollowersCount: 0,
                         followReason: nil,
                         topicAffinities: [],
-                        qualityScore: Double(u.followersCount ?? 0) * 0.01 + 50
+                        qualityScore: 50.0 // Formation-ranked — follower count removed per product integrity (B-028)
                     )
                 }
             if !mapped.isEmpty { return mapped }

@@ -970,6 +970,17 @@ class AuthenticationViewModel: ObservableObject {
             UserDefaults.standard.removeObject(forKey: key)
         }
 
+        // ── E2EE key wipe (B-001) ───────────────────────────────────────────
+        // Wipe all local Signal-protocol keys before Auth.signOut() so that
+        // private key material cannot be read by a subsequent user on a shared device.
+        // AMENEncryptionService.wipeAllKeys() deletes every Keychain entry tagged to
+        // this installation (identity key, signed pre-key, one-time pre-keys, ratchet
+        // states).  Must run while the Firestore session is still alive so that the
+        // encryption singleton can safely tear down any retained references.
+        // TODO B-001: If AMENSecureMessagingService later exposes clearLocalKeys(),
+        //   replace the line below with AMENSecureMessagingService.shared.clearLocalKeys()
+        AMENEncryptionService.shared.wipeAllKeys()
+
         // ── Firebase sign-out ────────────────────────────────────────────────
         do {
             try firebaseManager.signOut()
@@ -979,6 +990,21 @@ class AuthenticationViewModel: ObservableObject {
             isAuthenticated = false
             needsOnboarding = false
             errorMessage = nil
+
+            // ── Firestore persistent cache clear (B-021) ─────────────────────
+            // clearPersistence() must be called when Firestore has no active listeners.
+            // AppLifecycleManager.performFullSignOutCleanup() (called above) detaches all
+            // listeners before we reach this point, so this is safe to call here.
+            // Best-effort: if it throws (e.g. listeners still attached) we log and continue
+            // rather than blocking the sign-out flow.
+            Task {
+                do {
+                    try await Firestore.firestore().clearPersistence()
+                    dlog("✅ Firestore persistence cache cleared (B-021)")
+                } catch {
+                    dlog("⚠️ B-021: Firestore clearPersistence failed: \(error.localizedDescription)")
+                }
+            }
 
         } catch {
             dlog("❌ Sign out failed: \(error.localizedDescription)")

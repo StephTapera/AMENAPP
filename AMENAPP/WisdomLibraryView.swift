@@ -328,19 +328,21 @@ private struct WLHeroSection: View {
                     .animation(.easeOut(duration: 0.2), value: vm.heroSubheadline)
                     .padding(.top, 2)
 
-                // Streak pill (if applicable)
-                if let streak = vm.streakLabel {
-                    HStack(spacing: 5) {
-                        Image(systemName: "flame.fill")
-                            .font(.systemScaled(10, weight: .bold))
-                        Text(streak)
-                            .font(.systemScaled(11, weight: .semibold))
+                // REMOVED: streak display per product integrity rules (D-037)
+                if false {
+                    if let streak = vm.streakLabel {
+                        HStack(spacing: 5) {
+                            Image(systemName: "flame.fill")
+                                .font(.systemScaled(10, weight: .bold))
+                            Text(streak)
+                                .font(.systemScaled(11, weight: .semibold))
+                        }
+                        .foregroundStyle(heroTextSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(heroPillBg, in: Capsule())
+                        .padding(.top, 6)
                     }
-                    .foregroundStyle(heroTextSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(heroPillBg, in: Capsule())
-                    .padding(.top, 6)
                 }
             }
             .padding(.horizontal, WLToken.hPad)

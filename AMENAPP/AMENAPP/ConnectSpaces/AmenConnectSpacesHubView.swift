@@ -298,7 +298,25 @@ struct AmenConnectSpacesHubView: View {
                 } else {
                     VStack(spacing: 12) {
                         ForEach(mySpaces) { space in
-                            LiveSpaceCardRow(space: space)
+                            // A-014: Space cards in My Spaces are tappable — push to detail view.
+                            NavigationLink(destination: AmenSpaceDetailView(
+                                space: AmenConnectSpacesSpace(
+                                    id: space.id,
+                                    name: space.name,
+                                    type: AmenConnectSpacesRoomType(rawValue: space.spaceType) ?? .smallGroup,
+                                    memberIds: Array(repeating: "", count: space.memberCount),
+                                    careSensitivity: space.isPrivate,
+                                    createdBy: currentUserId,
+                                    createdAt: Date(),
+                                    updatedAt: Date()
+                                ),
+                                events: [],
+                                tiers: [],
+                                hostProfile: nil
+                            )) {
+                                LiveSpaceCardRow(space: space)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -350,16 +368,37 @@ struct AmenConnectSpacesHubView: View {
         isLoadingSpaces = true
         spacesLoadError = nil
         do {
-            let snapshot = try await Firestore.firestore()
+            let db = Firestore.firestore()
+
+            // A-013: Query both created spaces AND joined spaces via spaceMemberships.
+            // Step 1 — spaces where this user is the creator.
+            async let createdSnapshot = db
                 .collection("spaces")
                 .whereField("creatorUid", isEqualTo: currentUserId)
                 .order(by: "createdAt", descending: true)
                 .getDocuments()
-            mySpaces = snapshot.documents.compactMap { doc in
-                let data = doc.data()
+
+            // Step 2 — space IDs from the memberships sub-collection.
+            async let membershipSnapshot = db
+                .collection("spaceMemberships")
+                .whereField("userId", isEqualTo: currentUserId)
+                .getDocuments()
+
+            let (created, memberships) = try await (createdSnapshot, membershipSnapshot)
+
+            // Gather all unique space IDs (joined spaces not already in created set).
+            var seenIds = Set(created.documents.map { $0.documentID })
+            let joinedSpaceIds = memberships.documents.compactMap { doc -> String? in
+                guard let spaceId = doc.data()["spaceId"] as? String,
+                      !seenIds.contains(spaceId) else { return nil }
+                return spaceId
+            }
+
+            // Helper to map a Firestore data dict + document ID to ConnectSpace.
+            func toConnectSpace(id: String, data: [String: Any]) -> ConnectSpace? {
                 guard let name = data["name"] as? String else { return nil }
                 return ConnectSpace(
-                    id: doc.documentID,
+                    id: id,
                     name: name,
                     description: data["description"] as? String ?? "",
                     spaceType: data["spaceType"] as? String ?? "",
@@ -367,6 +406,21 @@ struct AmenConnectSpacesHubView: View {
                     isPrivate: data["isPrivate"] as? Bool ?? false
                 )
             }
+
+            var result: [ConnectSpace] = created.documents.compactMap { toConnectSpace(id: $0.documentID, data: $0.data()) }
+
+            // Step 3 — fetch each joined space document individually (avoids Firestore "in" 30-item limit).
+            if !joinedSpaceIds.isEmpty {
+                for spaceId in joinedSpaceIds {
+                    seenIds.insert(spaceId)
+                    let doc = try await db.collection("spaces").document(spaceId).getDocument()
+                    if doc.exists, let data = doc.data(), let space = toConnectSpace(id: doc.documentID, data: data) {
+                        result.append(space)
+                    }
+                }
+            }
+
+            mySpaces = result
         } catch {
             spacesLoadError = "Couldn't load your spaces. Pull down to retry."
         }

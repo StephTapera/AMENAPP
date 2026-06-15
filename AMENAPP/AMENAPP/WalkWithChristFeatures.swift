@@ -85,6 +85,7 @@ struct SeasonDiscernmentBandView: View {
     @Binding var selectedSeason: WalkSpiritualSeason?
     let onBereanTap: (String) -> Void
 
+    // TODO: Extract to WalkColors enum (D-012)
     private let ink   = Color(red: 0.10, green: 0.09, blue: 0.09)
     private let slate = Color(red: 0.38, green: 0.38, blue: 0.40)
     private let warm  = Color(red: 0.62, green: 0.48, blue: 0.30)
@@ -1102,7 +1103,7 @@ private struct FollowThroughPlanRow: View {
                         .foregroundStyle(slate)
                     if plan.streakDays > 0 {
                         Text("·").foregroundStyle(slate.opacity(0.5))
-                        Text("\(plan.streakDays)d streak")
+                        Text("Active")
                             .font(.systemScaled(11, weight: .semibold))
                             .foregroundStyle(warm)
                     }

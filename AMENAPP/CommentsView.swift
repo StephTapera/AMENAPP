@@ -1772,6 +1772,7 @@ struct CommentsView: View {
                     HapticManager.notification(type: .success)
                     commentSeal.trigger()
                     successChips.show("Comment sent")
+                    AMENAnalyticsService.shared.track(.commentSubmitted(postId: postId))
                     isSubmittingComment = false  // Re-enable after write completes
                 }
             } catch {

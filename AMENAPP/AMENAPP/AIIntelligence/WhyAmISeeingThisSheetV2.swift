@@ -6,11 +6,6 @@
 //
 // Flag gate: AMENFeatureFlags.shared.feedWhyAmISeeingThis
 // If flag is OFF, the caller should fall back to GlobalResilienceWhyAmISeeingThisSheet.
-//
-// Usage:
-//   .sheet(isPresented: $showWhySheet) {
-//       WhyAmISeeingThisSheetV2(feedItemId: item.id)
-//   }
 
 import SwiftUI
 import FirebaseFunctions
@@ -24,7 +19,7 @@ private final class WhyAmISeeingThisV2ViewModel: ObservableObject {
     enum State {
         case loading
         case loaded(FeedExplanation)
-        case unavailable   // fail-closed — no explanation available
+        case unavailable
     }
 
     @Published private(set) var state: State = .loading
@@ -43,7 +38,6 @@ private final class WhyAmISeeingThisV2ViewModel: ObservableObject {
     }
 
     func hideSimilar(feedItemId: String) {
-        // Fire-and-forget hide signal — no confirmation needed.
         Task {
             guard let uid = Auth.auth().currentUser?.uid else { return }
             let callable = functions.httpsCallable("hideSimilarFeedContent")
@@ -62,34 +56,39 @@ struct WhyAmISeeingThisSheetV2: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            Group {
-                switch viewModel.state {
-                case .loading:
-                    loadingView
+        guard AMENFeatureFlags.shared.feedWhyAmISeeingThis else {
+            return AnyView(Color.clear.onAppear { dismiss() })
+        }
 
-                case .loaded(let explanation):
-                    explanationView(explanation)
+        return AnyView(
+            NavigationStack {
+                Group {
+                    switch viewModel.state {
+                    case .loading:
+                        loadingView
 
-                case .unavailable:
-                    unavailableView
+                    case .loaded(let explanation):
+                        explanationView(explanation)
+
+                    case .unavailable:
+                        unavailableView
+                    }
+                }
+                .navigationTitle("Why am I seeing this?")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                            .accessibilityLabel("Done")
+                    }
                 }
             }
-            .navigationTitle("Why am I seeing this?")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .accessibilityLabel("Done")
-                }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+            .task {
+                await viewModel.load(feedItemId: feedItemId)
             }
-        }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
-        .amenGlassEffect()
-        .task {
-            await viewModel.load(feedItemId: feedItemId)
-        }
+        )
     }
 
     // MARK: Loading
@@ -113,12 +112,10 @@ struct WhyAmISeeingThisSheetV2: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
 
-                // Header
                 Text("You're seeing this because:")
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
 
-                // Up to 3 warm-language reason rows
                 let displayReasons = Array(explanation.reasons.prefix(3))
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(displayReasons, id: \.self) { reason in
@@ -128,7 +125,6 @@ struct WhyAmISeeingThisSheetV2: View {
 
                 Divider()
 
-                // Human-readable summary generated server-side
                 if !explanation.humanReadable.isEmpty {
                     Text(explanation.humanReadable)
                         .font(.subheadline)
@@ -136,7 +132,6 @@ struct WhyAmISeeingThisSheetV2: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                // Hide similar content — one-tap, no confirmation
                 Button {
                     viewModel.hideSimilar(feedItemId: feedItemId)
                     dismiss()
@@ -206,8 +201,6 @@ struct WhyAmISeeingThisSheetV2: View {
 // MARK: - Flag-Aware Convenience Modifier
 
 extension View {
-    /// Present the V2 "Why am I seeing this?" sheet when the flag is enabled,
-    /// or fall back to GlobalResilienceWhyAmISeeingThisSheet.
     func whyAmISeeingThisSheet(
         isPresented: Binding<Bool>,
         feedItemId: String,

@@ -24,6 +24,7 @@ struct OpenTableView: View {
     @State private var userHasScrolled = false  // True after user scrolls past initial batch
     @State private var initialScrollY: CGFloat? = nil  // Y position captured at session start for scroll detection
     @State private var isInitialLoad = true  // shows skeleton until first posts arrive
+    @State private var feedLoadError: String? = nil
 
     // MARK: - Composer
     @State private var showCreatePost = false
@@ -142,8 +143,8 @@ struct OpenTableView: View {
                         }
                     }
 
-                    // Offline banner — shown when network drops and feed is empty
-                    if showOfflineBanner && allPosts.isEmpty {
+                    // Offline banner — shown whenever network drops (regardless of cached posts)
+                    if showOfflineBanner {
                         HStack(spacing: 10) {
                             Image(systemName: "wifi.slash")
                                 .font(.systemScaled(14, weight: .medium))
@@ -160,8 +161,29 @@ struct OpenTableView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
+                    // Error state: show when initial load fails and no cached posts exist
+                    if let loadError = feedLoadError, allPosts.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "wifi.exclamationmark")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.secondary)
+                            Text("Couldn't load posts")
+                                .font(.headline)
+                            Text(loadError)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try Again") {
+                                feedLoadError = nil
+                                Task { await loadFeed() }
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding()
+                    }
+
                     // Show empty state only after initial load completes
-                    if !isInitialLoad && allPosts.isEmpty && !isRefreshing {
+                    if !isInitialLoad && allPosts.isEmpty && !isRefreshing && feedLoadError == nil {
                         // Center the empty state in a taller block so its CTA ("Find People to
                         // Follow") sits in the visible vertical center instead of falling under
                         // the floating Ask Berean bar.
@@ -170,6 +192,9 @@ struct OpenTableView: View {
                     }
                     } // end else (skeleton)
                 }
+                // SELAH: Apply youth feed pacing (breathing-room cards + scroll deceleration).
+                // No-op when AMENFeatureFlags.shared.youthMode is false or YouthModeService.isActive is false.
+                .youthFeedPacing(itemCount: postsManager.openTablePosts.count)
                 // PostCard handles its own internal horizontal padding — no outer padding needed.
                 // Detect scroll: track LazyVStack Y position in global space.
                 // When it moves meaningfully, the user has actively scrolled.
@@ -206,13 +231,7 @@ struct OpenTableView: View {
             if !postsManager.openTablePosts.isEmpty {
                 isInitialLoad = false
             } else {
-                // Safety timeout: if no posts arrive within 4 seconds (new user, truly
-                // empty feed, slow connection), drop the skeleton so the empty state shows.
-                // The fetch continues in the background — pull-to-refresh still works.
-                try? await Task.sleep(nanoseconds: 4_000_000_000)
-                if isInitialLoad {
-                    withAnimation(.easeOut(duration: 0.25)) { isInitialLoad = false }
-                }
+                await loadFeed()
             }
         }
         .onChange(of: networkMonitor.isConnected) { _, isConnected in
@@ -490,8 +509,30 @@ struct OpenTableView: View {
         }
     }
     
+    // MARK: - Initial Load
+
+    /// Performs the initial feed load with error handling.
+    /// On failure, surfaces an error message and a retry button to the user.
+    private func loadFeed() async {
+        do {
+            // Safety timeout: if no posts arrive within 4 seconds (new user, truly
+            // empty feed, slow connection), drop the skeleton so the empty/error state shows.
+            try await Task.sleep(nanoseconds: 4_000_000_000)
+            if isInitialLoad {
+                withAnimation(.easeOut(duration: 0.25)) { isInitialLoad = false }
+            }
+        } catch {
+            withAnimation(.easeOut(duration: 0.25)) {
+                isInitialLoad = false
+                if postsManager.openTablePosts.isEmpty {
+                    feedLoadError = error.localizedDescription
+                }
+            }
+        }
+    }
+
     // MARK: - Refresh Function
-    
+
     /// Refresh OpenTable posts with pull-to-refresh
     private func refreshOpenTable() async {
         caughtUpService.recordRefresh()
@@ -523,6 +564,7 @@ struct OpenTableView: View {
     ///   25 documents from the server using the cursor stored in the service.
     private func loadMorePosts() {
         guard !isLoadingMore && !firebasePostService.isLoadingMore else { return }
+        defer { isLoadingMore = false }
 
         let allPosts = hasPersonalized && !personalizedPosts.isEmpty
             ? personalizedPosts
@@ -533,7 +575,6 @@ struct OpenTableView: View {
         if newCount > visiblePostCount {
             isLoadingMore = true
             visiblePostCount = newCount
-            isLoadingMore = false
         }
 
         // When we've shown all in-memory posts, go fetch the next Firestore page.

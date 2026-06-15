@@ -94,9 +94,10 @@ struct SmartActivityCopyGenerator {
             parts.append("You've interacted")
         }
 
-        // Active streak
+        // C-024: Streak display removed — streak pressure is a dark pattern.
+        // Return a neutral presence signal instead.
         if summary.activeStreak >= 3 {
-            parts.append("\(summary.activeStreak)-day streak")
+            return "Active recently"
         }
 
         return parts.isEmpty ? nil : parts.joined(separator: " · ")

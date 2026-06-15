@@ -139,6 +139,7 @@ class TrendingService: ObservableObject {
     
     // MARK: - Top Ideas Algorithm
     
+    // AUDIT B-019: This leaderboard uses engagement velocity. Consider editorial curation instead.
     /// Calculate trending score for a post
     /// Factors: engagement velocity, recency, quality (comments > reactions)
     private func calculateTrendingScore(

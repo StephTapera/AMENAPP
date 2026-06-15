@@ -170,7 +170,7 @@ class MilestoneManager: ObservableObject {
             badgeLabel: "\(days) day streak",
             badgeColor: .orange,
             title: "\(days) days of showing up",
-            body: "You've posted every day for \(days) days. Consistency is a spiritual discipline — don't break the chain.",
+            body: "You've posted every day for \(days) days. Keep going at your own pace — every step of faithfulness counts.",
             primaryLabel: "Keep it going",
             secondaryLabel: "Dismiss",
             primaryAction: {

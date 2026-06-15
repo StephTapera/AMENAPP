@@ -232,6 +232,7 @@ private struct AC_ScriptureCard: View {
     }
 }
 
+// TODO: Confirm commercial licenses for ESV, NLT, NASB before shipping. Only KJV and WEB are confirmed public domain.
 private enum AC_BibleTranslation: String, CaseIterable {
     case niv = "NIV"
     case esv = "ESV"

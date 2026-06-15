@@ -238,7 +238,7 @@ final class SpiritualHealthStore: ObservableObject {
 
     static let milestones: [GrowthMilestone] = [
         GrowthMilestone(title: "First Check-In", description: "Completed your first weekly check-in", icon: "star.fill", color: .yellow, target: 1, category: "Consistency"),
-        GrowthMilestone(title: "4-Week Streak", description: "4 consecutive weekly check-ins", icon: "flame.fill", color: .orange, target: 4, category: "Consistency"),
+        GrowthMilestone(title: "4-Week Rhythm", description: "4 consecutive weekly check-ins", icon: "flame.fill", color: .orange, target: 4, category: "Rhythm"),
         GrowthMilestone(title: "3-Month Journey", description: "12 consecutive weekly check-ins", icon: "crown.fill", color: Color(red: 0.85, green: 0.65, blue: 0.10), target: 12, category: "Consistency"),
         GrowthMilestone(title: "Faithful Writer", description: "Written 5 reflection entries", icon: "pencil.and.scribble", color: Color(red: 0.28, green: 0.52, blue: 0.90), target: 5, category: "Reflection"),
         GrowthMilestone(title: "Scripture Reader", description: "Scored 5/5 on Scripture 3 weeks", icon: "book.fill", color: Color(red: 0.20, green: 0.65, blue: 0.38), target: 3, category: "Scripture"),
@@ -340,28 +340,34 @@ struct SpiritualHealthView: View {
                 HStack {
                     Spacer()
                     if store.currentStreak > 0 {
-                        HStack(spacing: 5) {
-                            Text("🔥")
-                                .font(.systemScaled(16))
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("\(store.currentStreak) week\(store.currentStreak == 1 ? "" : "s")")
-                                    .font(.systemScaled(13, weight: .semibold))
-                                    .foregroundStyle(heroInk)
-                                Text("streak")
-                                    .font(.systemScaled(10))
-                                    .foregroundStyle(heroSecondary)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            HStack(spacing: 5) {
+                                Text("🔥")
+                                    .font(.systemScaled(16))
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text("\(store.currentStreak) week\(store.currentStreak == 1 ? "" : "s")")
+                                        .font(.systemScaled(13, weight: .semibold))
+                                        .foregroundStyle(heroInk)
+                                    Text("rhythm")
+                                        .font(.systemScaled(10))
+                                        .foregroundStyle(heroSecondary)
+                                }
                             }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(heroPurple.opacity(0.08))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(heroPurple.opacity(0.15), lineWidth: 1)
+                                    )
+                            )
+                            .accessibilityLabel("Only you can see this")
+                            Text("Only you can see this")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(heroPurple.opacity(0.08))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(heroPurple.opacity(0.15), lineWidth: 1)
-                                )
-                        )
                     }
                 }
                 .padding(.top, 56)
@@ -1178,7 +1184,7 @@ struct SpiritualHealthView: View {
 
     private func isAchieved(_ milestone: GrowthMilestone) -> Bool {
         switch milestone.category {
-        case "Consistency": return store.currentStreak >= milestone.target
+        case "Consistency", "Rhythm": return store.currentStreak >= milestone.target
         case "Reflection":  return store.reflections.count >= milestone.target
         case "Scripture":   return store.checkIns.filter { $0.scoreScripture == 5 }.count >= milestone.target
         case "Prayer":      return store.checkIns.filter { $0.scorePrayer == 5 }.count >= milestone.target
@@ -1240,7 +1246,7 @@ struct SpiritualHealthView: View {
 
     private func progressValue(_ m: GrowthMilestone) -> Int {
         switch m.category {
-        case "Consistency": return store.currentStreak
+        case "Consistency", "Rhythm": return store.currentStreak
         case "Reflection":  return store.reflections.count
         case "Scripture":   return store.checkIns.filter { $0.scoreScripture == 5 }.count
         case "Prayer":      return store.checkIns.filter { $0.scorePrayer == 5 }.count

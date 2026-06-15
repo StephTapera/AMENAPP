@@ -20,6 +20,10 @@ import SwiftUI
 
 struct AgeGateView: View {
     @Binding var isEligible: Bool
+    // AUDIT B-003: hasCompletedAgeVerification is stored in UserDefaults (@AppStorage) which
+    // is cleared on reinstall.  A malicious user can bypass the age gate by uninstalling and
+    // reinstalling the app.  This flag should be migrated to Keychain so that it survives
+    // reinstalls and cannot be trivially erased.  Keychain migration tracked in B-003.
     @AppStorage("hasCompletedAgeVerification") private var hasCompletedAgeVerification = false
 
     @State private var birthDate = Calendar.current.date(
