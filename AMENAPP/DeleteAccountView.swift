@@ -9,6 +9,7 @@ import SwiftUI
 import FirebaseAuth
 import AuthenticationServices
 import CryptoKit
+import GoogleSignIn
 
 struct DeleteAccountView: View {
     @Environment(\.dismiss) private var dismiss
@@ -336,11 +337,28 @@ private struct ReauthenticationSheet: View {
                     }
                     .padding(.horizontal, 24)
                 } else if isGoogle {
-                    Text("Please sign in with Google again to confirm.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
+                    // Google re-auth
+                    Button {
+                        Task { await reauthWithGoogle() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "g.circle.fill")
+                            Text("Continue with Google")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(Color.blue))
+                    }
+                    .padding(.horizontal, 24)
+
+                    if let err = error {
+                        Text(err)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 24)
+                    }
                 } else {
                     // Email/password
                     VStack(alignment: .leading, spacing: 8) {
@@ -415,6 +433,43 @@ private struct ReauthenticationSheet: View {
             self.error = "Incorrect password. Please try again."
         }
         isLoading = false
+    }
+
+    private func reauthWithGoogle() async {
+        isLoading = true
+        error = nil
+        guard let rootVC = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first?.windows.first?.rootViewController else {
+            self.error = "Unable to find root view controller."
+            isLoading = false
+            return
+        }
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { result, signInError in
+            Task { @MainActor in
+                guard let result, signInError == nil,
+                      let idToken = result.user.idToken?.tokenString else {
+                    self.error = "Google re-authentication failed. Please try again."
+                    self.isLoading = false
+                    return
+                }
+                let credential = GoogleAuthProvider.credential(
+                    withIDToken: idToken,
+                    accessToken: result.user.accessToken.tokenString
+                )
+                Auth.auth().currentUser?.reauthenticate(with: credential) { _, reauthError in
+                    Task { @MainActor in
+                        if reauthError == nil {
+                            self.onComplete(true)
+                        } else {
+                            self.error = "Google re-authentication failed. Please try again."
+                            self.onComplete(false)
+                        }
+                        self.isLoading = false
+                    }
+                }
+            }
+        }
     }
 
     private func reauthWithApple() async {

@@ -31,16 +31,28 @@ final class AccountManagementService: ObservableObject {
 
     // MARK: - Data Export (GDPR Art. 20 — right to portability)
     func requestDataExport(uid: String) async throws {
+        // Always derive uid from the authenticated session — Cloud Function also validates
+        // the token-authenticated uid server-side, but sending the wrong uid wastes a call.
+        guard let currentUser = Auth.auth().currentUser else {
+            throw NSError(domain: "AccountManagement", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "No authenticated user."])
+        }
         isExportPending = true
-        _ = try await functions.httpsCallable("exportUserData").call(["uid": uid])
-        dlog("[RecoveryOS] Data export requested for \(uid)")
+        _ = try await functions.httpsCallable("exportUserData").call(["uid": currentUser.uid])
+        dlog("[RecoveryOS] Data export requested for \(currentUser.uid.prefix(8))…")
         isExportPending = false
     }
 
     // MARK: - Soft Delete (30-day grace period then hard delete)
     func softDeleteAccount(uid: String) async throws {
+        // Always derive uid from the authenticated session — never trust the caller's parameter.
+        guard let currentUser = Auth.auth().currentUser else {
+            throw NSError(domain: "AccountManagement", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "No authenticated user."])
+        }
+        let safeUID = currentUser.uid
         let deadline = Calendar.current.date(byAdding: .day, value: 30, to: Date()) ?? Date()
-        try await db.collection("users").document(uid).updateData([
+        try await db.collection("users").document(safeUID).updateData([
             "deletedAt": FieldValue.serverTimestamp(),
             "deletionScheduledFor": Timestamp(date: deadline)
         ])
@@ -50,7 +62,8 @@ final class AccountManagementService: ObservableObject {
     // MARK: - Hard Delete (immediate, via Cloud Function — no 30-day grace)
     func hardDeleteAccount() async throws {
         guard let user = Auth.auth().currentUser else { return }
-        _ = try await functions.httpsCallable("deleteUserAccount").call(["uid": user.uid])
+        // Server CF: userAccountDeletionCascade — matched per audit AUTH-callable-mismatch
+        _ = try await functions.httpsCallable("userAccountDeletionCascade").call(["uid": user.uid])
         try Auth.auth().signOut()
     }
 }

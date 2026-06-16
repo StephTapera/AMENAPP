@@ -181,6 +181,23 @@ struct SignInView: View {
             inputFieldsSection
             actionButtons
             toggleSignInSignUp
+            #if APPSTORE_REVIEW_BUILD
+            Divider()
+            Button("App Store Reviewer Login") {
+                Task {
+                    // HUMAN: Create reviewer@amenapp-review.com in Firebase Auth console first
+                    // Then set REVIEWER_PASSWORD_ENV in the AppStoreReview Xcode scheme
+                    let email = ProcessInfo.processInfo.environment["REVIEWER_EMAIL"] ?? "reviewer@amenapp-review.com"
+                    let password = ProcessInfo.processInfo.environment["REVIEWER_PASSWORD_ENV"] ?? ""
+                    try? await Auth.auth().signIn(withEmail: email, password: password)
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .accessibilityLabel("App Store review test account login")
+            // HUMAN STEP: Add APPSTORE_REVIEW_BUILD flag in AppStoreReview scheme > Build Settings > Swift Flags
+            // HUMAN STEP: Create reviewer Firebase Auth account and set env vars in scheme
+            #endif
         }
         .frame(maxWidth: 420)
         .background(cardBackground)
@@ -485,6 +502,7 @@ struct SignInView: View {
             HStack(spacing: 12) {
                 Image(systemName: "g.circle.fill")
                     .font(.systemScaled(18))
+                    .accessibilityHidden(true)
                 Text("Continue with Google")
                     .font(AMENFont.semiBold(14))
             }
@@ -494,9 +512,11 @@ struct SignInView: View {
             .amenLiquidGlassCapsuleSurface(isSelected: true)
         }
         .buttonStyle(SubtlePressButtonStyle())
+        .accessibilityLabel("Continue with Google")
+        .disabled(viewModel.isLoading)
         .padding(.horizontal, 32)
     }
-    
+
     private var appleSignInButton: some View {
         Button {
             handleAppleSignIn()
@@ -504,6 +524,7 @@ struct SignInView: View {
             HStack(spacing: 12) {
                 Image(systemName: "apple.logo")
                     .font(.systemScaled(18, weight: .semibold))
+                    .accessibilityHidden(true)
                 Text("Continue with Apple")
                     .font(AMENFont.semiBold(14))
             }
@@ -513,6 +534,8 @@ struct SignInView: View {
             .amenLiquidGlassCapsuleSurface(isSelected: true)
         }
         .buttonStyle(SubtlePressButtonStyle())
+        .accessibilityLabel("Continue with Apple")
+        .disabled(viewModel.isLoading)
         .padding(.horizontal, 32)
     }
     
@@ -557,6 +580,7 @@ struct SignInView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "envelope.arrow.triangle.branch")
                         .font(.systemScaled(16))
+                        .accessibilityHidden(true)
                     Text("Sign in with Email Link")
                         .font(AMENFont.semiBold(14))
                 }
@@ -566,25 +590,50 @@ struct SignInView: View {
                 .amenLiquidGlassCapsuleSurface(isSelected: true)
             }
             .buttonStyle(SubtlePressButtonStyle())
+            .accessibilityLabel("Sign in with Email Link")
+            .disabled(viewModel.isLoading)
             .padding(.horizontal, 32)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
     
     private var toggleSignInSignUp: some View {
-        HStack(spacing: 6) {
-            Text(isLogin ? "Don't have an account?" : "Already have an account?")
-                .font(AMENFont.regular(13))
-                .foregroundStyle(.white.opacity(0.5))
+        VStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Text(isLogin ? "Don't have an account?" : "Already have an account?")
+                    .font(AMENFont.regular(13))
+                    .foregroundStyle(.white.opacity(0.5))
 
-            Button {
-                withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
-                    isLogin.toggle()
+                Button {
+                    withAnimation(Motion.adaptive(.spring(response: 0.35, dampingFraction: 0.75))) {
+                        isLogin.toggle()
+                    }
+                } label: {
+                    Text(isLogin ? "Sign up" : "Sign in")
+                        .font(AMENFont.semiBold(13))
+                        .foregroundStyle(.white)
                 }
-            } label: {
-                Text(isLogin ? "Sign up" : "Sign in")
-                    .font(AMENFont.semiBold(13))
-                    .foregroundStyle(.white)
+            }
+
+            // Legal links — shown on sign-up to satisfy App Store Review §5.1.1
+            // and App Review Guideline 5.1.4 (links to ToS and Privacy Policy required).
+            if !isLogin {
+                HStack(spacing: 4) {
+                    Text("By signing up you agree to our")
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.white.opacity(0.45))
+                    Link("Terms", destination: URL(string: "https://amenapp.com/terms")!)
+                        .font(AMENFont.semiBold(11))
+                        .foregroundStyle(.white.opacity(0.75))
+                    Text("and")
+                        .font(AMENFont.regular(11))
+                        .foregroundStyle(.white.opacity(0.45))
+                    Link("Privacy Policy", destination: URL(string: "https://amenapp.com/privacy")!)
+                        .font(AMENFont.semiBold(11))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                .multilineTextAlignment(.center)
+                .transition(.opacity)
             }
         }
         .padding(.top, 16)
