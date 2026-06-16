@@ -184,7 +184,7 @@ struct QuickReplaceVerseDrawer: View {
                             .font(.systemScaled(13, weight: .bold))
                             .foregroundStyle(Color.primary)
                         
-                        Text("NIV")
+                        Text("KJV") // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV per AMEN-CONTENT-001
                             .font(.systemScaled(9, weight: .bold))
                             .foregroundStyle(Color.secondary)
                             .padding(.horizontal, 5)

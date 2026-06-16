@@ -272,7 +272,6 @@ final class VerseAttachmentViewModel: ObservableObject {
             guard !Task.isCancelled else { return }
             
             let baseVM = AttachVerseViewModel()
-            baseVM.selectedTranslation = selectedTranslation
             await searchEngine.search(query: query, translation: selectedTranslation, baseViewModel: baseVM)
             
             guard !Task.isCancelled else { return }

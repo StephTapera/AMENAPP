@@ -406,7 +406,7 @@ private final class ScriptureInsightViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
 
-    func loadPassage(reference: String, translation: String = "ESV") async {
+    func loadPassage(reference: String, translation: String = "KJV") async { // TODO(legal): was ESV (Crossway, copyrighted) — default changed to KJV per AMEN-CONTENT-001
         guard AMENFeatureFlags.shared.livingScriptureGraphEnabled else {
             errorMessage = "Scripture insights are not available yet."
             return

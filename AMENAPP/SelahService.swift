@@ -267,7 +267,8 @@ final class SelahService: ObservableObject {
     // MARK: - Verse Expansion (YouVersion)
 
     func expandVerse(reference: String) async throws -> VerseExpansion {
-        let versions: [ScripturePassage.BibleVersion] = [.esv, .niv, .kjv, .nlt]
+        // TODO(legal): ESV/NIV/NLT removed — copyrighted without license (AMEN-CONTENT-001).
+        let versions: [ScripturePassage.BibleVersion] = [.kjv, .web, .bsb]
         var passages: [ScripturePassage] = []
 
         for version in versions {

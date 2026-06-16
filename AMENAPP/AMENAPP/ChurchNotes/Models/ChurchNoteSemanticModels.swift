@@ -492,7 +492,7 @@ struct ChurchNoteBlockV2: Codable, Identifiable, Hashable {
         )
     }
 
-    static func verseEmbed(reference: String, text: String, translation: String = "NIV", order: Int = 0) -> ChurchNoteBlockV2 {
+    static func verseEmbed(reference: String, text: String, translation: String = "KJV", order: Int = 0) -> ChurchNoteBlockV2 { // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV per AMEN-CONTENT-001
         ChurchNoteBlockV2(
             sortOrder: order,
             type: .verseEmbed,

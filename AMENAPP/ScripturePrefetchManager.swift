@@ -136,14 +136,15 @@ final class ScripturePrefetchManager {
     }
     
     private func translationToVersion(_ translation: String) -> ScripturePassage.BibleVersion {
+        // TODO(legal): NIV/ESV/NLT/NASB are copyrighted — map to KJV (public domain) per AMEN-CONTENT-001.
         switch translation.uppercased() {
-        case "ESV": return .esv
-        case "NIV": return .niv
-        case "KJV": return .kjv
+        case "KJV":  return .kjv
+        case "WEB":  return .web
+        case "BSB":  return .bsb
         case "NKJV": return .nkjv
-        case "NLT": return .nlt
-        case "NASB": return .nasb
-        default: return .niv
+        // Copyrighted translations: redirect to KJV until licenses acquired.
+        case "ESV", "NIV", "NLT", "NASB": return .kjv
+        default: return .kjv
         }
     }
 }

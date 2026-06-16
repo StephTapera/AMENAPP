@@ -100,14 +100,13 @@ final class ClaudeService: ObservableObject {
                         self.lastError = nil
                     }
 
-                    let systemPrompt = buildSystemPrompt(mode: mode, suffix: systemPromptSuffix)
                     let userMessage = buildUserMessage(
                         userMessage: message,
                         history: trimmedHistory(conversationHistory)
                     )
 
                     let result = try await self.callProxy(
-                        systemPrompt: systemPrompt,
+                        mode: mode,
                         userMessage: userMessage,
                         maxTokens: min(maxTokens, 2000)
                     )
@@ -165,7 +164,6 @@ final class ClaudeService: ObservableObject {
         isProcessing = true
         defer { isProcessing = false }
 
-        let systemPrompt = buildSystemPrompt(mode: mode, suffix: nil)
         let userMessage = buildUserMessage(
             userMessage: message,
             history: trimmedHistory(conversationHistory)
@@ -173,7 +171,7 @@ final class ClaudeService: ObservableObject {
 
         return try await withRetry {
             try await self.callProxy(
-                systemPrompt: systemPrompt,
+                mode: mode,
                 userMessage: userMessage,
                 maxTokens: 2000
             )
@@ -183,7 +181,7 @@ final class ClaudeService: ObservableObject {
     // MARK: - Cloud Function Call
 
     private func callProxy(
-        systemPrompt: String,
+        mode: BereanPersonalityMode,
         userMessage: String,
         maxTokens: Int
     ) async throws -> String {
@@ -192,7 +190,7 @@ final class ClaudeService: ObservableObject {
             dlog("❌ bereanChatProxy: No authenticated user")
             throw OpenAIServiceError.unauthorized
         }
-        
+
         // ✅ Force refresh the ID token to ensure it's valid and will be sent with the request
         // This is critical because expired tokens cause auth failures (error code 16)
         do {
@@ -202,12 +200,13 @@ final class ClaudeService: ObservableObject {
             dlog("❌ Failed to refresh auth token: \(error.localizedDescription)")
             throw OpenAIServiceError.unauthorized
         }
-        
+
         let callable = functions.httpsCallable("bereanChatProxy")
-        // bereanChatProxy v2 expects: message, systemPromptSuffix, maxTokens, mode
+        // Send mode ID only — server owns the full system prompt. Never send
+        // systemPromptSuffix from the client; doing so allows post-guardrail injection.
         let params: [String: Any] = [
             "message": userMessage,
-            "systemPromptSuffix": systemPrompt,
+            "mode": mode.rawValue.lowercased(),
             "maxTokens": maxTokens,
         ]
         do {

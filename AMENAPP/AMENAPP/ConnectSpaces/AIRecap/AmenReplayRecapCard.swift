@@ -392,12 +392,13 @@ private struct FlexibleWrap: Layout {
                     "Community accountability strengthens individual faith."
                 ],
                 scriptureRefs: [
+                    // TODO(legal): was ESV/NIV — changed to KJV/WEB (public domain) per AMEN-CONTENT-001
                     AmenConnectSpacesScriptureRefProvenance(
-                        id: "sr1", reference: "Hebrews 11:1", translation: "ESV",
+                        id: "sr1", reference: "Hebrews 11:1", translation: "KJV",
                         sourceLayer: .canonicalReference, verifiedAt: Date(), confidence: 0.97
                     ),
                     AmenConnectSpacesScriptureRefProvenance(
-                        id: "sr2", reference: "Genesis 12:1-4", translation: "NIV",
+                        id: "sr2", reference: "Genesis 12:1-4", translation: "WEB",
                         sourceLayer: .translationSource, verifiedAt: Date(), confidence: 0.65
                     )
                 ],

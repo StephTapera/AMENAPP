@@ -1112,9 +1112,19 @@ struct UnifiedChatView: View {
             if let saved = UserDefaults.standard.string(forKey: messageDraftKey), !saved.isEmpty {
                 messageText = saved
             }
-            // H-16: Show AI consent sheet once before any AI safety scanning begins
+            // H-16 / A-004: Show AI consent sheet once before any AI safety scanning begins.
+            // Minors must not see this consent sheet — COPPA prohibits AI DM processing
+            // consent from users under 13 without parental consent. Skip the sheet for
+            // minors and mark it seen so they are never prompted; AI DM processing stays
+            // disabled (consentDMProcessing defaults to false).
             if !dmConsentShown {
-                showDMConsentSheet = true
+                if AgeAssuranceService.shared.currentUserTier.isMinor {
+                    // Minor: mark the prompt as seen so it never re-surfaces, but do NOT
+                    // set consentDMProcessing=true — AI scanning remains off for this user.
+                    dmConsentShown = true
+                } else {
+                    showDMConsentSheet = true
+                }
             }
         }
         .onDisappear {

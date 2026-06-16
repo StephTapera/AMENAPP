@@ -23,6 +23,7 @@ struct VoicePrayerCommentRowView: View {
     @StateObject private var playerState = VoicePrayerPlayerState()
     @State private var transcriptExpanded = false
     @State private var showReportSheet = false
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -48,6 +49,18 @@ struct VoicePrayerCommentRowView: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 2)
         .onDisappear { playerState.stop() }
+        .confirmationDialog(
+            "Delete this voice comment?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                onDelete?()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This recording will be permanently removed.")
+        }
     }
 
     // MARK: - Author row
@@ -80,9 +93,9 @@ struct VoicePrayerCommentRowView: View {
 
             // Report / Delete menu
             Menu {
-                if comment.authorUid == currentUserId, let onDelete = onDelete {
+                if comment.authorUid == currentUserId, onDelete != nil {
                     Button(role: .destructive) {
-                        onDelete()
+                        showDeleteConfirmation = true
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }

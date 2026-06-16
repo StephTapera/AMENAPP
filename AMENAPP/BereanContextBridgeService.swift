@@ -82,7 +82,7 @@ final class BereanContextBridgeService: ObservableObject {
         return BereanPreferences(
             defaultMode: data["defaultMode"] as? String ?? "core",
             responseStyle: data["responseStyle"] as? String ?? "scholarly",
-            preferredTranslation: data["preferredTranslation"] as? String ?? "ESV",
+            preferredTranslation: data["preferredTranslation"] as? String ?? "KJV", // TODO(legal): was ESV default — changed to KJV per AMEN-CONTENT-001
             theologicalLens: data["theologicalLens"] as? String ?? "evangelical",
             citationDepth: data["citationDepth"] as? String ?? "standard",
             followUpsEnabled: data["followUpsEnabled"] as? Bool ?? true,

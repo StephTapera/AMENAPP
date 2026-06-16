@@ -605,11 +605,12 @@ private struct ConnectSessionRecapView: View {
                     opposingFaithfulViews: ["Salvation is by grace alone (Ephesians 2:8-9)"])
             ],
             scriptureRefs: [
+                // TODO(legal): was ESV/NIV — changed to KJV/WEB (public domain) per AMEN-CONTENT-001
                 AmenConnectSpacesScriptureRefProvenance(
-                    id: "s1", reference: "James 2:17", translation: "ESV",
+                    id: "s1", reference: "James 2:17", translation: "KJV",
                     sourceLayer: .canonicalReference, verifiedAt: Date(), confidence: 0.97),
                 AmenConnectSpacesScriptureRefProvenance(
-                    id: "s2", reference: "Romans 3:28", translation: "NIV",
+                    id: "s2", reference: "Romans 3:28", translation: "WEB",
                     sourceLayer: .bereanStudySheet, verifiedAt: Date(), confidence: 0.88)
             ],
             sponsored: false,

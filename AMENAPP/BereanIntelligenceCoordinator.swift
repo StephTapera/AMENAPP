@@ -96,7 +96,7 @@ final class BereanIntelligenceCoordinator: ObservableObject {
 struct BereanPreferences {
     var defaultMode: String = "core"
     var responseStyle: String = "scholarly"
-    var preferredTranslation: String = "ESV"
+    var preferredTranslation: String = "KJV" // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
     var theologicalLens: String = "evangelical"
     var citationDepth: String = "standard"
     var followUpsEnabled: Bool = true

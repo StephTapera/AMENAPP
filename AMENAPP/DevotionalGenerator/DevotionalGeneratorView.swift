@@ -437,20 +437,19 @@ struct SpiritualRhythmCard: View {
     var body: some View {
         if snapshot.totalDevotionalsCompleted > 0 {
             DevotionalGlassCard {
+                // streak count hidden per constitution — vanityMetricsAlwaysHidden
                 HStack(spacing: 16) {
                     VStack(spacing: 2) {
-                        Text("\(snapshot.currentStreakDays)")
-                            .font(.systemScaled(32, weight: .bold, design: .rounded))
+                        Text("Consistent this week")
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.orange)
-                        Text("day streak")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
                     Divider().frame(height: 40)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(snapshot.streakDescription)
+                        Text("Your rhythm of faithfulness")
                             .font(.subheadline.weight(.semibold))
                         if let tone = snapshot.mostUsedTone {
                             Text("Most used: \(tone.rawValue)")
@@ -461,7 +460,7 @@ struct SpiritualRhythmCard: View {
 
                     Spacer()
 
-                    Image(systemName: "flame.fill")
+                    Image(systemName: "heart.fill")
                         .font(.title2)
                         .foregroundStyle(.orange)
                 }

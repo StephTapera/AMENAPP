@@ -107,7 +107,7 @@ private struct BereanArcMiniCard: View {
 
 struct BereanVerseChip: View {
     let reference: String
-    var translation: String = "ESV"
+    var translation: String = "KJV" // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
 
     var body: some View {
         HStack(spacing: 4) {

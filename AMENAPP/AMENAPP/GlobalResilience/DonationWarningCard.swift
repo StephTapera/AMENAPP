@@ -34,6 +34,7 @@ struct DonationWarningCard: View {
     @State private var liveWarningLevel: String
     @State private var dismissed: Bool = false
     @State private var fetchError: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: Init
 
@@ -118,8 +119,12 @@ struct DonationWarningCard: View {
             Spacer(minLength: 4)
 
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                if reduceMotion {
                     dismissed = true
+                } else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        dismissed = true
+                    }
                 }
             } label: {
                 Image(systemName: "xmark")

@@ -402,9 +402,8 @@ export const computeReputation = functions.onCall(
     const userId = request.auth?.uid;
     if (!userId) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
 
-    const data = request.data as ComputeReputationRequest;
-    const uid = String(data?.uid ?? "").trim();
-    if (!uid) throw new functions.HttpsError("invalid-argument", "uid is required.");
+    // uid is always the authenticated caller — ignore any uid sent in the body.
+    const uid = userId;
 
     logger.info(`computeReputation: computing for uid=${uid}.`);
 

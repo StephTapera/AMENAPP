@@ -39,13 +39,12 @@ const REGION = "us-east1"; // us-central1 quota exhausted; mirrors restoredFunct
 
 /**
  * Idempotent: writes prayingUsers/{uid} for the given prayerRequest.
- * uid is sourced from request.auth (Firebase Auth token) or request.data.uid
- * (App Group bridge from widget extension when App Check is the only gate).
+ * uid is always sourced from the Firebase Auth token — never from the request body.
  */
 exports.prayForRequest = onCall(
   { region: REGION, enforceAppCheck: true, secrets: [] },
   async (request) => {
-    const uid = request.auth?.uid ?? request.data?.uid;
+    const uid = request.auth?.uid;
     if (!uid || typeof uid !== "string") {
       throw new HttpsError("unauthenticated", "User not authenticated.");
     }

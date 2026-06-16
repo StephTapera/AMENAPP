@@ -23,7 +23,7 @@ struct BereanDailyFormationView: View {
             highlights: dataService.highlights,
             memoryVerses: dataService.memoryVerses,
             seasonal: BereanSeasonalRhythm.current(),
-            translationPref: UserDefaults.standard.string(forKey: "bibleTranslationPref") ?? "ESV",
+            translationPref: UserDefaults.standard.string(forKey: "bibleTranslationPref") ?? "KJV", // TODO(legal): was ESV default — changed to KJV per AMEN-CONTENT-001
             selectedTopics: dataService.prefs.selectedTopics
         )
     }

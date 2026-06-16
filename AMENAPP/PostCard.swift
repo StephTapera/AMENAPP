@@ -2857,7 +2857,7 @@ struct PostCard: View {
         if let post = post, let verseRef = post.verseReference, !verseRef.isEmpty {
             PostCardScripturePill(
                 reference: verseRef,
-                translation: "NIV",
+                translation: "KJV", // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV (public domain) per AMEN-CONTENT-001
                 onTap: {
                     // Open scripture detail
                     if let attachment = ScriptureAttachment.from(legacyReference: verseRef, legacyText: post.verseText) {

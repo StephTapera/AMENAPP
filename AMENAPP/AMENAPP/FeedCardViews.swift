@@ -13,7 +13,7 @@ struct CategoryPill: View {
             action()
         }) {
             Text(title)
-                .font(.custom(isSelected ? "OpenSans-Bold" : "OpenSans-SemiBold", size: adaptiveFontSize))
+                .font(.custom(isSelected ? "OpenSans-Bold" : "OpenSans-SemiBold", size: adaptiveFontSize, relativeTo: .caption))
                 .foregroundStyle(isSelected ? .primary : .secondary)
                 .padding(.horizontal, adaptivePadding)
                 .padding(.vertical, adaptiveVerticalPadding)

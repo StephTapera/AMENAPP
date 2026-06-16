@@ -34,6 +34,7 @@ import * as admin from "firebase-admin";
 import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
 import type {SensitivityFlag, TopicClass} from "./berean/models/berean";
+import {ensureAIDisclosure} from "./berean/services/aiDisclosure";
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
@@ -292,8 +293,8 @@ export const bereanChatProxyStream = onRequest(
             res.setHeader("Cache-Control", "no-cache");
             res.setHeader("X-Accel-Buffering", "no");
             res.flushHeaders();
-            // Stream the crisis response word-by-word so the view renders it
-            for (const word of CRISIS_SAFE_RESPONSE.split(" ")) {
+            const disclosedCrisisResponse = ensureAIDisclosure(CRISIS_SAFE_RESPONSE);
+            for (const word of disclosedCrisisResponse.split(" ")) {
                 res.write(`data: ${JSON.stringify({delta: word + " "})}\n\n`);
             }
             res.write(`data: ${JSON.stringify({done: true})}\n\n`);
@@ -366,6 +367,7 @@ export const bereanChatProxyStream = onRequest(
             const reader = anthropicRes.body!.getReader();
             const decoder = new TextDecoder();
             let buffer = "";
+            let disclosureEmitted = false;
 
             while (true) {
                 const {done, value} = await reader.read();
@@ -388,6 +390,11 @@ export const bereanChatProxyStream = onRequest(
                         ) {
                             const text = (event.delta as Record<string, unknown>).text as string;
                             if (text) {
+                                if (!disclosureEmitted) {
+                                    disclosureEmitted = true;
+                                    const disclosurePrefix = ensureAIDisclosure("").trimEnd() + "\n\n";
+                                    res.write(`data: ${JSON.stringify({delta: disclosurePrefix})}\n\n`);
+                                }
                                 res.write(`data: ${JSON.stringify({delta: text})}\n\n`);
                             }
                         } else if (event.type === "message_stop") {

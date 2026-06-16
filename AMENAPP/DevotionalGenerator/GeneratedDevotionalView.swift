@@ -419,8 +419,8 @@ extension View {
         title: "Rest in His Faithfulness",
         openingVerse: DevotionalScriptureCard(
             reference: "Philippians 4:6-7",
-            text: "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God.",
-            version: "NIV",
+            text: "Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.",
+            version: "KJV", // TODO(legal): was NIV (Biblica, copyrighted) verse text — replaced with KJV per AMEN-CONTENT-001
             whyThisVerse: "This verse directly addresses anxiety with a practical spiritual discipline."
         ),
         additionalScriptures: [],

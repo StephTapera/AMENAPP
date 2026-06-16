@@ -399,7 +399,7 @@ struct BereanChatsListView: View {
             BereanChatListItem(
                 id: saved.id.uuidString,
                 title: saved.title,
-                translation: "ESV",
+                translation: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                 date: saved.date
             )
         }

@@ -83,6 +83,7 @@ struct BereanRoomFirstView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
+                TruthfulAILabel(status: .synthetic)
             }
 
             if synthesis.bereanContribution.isEmpty {

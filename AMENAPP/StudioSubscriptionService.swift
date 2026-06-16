@@ -259,13 +259,13 @@ final class StudioSubscriptionService: ObservableObject {
     #endif
 
     private func syncEntitlementToFirestore(_ tier: StudioEntitlement) {
-        guard let uid = Auth.auth().currentUser?.uid, tier != .free else { return }
-        Task.detached { [weak self] in
-            guard let self else { return }
-            try? await self.db.collection("users").document(uid).updateData([
-                "studioTier": tier.displayName,
-                "studioTierUpdatedAt": FieldValue.serverTimestamp()
-            ])
-        }
+        // SECURITY FIX (P7-8 G-P7-01): Direct client write of studioTier removed.
+        // studioTier is now protected by premiumFieldsUnchanged() in firestore.rules —
+        // any direct updateData() call here would be denied by the server.
+        // TODO(YELLOW Y-P7-01): Deploy a RevenueCat webhook Cloud Function that
+        // writes studioTier via Admin SDK after RevenueCat purchase validation.
+        // See: https://www.revenuecat.com/docs/webhooks
+        guard Auth.auth().currentUser?.uid != nil else { return }
+        dlog("ℹ️ StudioSubscription: tier=\(tier.displayName) — server-authoritative sync via RC webhook CF (deploy pending)")
     }
 }

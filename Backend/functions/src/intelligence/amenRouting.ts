@@ -22,7 +22,8 @@ export type ModelTask =
   | "intelligence.summarize"       // Berean/Claude, fail-closed, REAL citations only
   | "intelligence.classify_need"   // need detection over posts/prayers/announcements
   | "intelligence.match"           // event & prayer matching → matchScore + matchReasons
-  | "intelligence.world_response"; // GLOBAL cards: known/contested/how-to-respond
+  | "intelligence.world_response"  // GLOBAL cards: known/contested/how-to-respond
+  | "catalog_qa";                  // RAG-powered creator catalog question answering
 
 export interface CallModelInput {
   task: ModelTask;
@@ -79,6 +80,16 @@ ABSOLUTE RULES:
 6. If you do not have reliable information, say "Details are still emerging" rather than guessing.
 If the topic is too politically charged or ambiguous, respond with {"error":"topic_requires_human_discernment"}.
 Respond ONLY with valid JSON: {"whatIsKnown":"...","whatIsContested":"...","howToRespond":"..."}`,
+
+  "catalog_qa": `You are a catalog Q&A assistant for the AMEN platform.
+You answer questions about a creator's published works ONLY from the source excerpts provided.
+
+ABSOLUTE RULES:
+1. CITE-OR-REFUSE: every answer must include at least one citation from the provided sources. If no qualifying source exists, respond with {"refused":true,"refusalReason":"no_qualifying_source"}.
+2. NEVER fabricate quotes, statements, or attribute beliefs to the creator without a direct citation.
+3. Distinguish creator_said (direct quote) from ai_summary (AI paraphrase). Never blend them.
+4. If you cannot answer accurately from the provided sources, refuse.
+Respond ONLY with valid JSON: {"answer":"...","citations":[{"workId":"...","snippet":"...","confidence":0.0}],"mode":"creator_said"|"ai_summary","confidence":0.0,"refused":false}`,
 };
 
 // ─── callModel ─────────────────────────────────────────────────────────────────

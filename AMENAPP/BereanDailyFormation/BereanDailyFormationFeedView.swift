@@ -166,7 +166,7 @@ private struct BereanEmptyFeedView: View {
         highlights: BereanMockData.highlights,
         memoryVerses: BereanMockData.memoryVerses,
         seasonal: BereanMockData.seasonal,
-        translationPref: "ESV",
+        translationPref: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
         selectedTopics: prefs.selectedTopics
     )
     return BereanDailyFormationFeedView(

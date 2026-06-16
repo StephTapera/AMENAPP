@@ -227,7 +227,7 @@ final class DevotionalGenerationService: ObservableObject {
         let openingRef = openingVerseDict["reference"] ?? scriptures.first?.reference ?? ""
         let openingText = scriptures.first(where: { $0.reference == openingRef })?.text
             ?? scriptures.first?.text ?? ""
-        let openingVersion = scriptures.first?.version.rawValue ?? "NIV"
+        let openingVersion = scriptures.first?.version.rawValue ?? "KJV" // TODO(legal): was NIV default — changed to KJV per AMEN-CONTENT-001
         let openingVerse = DevotionalScriptureCard(
             reference: openingRef,
             text: openingText,
@@ -240,7 +240,7 @@ final class DevotionalGenerationService: ObservableObject {
         let additionalScriptures: [DevotionalScriptureCard] = additionalDicts.compactMap { d in
             guard let ref = d["reference"] else { return nil }
             let text = scriptures.first(where: { $0.reference == ref })?.text ?? ""
-            let version = scriptures.first(where: { $0.reference == ref })?.version.rawValue ?? "NIV"
+            let version = scriptures.first(where: { $0.reference == ref })?.version.rawValue ?? "KJV" // TODO(legal): was NIV default — changed to KJV per AMEN-CONTENT-001
             return DevotionalScriptureCard(
                 reference: ref,
                 text: text,

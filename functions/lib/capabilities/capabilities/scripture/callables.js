@@ -133,7 +133,17 @@ async (request) => {
         }
     }
     logger.info("[CAP/scripture] detectReferences", { blockCount: body.blocks.length });
-    const detections = (0, referenceParser_1.detectReferencesInBlocks)(body.blocks);
+    const rawDetections = (0, referenceParser_1.detectReferencesInBlocks)(body.blocks);
+    // Flatten range: { start, end } → range_start / range_end
+    // The frozen Swift contract (CapabilityModels.swift CodingKeys) expects
+    // top-level snake_case keys, not a nested range object.
+    const detections = rawDetections.map((d) => ({
+        blockId: d.blockId,
+        range_start: d.range.start,
+        range_end: d.range.end,
+        osisRef: d.osisRef,
+        display: d.display,
+    }));
     return { detections };
 });
 // ── scripture_getVerses ───────────────────────────────────────────────────────

@@ -250,7 +250,7 @@ struct AmenBereanRoomMemberView: View {
                         AmenConnectSpacesScriptureRefProvenance(
                             id: "r1",
                             reference: "John 3:16",
-                            translation: "ESV",
+                            translation: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                             sourceLayer: .canonicalReference,
                             verifiedAt: Date(),
                             confidence: 0.98
@@ -258,7 +258,7 @@ struct AmenBereanRoomMemberView: View {
                         AmenConnectSpacesScriptureRefProvenance(
                             id: "r2",
                             reference: "John 3:16",
-                            translation: "ESV",
+                            translation: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                             sourceLayer: .translationSource,
                             verifiedAt: Date(),
                             confidence: 0.95
@@ -266,7 +266,7 @@ struct AmenBereanRoomMemberView: View {
                         AmenConnectSpacesScriptureRefProvenance(
                             id: "r3",
                             reference: "John 3:16",
-                            translation: "ESV",
+                            translation: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                             sourceLayer: .contextWindow,
                             verifiedAt: Date(),
                             confidence: 0.91
@@ -274,7 +274,7 @@ struct AmenBereanRoomMemberView: View {
                         AmenConnectSpacesScriptureRefProvenance(
                             id: "r4",
                             reference: "John 3:16",
-                            translation: "ESV",
+                            translation: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                             sourceLayer: .bereanStudySheet,
                             verifiedAt: Date(),
                             confidence: 0.88

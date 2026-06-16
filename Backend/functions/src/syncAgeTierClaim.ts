@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { logger } from "firebase-functions";
 
 /**
  * syncAgeTierClaim — P1.1 FIX
@@ -44,9 +45,9 @@ export const syncAgeTierClaim = onDocumentUpdated(
                 await admin.auth().setCustomUserClaims(uid, existing);
             }
 
-            console.log(`[syncAgeTierClaim] uid=${uid} ageTier: ${oldTier} → ${newTier}`);
+            logger.info(`[syncAgeTierClaim] ageTier: ${oldTier} → ${newTier}`);
         } catch (err) {
-            console.error(`[syncAgeTierClaim] Failed to set claim for uid=${uid}:`, err);
+            logger.error("[syncAgeTierClaim] Failed to set claim:", err);
             // Do not throw — a failed claim sync degrades to the Firestore get()
             // fallback in rules, which is safe and functional.
         }

@@ -417,6 +417,11 @@ struct HomeView: View {
             NavigationStack {
                 NotificationPostDetailView(postId: route.postId)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") { notificationPostSheetRoute = nil }
+                    }
+                }
             }
         }
     }
@@ -977,6 +982,7 @@ private final class BILHomeWave1ViewModel: ObservableObject {
 private struct BILHomeWave1View: View {
     @StateObject private var viewModel = BILHomeWave1ViewModel()
     @ObservedObject private var flags = AMENFeatureFlags.shared
+    @Environment(\.dismiss) private var dismiss
 
     private var enabledFeatures: [BILHomeWave1Feature] {
         BILHomeWave1Feature.allCases.filter(isEnabled)
@@ -1031,6 +1037,11 @@ private struct BILHomeWave1View: View {
             .listStyle(.insetGrouped)
             .navigationTitle("BIL Wave 1")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 
@@ -1078,11 +1089,20 @@ private struct BILHomeCompactionView: View {
                 BILHomeInfoBlock(title: "Fact", text: viewModel.compactionFact)
                 BILHomeInfoBlock(title: "Open question", text: "Who signs off on Tier P local compaction?")
                 HStack {
-                    Button("Approve") {}
+                    Button("Approve") {
+                        // TODO(BIL-BI-01): call compaction approval contract
+                        dlog("[BILCompaction] Approve tapped — contract not yet wired")
+                    }
                     Spacer()
-                    Button("Undo") {}
+                    Button("Undo") {
+                        // TODO(BIL-BI-01): undo last compaction step
+                        dlog("[BILCompaction] Undo tapped — contract not yet wired")
+                    }
                     Spacer()
-                    Button("Expand") {}
+                    Button("Expand") {
+                        // TODO(BIL-BI-01): expand compacted entry
+                        dlog("[BILCompaction] Expand tapped — contract not yet wired")
+                    }
                 }
                 .buttonStyle(.bordered)
             }
@@ -1103,9 +1123,18 @@ private struct BILHomeLedgerView: View {
                     text: "A new inference conflicts with a locked briefing preference, so Berean must ask instead of overwriting it."
                 )
                 HStack {
-                    Button("Keep") {}
-                    Button("Replace") {}
-                    Button("Edit") {}
+                    Button("Keep") {
+                        // TODO(BIL-BI-02): keep ledger belief unchanged
+                        dlog("[BILLedger] Keep tapped — contract not yet wired")
+                    }
+                    Button("Replace") {
+                        // TODO(BIL-BI-02): replace conflicted ledger belief
+                        dlog("[BILLedger] Replace tapped — contract not yet wired")
+                    }
+                    Button("Edit") {
+                        // TODO(BIL-BI-02): open ledger entry for manual edit
+                        dlog("[BILLedger] Edit tapped — contract not yet wired")
+                    }
                 }
                 .buttonStyle(.bordered)
             }
@@ -1165,7 +1194,10 @@ private struct BILHomeBranchingView: View {
             }
             Section("Diff") {
                 Text(viewModel.branchDiff)
-                Button("Merge synthesis into selected branch") {}
+                Button("Merge synthesis into selected branch") {
+                    // TODO(BIL-BI-03): merge branch synthesis — requires BranchMerge contract
+                    dlog("[BILBranching] Merge synthesis tapped — contract not yet wired")
+                }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -1185,7 +1217,10 @@ private struct BILHomeSourceCardsView: View {
                 BILHomeInfoBlock(title: "Paragraph", text: "The source connects no condemnation, adoption, suffering, hope, and persevering love.")
                 BILHomeChipList(title: "Citations", values: viewModel.sourceCitations)
                 BILHomeChipList(title: "Scripture", values: viewModel.scriptureRefs)
-                Button("Attach to thread") {}
+                Button("Attach to thread") {
+                    // TODO(BIL-BI-04): attach source card to active BIL thread
+                    dlog("[BILSourceCards] Attach to thread tapped — contract not yet wired")
+                }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -1206,11 +1241,20 @@ private struct BILHomeContextPackagesView: View {
                 LabeledContent("Source cards", value: "3")
                 BILHomeChipList(title: "Tool grants", values: viewModel.packageTools)
                 HStack {
-                    Button("Open") {}
+                    Button("Open") {
+                        // TODO(BIL-BI-05): open context package in BereanChat
+                        dlog("[BILContextPackages] Open tapped — contract not yet wired")
+                    }
                     Spacer()
-                    Button("Share") {}
+                    Button("Share") {
+                        // TODO(BIL-BI-05): export context package via share sheet
+                        dlog("[BILContextPackages] Share tapped — contract not yet wired")
+                    }
                     Spacer()
-                    Button("New Version") {}
+                    Button("New Version") {
+                        // TODO(BIL-BI-05): create new package version
+                        dlog("[BILContextPackages] New Version tapped — contract not yet wired")
+                    }
                 }
                 .buttonStyle(.bordered)
             }
@@ -1320,6 +1364,7 @@ struct SearchButton: View {
                         Circle()
                             .stroke(Color.white.opacity(0.22), lineWidth: 1)
                     }
+                    .accessibilityHidden(true)
 
                 // First-time hint badge
                 if showFirstTimeLongPressHint {

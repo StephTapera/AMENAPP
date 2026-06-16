@@ -245,8 +245,8 @@ export const rankFeedPosts = onCall(
             candidatePostIds?: unknown;
         };
 
-        const userId =
-            typeof data.userId === "string" ? data.userId : request.auth.uid;
+        // Always derive identity from the verified auth token, not from the request body.
+        const userId = request.auth.uid;
 
         if (
             !Array.isArray(data.candidatePostIds) ||
@@ -427,8 +427,8 @@ export const getRankingExplanation = onCall(
             postId?: unknown;
         };
 
-        const userId =
-            typeof data.userId === "string" ? data.userId : request.auth.uid;
+        // Always derive identity from the verified auth token, not from the request body.
+        const userId = request.auth.uid;
 
         if (typeof data.postId !== "string" || data.postId.trim().length === 0) {
             throw new HttpsError("invalid-argument", "postId must be a non-empty string.");

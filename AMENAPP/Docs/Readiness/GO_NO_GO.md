@@ -17,7 +17,7 @@ The overnight audit completed 11 phases across 93 findings (46 green, 30 yellow,
 
 ## Verdict Reasoning
 
-Under the verdict formula, **any unresolved P0 item forces NO-GO**. Five P0s remain open:
+Under the verdict formula, **any unresolved P0 item forces NO-GO**. Four P0 blockers remain open in the original P5/P10 submission gate set:
 
 | ID | Title | Why It Blocks |
 |---|---|---|
@@ -26,7 +26,7 @@ Under the verdict formula, **any unresolved P0 item forces NO-GO**. Five P0s rem
 | P10-Y1 | ATT prompt never called despite NSPrivacyTracking = true | `PrivacyInfo.xcprivacy` declares tracking; zero `ATTrackingManager.requestTrackingAuthorization` calls exist; App Store will reject without compliant ATT flow |
 | P10-R1 | Firebase Analytics tracking classification: legal/policy decision | `NSPrivacyTracking = true` set but no ATT prompt implemented; whether Firebase Analytics constitutes cross-app tracking requires DPO review before choosing Option A or B |
 
-None of the five P0 items are cleared by the 46 auto-fixes applied this run.
+P5-Y1 is now source-fixed by this follow-up pass; the four rows above remain open.
 
 ---
 
@@ -232,6 +232,6 @@ Full gate table with owners and blocking status is in CERTIFICATION.md.
 | Modules + Testing | P11 + P15 | — | — | — |
 | **TOTAL** | **93** | **46** | **30 (3 P0)** | **17 (2 P0)** |
 
-**P0 count: 5 unresolved (3 engineering + 2 legal gates)**
+**P0 count: 4 unresolved in the original P5/P10 submission gate set (2 engineering after legal + 2 legal gates)**
 **P1 count: 20 remaining (8 blocking beta)**
 **Green fixes: 46 applied and committed**

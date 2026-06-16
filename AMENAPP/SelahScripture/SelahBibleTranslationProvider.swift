@@ -118,7 +118,8 @@ struct SelahLocalPublicDomainBibleProvider: SelahBibleTranslationProvider {
 struct SelahRemoteBibleProvider: SelahBibleTranslationProvider {
 
     var supportedTranslations: [SelahBibleTranslation] {
-        [.esv, .niv, .nlt, .nasb, .csb, .nkjv]
+// TODO(legal): Add .esv/.niv/.nlt/.nasb back once commercial licenses confirmed (AMEN-CONTENT-001).
+        [.csb, .nkjv]
     }
 
     func availability(for translation: SelahBibleTranslation) -> SelahBibleTranslationAvailability {

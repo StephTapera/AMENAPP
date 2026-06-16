@@ -33,6 +33,9 @@ extension ScripturePassage.BibleVersion {
         case .bsb, .web, .kjv:
             ScriptureTranslationPolicy(tier: .coreCacheable, allowsOfflineCache: true, allowsBereanAIContext: true)
         case .esv, .niv, .nkjv, .nlt, .nasb:
+            // TODO(legal): ESV (Crossway), NIV (Biblica), NLT (Tyndale), NASB (Lockman) are copyrighted.
+            // .licensedDisplayOnly means the policy layer blocks offline cache + Berean AI context.
+            // The render path in getBibleId below also throws .translationNotConfigured until licenses are confirmed (AMEN-CONTENT-001).
             ScriptureTranslationPolicy(tier: .licensedDisplayOnly, allowsOfflineCache: false, allowsBereanAIContext: false)
         }
     }
@@ -87,7 +90,7 @@ class YouVersionBibleService: ObservableObject {
     ///   doesn't include a commercial licence key.
     func fetchVerse(
         reference: String,
-        version: ScripturePassage.BibleVersion = .esv,
+        version: ScripturePassage.BibleVersion = .kjv, // TODO(legal): was .esv default — changed to KJV (public domain) per AMEN-CONTENT-001
         requiresCommercialLicense: Bool = false,
         usage: ScriptureTextUsage = .display
     ) async throws -> ScripturePassage {
@@ -189,7 +192,7 @@ class YouVersionBibleService: ObservableObject {
     /// Fetch multiple verses in parallel for faster response
     func fetchVerses(
         references: [String],
-        version: ScripturePassage.BibleVersion = .esv,
+        version: ScripturePassage.BibleVersion = .kjv, // TODO(legal): was .esv default — changed to KJV (public domain) per AMEN-CONTENT-001
         requiresCommercialLicense: Bool = false
     ) async throws -> [ScripturePassage] {
         if requiresCommercialLicense && !hasCommercialLicense {
@@ -306,18 +309,20 @@ class YouVersionBibleService: ObservableObject {
             return try configuredBibleId("APIBIBLE_ID_BSB", version: version)
         case .web:
             return try configuredBibleId("APIBIBLE_ID_WEB", version: version)
-        case .esv:
-            return "de4e12af7f28f599-02" // English Standard Version (2016)
-        case .niv:
-            return "78a9f6124f344018-01" // New International Version
         case .kjv:
-            return "de4e12af7f28f599-01" // King James Version (with Apocrypha)
+            return "de4e12af7f28f599-01" // King James Version (with Apocrypha) — public domain
         case .nkjv:
-            return "55ec70d2c5bbcafa-01" // New King James Version
+            return "55ec70d2c5bbcafa-01" // New King James Version (Thomas Nelson) — licensed via configuredBibleId when ready
+        // TODO(legal): ESV/NIV/NLT/NASB are copyrighted — blocked until commercial licenses confirmed (AMEN-CONTENT-001).
+        // Retained as throwing cases for Codable/wire-format compatibility.
+        case .esv:
+            throw YouVersionError.translationNotConfigured("ESV — Crossway license required (AMEN-CONTENT-001)")
+        case .niv:
+            throw YouVersionError.translationNotConfigured("NIV — Biblica license required (AMEN-CONTENT-001)")
         case .nlt:
-            return "65eec8e0b60e656b-01" // New Living Translation
+            throw YouVersionError.translationNotConfigured("NLT — Tyndale license required (AMEN-CONTENT-001)")
         case .nasb:
-            return "f7d2a1cce62e12e0-01" // New American Standard Bible (1995)
+            throw YouVersionError.translationNotConfigured("NASB — Lockman Foundation license required (AMEN-CONTENT-001)")
         }
     }
 
@@ -370,7 +375,7 @@ class YouVersionBibleService: ObservableObject {
     /// Search for verses containing keywords
     func searchVerses(
         query: String,
-        version: ScripturePassage.BibleVersion = .esv,
+        version: ScripturePassage.BibleVersion = .kjv, // TODO(legal): was .esv default — changed to KJV (public domain) per AMEN-CONTENT-001
         limit: Int = 10,
         usage: ScriptureTextUsage = .display
     ) async throws -> [ScripturePassage] {

@@ -4736,7 +4736,7 @@ struct SmartFeatureButton: View {
 @MainActor
 class BereanViewModel: ObservableObject {
     @Published var messages: [BereanMessage] = []
-    @Published var selectedTranslation: String = "ESV"  // ✅ Default translation
+    @Published var selectedTranslation: String = "KJV"  // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
     @Published var savedConversations: [SavedConversation] = []  // ✅ Conversation history
     
     private let genkitService = BereanGenkitService.shared
@@ -4753,10 +4753,10 @@ class BereanViewModel: ObservableObject {
     private let maxMessagesInMemory = 100
     private let maxSavedConversations = 50
     
-    // ✅ Available Bible translations
+    // TODO(legal): ESV/NIV/NLT/NASB removed — copyrighted without license (AMEN-CONTENT-001).
+    // Restricted to public-domain / open-license + non-copyrighted translations for now.
     let availableTranslations = [
-        "ESV", "NIV", "NKJV", "KJV", "NLT",
-        "NASB", "CSB", "MSG", "AMP", "NET"
+        "KJV", "WEB", "BSB", "NKJV", "CSB"
     ]
     
     let suggestedPrompts = [
@@ -5080,10 +5080,10 @@ class BereanViewModel: ObservableObject {
                 dlog("📖 Loaded translation preference: \(saved)")
             } else {
                 dlog("⚠️ Invalid saved translation '\(saved)', using default")
-                selectedTranslation = "ESV"
+                selectedTranslation = "KJV" // TODO(legal): was ESV — changed to KJV per AMEN-CONTENT-001
             }
         } else {
-            dlog("ℹ️ No saved translation preference, using default: ESV")
+            dlog("ℹ️ No saved translation preference, using default: KJV")
         }
     }
     
@@ -6283,7 +6283,7 @@ final class BereanUserPreferences: ObservableObject {
     private init() { loadFromDefaults() }
 
     // MARK: Translation preference
-    @Published var preferredTranslation: String = "ESV" {
+    @Published var preferredTranslation: String = "KJV" { // TODO(legal): was ESV — changed to KJV per AMEN-CONTENT-001
         didSet { UserDefaults.standard.set(preferredTranslation, forKey: "berean_pref_translation") }
     }
 
@@ -6415,17 +6415,18 @@ struct BibleTranslationPicker: View {
     @Binding var isShowing: Bool
     @Environment(\.dismiss) private var dismiss
     
+    // TODO(legal): ESV/NIV/NLT/NASB removed — copyrighted without license (AMEN-CONTENT-001).
+    // Restore when commercial licenses are confirmed for Biblica/Crossway/Tyndale/Lockman.
     let translations = [
-        ("ESV", "English Standard Version", "Word-for-word, literal"),
-        ("NIV", "New International Version", "Thought-for-thought, balanced"),
-        ("NKJV", "New King James Version", "Modern language, traditional"),
-        ("KJV", "King James Version", "Classic, traditional"),
-        ("NLT", "New Living Translation", "Easy to read, dynamic"),
-        ("NASB", "New American Standard", "Very literal, accurate"),
-        ("CSB", "Christian Standard Bible", "Optimal balance"),
-        ("MSG", "The Message", "Paraphrase, contemporary"),
-        ("AMP", "Amplified Bible", "Expanded meanings"),
-        ("NET", "New English Translation", "Extensive notes")
+        ("KJV",  "King James Version",       "Classic, traditional, public domain"),
+        ("WEB",  "World English Bible",       "Modern, public domain"),
+        ("BSB",  "Berean Study Bible",        "Accurate, open license"),
+        ("NKJV", "New King James Version",    "Modern language, traditional"),
+        ("CSB",  "Christian Standard Bible",  "Optimal balance"),
+        // ("ESV",  "English Standard Version",  "Word-for-word, literal"),     // TODO(legal): Crossway license required
+        // ("NIV",  "New International Version",  "Thought-for-thought, balanced"), // TODO(legal): Biblica license required
+        // ("NLT",  "New Living Translation",     "Easy to read, dynamic"),          // TODO(legal): Tyndale license required
+        // ("NASB", "New American Standard",      "Very literal, accurate"),         // TODO(legal): Lockman license required
     ]
     
     var body: some View {

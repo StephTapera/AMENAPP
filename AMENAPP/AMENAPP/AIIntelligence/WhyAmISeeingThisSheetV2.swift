@@ -112,6 +112,8 @@ struct WhyAmISeeingThisSheetV2: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
 
+                AmenAIUsageLabel(text: "AI-generated explanation")
+
                 Text("You're seeing this because:")
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)

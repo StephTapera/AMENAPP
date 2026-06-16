@@ -340,15 +340,16 @@ struct SpiritualHealthView: View {
                 HStack {
                     Spacer()
                     if store.currentStreak > 0 {
+                        // streak count hidden per constitution — vanityMetricsAlwaysHidden
                         VStack(alignment: .trailing, spacing: 4) {
                             HStack(spacing: 5) {
                                 Text("🔥")
                                     .font(.systemScaled(16))
                                 VStack(alignment: .leading, spacing: 0) {
-                                    Text("\(store.currentStreak) week\(store.currentStreak == 1 ? "" : "s")")
+                                    Text("Consistent this week")
                                         .font(.systemScaled(13, weight: .semibold))
                                         .foregroundStyle(heroInk)
-                                    Text("rhythm")
+                                    Text("your rhythm")
                                         .font(.systemScaled(10))
                                         .foregroundStyle(heroSecondary)
                                 }
@@ -1739,10 +1740,11 @@ struct SpiritualHealthEntryCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 if store.currentStreak > 0 {
+                    // streak count hidden per constitution — vanityMetricsAlwaysHidden
                     HStack(spacing: 4) {
                         Text("🔥")
                             .font(.systemScaled(12))
-                        Text("\(store.currentStreak)-week streak")
+                        Text("Consistent this week")
                             .font(.systemScaled(12, weight: .semibold))
                             .foregroundStyle(Color(red: 0.85, green: 0.47, blue: 0.10))
                     }

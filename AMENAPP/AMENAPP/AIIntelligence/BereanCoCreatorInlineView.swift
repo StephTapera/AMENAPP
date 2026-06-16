@@ -78,6 +78,8 @@ struct BereanCoCreatorInlineView: View {
                 .foregroundStyle(.primary)
                 .lineLimit(2)
 
+            TruthfulAILabel(status: .synthetic, compact: true)
+
             Spacer(minLength: 4)
 
             // "tap to add" action

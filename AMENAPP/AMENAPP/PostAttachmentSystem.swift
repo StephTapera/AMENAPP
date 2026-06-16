@@ -1213,7 +1213,7 @@ struct PrepReminderSheet: View {
 struct VerseAttachmentDetailView: View {
     let reference: String
     var verseText: String? = nil
-    var translation: String = "NIV"
+    var translation: String = "KJV" // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV per AMEN-CONTENT-001
 
     @Environment(\.dismiss) private var dismiss
     @State private var showSelah = false

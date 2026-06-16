@@ -33,130 +33,134 @@ final class ScriptureIntentDetector {
     
     // MARK: - Known Biblical Phrases → Verse Mappings
     
+    // TODO(legal): All verse texts replaced with KJV (public domain) per AMEN-CONTENT-001.
+    // NIV (Biblica) texts removed — copyrighted without license.
     private let phraseMap: [(phrases: [String], reference: String, text: String, translation: String)] = [
         (["be still", "be still and know"], "Psalm 46:10",
-         "Be still, and know that I am God; I will be exalted among the nations, I will be exalted in the earth.", "NIV"),
+         "Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.", "KJV"),
         
         (["i can do all things", "all things through christ", "i can do all things through"], "Philippians 4:13",
-         "I can do all this through him who gives me strength.", "NIV"),
+         "I can do all things through Christ which strengtheneth me.", "KJV"),
         
         (["the lord is my shepherd", "lord is my shepherd"], "Psalm 23:1",
-         "The Lord is my shepherd, I lack nothing.", "NIV"),
+         "The Lord is my shepherd; I shall not want.", "KJV"),
         
         (["for god so loved", "god so loved the world"], "John 3:16",
-         "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.", "NIV"),
+         "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.", "KJV"),
         
         (["plans to prosper", "plans for you", "plans i have for you", "hope and a future"], "Jeremiah 29:11",
-         "For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.", "NIV"),
+         "For I know the thoughts that I think toward you, saith the Lord, thoughts of peace, and not of evil, to give you an expected end.", "KJV"),
         
         (["trust in the lord", "lean not on your own", "lean not"], "Proverbs 3:5-6",
-         "Trust in the Lord with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.", "NIV"),
+         "Trust in the Lord with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.", "KJV"),
         
         (["all things work together", "work together for good", "in all things god works"], "Romans 8:28",
-         "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.", "NIV"),
+         "And we know that all things work together for good to them that love God, to them who are the called according to his purpose.", "KJV"),
         
         (["the joy of the lord", "joy of the lord is my strength"], "Nehemiah 8:10",
-         "Do not grieve, for the joy of the Lord is your strength.", "NIV"),
+         "Then he said unto them, Go your way, eat the fat, and drink the sweet, and send portions unto them for whom nothing is prepared: for this day is holy unto our Lord: neither be ye sorry; for the joy of the Lord is your strength.", "KJV"),
         
         (["love is patient", "love is kind"], "1 Corinthians 13:4",
-         "Love is patient, love is kind. It does not envy, it does not boast, it is not proud.", "NIV"),
+         "Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up.", "KJV"),
         
         (["do not be anxious", "do not worry", "be anxious for nothing"], "Philippians 4:6",
-         "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God.", "NIV"),
+         "Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.", "KJV"),
         
         (["fear not", "do not fear", "i am with you", "do not be afraid"], "Isaiah 41:10",
-         "So do not fear, for I am with you; do not be dismayed, for I am your God. I will strengthen you and help you; I will uphold you with my righteous right hand.", "NIV"),
+         "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness.", "KJV"),
         
         (["the lord bless you", "bless you and keep you"], "Numbers 6:24",
-         "The Lord bless you and keep you.", "NIV"),
+         "The Lord bless thee, and keep thee.", "KJV"),
         
         (["new creation", "new creature", "old has gone"], "2 Corinthians 5:17",
-         "Therefore, if anyone is in Christ, the new creation has come: The old has gone, the new is here!", "NIV"),
+         "Therefore if any man be in Christ, he is a new creature: old things are passed away; behold, all things are become new.", "KJV"),
         
         (["i am the way", "way truth and life", "way the truth"], "John 14:6",
-         "Jesus answered, I am the way and the truth and the life. No one comes to the Father except through me.", "NIV"),
+         "Jesus saith unto him, I am the way, the truth, and the life: no man cometh unto the Father, but by me.", "KJV"),
         
         (["greater is he", "greater is he that is in you"], "1 John 4:4",
-         "You, dear children, are from God and have overcome them, because the one who is in you is greater than the one who is in the world.", "NIV"),
+         "Ye are of God, little children, and have overcome them: because greater is he that is in you, than he that is in the world.", "KJV"),
         
         (["no weapon formed", "no weapon"], "Isaiah 54:17",
-         "No weapon forged against you will prevail, and you will refute every tongue that accuses you.", "NIV"),
+         "No weapon that is formed against thee shall prosper; and every tongue that shall rise against thee in judgment thou shalt condemn.", "KJV"),
         
         (["this is the day", "day the lord has made"], "Psalm 118:24",
-         "The Lord has done it this very day; let us rejoice today and be glad.", "NIV"),
+         "This is the day which the Lord hath made; we will rejoice and be glad in it.", "KJV"),
         
         (["seek first", "seek first the kingdom", "seek ye first"], "Matthew 6:33",
-         "But seek first his kingdom and his righteousness, and all these things will be given to you as well.", "NIV"),
+         "But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you.", "KJV"),
         
         (["by grace you have been saved", "by grace through faith"], "Ephesians 2:8",
-         "For it is by grace you have been saved, through faith — and this is not from yourselves, it is the gift of God.", "NIV"),
+         "For by grace are ye saved through faith; and that not of yourselves: it is the gift of God.", "KJV"),
         
         (["consider it pure joy", "consider it joy", "count it all joy"], "James 1:2",
-         "Consider it pure joy, my brothers and sisters, whenever you face trials of many kinds.", "NIV"),
+         "My brethren, count it all joy when ye fall into divers temptations.", "KJV"),
     ]
     
     // MARK: - Theme → Verse Mappings
     
+    // TODO(legal): All verse texts replaced with KJV (public domain) per AMEN-CONTENT-001.
+    // NIV (Biblica) texts removed — copyrighted without license.
     private let themeMap: [(keywords: [String], reference: String, text: String, translation: String, label: String)] = [
         (["anxiety", "anxious", "worried", "stress", "stressed", "overwhelmed"],
          "Philippians 4:6-7",
-         "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts and your minds in Christ Jesus.",
-         "NIV", "Related to peace"),
+         "Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God. And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus.",
+         "KJV", "Related to peace"),
         
         (["thankful", "grateful", "gratitude", "thanksgiving", "blessed", "blessings"],
          "1 Thessalonians 5:18",
-         "Give thanks in all circumstances; for this is God's will for you in Christ Jesus.",
-         "NIV", "Related to gratitude"),
+         "In every thing give thanks: for this is the will of God in Christ Jesus concerning you.",
+         "KJV", "Related to gratitude"),
         
         (["strength", "strong", "endure", "persevere", "hardship", "struggle"],
          "Isaiah 40:31",
-         "But those who hope in the Lord will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint.",
-         "NIV", "Related to strength"),
+         "But they that wait upon the Lord shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.",
+         "KJV", "Related to strength"),
         
         (["forgive", "forgiveness", "forgiven", "letting go", "grudge"],
          "Colossians 3:13",
-         "Bear with each other and forgive one another if any of you has a grievance against someone. Forgive as the Lord forgave you.",
-         "NIV", "Related to forgiveness"),
+         "Forbearing one another, and forgiving one another, if any man have a quarrel against any: even as Christ forgave you, so also do ye.",
+         "KJV", "Related to forgiveness"),
         
         (["lonely", "alone", "isolation", "abandoned"],
          "Deuteronomy 31:6",
-         "Be strong and courageous. Do not be afraid or terrified because of them, for the Lord your God goes with you; he will never leave you nor forsake you.",
-         "NIV", "Related to God's presence"),
+         "Be strong and of a good courage, fear not, nor be afraid of them: for the Lord thy God, he it is that doth go with thee; he will not fail thee, nor forsake thee.",
+         "KJV", "Related to God's presence"),
         
         (["waiting", "patience", "patient", "waiting on god"],
          "Psalm 27:14",
-         "Wait for the Lord; be strong and take heart and wait for the Lord.",
-         "NIV", "Related to patience"),
+         "Wait on the Lord: be of good courage, and he shall strengthen thine heart: wait, I say, on the Lord.",
+         "KJV", "Related to patience"),
         
         (["healing", "heal", "sick", "illness", "recovery", "pain"],
          "Jeremiah 17:14",
-         "Heal me, Lord, and I will be healed; save me and I will be saved, for you are the one I praise.",
-         "NIV", "Related to healing"),
+         "Heal me, O Lord, and I shall be healed; save me, and I shall be saved: for thou art my praise.",
+         "KJV", "Related to healing"),
         
         (["grief", "loss", "mourn", "mourning", "death", "passed away"],
          "Psalm 34:18",
-         "The Lord is close to the brokenhearted and saves those who are crushed in spirit.",
-         "NIV", "Related to comfort"),
+         "The Lord is nigh unto them that are of a broken heart; and saveth such as be of a contrite spirit.",
+         "KJV", "Related to comfort"),
         
         (["wisdom", "decision", "discernment", "guidance", "direction"],
          "James 1:5",
-         "If any of you lacks wisdom, you should ask God, who gives generously to all without finding fault, and it will be given to you.",
-         "NIV", "Related to wisdom"),
+         "If any of you lack wisdom, let him ask of God, that giveth to all men liberally, and upbraideth not; and it shall be given him.",
+         "KJV", "Related to wisdom"),
         
         (["praise", "worship", "glorify", "exalt", "sing"],
          "Psalm 150:6",
-         "Let everything that has breath praise the Lord. Praise the Lord.",
-         "NIV", "Related to praise"),
+         "Let every thing that hath breath praise the Lord. Praise ye the Lord.",
+         "KJV", "Related to praise"),
         
         (["new beginning", "fresh start", "new season", "new chapter"],
          "Isaiah 43:19",
-         "See, I am doing a new thing! Now it springs up; do you not perceive it? I am making a way in the wilderness and streams in the wasteland.",
-         "NIV", "Related to new beginnings"),
+         "Behold, I will do a new thing; now it shall spring forth; shall ye not know it? I will even make a way in the wilderness, and rivers in the desert.",
+         "KJV", "Related to new beginnings"),
         
         (["purpose", "calling", "destiny", "mission"],
          "Ephesians 2:10",
-         "For we are God's handiwork, created in Christ Jesus to do good works, which God prepared in advance for us to do.",
-         "NIV", "Related to purpose"),
+         "For we are his workmanship, created in Christ Jesus unto good works, which God hath before ordained that we should walk in them.",
+         "KJV", "Related to purpose"),
     ]
     
     // MARK: - Reference Pattern
@@ -192,7 +196,7 @@ final class ScriptureIntentDetector {
            let swiftRange = Range(match.range, in: text) {
             let ref = String(text[swiftRange]).trimmingCharacters(in: .whitespaces)
             return ScriptureIntentResult(
-                verse: BereanScriptureChip(reference: ref, text: "", translation: "NIV"),
+                verse: BereanScriptureChip(reference: ref, text: "", translation: "KJV"), // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV (public domain) per AMEN-CONTENT-001
                 confidence: 0.9,
                 reason: "Reference detected",
                 matchType: .referenceTyped

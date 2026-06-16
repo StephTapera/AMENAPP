@@ -674,7 +674,7 @@ final class ModelRoutingEngine: ObservableObject {
                 id: UUID().uuidString,
                 reference: ref,
                 text: text,
-                translation: dict["translation"] as? String ?? "ESV",
+                translation: dict["translation"] as? String ?? "KJV", // TODO(legal): was ESV default — changed to KJV per AMEN-CONTENT-001
                 relevanceScore: dict["relevance"] as? Double ?? 0.8
             )
         }

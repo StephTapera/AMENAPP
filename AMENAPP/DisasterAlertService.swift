@@ -36,7 +36,7 @@ actor DisasterAlertService {
       "scripture": {
         "reference": "Book Chapter:Verse",
         "text": "verse text",
-        "translation": "NIV"
+        "translation": "KJV" // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV per AMEN-CONTENT-001
       },
       "callsToAction": [
         {"type": "pray|donate|volunteer|checkIn", "label": "Label", "url": "https://..."}

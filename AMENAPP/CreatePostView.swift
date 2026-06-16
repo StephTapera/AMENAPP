@@ -8495,7 +8495,7 @@ struct PostVersePickerSheet: View {
     @State private var searchTask: Task<Void, Never>? = nil
 
     // Version picker
-    @State private var selectedVersion: ScripturePassage.BibleVersion = .niv
+    @State private var selectedVersion: ScripturePassage.BibleVersion = .kjv // TODO(legal): was .niv (Biblica, copyrighted) — changed to KJV (public domain) per AMEN-CONTENT-001
 
     @FocusState private var searchFocused: Bool
 
@@ -8540,8 +8540,9 @@ struct PostVersePickerSheet: View {
                     // Version picker
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach([ScripturePassage.BibleVersion.niv,
-                                     .esv, .kjv, .nkjv, .nlt, .nasb], id: \.self) { version in
+                            // TODO(legal): NIV/ESV/NLT/NASB removed — copyrighted, no license (AMEN-CONTENT-001).
+                            ForEach([ScripturePassage.BibleVersion.kjv,
+                                     .web, .bsb], id: \.self) { version in
                                 Button {
                                     selectedVersion = version
                                     if !searchQuery.isEmpty { triggerSearch() }

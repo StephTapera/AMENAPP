@@ -66,6 +66,7 @@ struct BereanRoomFirstEntrySheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Dismiss Room Intelligence sheet")
                 }
             }
         }

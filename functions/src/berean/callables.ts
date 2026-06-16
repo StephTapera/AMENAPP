@@ -59,6 +59,9 @@ function mockSafetyFlag(check: string): IslandSafetyFlagWire {
 export const bereanIsland_trigger = functions.onCall(
   { enforceAppCheck: true },
   async (request): Promise<IslandTriggerResponse> => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
+
     const body = request.data as Partial<IslandTriggerRequest>;
 
     if (typeof body.query !== "string" || !body.query.trim()) {
@@ -69,7 +72,7 @@ export const bereanIsland_trigger = functions.onCall(
     }
 
     logger.info("[BI-W0] bereanIsland_trigger stub", {
-      uid: request.auth?.uid,
+      uid,
       surface: body.packet.surface,
       intent: body.packet.intent,
       queryLength: body.query.length,
@@ -90,6 +93,9 @@ export const bereanIsland_trigger = functions.onCall(
 export const bereanLens_analyze = functions.onCall(
   { enforceAppCheck: true },
   async (request): Promise<LensAnalyzeResponse> => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
+
     const body = request.data as Partial<LensAnalyzeRequest>;
 
     const validModes = ["bible", "sermon", "flyer", "study", "safety", "fellowship"];
@@ -104,7 +110,7 @@ export const bereanLens_analyze = functions.onCall(
     }
 
     logger.info("[BI-W0] bereanLens_analyze stub", {
-      uid: request.auth?.uid,
+      uid,
       mode: body.mode,
       hasOcr: !!body.ocrText,
       hasImageRef: !!body.imageRef,
@@ -132,6 +138,9 @@ export const bereanLens_analyze = functions.onCall(
 export const writeWithBerean_assist = functions.onCall(
   { enforceAppCheck: true },
   async (request): Promise<WriteAssistResponse> => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
+
     const body = request.data as Partial<WriteAssistRequest>;
 
     const validTools = [
@@ -156,7 +165,7 @@ export const writeWithBerean_assist = functions.onCall(
     }
 
     logger.info("[BI-W0] writeWithBerean_assist stub", {
-      uid: request.auth?.uid,
+      uid,
       tool: body.tool,
       surface: body.surface,
       draftLength: body.draft.length,
@@ -179,6 +188,9 @@ export const writeWithBerean_assist = functions.onCall(
 export const sermonCompanion_session = functions.onCall(
   { enforceAppCheck: true },
   async (request): Promise<SermonSessionResponse> => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new functions.HttpsError("unauthenticated", "Must be signed in.");
+
     const body = request.data as Partial<SermonSessionRequest>;
 
     const validOps = ["start", "appendTranscript", "appendSlideOCR", "end"];
@@ -190,7 +202,7 @@ export const sermonCompanion_session = functions.onCall(
     }
 
     logger.info("[BI-W0] sermonCompanion_session stub", {
-      uid: request.auth?.uid,
+      uid,
       op: body.op,
       sessionId: body.sessionId,
       churchId: body.churchId,

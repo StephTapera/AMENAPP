@@ -35,6 +35,7 @@ interface ScamFlag {
   id: string;
   messageId: string;
   authorId: string;
+  reporterUid: string;
   flagTypes: string[];
   confidence: number;
   surfaced: boolean;
@@ -137,6 +138,7 @@ export const scanMessageForScam = functions.onCall(
       id: messageId,
       messageId,
       authorId,
+      reporterUid: userId,
       flagTypes,
       confidence: 0.85,
       surfaced: true,

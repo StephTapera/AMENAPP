@@ -31,8 +31,8 @@ Verdict standard: UNVERIFIED is not PASS. Source-level fixes are not production 
 
 | Gate | Status | Evidence / Gap | Lane |
 |---|---|---|---|
-| Report path on every post/comment/message/profile/space | UNVERIFIED | Report/moderation collections and views exist; every surface not checked. | 🟢 |
-| Block path on every identity | UNVERIFIED | `blockedUsers` rules and block enforcement exist; every identity surface not checked. | 🟢 |
+| Report path on every post/comment/message/profile/space | PARTIAL PASS | DM report sheet wired at `ONEThreadView.swift:70`, `:118`, `:140`; Ministry Room report sheet wired at `AmenMinistryRoomChatView.swift:269`, `:281`, `:298`; every remaining UGC surface not checked. | 🟢 |
+| Block path on every identity | PARTIAL PASS | DM and Ministry Room context menus include block actions (`ONEThreadView.swift:121`, `AmenMinistryRoomChatView.swift:303`); every remaining identity surface not checked. | 🟢 |
 | Block enforced server-side | PARTIAL PASS | Rules check blocks for comments/conversations; notification suppression not proven. | 🟡 |
 | Moderation queue exists or high-risk UGC disabled | PASS source | `moderationQueue`, `moderationDecisions`, content safety services exist. | 🟡 deploy |
 | Comment/message rate limits | UNVERIFIED | AI rate limits found; UGC write rate limits not proven. | 🟡 |
@@ -91,7 +91,7 @@ Verdict standard: UNVERIFIED is not PASS. Source-level fixes are not production 
 | Category | Status | Blocking? | Notes |
 |---|---|---|---|
 | PII | FAIL | Yes | User doc public/private split, live activity token logging, logs/analytics proof, and email/phone search tests remain. |
-| UGC | FAIL | Yes | Report/block everywhere, UGC rate limits, PII detection, and notification suppression not fully proven. |
+| UGC | FAIL | Yes | DM and Ministry Room report/block source paths are fixed; remaining UGC surfaces, UGC rate limits, PII detection, and notification suppression are not fully proven. |
 | Device | FAIL | Yes | Missing/UNVERIFIED permission strings and Live Activity/widget privacy proof. |
 | Accessibility | UNVERIFIED | Yes for App Store readiness | Needs UI automation or manual VoiceOver/Dynamic Type pass. |
 | Security | FAIL | Yes | App Check and prompt suffix fixed in source, but deploy/emulator proof and storage rules are missing. |

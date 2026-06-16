@@ -29,7 +29,8 @@ struct BASTopBarStudyAccessory: BASTopBarAccessoryProvider {
 
     let accessibilityLabel: String = "Bible translation selector"
 
-    private let translations = ["ESV", "NIV", "KJV", "BSB"]
+    // TODO(legal): ESV/NIV removed — copyrighted without license (AMEN-CONTENT-001). Kept BSB (open), added WEB.
+    private let translations = ["KJV", "WEB", "BSB"]
 
     @ViewBuilder func accessoryContent() -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -174,7 +175,7 @@ struct BereanAgentTopBarView: View {
     // MARK: State — accessory sub-state kept here for stable @State ownership
 
     /// Translation selection owned by the top bar so @State is stable across re-renders.
-    @State private var studyTranslation: String = "ESV"
+    @State private var studyTranslation: String = "KJV" // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
 
     // MARK: Environment
 

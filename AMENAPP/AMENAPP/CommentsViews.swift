@@ -678,6 +678,7 @@ struct CommentThreadCard: View {
     @State private var localAmenCount: Int
     @State private var showReplies = true
     @State private var isSubmittingAmen = false
+    @State private var showCommentReportSheet = false
 
     init(comment: TestimonyComment, postId: String, onReply: @escaping (TestimonyComment) -> Void, onAddReply: @escaping (TestimonyComment, TestimonyComment) -> Void) {
         self.comment = comment
@@ -828,11 +829,12 @@ struct CommentThreadCard: View {
                         
                         Menu {
                             Button(role: .destructive) {
-                                // Report action
+                                showCommentReportSheet = true
                             } label: {
-                                Label("Report", systemImage: "exclamationmark.triangle")
+                                Label("Report Comment", systemImage: "exclamationmark.triangle")
                             }
-                            
+                            .accessibilityLabel("Report this comment")
+
                             ShareLink(item: comment.content) {
                                 Label("Share", systemImage: "square.and.arrow.up")
                             }
@@ -840,6 +842,15 @@ struct CommentThreadCard: View {
                             Image(systemName: "ellipsis")
                                 .font(.systemScaled(14))
                                 .foregroundStyle(.secondary)
+                                .accessibilityLabel("Comment options")
+                        }
+                        .sheet(isPresented: $showCommentReportSheet) {
+                            ReportContentSheet(
+                                targetType: .comment,
+                                targetId: comment.commentId ?? comment.id.uuidString,
+                                onSubmitted: { _ in },
+                                onDismiss: { showCommentReportSheet = false }
+                            )
                         }
                     }
                     .padding(.top, 4)

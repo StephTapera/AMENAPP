@@ -10,7 +10,7 @@ enum BereanFormationService {
 
     // MARK: - Verse gate (single source of truth)
 
-    static func getVerse(_ ref: String, translation: String = "ESV") -> BereanVerse {
+    static func getVerse(_ ref: String, translation: String = "KJV") -> BereanVerse { // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
         guard !ref.isEmpty else {
             return BereanVerse(text: "", citation: "", isMock: false)
         }

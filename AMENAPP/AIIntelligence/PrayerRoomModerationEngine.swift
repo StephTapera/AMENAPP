@@ -176,7 +176,7 @@ final class PrayerRoomModerationEngine {
         let report = await ScriptureReferenceValidator.verifyWithAPIPipeline(
             references: detectedRefs,
             claimedTexts: claimedTexts,
-            translation: "ESV",
+            translation: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
             mode: .guard
         )
 

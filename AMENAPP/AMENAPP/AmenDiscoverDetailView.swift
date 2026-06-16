@@ -3,6 +3,9 @@ import SwiftUI
 struct AmenDiscoverDetailView: View {
     let item: AmenDiscoverItem
     let namespace: Namespace.ID
+    let onPray: () -> Void
+    let onSave: () -> Void
+    let onShare: () -> Void
     let onWhyThis: () -> Void
     let onFeedback: () -> Void
 
@@ -30,9 +33,9 @@ struct AmenDiscoverDetailView: View {
                 }
 
                 HStack(spacing: 10) {
-                    actionButton("Pray", icon: "hands.sparkles")
-                    actionButton("Save", icon: "bookmark")
-                    actionButton("Share", icon: "square.and.arrow.up")
+                    actionButton("Pray", icon: "hands.sparkles", action: onPray)
+                    actionButton("Save", icon: "bookmark", action: onSave)
+                    actionButton("Share", icon: "square.and.arrow.up", action: onShare)
                 }
 
                 HStack(spacing: 10) {
@@ -46,11 +49,15 @@ struct AmenDiscoverDetailView: View {
         .background(Color(.systemBackground))
     }
 
-    private func actionButton(_ title: String, icon: String) -> some View {
-        Label(title, systemImage: icon)
-            .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Capsule().fill(.thinMaterial))
+    private func actionButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(.thinMaterial))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }

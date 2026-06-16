@@ -143,7 +143,7 @@ struct ScriptureAttachment: Codable, Equatable, Hashable, Identifiable {
             chapter: parsed.chapter,
             verseStart: parsed.verseStart,
             verseEnd: parsed.verseEnd,
-            translation: "NIV",
+            translation: "KJV", // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV (public domain) per AMEN-CONTENT-001
             canonicalReference: legacyReference,
             displayReference: legacyReference,
             previewText: legacyText ?? "",

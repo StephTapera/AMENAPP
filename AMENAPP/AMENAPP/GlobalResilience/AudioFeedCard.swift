@@ -21,6 +21,7 @@ struct AudioFeedCard: View {
     // MARK: Environment
 
     @ObservedObject private var lowDataManager = LowDataModeManager.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: Private State
 
@@ -224,8 +225,12 @@ struct AudioFeedCard: View {
         if let text = transcript {
             VStack(alignment: .leading, spacing: 8) {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    if reduceMotion {
                         transcriptExpanded.toggle()
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            transcriptExpanded.toggle()
+                        }
                     }
                 } label: {
                     HStack {

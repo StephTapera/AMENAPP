@@ -20,6 +20,8 @@ struct PrayerMatchView: View {
 
     @StateObject private var viewModel = PrayerMatchViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @State private var reportingCard: IntelligenceCard?
+    @State private var showingReportSheet = false
 
     var body: some View {
         Group {
@@ -45,6 +47,17 @@ struct PrayerMatchView: View {
                 cardTitle: viewModel.titleForAction(action),
                 actionLabel: action.label
             )
+        }
+        .sheet(isPresented: $showingReportSheet) {
+            if let card = reportingCard {
+                ReportContentSheet(
+                    targetType: .post,
+                    targetId: card.id,
+                    onSubmitted: { _ in showingReportSheet = false },
+                    onDismiss: { showingReportSheet = false }
+                )
+                .presentationDetents([.medium])
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Prayer match cards")
@@ -77,6 +90,14 @@ struct PrayerMatchView: View {
                         }
                         IntelligenceCardView(card: card) { action in
                             viewModel.handleAction(action, on: card)
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                reportingCard = card
+                                showingReportSheet = true
+                            } label: {
+                                Label("Report prayer request", systemImage: "flag")
+                            }
                         }
                     }
                 }

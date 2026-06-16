@@ -9,6 +9,7 @@
 
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
+import { logger } from "firebase-functions";
 
 const db = admin.firestore();
 
@@ -64,7 +65,7 @@ export const onSabbathNotificationWrite = onDocumentWritten(
     if (userSnap.exists) {
       const u = userSnap.data() as { isMinor?: boolean; ageTier?: string };
       if (u.isMinor === true || u.ageTier === "under_minimum" || u.ageTier === "teen") {
-        console.log(`[notificationBatcher] MINOR_GATE uid=${uid} — stopping.`);
+        logger.info("[notificationBatcher] MINOR_GATE — stopping.");
         return;
       }
     }
@@ -73,7 +74,7 @@ export const onSabbathNotificationWrite = onDocumentWritten(
     try {
       inActiveSabbath = await isUserInActiveSabbath(uid);
     } catch (err) {
-      console.error(`[notificationBatcher] Sabbath check failed uid=${uid}:`, err);
+      logger.error("[notificationBatcher] Sabbath check failed:", err);
       return;
     }
 
@@ -81,11 +82,11 @@ export const onSabbathNotificationWrite = onDocumentWritten(
 
     const notifType = (notifData.type as string) ?? "";
     if (ALWAYS_ALLOWED_NOTIF_TYPES.has(notifType)) {
-      console.log(`[notificationBatcher] ALLOW uid=${uid} type=${notifType}`);
+      logger.info(`[notificationBatcher] ALLOW type=${notifType}`);
       return;
     }
 
-    console.log(`[notificationBatcher] HOLD uid=${uid} type=${notifType} notifId=${notifId}`);
+    logger.info(`[notificationBatcher] HOLD type=${notifType}`);
     const nowMs = Date.now();
     const batch = db.batch();
 

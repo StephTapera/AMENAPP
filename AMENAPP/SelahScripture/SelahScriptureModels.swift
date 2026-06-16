@@ -159,17 +159,23 @@ struct SelahBibleTranslation: Codable, Identifiable, Hashable {
 }
 
 extension SelahBibleTranslation {
-    static let kjv = SelahBibleTranslation(id: "kjv", displayName: "King James Version", abbreviation: "KJV", license: .publicDomain)
-    static let esv = SelahBibleTranslation(id: "esv", displayName: "English Standard Version", abbreviation: "ESV", license: .licensed)
-    static let niv = SelahBibleTranslation(id: "niv", displayName: "New International Version", abbreviation: "NIV", license: .licensed)
-    static let nlt = SelahBibleTranslation(id: "nlt", displayName: "New Living Translation", abbreviation: "NLT", license: .licensed)
-    static let nasb = SelahBibleTranslation(id: "nasb", displayName: "New American Standard Bible", abbreviation: "NASB", license: .licensed)
-    static let csb = SelahBibleTranslation(id: "csb", displayName: "Christian Standard Bible", abbreviation: "CSB", license: .licensed)
-    static let nkjv = SelahBibleTranslation(id: "nkjv", displayName: "New King James Version", abbreviation: "NKJV", license: .licensed)
+    // Public-domain / open-license — safe to render in-app (AMEN-CONTENT-001).
+    static let kjv  = SelahBibleTranslation(id: "kjv",  displayName: "King James Version",      abbreviation: "KJV",  license: .publicDomain)
+    static let web  = SelahBibleTranslation(id: "web",  displayName: "World English Bible",      abbreviation: "WEB",  license: .publicDomain)
+    static let bsb  = SelahBibleTranslation(id: "bsb",  displayName: "Berean Study Bible",       abbreviation: "BSB",  license: .publicDomain)
+    static let nkjv = SelahBibleTranslation(id: "nkjv", displayName: "New King James Version",   abbreviation: "NKJV", license: .licensed)
+    static let csb  = SelahBibleTranslation(id: "csb",  displayName: "Christian Standard Bible", abbreviation: "CSB",  license: .licensed)
 
-    /// All translations the app *knows about*. Whether they have text to
-    /// render is determined by the active `BibleTranslationProvider`.
-    static let known: [SelahBibleTranslation] = [.kjv, .esv, .niv, .nlt, .nasb, .csb, .nkjv]
+    // TODO(legal): restore once commercial licenses confirmed (AMEN-CONTENT-001).
+    // NIV (Biblica), ESV (Crossway), NLT (Tyndale), NASB (Lockman Foundation) require paid licenses.
+    static let esv  = SelahBibleTranslation(id: "esv",  displayName: "English Standard Version", abbreviation: "ESV",  license: .licensed)
+    static let niv  = SelahBibleTranslation(id: "niv",  displayName: "New International Version", abbreviation: "NIV", license: .licensed)
+    static let nlt  = SelahBibleTranslation(id: "nlt",  displayName: "New Living Translation",    abbreviation: "NLT",  license: .licensed)
+    static let nasb = SelahBibleTranslation(id: "nasb", displayName: "New American Standard Bible", abbreviation: "NASB", license: .licensed)
+
+    /// Translations the app exposes in the UI. Restricted to public-domain / open-license.
+    /// TODO(legal): Add .esv / .niv / .nlt / .nasb back when commercial licenses are in place (AMEN-CONTENT-001).
+    static let known: [SelahBibleTranslation] = [.kjv, .web, .bsb]
 }
 
 // MARK: - Verse / Chapter

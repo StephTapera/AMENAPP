@@ -26,6 +26,7 @@ struct CrisisBulletinCard: View {
 
     @State private var isExpanded: Bool = false
     @ObservedObject private var flags = GlobalResilienceFeatureFlags.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: Computed
 
@@ -96,8 +97,12 @@ struct CrisisBulletinCard: View {
 
     private var headerRow: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            if reduceMotion {
                 isExpanded.toggle()
+            } else {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isExpanded.toggle()
+                }
             }
         } label: {
             HStack(spacing: 10) {

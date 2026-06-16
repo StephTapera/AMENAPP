@@ -94,7 +94,13 @@ struct BereanAIRequest {
     let category: AITaskCategory
     let userInput: String               // primary text to process
     let context: [String: String]       // surface-specific metadata
-    let retrievedContext: [String]      // pre-fetched RAG chunks
+    // INVARIANT (C-IN-2): Every chunk in this array MUST have passed the ragSearch ACL
+    // filter on the server (amenAIFeatures.js) OR have been fetched from a collection
+    // the caller owns (e.g. users/{uid}/*). The bereanChatProxy callable operates on a
+    // separate code path from ragSearch; if a future callable path forwards this array
+    // server-side, the same ACL filter MUST be re-applied before the chunks are passed
+    // to the model. Never forward unfiltered caller-supplied context to any model.
+    let retrievedContext: [String]      // pre-fetched RAG chunks (ACL-verified, see above)
     let userId: String?
     let requiresStreaming: Bool
     let latencyBudgetMs: Int            // 0 = best-effort

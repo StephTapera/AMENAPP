@@ -490,8 +490,8 @@ Audit date: 2026-06-16 | Auditor: Claude Sonnet 4.6
 | CommentsViews.swift (CommentThreadCard) | PARTIAL — stub existed; GREEN fix applied in this session | NO — not yet present | NO | Report stub now wires to `ReportContentSheet(.comment)`; block/mute not yet present |
 | UserProfileViewMini / UserProfileMiniActionHandler | YES — `showReportSheet` → `ReportPostSheet` wired at line 612 | YES — via UserProfileMiniModel `.block` action | NO | Block wired; mute absent on profile |
 | VoicePrayerCommentRowView | YES — `showReportSheet` at line 104 | NO | NO | Report wired; block absent |
-| MessageActionCluster (DM/CommunicationOS) | DEFINED — `.report` case in `availableActions` | NO separate action | NO | `MessageActionCluster` not yet mounted in any parent DM thread view; `.report` action handler calls `onAction(.report)` but no parent wires it to `ReportContentSheet` |
-| AmenMinistryRoomChatView (Spaces chat) | NO explicit report menu | NO | NO | Only Aegis pre-send guard; no post-send report affordance |
+| ONEThreadView (DM) | YES — visible flag button + context menu opens `ReportContentSheet` at `AMENAPP/AMENAPP/AMENAPP/ONE/People/Views/ONEThreadView.swift:70` and `:140` | YES — context menu block sender at `ONEThreadView.swift:121` | NO | P5-Y1 source-fixed; Xcode live diagnostics clean |
+| AmenMinistryRoomChatView (Spaces chat) | YES — visible flag button + context menu opens `ReportContentSheet` at `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:269` and `:281` | YES — context menu block sender at `AmenMinistryRoomChatView.swift:303` | NO | P5-Y3 source-fixed; Xcode live diagnostics clean |
 | AmenMediaDetailView | YES — `ReportPostSheet` at line 827 | NO | NO | |
 | PrayerCardsListView / PrayerOSCardSheet | NO | NO | NO | Prayer requests in feed are covered by PostCard; standalone prayer card views have no independent report |
 
@@ -530,19 +530,13 @@ Audit date: 2026-06-16 | Auditor: Claude Sonnet 4.6
 
 ---
 
-### P5-Y1 YELLOW — DM message `.report` action not wired to ReportContentSheet (P0, blocking)
+### P5-Y1 GREEN — DM message report action wired to ReportContentSheet (P0 source-fixed)
 
-`MessageActionCluster.availableActions` always includes `.report` (line 80). When the user taps it, `onAction(.report)` fires and the cluster dismisses. However `MessageActionCluster` is not currently mounted in any parent DM thread view — it exists only as a standalone component file (`CommunicationOS/MessageActionCluster.swift`). No parent in `ONEThreadView.swift`, `AmenMinistryRoomChatView.swift`, or any other chat surface mounts it or handles the `.report` callback.
+`ONEThreadView` now stores `reportTargetMessageId` / `showReportSheet`, mounts `.reportContentSheet(targetType: .message, targetId: reportTargetMessageId)` at `AMENAPP/AMENAPP/AMENAPP/ONE/People/Views/ONEThreadView.swift:70`, and exposes a visible flag button plus context-menu report action for received messages at `ONEThreadView.swift:140` and `:118`.
 
-**Engineering work staged:** `MessageActionCluster` needs to be mounted in the primary DM thread surface with an `onAction` closure that, for `.report`, presents `ReportContentSheet(targetType: .message, targetId: message.id, ...)`.
+**Verification:** `XcodeRefreshCodeIssuesInFile` returned no issues for `ONEThreadView.swift` on 2026-06-16.
 
-**Exact human action:**
-1. In the parent DM view (e.g., `ONEThreadView.swift`), add `@State private var reportingMessage: AppMessage? = nil`
-2. Mount `MessageActionCluster(message: msg, onAction: { action in if action == .report { reportingMessage = msg } }, onDismiss: { ... })`
-3. Add `.sheet(item: $reportingMessage) { msg in ReportContentSheet(targetType: .message, targetId: msg.id, onSubmitted: { _ in }, onDismiss: { reportingMessage = nil }) }`
-4. Mirror same pattern in `AmenMinistryRoomChatView.swift` for Space chat messages
-
-**Priority:** P0 — Apple Guideline 1.2 requires user-generated content platforms to include in-app mechanisms to report objectionable content. DMs are a UGC surface.
+**Residual:** This is a source-level fix only. App Store readiness still depends on full UGC coverage, backend moderation deployment, and legal-gated CSAM items below.
 
 ---
 
@@ -562,14 +556,11 @@ Audit date: 2026-06-16 | Auditor: Claude Sonnet 4.6
 
 ---
 
-### P5-Y3 YELLOW — Ministry Room (Spaces) chat has no post-send report affordance (High)
+### P5-Y3 GREEN — Ministry Room (Spaces) chat report affordance wired (High source-fixed)
 
-`AmenMinistryRoomChatView.swift` has a pre-send Aegis guard that never blocks on failure (line 55–65). There is no context menu, long-press, or swipe action on sent messages to report them. Users in a ministry room who receive objectionable content have no in-app report path.
+`AmenMinistryRoomChatView` now renders each message through `ministryMessageRow(_:)` at `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:218`, mounts `.reportContentSheet(targetType: .ministryRoomMessage, targetId: reportTargetMessageId)` at `AmenMinistryRoomChatView.swift:269`, and exposes both a visible flag button and context-menu report action for received messages at `AmenMinistryRoomChatView.swift:281` and `:298`. The same context menu includes `BlockService.shared.blockUser(userId:)` at `AmenMinistryRoomChatView.swift:303`.
 
-**Exact human action:**
-1. Add long-press `.contextMenu` to the message bubble in `AmenMinistryRoomChatView.swift`
-2. Include a "Report Message" button that calls `ReportContentSheet(targetType: .message, targetId: msg.id, ...)`
-3. Optionally add "Block sender" that calls `BlockService.shared.block(userId: msg.senderId)`
+**Verification:** `XcodeRefreshCodeIssuesInFile` returned no issues for `AmenMinistryRoomChatView.swift` on 2026-06-16.
 
 ---
 
@@ -597,9 +588,9 @@ The app's media hash-check layer is technically stubbed (CSAM_HASH_LOOKUP_URL en
 | ID | Type | Title | Status |
 |---|---|---|---|
 | P5-G1 | GREEN | Comment report stub was a no-op | FIXED in this session |
-| P5-Y1 | YELLOW | DM message `.report` action not wired to ReportContentSheet | STAGED — needs human engineering |
+| P5-Y1 | GREEN | DM message report opens ReportContentSheet | SOURCE-FIXED — `ONEThreadView.swift:70`, `:140`; Xcode diagnostics clean |
 | P5-Y2 | YELLOW | NCMEC CyberTipline not wired; launch readiness test fails | STAGED — LEGAL GATE |
-| P5-Y3 | YELLOW | Ministry Room chat has no post-send report affordance | STAGED — needs human engineering |
+| P5-Y3 | GREEN | Ministry Room chat report/block affordance wired | SOURCE-FIXED — `AmenMinistryRoomChatView.swift:269`, `:281`; Xcode diagnostics clean |
 | P5-Y4 | YELLOW | Block enforcement in feed queries not verified | STAGED — needs human engineering |
 | P5-R1 | RED | CSAM go-live: NCMEC registration + legal process decision | DECISION NEEDED |
 
@@ -1002,13 +993,12 @@ find src -name "* 2.ts" -o -name "* 3.ts" -o -name "* 4.ts" | xargs rm -f
 
 ### Module Findings
 
-#### P11-M1 — Berean feature flags default ON (YELLOW)
-Many Berean feature flags in `AMENAPP/AMENFeatureFlags.swift` are hardcoded to `= true` (22 flags), including:
-`bereanRAGEnabled`, `bereanVoiceEnabled`, `bereanPulseEnabled`, `bereanChatRedesignEnabled`,
-`bereanSpiritualLayersEnabled`, `bereanTheoLensEnabled`, `bereanPersistentMemoryEnabled`, etc.
-The project convention and memory notes say all feature flags default OFF and are flipped via Remote Config.
-These flags being ON locally means Berean AI surfaces are active for all users regardless of Remote Config.
-**Action needed (YELLOW):** Human to review each flag and set safe local defaults to `false`, relying on Remote Config to enable per rollout.
+#### P11-M1 — Berean feature flags default OFF (GREEN — VERIFIED)
+The previously reported "22 Berean flags default ON" finding is stale. Source inspection shows Berean AI properties initialize OFF, including `bereanRAGEnabled` through `bereanEntitlementEnforcementEnabled` at `AMENAPP/AMENAPP/AMENFeatureFlags.swift:31`, extended Berean flags at `AMENFeatureFlags.swift:461`, realtime Berean flags at `AMENFeatureFlags.swift:650`, and Berean OS flags at `AMENFeatureFlags.swift:727`.
+
+Remote Config local defaults also set these surfaces OFF: core Berean keys at `AMENFeatureFlags.swift:947`, Berean Intelligence Layer v2 at `AMENFeatureFlags.swift:1307`, Amen AI/Berean realtime at `AMENFeatureFlags.swift:1326`, Berean OS at `AMENFeatureFlags.swift:1397`, and Berean Extended Intelligence at `AMENFeatureFlags.swift:1450`.
+
+**Residual:** A deployed Remote Config template could still override these values. No flag was flipped in production by this pass.
 
 #### P11-M2 — PrayerMatchView (UGC) missing report option (GREEN — FIXED)
 `PrayerMatchView` renders public prayer requests from other users (UGC) via `IntelligenceCardView`.
@@ -1027,12 +1017,10 @@ descriptive label is better for VoiceOver navigation context.
 All AI calls route through Firebase Functions (`BereanPipelineClient`, `callModel` in `amenRouting.ts`).
 ANTHROPIC_API_KEY is a Firebase Secret (via `defineSecret()`). Client-side: CLEAN.
 
-#### P11-M5 — Messaging block guard in DM flows (PARTIAL — YELLOW)
-`canMessage` is modeled in `UserProfileMiniActionHandler` and `UserProfileMiniContextEngine` (which gates the
-Message action on `isBlocked`). However, `ONEMessageComposerView` does not re-check block state at send time —
-it relies solely on the upstream context engine to prevent the composer from opening. If a block occurs mid-session,
-the composer remains open and a message can be sent until the user navigates away.
-**Action needed (YELLOW):** Add a pre-send block check inside `ONEMessageComposerView.onSend` by re-querying block state from Firestore or a cached BlockService before submitting.
+#### P11-M5 — Messaging block guard in DM flows (GREEN — VERIFIED)
+`ONEMessageComposerView` now rechecks block state immediately before send. The send path trims the body, then calls `BlockService.shared.isBlocked(byUser: recipientId)` and exits with a generic send error if the recipient has blocked the current user at `AMENAPP/AMENAPP/AMENAPP/ONE/People/Views/ONEMessageComposerView.swift:248` through `:271`.
+
+**Verification:** `XcodeRefreshCodeIssuesInFile` returned no issues for `ONEThreadView.swift`, which embeds the composer and passes the recipient id at `ONEThreadView.swift:45`.
 
 #### P11-M6 — Admin/Moderation views use RBAC service (CLEAN)
 `AmenCommunityModerationDashboardView` uses `AmenRBACService` as a defense-in-depth pre-check before
@@ -1087,8 +1075,8 @@ The duplicate should be deleted to avoid test runner confusion if it ever gets p
 
 | ID | Item | Action |
 |----|------|--------|
-| P11-M1 | 22 Berean flags default `true` in `AMENFeatureFlags.swift` | Review each and set local defaults to `false`; rely on Remote Config |
-| P11-M5 | Mid-session block bypass in `ONEMessageComposerView` | Add pre-send block re-check in the `onSend` closure |
+| P11-M1 | Berean defaults source check | VERIFIED — inspected properties/defaults are OFF in `AMENFeatureFlags.swift`; production RC template still human-owned |
+| P11-M5 | Mid-session DM block recheck | VERIFIED — `ONEMessageComposerView.swift:248` rechecks block state before send |
 | P15-T4 | No XCUITest target | Add UI test target covering at minimum: onboarding, post creation, DM flow |
 | P15-T5 | `communication-os.rules.test 2.ts` duplicate | Delete `Backend/rules-tests/communication-os.rules.test 2.ts` |
 
@@ -1102,7 +1090,7 @@ All findings across phases P1–P15, sorted by severity then phase. Total findin
 |---|---|---|---|---|---|
 | BTN-001 | P3 | P0 | Design | Spaces Join/Paywall buttons bypass entitlement check (FIXME A-005) | OPEN |
 | SAFE-010 | P5 | P0 | Safety | Minor guardian approval falls back to allow when document absent | OPEN |
-| P5-Y1 | P5 | P0 | Safety | DM message `.report` action not wired to ReportContentSheet | OPEN — needs human engineering |
+| P5-Y1 | P5 | P0 | Safety | DM message report opens ReportContentSheet | SOURCE-FIXED — `ONEThreadView.swift:70`, `:140`; Xcode diagnostics clean |
 | P5-Y2 | P5 | P0 | Safety | NCMEC CyberTipline not wired; launch readiness test will fail | OPEN — LEGAL GATE |
 | P5-R1 | P5 | P0 | Safety/Legal | CSAM go-live: NCMEC registration + legal process decision | OPEN — DECISION NEEDED |
 | R-P12-01 | P12 | P0 | Business | Restore Purchases button missing from all paywall screens | OPEN — DECISION NEEDED |
@@ -1178,8 +1166,8 @@ All findings across phases P1–P15, sorted by severity then phase. Total findin
 | P10-Y2 | P10 | P2 | Privacy | Siri entitlement declared with no SiriKit implementation | OPEN — HUMAN DECISION |
 | P12-Y1 | P12 | P2 | Accessibility | 381 hardcoded font(.system(size:)) calls not Dynamic Type safe | OPEN — HUMAN SWEEP |
 | P12-Y2 | P12 | P2 | Accessibility | 493 withAnimation calls without Reduce Motion guard | OPEN — HUMAN SWEEP |
-| P11-M1 | P11 | P2 | Feature Flags | 22 Berean flags default true in AMENFeatureFlags.swift | OPEN — HUMAN REVIEW |
-| P11-M5 | P11 | P2 | Safety | Mid-session block bypass in ONEMessageComposerView | OPEN — HUMAN ENGINEERING |
+| P11-M1 | P11 | P2 | Feature Flags | Berean feature flags default OFF in inspected source | VERIFIED — `AMENFeatureFlags.swift:947`, `:1307`, `:1326`, `:1397`, `:1450`; production RC still human-owned |
+| P11-M5 | P11 | P2 | Safety | Mid-session block recheck in ONEMessageComposerView | VERIFIED — `ONEMessageComposerView.swift:248` through `:271` |
 | P14-G3 | P14 | P2 | Security | YouTube/Unsplash API key source needs human verification | OPEN — HUMAN VERIFY |
 | P14-G2 | P14 | P2 | Security | Algolia Search Key injection — verify gitignore | OPEN — HUMAN VERIFY |
 | Y-P12-01 | P12 | P2 | Design | Add AI disclosure copy to Berean surfaces | OPEN |
@@ -1222,7 +1210,7 @@ All findings across phases P1–P15, sorted by severity then phase. Total findin
 
 | Category | Status | Notes |
 |---|---|---|
-| Safety (Guideline 1.x) | PARTIAL — FAIL | CSAM pipeline has no proactive hash-scan or live NCMEC submission (LEGAL GATE). Report+Block absent on Spaces and Prayer surfaces. Minor guardian fallback allows DMs when consent document absent. DM report action not wired to sheet. |
+| Safety (Guideline 1.x) | PARTIAL — FAIL | CSAM pipeline has no proactive hash-scan or live NCMEC submission (LEGAL GATE). DM and Ministry Room report affordances are source-fixed. Report+Block coverage on remaining Spaces/Prayer surfaces and minor guardian fallback still require verification/fix. |
 | Performance (Guideline 2.1) | PARTIAL — PASS | MessageOutbox fatalError fixed (G-P12-02). Remaining bare Task{} and try! patterns are non-blocking but should be resolved before 1.0. |
 | Business (Guideline 3.x) | FAIL | Restore Purchases missing on multiple paywall screens (R-P12-01). Stripe used for IAP-equivalent digital subscriptions (R-P12-02). Google re-auth on account deletion broken (AUTH-004). 30-day deletion purge job unverified (AUTH-013). RevenueCat SDK not installed — Studio paid plans non-functional. |
 | Design (Guideline 4.x) | PARTIAL — FAIL | 26 AdaptiveComposer card buttons are silent stubs (BTN-002). Spaces Join bypasses entitlement check (BTN-001). GivingImpactView has no dismiss path (BTN-004). Reduce Transparency and Reduce Motion not honored in Liquid Glass surfaces (A11Y-002/003). |
@@ -1244,11 +1232,11 @@ All findings across phases P1–P15, sorted by severity then phase. Total findin
 | Create Post | GREEN | 0 | 0 | Moderation pipeline fail-closed; safety gate wired |
 | Comments | GREEN | 0 | 0 | Report stub fixed (P5-G1); task cancellation and block wired |
 | User Profiles | GREEN | 0 | 0 | Report/block fully wired; VoiceOver labels correct |
-| Direct Messages | YELLOW | 0 | 2 | DM report action not wired to sheet (P5-Y1 — P0 per Apple 1.2); mid-session block bypass in composer (P11-M5) |
-| Spaces | RED | 2 | 1 | BTN-001 join bypass (P0); SAFE-002 no report/block on SpaceCard (P0); SAFE-010 minor guardian (P0) |
+| Direct Messages | GREEN/PARTIAL | 0 | 0 | DM report sheet wired (P5-Y1 source-fixed); composer rechecks block state before send (P11-M5 verified) |
+| Spaces | RED | 2 | 1 | Ministry Room chat report/block wired (P5-Y3 source-fixed); BTN-001 join bypass (P0), SAFE-002 SpaceCard coverage (P0), SAFE-010 minor guardian (P0) remain open |
 | Prayer | RED | 1 | 1 | SAFE-002 no report/block on PrayerRoomView/AmenPrayerFeedView (P0); P6-Y1 AI consent gate missing |
 | Church Discovery | YELLOW | 0 | 1 | NSLocationWhenInUseUsageDescription fixed; location always-on plist key added (P10-G2) |
-| Berean AI | YELLOW | 0 | 2 | No first-run AI consent sheet (PRIV-005); 22 flags default ON (P11-M1) |
+| Berean AI | YELLOW | 0 | 1 | No first-run AI consent sheet (PRIV-005); local Berean defaults inspected OFF (P11-M1 verified), but production Remote Config remains human-owned |
 | Notifications | GREEN | 0 | 0 | No gaps found |
 | Adaptive Composer | RED | 1 | 0 | BTN-002: 26 card buttons are silent empty stubs |
 | Account / Deletion | RED | 1 | 2 | AUTH-004 Google re-auth broken (P0); AUTH-009 recovery view missing re-auth; AUTH-013 purge unverified |

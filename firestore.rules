@@ -323,10 +323,15 @@ service cloud.firestore {
     }
 
     // Premium/entitlement spoof protection — clients cannot self-grant tier fields.
+    // SECURITY FIX (P7-8): Added studioTier + studioTierUpdatedAt — StudioSubscriptionService
+    // syncs these from RevenueCat via client-side updateData(), which means a malicious
+    // client could write studioTier:'pro' directly. These fields must be server-authoritative;
+    // they are now blocked on the client update path (RevenueCat webhook CF should own writes).
     function premiumFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'premiumTier', 'hasPlusAccess', 'hasProAccess', 'premiumEntitlement',
-        'customTopicTagCount', 'aiUsageRemaining', 'aiUsageLimit'
+        'customTopicTagCount', 'aiUsageRemaining', 'aiUsageLimit',
+        'studioTier', 'studioTierUpdatedAt'
       ]);
     }
 

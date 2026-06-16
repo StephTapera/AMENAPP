@@ -313,6 +313,6 @@ actor ContentEngagementEventService {
             .document(event.id)
             .setData(data)
 
-        dlog("[ContentEngagementEventService] recorded event=\(event.eventType.rawValue) contentObjectId=\(event.contentObjectId) userId=\(event.userId)")
+        dlog("[ContentEngagementEventService] recorded event=\(event.eventType.rawValue) contentObjectId=\(event.contentObjectId) userId=\(event.userId.prefix(8))…")
     }
 }

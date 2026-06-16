@@ -215,25 +215,8 @@ struct AmenMinistryRoomChatView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 2) {
                         ForEach(viewModel.messages) { message in
-                            AmenMinistryRoomMessageRow(message: message)
+                            ministryMessageRow(message)
                                 .id(message.id)
-                                .contextMenu(menuItems: {
-                                    if message.authorId != currentUID {
-                                        Button(role: .destructive) {
-                                            reportTargetMessageId = message.id
-                                            showReportSheet = true
-                                        } label: {
-                                            Label("Report Message", systemImage: "flag")
-                                        }
-                                        Button {
-                                            Task {
-                                                try? await BlockService.shared.blockUser(userId: message.authorId)
-                                            }
-                                        } label: {
-                                            Label("Block Sender", systemImage: "nosign")
-                                        }
-                                    }
-                                })
                         }
                     }
                     .padding(.horizontal, 12)
@@ -288,6 +271,49 @@ struct AmenMinistryRoomChatView: View {
             targetType: .ministryRoomMessage,
             targetId: reportTargetMessageId
         )
+    }
+
+    // MARK: - Message Actions
+
+    private func ministryMessageRow(_ message: AmenConnectSpacesMessage) -> some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            AmenMinistryRoomMessageRow(message: message)
+            if message.authorId != currentUID {
+                Button(role: .destructive) {
+                    presentReport(for: message)
+                } label: {
+                    Image(systemName: "flag")
+                        .font(.systemScaled(13, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color.red.opacity(0.10)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Report message")
+                .accessibilityHint("Reports this message to Amen's safety team")
+            }
+        }
+        .contextMenu(menuItems: {
+            if message.authorId != currentUID {
+                Button(role: .destructive) {
+                    presentReport(for: message)
+                } label: {
+                    Label("Report Message", systemImage: "flag")
+                }
+                Button {
+                    Task {
+                        try? await BlockService.shared.blockUser(userId: message.authorId)
+                    }
+                } label: {
+                    Label("Block Sender", systemImage: "nosign")
+                }
+            }
+        })
+    }
+
+    private func presentReport(for message: AmenConnectSpacesMessage) {
+        reportTargetMessageId = message.id
+        showReportSheet = true
     }
 
     // MARK: - Glass Composer

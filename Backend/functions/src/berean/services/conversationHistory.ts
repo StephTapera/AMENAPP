@@ -62,7 +62,11 @@ export function sanitizeConversationHistory(
             .slice(0, HISTORY_MAX_CONTENT_CHARS);
         // Drop entries that are pure whitespace / empty after sanitization.
         if (content.trim().length === 0) continue;
-        cleaned.push({ role, content });
+        const wrappedContent =
+            role === "user"
+                ? `<human_turn>\n${content}\n</human_turn>`
+                : `<assistant_turn>\n${content}\n</assistant_turn>`;
+        cleaned.push({ role, content: wrappedContent });
     }
     return cleaned.slice(-HISTORY_MAX_ENTRIES);
 }

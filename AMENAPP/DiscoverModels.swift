@@ -246,7 +246,7 @@ struct DiscoverDailyVerseData: Identifiable, Codable, Hashable, Equatable {
         id: String,
         text: String,
         reference: String,
-        translation: String = "ESV",
+        translation: String = "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
         testament: String,
         book: String,
         chapter: Int,

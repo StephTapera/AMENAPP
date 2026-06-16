@@ -19,6 +19,7 @@ struct LowDataBanner: View {
 
     /// Tracks whether the user has manually dismissed the banner this session.
     @State private var dismissed: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: Body
 
@@ -70,8 +71,12 @@ struct LowDataBanner: View {
 
             // Dismiss button
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                if reduceMotion {
                     dismissed = true
+                } else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        dismissed = true
+                    }
                 }
             } label: {
                 Image(systemName: "xmark")

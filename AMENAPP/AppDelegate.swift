@@ -153,6 +153,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             dlog("✅ Firebase Realtime Database offline persistence enabled (50MB cache, default URL)")
         }
         
+        // Bootstrap all Global Resilience services now that Firebase + Firestore are fully configured.
+        // Must be called here (not AMENAPPApp.init()) because AMENAPPApp.init() runs before
+        // FirebaseApp.configure(), and CrisisBulletinService accesses Firestore on first use.
+        GlobalResilienceWiring.wire()
+        dlog("✅ GlobalResilienceWiring completed")
+
         // Setup push notifications
         setupPushNotifications()
 

@@ -15,12 +15,13 @@ struct SelahVerseExplorerView: View {
     @ObservedObject private var selahService = SelahService.shared
     @State private var expansion: VerseExpansion?
     @State private var crossRefs: [CrossReference] = []
-    @State private var selectedVersion: ScripturePassage.BibleVersion = .esv
+    @State private var selectedVersion: ScripturePassage.BibleVersion = .kjv // TODO(legal): was .esv (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
     @State private var isLoadingExpansion = false
     @State private var isLoadingCrossRefs = false
     @State private var showAllTranslations = false
 
-    private let versions: [ScripturePassage.BibleVersion] = [.esv, .niv, .kjv, .nkjv, .nlt, .nasb]
+    // TODO(legal): NIV/ESV/NLT/NASB removed — copyrighted without license (AMEN-CONTENT-001).
+    private let versions: [ScripturePassage.BibleVersion] = [.kjv, .web, .bsb]
 
     var body: some View {
         NavigationStack {

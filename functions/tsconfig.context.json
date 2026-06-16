@@ -20,6 +20,7 @@
     "context/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "context/**/*.test.ts"
   ]
 }

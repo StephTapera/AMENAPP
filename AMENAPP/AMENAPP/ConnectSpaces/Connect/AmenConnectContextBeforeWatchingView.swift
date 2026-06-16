@@ -306,7 +306,7 @@ struct AmenConnectContextBeforeWatchingView: View {
             ],
             scriptureRefs: [
                 AmenConnectSpacesScriptureRefProvenance(
-                    id: "s1", reference: "James 2:17", translation: "ESV",
+                    id: "s1", reference: "James 2:17", translation: "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                     sourceLayer: .canonicalReference, verifiedAt: Date(), confidence: 0.97)
             ],
             sponsored: true,

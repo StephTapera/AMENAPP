@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
+import { logger } from "firebase-functions";
 
 const db = admin.firestore();
 
@@ -178,7 +179,7 @@ export const onRestModePolicyWritten = onDocumentWritten(
       { merge: true }
     );
 
-    console.log(`[RestMode] uid=${uid} active=${isCurrentlyActive} weekday=${weekday} nowMins=${nowMins}`);
+    logger.info(`[RestMode] active=${isCurrentlyActive} weekday=${weekday} nowMins=${nowMins}`);
   }
 );
 

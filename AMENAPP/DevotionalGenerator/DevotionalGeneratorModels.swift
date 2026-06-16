@@ -157,7 +157,7 @@ struct DevotionalScriptureCard: Identifiable, Codable {
     let version: String
     let whyThisVerse: String  // AI-generated reason this verse was chosen
 
-    init(reference: String, text: String, version: String = "NIV", whyThisVerse: String = "") {
+    init(reference: String, text: String, version: String = "KJV", whyThisVerse: String = "") { // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV per AMEN-CONTENT-001
         self.id = UUID().uuidString
         self.reference = reference
         self.text = text

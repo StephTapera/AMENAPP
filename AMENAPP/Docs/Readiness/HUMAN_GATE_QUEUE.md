@@ -15,7 +15,7 @@
 - ⏱ = Estimated time
 
 **Total items:** 30 yellow + 17 red = 47
-**P0 count:** 6 | **P1 count:** 5
+**P0 unresolved count:** 5 | **P0 source-fixed evidence rows:** 1 | **P1 count:** 5
 
 ---
 
@@ -23,39 +23,20 @@
 
 ---
 
-### 🔴 P0-1 — [P5-Y1] DM message .report action not wired to ReportContentSheet
+### ✅ P0-1 — [P5-Y1] DM / Ministry Room message report wiring source-fixed
 
-**Lane:** YELLOW (code ready to write)
-**Why gated:** Apple Guideline 1.2 requires a functioning in-app report mechanism for all UGC surfaces. MessageActionCluster always appends .report to its actions grid, but the onAction(.report) callback fires into a no-op closure — no sheet is presented. The button is visible and interactive but does nothing.
-**⏱ Estimated:** 45 min
+**Lane:** GREEN source fix (not a deploy)
+**Why it moved:** `ONEThreadView` now opens `ReportContentSheet` for received DM messages, and `AmenMinistryRoomChatView` now has visible report plus context-menu report/block actions for received room messages.
+**⏱ Remaining:** 0 min for this source item; keep in regression testing.
 
-**Exact action:**
+**Evidence:**
+- `AMENAPP/AMENAPP/AMENAPP/ONE/People/Views/ONEThreadView.swift:70` mounts `.reportContentSheet(targetType: .message, ...)`
+- `AMENAPP/AMENAPP/AMENAPP/ONE/People/Views/ONEThreadView.swift:118` and `:140` expose received-message report actions
+- `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:269` mounts `.reportContentSheet(targetType: .ministryRoomMessage, ...)`
+- `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:281` and `:298` expose visible/context report actions; `:303` exposes block sender
+- `XcodeRefreshCodeIssuesInFile` returned no issues for both touched Swift files on 2026-06-16
 
-1. Open `ONEThreadView.swift`
-2. Add `@State private var reportingMessage: AppMessage? = nil`
-3. Mount `MessageActionCluster` with:
-   ```swift
-   onAction: { action in
-       if action == .report { reportingMessage = msg }
-   }
-   ```
-4. Add:
-   ```swift
-   .sheet(item: $reportingMessage) { msg in
-       ReportContentSheet(
-           targetType: .message,
-           targetId: msg.id,
-           onSubmitted: { _ in },
-           onDismiss: { reportingMessage = nil }
-       )
-   }
-   ```
-5. Mirror the same pattern in `AmenMinistryRoomChatView.swift`
-
-**Affected files:**
-- `AMENAPP/AMENAPP/ONE/People/Views/ONEThreadView.swift`
-- `AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift`
-- `AMENAPP/AMENAPP/AMENAPP/CommunicationOS/MessageActionCluster.swift`
+**Residual:** Other UGC surfaces still require separate report/block verification; this row only clears P5-Y1/P5-Y3 source wiring.
 
 ---
 
@@ -248,16 +229,20 @@ firebase deploy --only functions:default:deleteUserAccount
 
 ---
 
-### 🟡 P1-3 — [P5-Y3] Ministry Room chat has no post-send report affordance
+### ✅ P1-3 — [P5-Y3] Ministry Room chat post-send report affordance source-fixed
 
-**Lane:** YELLOW (pre-send Aegis guard exists; post-send reporting missing)
-**Why gated:** Apple Guideline 1.2 requires all UGC chat surfaces to expose a report mechanism. `AmenMinistryRoomChatView.swift` has a pre-send Aegis guard but no long-press or context-menu report action on sent messages.
-**⏱ Estimated:** 45 min (coordinate with P0-1 — the Ministry Room wiring is part of the same pass)
+**Lane:** GREEN source fix (not a deploy)
+**Why it moved:** `AmenMinistryRoomChatView` now renders received messages through `ministryMessageRow(_:)`, with a visible flag button, context-menu report action, context-menu block action, and `.reportContentSheet(targetType: .ministryRoomMessage, ...)`.
+**⏱ Remaining:** 0 min for this source item; keep in regression testing.
 
-**Exact action:** When completing P0-1, verify that the mounted `MessageActionCluster` also appears on received messages in the Ministry Room. If the Room uses a different message row component, add `.contextMenu` with a "Report" option presenting `ReportContentSheet`.
+**Evidence:**
+- `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:218` uses `ministryMessageRow(_:)`
+- `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:269` mounts `ReportContentSheet`
+- `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:281` visible flag button
+- `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:298` context-menu report
+- `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:303` context-menu block
 
-**Affected files:**
-- `AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift`
+**Residual:** Other Spaces surfaces such as SpaceCard still require separate SAFE-002 verification.
 
 ---
 
@@ -442,12 +427,12 @@ All RED-lane items require a human decision before any engineering work begins. 
 
 | Severity | Item count | Blocks App Store submission |
 |----------|------------|----------------------------|
-| P0 | 6 | Yes — all 6 must be resolved |
+| P0 unresolved | 5 | Yes — all 5 unresolved P0 items must be resolved |
 | P1 | 5 | No — but must be resolved before beta |
 | P2 | 3 | No |
 | P3 | 1 (group) | No |
 | **Total** | **47 source items** | |
 
-**App Store submission verdict: NO-GO until all 6 P0 items are resolved.**
+**App Store submission verdict: NO-GO until all 5 unresolved P0 items are resolved.**
 
 The two legal gates (P0-2 NCMEC, P0-6 Stripe IAP) are on the critical path and cannot be parallelized with engineering — the engineering path depends on the legal decision. Start legal review today.

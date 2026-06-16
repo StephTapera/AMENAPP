@@ -143,7 +143,7 @@ struct LiveUserProfileMiniMessagingService: UserProfileMiniMessagingServicing {
 
 struct LiveUserProfileMiniAnalytics: UserProfileMiniAnalyticsServicing {
     func track(_ event: UserMiniAnalyticsEvent) {
-        dlog("UserProfileMini[\(event.source.rawValue)] \(event.kind.rawValue) userId=\(event.userId)")
+        dlog("UserProfileMini[\(event.source.rawValue)] \(event.kind.rawValue) userId=\(event.userId.prefix(8))…")
 
         let viewerUid = event.viewerId
         let surface = event.source.rawValue
