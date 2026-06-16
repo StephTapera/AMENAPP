@@ -5,6 +5,9 @@
 // BibleStudyCard, DiscussionThreadCard
 import SwiftUI
 import MapKit
+import FirebaseFirestore
+import FirebaseAuth
+import UserNotifications
 
 // MARK: - Module-local gold constant
 
@@ -139,8 +142,11 @@ struct AC_VolunteerCard: View {
                         .lineLimit(4)
                 }
 
+                // BTN-002 LANE-8: wired — opens signupURL if available, otherwise disabled
                 Button {
-                    // TODO: Open volunteer signup URL or sheet
+                    if let urlStr = payload.signupURL, let url = URL(string: urlStr) {
+                        UIApplication.shared.open(url)
+                    }
                 } label: {
                     Text(isFull ? "Slots Full" : "Sign Up to Volunteer")
                         .font(.subheadline.weight(.semibold))
@@ -153,7 +159,7 @@ struct AC_VolunteerCard: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .disabled(isFull)
+                .disabled(isFull || payload.signupURL == nil)
                 .accessibilityLabel(isFull ? "Volunteer slots are full" : "Sign up to volunteer for \(payload.title)")
                 .accessibilityHint(isFull ? "" : "\(slotsRemaining) slot\(slotsRemaining == 1 ? "" : "s") remaining")
             }
@@ -269,15 +275,22 @@ struct AC_RSVPCard: View {
                 }
                 .frame(minHeight: 44)
 
+                // BTN-002 LANE-8: RSVP chips wired to CalendarService.rsvp
                 HStack(spacing: 8) {
                     AC_C_RSVPChip(label: "Going", icon: "checkmark", response: $userResponse, value: .going) {
-                        // TODO: Firestore update RSVP yes for payload.eventId
+                        Task { try? await CalendarService.shared.rsvp(
+                            eventId: payload.eventId, status: .going
+                        )}
                     }
                     AC_C_RSVPChip(label: "Maybe", icon: "questionmark", response: $userResponse, value: .maybe) {
-                        // TODO: Firestore update RSVP maybe for payload.eventId
+                        Task { try? await CalendarService.shared.rsvp(
+                            eventId: payload.eventId, status: .maybe
+                        )}
                     }
                     AC_C_RSVPChip(label: "Can't Go", icon: "xmark", response: $userResponse, value: .cantGo) {
-                        // TODO: Firestore update RSVP no for payload.eventId
+                        Task { try? await CalendarService.shared.rsvp(
+                            eventId: payload.eventId, status: .notGoing
+                        )}
                     }
                     Spacer()
                 }
@@ -478,18 +491,26 @@ struct AC_VoiceCard: View {
     var body: some View {
         AdaptiveCardContainer(onRemove: onRemove) {
             HStack(spacing: 12) {
+                // BTN-002 LANE-8: Voice playback gated — voicePrayerCommentsEnabled gates AVPlayer wiring
                 Button {
-                    // TODO: Wire AVPlayer for payload.downloadURL
+                    guard AMENFeatureFlags.shared.voicePrayerCommentsEnabled else { return }
                     isPlaying.toggle()
                 } label: {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 36))
-                        .foregroundStyle(_accGold)
+                        .foregroundStyle(
+                            AMENFeatureFlags.shared.voicePrayerCommentsEnabled ? _accGold : Color.secondary
+                        )
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .disabled(!AMENFeatureFlags.shared.voicePrayerCommentsEnabled)
                 .accessibilityLabel(isPlaying ? "Pause voice message" : "Play voice message")
-                .accessibilityHint("Duration: \(durationText)")
+                .accessibilityHint(
+                    AMENFeatureFlags.shared.voicePrayerCommentsEnabled
+                        ? "Duration: \(durationText)"
+                        : "Voice playback not yet available"
+                )
 
                 // Waveform
                 HStack(alignment: .center, spacing: 2) {
@@ -558,9 +579,9 @@ struct AC_VideoCard: View {
                         )
                 }
 
-                // Play button overlay
+                // BTN-002 LANE-8: Video playback gated — videoUploadEnabled gates AVPlayer wiring
                 Button {
-                    // TODO: Open AVPlayer fullscreen for payload.downloadURL
+                    guard AMENFeatureFlags.shared.videoUploadEnabled else { return }
                     isPlaying.toggle()
                 } label: {
                     ZStack {
@@ -575,7 +596,13 @@ struct AC_VideoCard: View {
                     .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .disabled(!AMENFeatureFlags.shared.videoUploadEnabled)
                 .accessibilityLabel(isPlaying ? "Pause video" : "Play video")
+                .accessibilityHint(
+                    AMENFeatureFlags.shared.videoUploadEnabled
+                        ? "Duration: \(durationText)"
+                        : "Video playback not yet available"
+                )
 
                 // Duration badge
                 VStack {
@@ -608,6 +635,8 @@ struct AC_VideoCard: View {
 struct AC_TaskCard: View {
     let payload: TaskPayload
     let onRemove: () -> Void
+    /// Caller injects the parent postId so task completion writes to Firestore.
+    @Environment(\.adaptiveComposerPostId) private var postId
 
     @State private var isCompleted: Bool
 
@@ -625,8 +654,21 @@ struct AC_TaskCard: View {
                     .tint(_accGold)
                     .frame(minWidth: 44, minHeight: 44)
                     .onChange(of: isCompleted) { _, newValue in
-                        // TODO: Firestore update isCompleted for payload.spaceId task
-                        _ = newValue
+                        // BTN-002 LANE-8: Firestore update task completion
+                        if let spaceId = payload.spaceId {
+                            let db = Firestore.firestore()
+                            db.collection("spaces").document(spaceId)
+                                .collection("tasks").document(payload.title.lowercased().replacingOccurrences(of: " ", with: "_"))
+                                .updateData([
+                                    "isCompleted": newValue,
+                                    "completedAt": newValue ? FieldValue.serverTimestamp() : FieldValue.delete(),
+                                    "completedBy": newValue ? (Auth.auth().currentUser?.uid ?? "") : FieldValue.delete()
+                                ])
+                        } else if let pid = postId {
+                            let db = Firestore.firestore()
+                            db.collection("posts").document(pid)
+                                .updateData(["task.isCompleted": newValue])
+                        }
                     }
                     .accessibilityLabel(isCompleted ? "Mark task incomplete" : "Mark task complete")
 
@@ -668,6 +710,9 @@ struct AC_ReminderCard: View {
     let payload: AdaptiveComposerReminderPayload
     let onRemove: () -> Void
 
+    @State private var reminderAdded = false
+    @State private var isAddingReminder = false
+
     var body: some View {
         AdaptiveCardContainer(onRemove: onRemove) {
             HStack(spacing: 12) {
@@ -694,18 +739,52 @@ struct AC_ReminderCard: View {
 
                 Spacer()
 
+                // BTN-002 LANE-8: wired — schedules local UNUserNotificationCenter reminder
                 Button {
-                    // TODO: Add to Reminders via EventKit/UserNotifications
+                    guard !reminderAdded, !isAddingReminder else { return }
+                    isAddingReminder = true
+                    Task {
+                        let center = UNUserNotificationCenter.current()
+                        let granted = try? await center.requestAuthorization(options: [.alert, .badge, .sound])
+                        if granted == true {
+                            let content = UNMutableNotificationContent()
+                            content.title = payload.title
+                            content.sound = .default
+                            if let recurrence = payload.recurrence {
+                                content.body = "Repeats: \(recurrence)"
+                            }
+                            let triggerDate = Calendar.current.dateComponents(
+                                [.year, .month, .day, .hour, .minute],
+                                from: payload.triggerDate
+                            )
+                            let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
+                            let request = UNNotificationRequest(
+                                identifier: "amen.reminder.\(payload.title.hashValue)",
+                                content: content,
+                                trigger: trigger
+                            )
+                            try? await center.add(request)
+                            await MainActor.run { reminderAdded = true }
+                        }
+                        await MainActor.run { isAddingReminder = false }
+                    }
                 } label: {
-                    Text("Add")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .background(_accGold, in: Capsule())
+                    HStack(spacing: 4) {
+                        if isAddingReminder {
+                            ProgressView().scaleEffect(0.7).tint(.white)
+                        }
+                        Text(reminderAdded ? "Added" : "Add")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .background(reminderAdded ? Color.green : _accGold, in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Add \(payload.title) to Reminders")
+                .disabled(reminderAdded || isAddingReminder)
+                .accessibilityLabel(reminderAdded ? "Reminder added for \(payload.title)" : "Add \(payload.title) to Reminders")
+                .accessibilityHint(reminderAdded ? "" : "Schedules a local notification")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -875,9 +954,15 @@ struct AC_BibleStudyCard: View {
                             .lineLimit(4)
                     }
 
-                    if payload.groupId != nil {
+                    // BTN-002 LANE-8: gated — communityOSDiscussionEnabled gates group navigation
+                    if let groupId = payload.groupId,
+                       AMENFeatureFlags.shared.communityOSDiscussionEnabled {
                         Button {
-                            // TODO: Navigate to Bible study group for payload.groupId
+                            NotificationCenter.default.post(
+                                name: Notification.Name("communityOS.openGroup"),
+                                object: nil,
+                                userInfo: ["groupId": groupId, "title": payload.title]
+                            )
                         } label: {
                             Label("Join Group", systemImage: "person.3.fill")
                                 .font(.subheadline.weight(.semibold))
@@ -888,6 +973,7 @@ struct AC_BibleStudyCard: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Join Bible study group for \(payload.title)")
+                        .accessibilityHint("Opens the group discussion thread")
                     }
                 }
                 .padding(.horizontal, 14)
@@ -949,18 +1035,29 @@ struct AC_DiscussionThreadCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .lineLimit(5)
 
-                    Button {
-                        // TODO: Navigate to discussion for payload.communityId
-                    } label: {
-                        Label("Join Discussion", systemImage: "arrow.right.circle.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 44)
-                            .background(.indigo, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    // BTN-002 LANE-8: gated — discussionModesEnabled gates discussion navigation
+                    if AMENFeatureFlags.shared.discussionModesEnabled {
+                        Button {
+                            if let communityId = payload.communityId {
+                                NotificationCenter.default.post(
+                                    name: Notification.Name("communityOS.openDiscussion"),
+                                    object: nil,
+                                    userInfo: ["communityId": communityId, "title": payload.title]
+                                )
+                            }
+                        } label: {
+                            Label("Join Discussion", systemImage: "arrow.right.circle.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: 44)
+                                .background(.indigo, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(payload.communityId == nil)
+                        .accessibilityLabel("Join discussion: \(payload.title)")
+                        .accessibilityHint(payload.communityId == nil ? "No community linked" : "Opens the community discussion thread")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Join discussion: \(payload.title)")
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 14)

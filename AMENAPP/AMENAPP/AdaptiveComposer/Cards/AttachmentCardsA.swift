@@ -2,6 +2,11 @@
 // AMEN — Smart Attachment Cards Set A
 // Scripture, Prayer, Event, ChurchNote, Poll + GenericAttachmentCard + dispatcher
 import SwiftUI
+import EventKit
+import FirebaseFirestore
+import FirebaseAuth
+import MapKit
+import CoreLocation
 
 // MARK: - Internal gold color (avoids collision with AmenAdaptiveColors.amenGold / AmenTheme)
 
@@ -153,7 +158,7 @@ private struct AC_ScriptureCard: View {
     init(payload: ScripturePayload, onRemove: @escaping () -> Void) {
         self.payload = payload
         self.onRemove = onRemove
-        let initial = AC_BibleTranslation(rawValue: payload.translation.uppercased()) ?? .niv
+        let initial = AC_BibleTranslation(rawValue: payload.translation.uppercased()) ?? .kjv // TODO(legal): was .niv default — now KJV (public domain)
         _selectedTranslation = State(initialValue: initial)
     }
 
@@ -213,16 +218,25 @@ private struct AC_ScriptureCard: View {
                     }
                     .accessibilityLabel("Translation picker")
 
-                    Button {
-                        // TODO: open Berean study for payload.reference
-                    } label: {
-                        Label("Study in Berean", systemImage: "magnifyingglass")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(_acAmenGold)
-                            .frame(minWidth: 44, minHeight: 44)
+                    // BTN-002 LANE-8: gated OFF — BereanNavigationService not yet available at this call site
+                    if AMENFeatureFlags.shared.bereanIslandEnabled {
+                        Button {
+                            // Wire: post deep-link notification for BereanIslandStateMachine to pick up
+                            NotificationCenter.default.post(
+                                name: Notification.Name("berean.openStudy"),
+                                object: nil,
+                                userInfo: ["reference": payload.reference]
+                            )
+                        } label: {
+                            Label("Study in Berean", systemImage: "magnifyingglass")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(_acAmenGold)
+                                .frame(minWidth: 44, minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Study \(payload.reference) in Berean")
+                        .accessibilityHint("Opens Berean AI study for this passage")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Study \(payload.reference) in Berean")
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 14)
@@ -232,13 +246,17 @@ private struct AC_ScriptureCard: View {
     }
 }
 
-// TODO: Confirm commercial licenses for ESV, NLT, NASB before shipping. Only KJV and WEB are confirmed public domain.
+// TODO(legal): Add NIV/ESV/NLT/NASB back once commercial licenses confirmed (AMEN-CONTENT-001).
+// NIV (Biblica), ESV (Crossway), NLT (Tyndale), NASB (Lockman Foundation) are copyrighted — removed from picker.
+// Allowed: KJV (public domain), WEB (public domain), BSB (open license).
 private enum AC_BibleTranslation: String, CaseIterable {
-    case niv = "NIV"
-    case esv = "ESV"
     case kjv = "KJV"
-    case nlt = "NLT"
-    case nasb = "NASB"
+    case web = "WEB"
+    case bsb = "BSB"
+    // case niv = "NIV"   // TODO(legal): restore once NIV (Biblica) license confirmed
+    // case esv = "ESV"   // TODO(legal): restore once ESV (Crossway) license confirmed
+    // case nlt = "NLT"   // TODO(legal): restore once NLT (Tyndale) license confirmed
+    // case nasb = "NASB" // TODO(legal): restore once NASB (Lockman Foundation) license confirmed
 }
 
 private struct AC_TranslationChip: View {
@@ -328,7 +346,16 @@ private struct AC_PrayerCard: View {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                             localPrayCount += 1
                         }
-                        // TODO: Firestore increment prayCount for circleId
+                        // BTN-002 LANE-8: Firestore increment prayCount for this prayer request
+                        if let circleId = payload.circleId,
+                           let uid = Auth.auth().currentUser?.uid {
+                            let db = Firestore.firestore()
+                            db.collection("prayerCircles").document(circleId)
+                                .updateData([
+                                    "prayCount": FieldValue.increment(Int64(1)),
+                                    "prayedBy.\(uid)": FieldValue.serverTimestamp()
+                                ])
+                        }
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "hands.sparkles")
@@ -358,6 +385,7 @@ private struct AC_EventCard: View {
 
     @State private var isExpanded = true
     @State private var rsvpState: AC_RSVPState = .none
+    @State private var isAddingToCalendar = false
 
     var body: some View {
         AC_CardContainer(onRemove: onRemove) {
@@ -407,33 +435,77 @@ private struct AC_EventCard: View {
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 8) {
+                        // BTN-002 LANE-8: RSVP buttons wired to Firestore via CalendarService
                         AC_RSVPButton(label: "Going", icon: "checkmark", state: $rsvpState, value: .yes) {
-                            // TODO: Firestore RSVP yes
+                            Task { try? await CalendarService.shared.rsvp(
+                                eventId: AC_EventCard.payloadKey(payload),
+                                status: .going
+                            )}
                         }
                         AC_RSVPButton(label: "Maybe", icon: "questionmark", state: $rsvpState, value: .maybe) {
-                            // TODO: Firestore RSVP maybe
+                            Task { try? await CalendarService.shared.rsvp(
+                                eventId: AC_EventCard.payloadKey(payload),
+                                status: .maybe
+                            )}
                         }
                         AC_RSVPButton(label: "Can't Go", icon: "xmark", state: $rsvpState, value: .no) {
-                            // TODO: Firestore RSVP no
+                            Task { try? await CalendarService.shared.rsvp(
+                                eventId: AC_EventCard.payloadKey(payload),
+                                status: .notGoing
+                            )}
                         }
                         Spacer()
                     }
 
                     HStack(spacing: 16) {
+                        // BTN-002 LANE-8: Add to Calendar — wired to EventKit via EKEventStore
                         Button {
-                            // TODO: Add to Calendar via EventKit
+                            Task {
+                                isAddingToCalendar = true
+                                let granted = await CalendarService.shared.requestCalendarPermission()
+                                if granted {
+                                    // Build and save a minimal EKEvent directly
+                                    let store = EKEventStore()
+                                    let ekEvent = EKEvent(eventStore: store)
+                                    ekEvent.title = payload.title
+                                    ekEvent.startDate = payload.startDate
+                                    ekEvent.endDate = payload.endDate ?? payload.startDate.addingTimeInterval(3600)
+                                    ekEvent.location = payload.location
+                                    ekEvent.calendar = store.defaultCalendarForNewEvents
+                                    try? store.save(ekEvent, span: .thisEvent)
+                                }
+                                isAddingToCalendar = false
+                            }
                         } label: {
-                            Label("Add to Calendar", systemImage: "calendar.badge.plus")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.blue)
-                                .frame(minWidth: 44, minHeight: 44)
+                            HStack(spacing: 4) {
+                                if isAddingToCalendar {
+                                    ProgressView().scaleEffect(0.7)
+                                }
+                                Label("Add to Calendar", systemImage: "calendar.badge.plus")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.blue)
+                            }
+                            .frame(minWidth: 44, minHeight: 44)
                         }
                         .buttonStyle(.plain)
+                        .disabled(isAddingToCalendar)
                         .accessibilityLabel("Add \(payload.title) to Calendar")
 
-                        if payload.location != nil {
+                        if let location = payload.location {
+                            // BTN-002 LANE-8: Get Directions — wired to MKMapItem
                             Button {
-                                // TODO: Open Maps with location
+                                let geocoder = CLGeocoder()
+                                geocoder.geocodeAddressString(location) { placemarks, _ in
+                                    let coordinate = placemarks?.first?.location?.coordinate
+                                    let placemark = MKPlacemark(
+                                        coordinate: coordinate ?? CLLocationCoordinate2D(latitude: 0, longitude: 0)
+                                    )
+                                    let mapItem = MKMapItem(placemark: placemark)
+                                    mapItem.name = location
+                                    mapItem.openInMaps(launchOptions: [
+                                        MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+                                    ])
+                                }
                             } label: {
                                 Label("Get Directions", systemImage: "map")
                                     .font(.caption.weight(.medium))
@@ -441,7 +513,7 @@ private struct AC_EventCard: View {
                                     .frame(minWidth: 44, minHeight: 44)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Get directions to \(payload.location ?? "")")
+                            .accessibilityLabel("Get directions to \(location)")
                         }
                     }
                 }
@@ -457,6 +529,11 @@ private struct AC_EventCard: View {
         f.dateStyle = .medium
         f.timeStyle = .short
         return f.string(from: date)
+    }
+
+    /// Stable identifier derived from payload fields (EventPayload has no explicit id field).
+    static func payloadKey(_ payload: EventPayload) -> String {
+        "\(payload.title)-\(Int(payload.startDate.timeIntervalSince1970))"
     }
 }
 
@@ -551,16 +628,24 @@ private struct AC_ChurchNoteCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .lineLimit(6)
 
-                    Button {
-                        // TODO: Navigate to Selah with payload.churchId note
-                    } label: {
-                        Label("Open in Selah", systemImage: "book.closed.fill")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(_acAmenGold)
-                            .frame(minWidth: 44, minHeight: 44)
+                    // BTN-002 LANE-8: gated OFF — Selah deep-link navigation pending SelahNavigationService
+                    if AMENFeatureFlags.shared.selahScriptureActionsEnabled {
+                        Button {
+                            NotificationCenter.default.post(
+                                name: Notification.Name("selah.openNote"),
+                                object: nil,
+                                userInfo: ["churchId": payload.churchId, "title": payload.title]
+                            )
+                        } label: {
+                            Label("Open in Selah", systemImage: "book.closed.fill")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(_acAmenGold)
+                                .frame(minWidth: 44, minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Open \(payload.title) in Selah")
+                        .accessibilityHint("Opens this church note in the Selah reader")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Open \(payload.title) in Selah")
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 14)
@@ -575,6 +660,9 @@ private struct AC_ChurchNoteCard: View {
 private struct AC_PollCard: View {
     let payload: PollPayload
     let onRemove: () -> Void
+    /// Caller may inject the parent postId via the environment so votes reach Firestore.
+    /// Falls back to nil — optimistic UI still works without the postId.
+    @Environment(\.adaptiveComposerPostId) private var postId
 
     @State private var isExpanded = true
     @State private var votedOption: String?
@@ -628,7 +716,10 @@ private struct AC_PollCard: View {
                             withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                                 votedOption = option
                             }
-                            // TODO: Firestore increment votesByOption[option] and totalVotes
+                            // BTN-002 LANE-8: wire poll vote to PollService when postId is available
+                            if let pid = postId {
+                                Task { try? await PollService.shared.vote(postId: pid, optionId: option) }
+                            }
                         }
                     }
                 }
@@ -688,5 +779,19 @@ private struct AC_PollOptionRow: View {
         .disabled(hasVotedAny)
         .accessibilityLabel("\(option)\(isVoted ? ", your vote" : "")\(hasVotedAny ? ", \(Int((fraction * 100).rounded())) percent" : "")")
         .accessibilityHint(hasVotedAny ? "" : "Tap to vote for \(option)")
+    }
+}
+
+// MARK: - Environment key: adaptiveComposerPostId
+// Caller injects the parent post's Firestore document ID so attachment cards can write back.
+
+private struct AC_PostIdKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
+extension EnvironmentValues {
+    var adaptiveComposerPostId: String? {
+        get { self[AC_PostIdKey.self] }
+        set { self[AC_PostIdKey.self] = newValue }
     }
 }

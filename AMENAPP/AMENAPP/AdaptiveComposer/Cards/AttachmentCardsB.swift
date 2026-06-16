@@ -3,6 +3,8 @@
 // AdaptiveCardContainer, MusicCard, PodcastCard, YouTubeCard, LocationCard, FileCard, ChecklistCard
 import SwiftUI
 import MapKit
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Internal gold color (matches Set A private constant)
 
@@ -98,9 +100,11 @@ struct AC_MusicCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Play preview stub
+                // BTN-002 LANE-8: music preview gated — AVPlayer session wiring requires MediaPlaybackService
+                // Flag-gated OFF until MusicContentLayer AVPlayer coordinator is wired into cards.
                 Button {
-                    // TODO: play preview from payload.previewURL via AVPlayer
+                    // Optimistic toggle only — real playback requires AVPlayer session from MusicContentLayer
+                    guard AMENFeatureFlags.shared.musicAttachmentEnabled else { return }
                     isPlaying.toggle()
                 } label: {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
@@ -177,8 +181,11 @@ struct AC_PodcastCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+                // BTN-002 LANE-8: wired — opens feedURL in Podcasts app or default handler
                 Button {
-                    // TODO: open payload.feedURL in podcast app / in-app player
+                    if let url = URL(string: payload.feedURL) {
+                        UIApplication.shared.open(url)
+                    }
                 } label: {
                     Label("Listen", systemImage: "headphones")
                         .font(.caption.weight(.semibold))
@@ -295,16 +302,25 @@ struct AC_YouTubeCard: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Watch \(payload.title) on YouTube")
 
-                        Button {
-                            // TODO: call Berean summarize CF with payload.videoId
-                        } label: {
-                            Text("Summarize")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(_acbAmenGold)
-                                .frame(minWidth: 44, minHeight: 44)
+                        // BTN-002 LANE-8: Summarize gated — bereanHelperLinkSummaryEnabled controls CF readiness
+                        if AMENFeatureFlags.shared.bereanHelperLinkSummaryEnabled {
+                            Button {
+                                // Wire: invoke Berean helper CF with YouTube videoId context
+                                NotificationCenter.default.post(
+                                    name: Notification.Name("berean.summarizeYouTube"),
+                                    object: nil,
+                                    userInfo: ["videoId": payload.videoId, "title": payload.title]
+                                )
+                            } label: {
+                                Text("Summarize")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(_acbAmenGold)
+                                    .frame(minWidth: 44, minHeight: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Summarize \(payload.title)")
+                            .accessibilityHint("Uses Berean AI to summarize this video")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Summarize \(payload.title)")
                     }
                     .padding(.trailing, 44)
                 }
@@ -455,8 +471,10 @@ struct AC_FileCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 VStack(spacing: 4) {
+                    // BTN-002 LANE-8: Preview gated — QLPreviewController requires UIKit sheet presentation
+                    // Disabled until a SwiftUI-compatible QuickLook wrapper is wired at the host level.
                     Button {
-                        // TODO: preview file using QuickLook / QLPreviewController
+                        // no-op placeholder; guarded by .disabled below
                     } label: {
                         Image(systemName: "eye")
                             .font(.system(size: 16, weight: .medium))
@@ -464,10 +482,15 @@ struct AC_FileCard: View {
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .buttonStyle(.plain)
+                    .disabled(true)
                     .accessibilityLabel("Preview \(payload.name)")
+                    .accessibilityHint("File preview not available in this version")
 
+                    // BTN-002 LANE-8: wired — opens downloadURL in Files app / Safari
                     Button {
-                        // TODO: download file from payload.downloadURL to Files app
+                        if let url = URL(string: payload.downloadURL) {
+                            UIApplication.shared.open(url)
+                        }
                     } label: {
                         Image(systemName: "arrow.down.circle")
                             .font(.system(size: 16, weight: .medium))
@@ -476,6 +499,7 @@ struct AC_FileCard: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Download \(payload.name)")
+                    .accessibilityHint("Opens file in browser or Files app")
                 }
                 .padding(.trailing, 44)
             }
@@ -555,6 +579,8 @@ struct AC_FileCard: View {
 struct AC_ChecklistCard: View {
     let payload: AdaptiveComposerChecklistPayload
     let onRemove: () -> Void
+    /// Caller injects the parent postId so checklist toggles persist to Firestore.
+    @Environment(\.adaptiveComposerPostId) private var postId
 
     // Local checked state for optimistic UI; Firestore write is deferred below
     @State private var checkedIds: Set<String>
@@ -627,7 +653,15 @@ struct AC_ChecklistCard: View {
                                     checkedIds.remove(item.id)
                                 }
                             }
-                            // TODO: Firestore update checklist item isChecked for item.id in payload
+                            // BTN-002 LANE-8: Firestore update checklist item isChecked
+                            if let pid = postId {
+                                let db = Firestore.firestore()
+                                db.collection("posts").document(pid)
+                                    .updateData([
+                                        "checklist.items.\(item.id).isChecked": newValue,
+                                        "checklist.updatedAt": FieldValue.serverTimestamp()
+                                    ])
+                            }
                         }
                     }
                 }
