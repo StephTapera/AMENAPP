@@ -1,4 +1,7 @@
 import SwiftUI
+import FirebaseFirestore
+import FirebaseAuth
+import UIKit
 
 struct AmenDiscoverView: View {
     @StateObject private var viewModel = AmenDiscoverViewModel()
@@ -73,6 +76,21 @@ struct AmenDiscoverView: View {
             AmenDiscoverDetailView(
                 item: item,
                 namespace: tileNamespace,
+                onPray: {
+                    AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "pray"))
+                    dlog("[AmenDiscoverView] Pray tapped on item: \(item.id)")
+                    Task { await AmenDiscoverView.recordPray(itemId: item.sourceId) }
+                },
+                onSave: {
+                    AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "save"))
+                    dlog("[AmenDiscoverView] Save tapped on item: \(item.id)")
+                    Task { try? await SavedPostsService.shared.savePost(postId: item.sourceId) }
+                },
+                onShare: {
+                    AMENAnalyticsService.shared.track(.feedMeaningfulInteraction(type: "share"))
+                    dlog("[AmenDiscoverView] Share tapped on item: \(item.id)")
+                    AmenDiscoverView.presentShare(itemId: item.sourceId)
+                },
                 onWhyThis: {
                     Task {
                         await viewModel.loadWhyThis(for: item)
@@ -93,6 +111,43 @@ struct AmenDiscoverView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Discover action helpers
+
+private extension AmenDiscoverView {
+
+    /// Records a "prayed for" edge for a Discover item's underlying source document.
+    /// Uses a lightweight Firestore write to /discoverPrayers/{uid}/{sourceId}
+    /// so it does not require the full AmenPrayerService edge flow (which demands
+    /// a prayer-request document to exist). Fails silently — prayer is never blocked.
+    @MainActor
+    static func recordPray(itemId: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let haptic = UINotificationFeedbackGenerator()
+        haptic.notificationOccurred(.success)
+        do {
+            try await Firestore.firestore()
+                .collection("discoverPrayers")
+                .document(uid)
+                .collection("items")
+                .document(itemId)
+                .setData(["prayedAt": FieldValue.serverTimestamp()], merge: true)
+        } catch {
+            dlog("[AmenDiscoverView] recordPray non-fatal: \(error.localizedDescription)")
+        }
+    }
+
+    /// Presents a UIActivityViewController for the canonical Discover item URL.
+    /// Must be called on the main thread.
+    @MainActor
+    static func presentShare(itemId: String) {
+        guard let url = URL(string: "https://amenapp.com/discover/\(itemId)") else { return }
+        let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first?.rootViewController?.present(av, animated: true)
     }
 }
 

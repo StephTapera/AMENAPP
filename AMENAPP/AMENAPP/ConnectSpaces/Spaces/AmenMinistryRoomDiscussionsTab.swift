@@ -189,6 +189,8 @@ struct AmenMinistryRoomDiscussionsTab: View {
     @State private var showNewThread = false
     @State private var showComposer  = false
     @State private var openThread: ThreadNavItem? = nil
+    @State private var reportTargetThreadId: String = ""
+    @State private var showReportSheet = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -237,6 +239,11 @@ struct AmenMinistryRoomDiscussionsTab: View {
         .onChange(of: selectedChannel) { _, new in
             vm.start(spaceId: spaceId, channelType: new)
         }
+        .reportContentSheet(
+            isPresented: $showReportSheet,
+            targetType: .post,
+            targetId: reportTargetThreadId
+        )
     }
 
     // MARK: - Channel Pill Row
@@ -452,6 +459,14 @@ struct AmenMinistryRoomDiscussionsTab: View {
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                reportTargetThreadId = thread.id
+                showReportSheet = true
+            } label: {
+                Label("Report Post", systemImage: "flag")
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(thread.isPinned ? "Pinned. " : "")\(thread.title), \(thread.replyCount) replies, \(thread.category.displayLabel)"
