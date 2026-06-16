@@ -18,7 +18,7 @@ struct AILPreSendInterceptorTests {
 
     private func success(_ text: String, task: A11yTask) -> A11yTransformResult {
         A11yTransformResult(
-            task: task, text: text, provenance: .aiGenerated,
+            task: task, output: .text(text), provenance: .aiGenerated,
             sourceLang: nil, targetLang: nil, cultureNotes: nil,
             confidence: .medium, originalRef: "k", failOpen: false, crisisBypass: false
         )
