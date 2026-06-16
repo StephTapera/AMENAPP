@@ -75,7 +75,7 @@ export const bereanChatProxy = onCall(
         secrets: [anthropicApiKey],
         timeoutSeconds: 60,
         memory: "256MiB",
-        enforceAppCheck: false,
+        enforceAppCheck: true,
     },
     async (request) => {
         if (!request.auth) {
@@ -94,7 +94,6 @@ export const bereanChatProxy = onCall(
             maxTokens = 2000,
             temperature = 0.7,
             mode = "shepherd",
-            systemPromptSuffix,
             memoryScope,
             callData,
         } = data;
@@ -134,10 +133,6 @@ export const bereanChatProxy = onCall(
             const contextualPrompt = buildCallDataPrompt(callData ?? {memoryScope});
             if (contextualPrompt) {
                 systemPrompt += `\n\n${contextualPrompt}`;
-            }
-
-            if (systemPromptSuffix) {
-                systemPrompt += `\n\n${systemPromptSuffix}`;
             }
 
             const messages: ClaudeMessage[] = [
@@ -250,7 +245,26 @@ function analyzeSensitivity(
         ].includes(flag);
     }) as unknown as SensitivityFlag[];
 
+    const MEDICAL_KEYWORDS = [
+        "my diagnosis",
+        "should i take my medication",
+        "stop my meds",
+        "stop taking my medication",
+        "cancer",
+        "mental illness treatment",
+        "my prescription",
+        "my doctor told me",
+        "my therapist",
+        "my psychiatrist",
+    ];
+
     const lower = message.toLowerCase();
+
+    if (!flags.includes("medical" as SensitivityFlag) &&
+        MEDICAL_KEYWORDS.some((kw) => lower.includes(kw))) {
+        flags.push("medical" as SensitivityFlag);
+    }
+
     let topicClass: TopicClass | null = null;
     if (flags.includes("abuse" as SensitivityFlag)) topicClass = "abuse_disclosure";
     else if (flags.includes("medical" as SensitivityFlag)) topicClass = "medical_override";

@@ -106,7 +106,6 @@ export const bereanChatProxyStream = onRequest(
         const selectedMode = body.selectedMode as string | undefined;
         const maxTokens = Math.min(Number(body.maxTokens ?? 2000), 2000);
         const temperature = Math.min(Math.max(Number(body.temperature ?? 0.7), 0), 1);
-        const systemPromptSuffix = body.systemPromptSuffix as string | undefined;
         const conversationHistory = (
             body.conversationHistory as Array<{ role: string; content: string }> | undefined
         ) ?? [];
@@ -200,16 +199,31 @@ export const bereanChatProxyStream = onRequest(
         let systemPrompt = buildBereanSystemPrompt(mode);
 
         const callData = body.callData as Record<string, unknown> | undefined;
-        const sensitivityFlags = (callData?.sensitivityFlags as string[] | undefined) ?? [];
+        const sensitivityFlags: string[] = [...((callData?.sensitivityFlags as string[] | undefined) ?? [])];
+
+        const MEDICAL_KEYWORDS = [
+            "my diagnosis",
+            "should i take my medication",
+            "stop my meds",
+            "stop taking my medication",
+            "cancer",
+            "mental illness treatment",
+            "my prescription",
+            "my doctor told me",
+            "my therapist",
+            "my psychiatrist",
+        ];
+        const lowerMessage = message.toLowerCase();
+        if (!sensitivityFlags.includes("medical") &&
+            MEDICAL_KEYWORDS.some((kw) => lowerMessage.includes(kw))) {
+            sensitivityFlags.push("medical");
+        }
+
         const policyBlock = buildSensitiveTopicPolicyBlock(
             sensitivityFlags as unknown as SensitivityFlag[],
             null as unknown as TopicClass
         );
         if (policyBlock) systemPrompt += `\n\n${policyBlock}`;
-
-        if (systemPromptSuffix?.trim()) {
-            systemPrompt += `\n\n${systemPromptSuffix.trim()}`;
-        }
 
         // ── 9. Condense history ───────────────────────────────────────────────
         const condensedHistory = condenseHistory(conversationHistory, 1300);

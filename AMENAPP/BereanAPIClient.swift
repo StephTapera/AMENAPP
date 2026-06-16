@@ -59,7 +59,7 @@ final class BereanAPIClient {
     /// for the given reference.
     func studyPassage(
         reference: String,
-        translation: String = "ESV",
+        translation: String = "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
         includeWordStudy: Bool = true,
         includeChristConnection: Bool = true,
         includeImmersionMode: Bool = false
