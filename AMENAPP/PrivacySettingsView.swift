@@ -599,13 +599,22 @@ struct PrivacySettingsView: View {
                         .font(AMENFont.semiBold(15))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
+
+                        Divider().padding(.leading, 16)
+
+                        NavigationLink("AI Context Permissions") {
+                            PermissionsCenterView()
+                        }
+                        .font(AMENFont.semiBold(15))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
                     .padding(.horizontal, 16)
 
-                    Text("Choose which data Capabilities like Prayer OS and Verse Lookup may access.")
+                    Text("Choose which data Capabilities like Prayer OS and Verse Lookup may access. AI Context Permissions controls the 10 consent edges that govern what personal context Berean may read.")
                         .font(AMENFont.regular(12))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)

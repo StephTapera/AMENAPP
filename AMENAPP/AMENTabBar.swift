@@ -273,6 +273,10 @@ struct AMENTabBar: View {
         .accessibilityLabel(tab.label)
         .accessibilityHint(tab.accessibilityHint)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityValue({
+            let count = badges.count(for: tab)
+            return count > 0 ? "\(count) unread" : ""
+        }())
     }
 
     // The glass tile that sits behind the active tab icon.

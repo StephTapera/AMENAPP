@@ -129,8 +129,9 @@ enum AMENLog {
 
         let formatted = "\(level.emoji) [\(category.rawValue)] \(message)"
 
-        // Use os_log for structured logging (visible in Console.app)
-        os_log("%{public}@", log: category.osLog, type: level.osLogType, formatted)
+        // Use os_log for structured logging (visible in Console.app only in DEBUG;
+        // %{private} prevents message body from being visible in production Console.app logs)
+        os_log("%{private}@", log: category.osLog, type: level.osLogType, formatted)
 
         // Also print in DEBUG for Xcode console
         #if DEBUG

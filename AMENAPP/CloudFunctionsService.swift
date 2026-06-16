@@ -18,8 +18,6 @@ class CloudFunctionsService: ObservableObject {
     private lazy var functions = Functions.functions()
     
     private init() {
-        // Uncomment to use local emulator for testing
-        // functions.useEmulator(withHost: "localhost", port: 5001)
     }
     
     // MARK: - Generic Callable
