@@ -201,6 +201,12 @@ struct AmenMinistryRoomChatView: View {
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var reportTargetMessageId: String = ""
+    @State private var showReportSheet = false
+
+    private var currentUID: String {
+        FirebaseAuth.Auth.auth().currentUser?.uid ?? ""
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -211,6 +217,23 @@ struct AmenMinistryRoomChatView: View {
                         ForEach(viewModel.messages) { message in
                             AmenMinistryRoomMessageRow(message: message)
                                 .id(message.id)
+                                .contextMenu(menuItems: {
+                                    if message.authorId != currentUID {
+                                        Button(role: .destructive) {
+                                            reportTargetMessageId = message.id
+                                            showReportSheet = true
+                                        } label: {
+                                            Label("Report Message", systemImage: "flag")
+                                        }
+                                        Button {
+                                            Task {
+                                                try? await BlockService.shared.blockUser(userId: message.authorId)
+                                            }
+                                        } label: {
+                                            Label("Block Sender", systemImage: "nosign")
+                                        }
+                                    }
+                                })
                         }
                     }
                     .padding(.horizontal, 12)
@@ -260,6 +283,11 @@ struct AmenMinistryRoomChatView: View {
                 onEdit: { viewModel.dismissBeforeShare() }
             )
         }
+        .reportContentSheet(
+            isPresented: $showReportSheet,
+            targetType: .ministryRoomMessage,
+            targetId: reportTargetMessageId
+        )
     }
 
     // MARK: - Glass Composer

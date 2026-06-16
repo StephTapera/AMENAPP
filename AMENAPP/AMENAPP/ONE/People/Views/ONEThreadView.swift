@@ -15,6 +15,8 @@ struct ONEThreadView: View {
     @State private var isDistilling = false
     @State private var shareItem: String?
     @State private var showShareSheet = false
+    @State private var reportTargetMessageId: String = ""
+    @State private var showReportSheet = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var currentUID: String { Auth.auth().currentUser?.uid ?? "" }
@@ -65,6 +67,11 @@ struct ONEThreadView: View {
                 ShareSheet(items: [item])
             }
         }
+        .reportContentSheet(
+            isPresented: $showReportSheet,
+            targetType: .message,
+            targetId: reportTargetMessageId
+        )
     }
 
     // MARK: - Messages scroll area
@@ -74,15 +81,8 @@ struct ONEThreadView: View {
             ScrollView {
                 LazyVStack(spacing: ONE.Spacing.xs) {
                     ForEach(messages) { msg in
-                        ONEMessageBubble(
-                            message: msg,
-                            plaintext: decrypted[msg.id],
-                            isFromCurrentUser: msg.senderUID == currentUID,
-                            senderName: displayName(for: msg.senderUID),
-                            permissions: thread.consentOverrides[msg.senderUID] ?? ONEMomentPermissions()
-                        )
-                        .padding(.horizontal, ONE.Spacing.md)
-                        .id(msg.id)
+                        messageRow(for: msg)
+                            .id(msg.id)
                     }
                     Color.clear.frame(height: 1).id("__bottom__")
                 }
@@ -97,6 +97,62 @@ struct ONEThreadView: View {
                 proxy.scrollTo("__bottom__", anchor: .bottom)
             }
         }
+    }
+
+    // MARK: - Message Row
+
+    @ViewBuilder
+    private func messageRow(for msg: ONEThreadMessage) -> some View {
+        let isFromCurrentUser = msg.senderUID == currentUID
+        HStack(alignment: .bottom, spacing: ONE.Spacing.xs) {
+            if isFromCurrentUser {
+                messageBubble(for: msg, isFromCurrentUser: true)
+            } else {
+                messageBubble(for: msg, isFromCurrentUser: false)
+                reportButton(for: msg)
+            }
+        }
+        .padding(.horizontal, ONE.Spacing.md)
+        .contextMenu {
+            if !isFromCurrentUser {
+                Button(role: .destructive) { presentReport(for: msg) } label: {
+                    Label("Report Message", systemImage: "flag")
+                }
+                Button(role: .destructive) {
+                    Task { try? await BlockService.shared.blockUser(userId: msg.senderUID) }
+                } label: {
+                    Label("Block Sender", systemImage: "nosign")
+                }
+            }
+        }
+    }
+
+    private func messageBubble(for msg: ONEThreadMessage, isFromCurrentUser: Bool) -> some View {
+        ONEMessageBubble(
+            message: msg,
+            plaintext: decrypted[msg.id],
+            isFromCurrentUser: isFromCurrentUser,
+            senderName: displayName(for: msg.senderUID),
+            permissions: thread.consentOverrides[msg.senderUID] ?? ONEMomentPermissions()
+        )
+    }
+
+    private func reportButton(for msg: ONEThreadMessage) -> some View {
+        Button(role: .destructive) { presentReport(for: msg) } label: {
+            Image(systemName: "flag")
+                .font(.systemScaled(13, weight: .semibold))
+                .foregroundStyle(.red)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color.red.opacity(0.10)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Report message")
+        .accessibilityHint("Reports this message to Amen's safety team")
+    }
+
+    private func presentReport(for msg: ONEThreadMessage) {
+        reportTargetMessageId = msg.id
+        showReportSheet = true
     }
 
     // MARK: - Toolbar

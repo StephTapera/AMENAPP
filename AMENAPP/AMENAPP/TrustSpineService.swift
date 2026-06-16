@@ -250,6 +250,8 @@ final class TrustSpineService: ObservableObject {
         case message
         case community
         case provenance
+        case prayerRequest = "prayer_request"
+        case ministryRoomMessage = "ministry_room_message"
     }
 
     enum ReportReason: String {

@@ -190,6 +190,7 @@ struct AmenPrayerCard: View {
 
     @State private var hasPrayed = false
     @State private var isPraying = false
+    @State private var showReportSheet = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Current user ID — replace with Auth injection when wired into the full app context.
@@ -238,6 +239,28 @@ struct AmenPrayerCard: View {
         )
         .overlay(answeredBadge, alignment: .topTrailing)
         .accessibilityElement(children: .contain)
+        .contextMenu {
+            Button(role: .destructive) {
+                showReportSheet = true
+            } label: {
+                Label("Report Prayer", systemImage: "flag")
+            }
+            // Block author only for non-anonymous requests where the author is identifiable.
+            if !prayer.isAnonymous && !prayer.createdBy.isEmpty {
+                Button {
+                    Task {
+                        try? await BlockService.shared.blockUser(userId: prayer.createdBy)
+                    }
+                } label: {
+                    Label("Block User", systemImage: "nosign")
+                }
+            }
+        }
+        .reportContentSheet(
+            isPresented: $showReportSheet,
+            targetType: .prayerRequest,
+            targetId: prayer.id
+        )
     }
 
     // MARK: - Author Row

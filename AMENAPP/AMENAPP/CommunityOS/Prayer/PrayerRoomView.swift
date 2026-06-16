@@ -90,6 +90,7 @@ struct PrayerRoomView: View {
     @State private var isPraying = false
     @State private var hasPrayed = false
     @State private var didFinishLoading = false
+    @State private var showReportSheet = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -143,7 +144,36 @@ struct PrayerRoomView: View {
                         .foregroundStyle(Color.accentColor)
                         .accessibilityLabel("Close prayer room")
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if let prayer = prayer {
+                        Menu {
+                            Button(role: .destructive) {
+                                showReportSheet = true
+                            } label: {
+                                Label("Report Prayer", systemImage: "flag")
+                            }
+                            if !prayer.authorId.isEmpty {
+                                Button {
+                                    Task {
+                                        try? await BlockService.shared.blockUser(userId: prayer.authorId)
+                                    }
+                                } label: {
+                                    Label("Block User", systemImage: "nosign")
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .foregroundStyle(Color.accentColor)
+                        }
+                        .accessibilityLabel("More options")
+                    }
+                }
             }
+            .reportContentSheet(
+                isPresented: $showReportSheet,
+                targetType: .prayerRequest,
+                targetId: prayer?.id ?? prayerId
+            )
         }
         .sheet(isPresented: $showUpdateSheet) {
             if let prayer = prayer {

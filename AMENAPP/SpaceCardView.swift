@@ -10,6 +10,7 @@ struct SpaceCardView: View {
     let onTap: () -> Void
 
     @State private var joinPressed = false
+    @State private var showReportSheet = false
 
     private let accentPurple   = Color(red: 0.6,  green: 0.35, blue: 1.0)
     private let accentPurpleDim = Color(red: 0.45, green: 0.2,  blue: 0.85)
@@ -94,6 +95,27 @@ struct SpaceCardView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(ScaleButtonStyle())
+        .contextMenu {
+            Button(role: .destructive) {
+                showReportSheet = true
+            } label: {
+                Label("Report Space", systemImage: "flag")
+            }
+            if let hostId = space.createdBy {
+                Button {
+                    Task {
+                        try? await BlockService.shared.blockUser(userId: hostId)
+                    }
+                } label: {
+                    Label("Block Host", systemImage: "nosign")
+                }
+            }
+        }
+        .reportContentSheet(
+            isPresented: $showReportSheet,
+            targetType: .community,
+            targetId: space.id ?? ""
+        )
     }
 
     // MARK: - Join Button
