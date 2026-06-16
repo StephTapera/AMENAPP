@@ -93,6 +93,24 @@ final class ResumableUploadManager: NSObject, ObservableObject, URLSessionTaskDe
         destinationStoragePath: String,
         metadata: [String: String]
     ) async -> String {
+        // CSAM-005 SAFETY GATE: Block all background media uploads until scanning is deployed.
+        // 18 USC 2258A requires NCMEC reporting within 24h of actual knowledge.
+        // Do NOT remove this guard without PhotoDNA/NCMEC integration + legal sign-off.
+        // See AmenSafetyModerationCoordinator.isMediaScanningAvailable for requirements.
+        guard AmenSafetyModerationCoordinator.shared.isMediaScanningAvailable else {
+            let taskId = UUID().uuidString
+            postFailure(
+                taskId: taskId,
+                destinationPath: destinationStoragePath,
+                error: NSError(
+                    domain: "CSAM005",
+                    code: 451,
+                    userInfo: [NSLocalizedDescriptionKey: "Media upload is temporarily unavailable. Please try again later."]
+                )
+            )
+            return taskId
+        }
+
         let taskId = UUID().uuidString
         let idToken = await freshIdToken()
 

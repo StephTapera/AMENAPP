@@ -237,6 +237,21 @@ final class AmenSafetyModerationCoordinator: ObservableObject {
     static let shared = AmenSafetyModerationCoordinator()
     private init() {}
 
+    // MARK: - CSAM-005 Media Scanning Gate
+    //
+    // Returns false until CSAM scanning backend is deployed and verified.
+    //
+    // HUMAN+LEGAL GATE — 18 USC 2258A compliance required before setting true.
+    // Do NOT set true without ALL of the following:
+    //   1. PhotoDNA or equivalent hash-matching integrated against NCMEC hash sets
+    //   2. CyberTipline reporting pipeline live (requires NCMEC account + legal review)
+    //   3. Legal sign-off on reporting pipeline and 24h reporting SLA
+    //   4. mediaScanning.ts deployed to us-east1 and verified end-to-end
+    //   5. csamScreener injected into ALL upload paths (not just camera path)
+    //
+    // Returning `false` IS the safe state. Fail-closed until scanning is ready.
+    var isMediaScanningAvailable: Bool { return false }
+
     private var provider: AmenSafetyModerationProvider = FirebaseModerationProvider()
 
     func configure(useFirebase: Bool) {

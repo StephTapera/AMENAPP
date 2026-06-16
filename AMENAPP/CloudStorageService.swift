@@ -41,7 +41,19 @@ class CloudStorageService {
         userId: String,
         progressHandler: ((Double) -> Void)? = nil
     ) async throws -> String {
-        
+        // CSAM-005 SAFETY GATE: Block all media uploads until scanning is deployed.
+        // 18 USC 2258A requires NCMEC reporting within 24h of actual knowledge.
+        // Do NOT remove this guard without PhotoDNA/NCMEC integration + legal sign-off.
+        // See AmenSafetyModerationCoordinator.isMediaScanningAvailable for the full
+        // list of requirements before this gate can be opened.
+        guard await AmenSafetyModerationCoordinator.shared.isMediaScanningAvailable else {
+            throw NSError(
+                domain: "CSAM005",
+                code: 451,
+                userInfo: [NSLocalizedDescriptionKey: "Media upload is temporarily unavailable. Please try again later."]
+            )
+        }
+
         let fileName = "\(UUID().uuidString).\(type.fileExtension)"
         let path = "posts/\(userId)/\(type.folder)/\(fileName)"
         
