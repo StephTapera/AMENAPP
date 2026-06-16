@@ -2,95 +2,94 @@
   Localizable.strings
   AMENAPP
 
-  English (base) — UI localization strings.
-  Add translations by creating es.lproj/, fr.lproj/, sw.lproj/, pt.lproj/ etc.
+  Español (es) — Traducciones de la interfaz de usuario.
 */
 
 // MARK: - Tabs
-"tab.home" = "Home";
-"tab.discover" = "Discover";
-"tab.messages" = "Messages";
-"tab.resources" = "Resources";
-"tab.notifications" = "Notifications";
-"tab.profile" = "Profile";
+"tab.home" = "Inicio";
+"tab.discover" = "Descubrir";
+"tab.messages" = "Mensajes";
+"tab.resources" = "Recursos";
+"tab.notifications" = "Notificaciones";
+"tab.profile" = "Perfil";
 
 // MARK: - Auth
-"auth.signIn" = "Sign In";
-"auth.signUp" = "Sign Up";
-"auth.email" = "Email";
-"auth.password" = "Password";
-"auth.forgotPassword" = "Forgot Password?";
-"auth.continueWith" = "Continue with %@";
-"auth.orContinueWith" = "or continue with";
-"auth.agreeToTerms" = "By signing up, you agree to our Terms and Privacy Policy.";
+"auth.signIn" = "Iniciar sesión";
+"auth.signUp" = "Registrarse";
+"auth.email" = "Correo electrónico";
+"auth.password" = "Contraseña";
+"auth.forgotPassword" = "¿Olvidaste tu contraseña?";
+"auth.continueWith" = "Continuar con %@";
+"auth.orContinueWith" = "o continuar con";
+"auth.agreeToTerms" = "Al registrarte, aceptas nuestros Términos y Política de privacidad.";
 
 // MARK: - Feed
-"feed.openTable" = "#OPENTABLE";
-"feed.testimonies" = "Testimonies";
-"feed.prayer" = "Prayer";
-"feed.whatOnYourHeart" = "What's on your heart...";
-"feed.shareTestimony" = "Share your testimony...";
-"feed.prayerRequest" = "How can we pray for you...";
-"feed.newPost" = "New post";
-"feed.post" = "Post";
-"feed.cancel" = "Cancel";
+"feed.openTable" = "#MESAABIERTA";
+"feed.testimonies" = "Testimonios";
+"feed.prayer" = "Oración";
+"feed.whatOnYourHeart" = "¿Qué hay en tu corazón...";
+"feed.shareTestimony" = "Comparte tu testimonio...";
+"feed.prayerRequest" = "¿Cómo podemos orar por ti...";
+"feed.newPost" = "Nueva publicación";
+"feed.post" = "Publicar";
+"feed.cancel" = "Cancelar";
 
 // MARK: - Interactions
-"interaction.amen" = "Amen";
-"interaction.lightbulb" = "Lightbulb";
-"interaction.comment" = "Comment";
-"interaction.repost" = "Repost";
-"interaction.save" = "Save";
-"interaction.share" = "Share";
-"interaction.seeMore" = "See more";
-"interaction.seeLess" = "See less";
+"interaction.amen" = "Amén";
+"interaction.lightbulb" = "Revelación";
+"interaction.comment" = "Comentar";
+"interaction.repost" = "Recompartir";
+"interaction.save" = "Guardar";
+"interaction.share" = "Compartir";
+"interaction.seeMore" = "Ver más";
+"interaction.seeLess" = "Ver menos";
 
 // MARK: - Messages
-"messages.title" = "Messages";
-"messages.newMessage" = "New Message";
-"messages.search" = "Search conversations";
-"messages.noMessages" = "No messages yet";
-"messages.startConversation" = "Start a conversation with someone";
-"messages.requests" = "Requests";
-"messages.archived" = "Archived";
-"messages.pinned" = "PINNED";
-"messages.allMessages" = "ALL MESSAGES";
+"messages.title" = "Mensajes";
+"messages.newMessage" = "Nuevo mensaje";
+"messages.search" = "Buscar conversaciones";
+"messages.noMessages" = "Aún no hay mensajes";
+"messages.startConversation" = "Inicia una conversación con alguien";
+"messages.requests" = "Solicitudes";
+"messages.archived" = "Archivados";
+"messages.pinned" = "FIJADOS";
+"messages.allMessages" = "TODOS LOS MENSAJES";
 
 // MARK: - Notifications
-"notifications.title" = "Notifications";
-"notifications.markAllRead" = "Mark all as read";
-"notifications.noNotifications" = "No notifications yet";
+"notifications.title" = "Notificaciones";
+"notifications.markAllRead" = "Marcar todo como leído";
+"notifications.noNotifications" = "Aún no hay notificaciones";
 
 // MARK: - Profile
-"profile.follow" = "Follow";
-"profile.following" = "Following";
-"profile.followBack" = "Follow Back";
-"profile.followers" = "Followers";
-"profile.posts" = "Posts";
-"profile.editProfile" = "Edit Profile";
-"profile.settings" = "Settings";
+"profile.follow" = "Seguir";
+"profile.following" = "Siguiendo";
+"profile.followBack" = "Seguir también";
+"profile.followers" = "Seguidores";
+"profile.posts" = "Publicaciones";
+"profile.editProfile" = "Editar perfil";
+"profile.settings" = "Configuración";
 
 // MARK: - Berean AI
-"berean.title" = "Berean AI";
-"berean.askAnything" = "Ask Berean anything...";
-"berean.reflect" = "Reflect with Berean";
+"berean.title" = "IA Berean";
+"berean.askAnything" = "Pregúntale cualquier cosa a Berean...";
+"berean.reflect" = "Reflexiona con Berean";
 
 // MARK: - Prayer
-"prayer.prayingForYou" = "Praying for you";
-"prayer.iPrayed" = "I Prayed";
-"prayer.prayerRequest" = "Prayer Request";
-"prayer.praiseReport" = "Praise Report";
-"prayer.answered" = "Answered Prayer";
+"prayer.prayingForYou" = "Orando por ti";
+"prayer.iPrayed" = "Oré";
+"prayer.prayerRequest" = "Petición de oración";
+"prayer.praiseReport" = "Testimonio de alabanza";
+"prayer.answered" = "Oración respondida";
 
 // MARK: - Common
-"common.done" = "Done";
-"common.cancel" = "Cancel";
-"common.save" = "Save";
-"common.delete" = "Delete";
-"common.edit" = "Edit";
-"common.search" = "Search";
-"common.loading" = "Loading...";
-"common.retry" = "Retry";
+"common.done" = "Listo";
+"common.cancel" = "Cancelar";
+"common.save" = "Guardar";
+"common.delete" = "Eliminar";
+"common.edit" = "Editar";
+"common.search" = "Buscar";
+"common.loading" = "Cargando...";
+"common.retry" = "Reintentar";
 "common.error" = "Error";
-"common.success" = "Success";
-"common.comingSoon" = "Coming Soon";
+"common.success" = "Éxito";
+"common.comingSoon" = "Próximamente";
