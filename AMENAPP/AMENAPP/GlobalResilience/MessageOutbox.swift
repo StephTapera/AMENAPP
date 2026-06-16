@@ -73,8 +73,8 @@ final class MessageOutbox: ObservableObject {
 
     // MARK: Private
 
-    private let container: ModelContainer
-    private var context: ModelContext { container.mainContext }
+    private let container: ModelContainer?
+    private var context: ModelContext? { container?.mainContext }
     private let monitor: NWPathMonitor = NWPathMonitor()
     private let monitorQueue: DispatchQueue = DispatchQueue(label: "com.amen.outbox.networkMonitor")
 
@@ -92,7 +92,21 @@ final class MessageOutbox: ObservableObject {
             let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             container = try ModelContainer(for: schema, configurations: [config])
         } catch {
-            fatalError("MessageOutbox: failed to create ModelContainer — \(error)")
+            // PERF-006: schema-migration or storage failure must never crash a RELEASE build.
+            // Fall back to an in-memory container so the outbox stays functional for the
+            // current session; messages will not survive a restart but the app will not crash.
+            #if DEBUG
+            assertionFailure("MessageOutbox: ModelContainer creation failed: \(error)")
+            #endif
+            let schema = Schema([OutboxMessage.self])
+            let memConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            if let memContainer = try? ModelContainer(for: schema, configurations: [memConfig]) {
+                container = memContainer
+                dlog("[MessageOutbox] using in-memory fallback due to: \(error.localizedDescription)")
+            } else {
+                container = nil
+                dlog("[MessageOutbox] ModelContainer init failed entirely — outbox disabled: \(error)")
+            }
         }
         refreshPending()
     }
@@ -101,6 +115,7 @@ final class MessageOutbox: ObservableObject {
 
     /// Inserts a new draft/pending message into the SwiftData store.
     func enqueue(_ draft: OutboxMessage) {
+        guard let context else { return }
         context.insert(draft)
         save()
         refreshPending()
@@ -216,6 +231,7 @@ final class MessageOutbox: ObservableObject {
     // MARK: - Helpers
 
     private func findMessage(id: String) -> OutboxMessage? {
+        guard let context else { return nil }
         let descriptor = FetchDescriptor<OutboxMessage>(
             predicate: #Predicate { $0.id == id }
         )
@@ -223,6 +239,7 @@ final class MessageOutbox: ObservableObject {
     }
 
     private func refreshPending() {
+        guard let context else { pendingMessages = []; return }
         let descriptor = FetchDescriptor<OutboxMessage>(
             predicate: #Predicate { $0.statusRaw == "pending" },
             sortBy: [SortDescriptor(\.createdAt)]
@@ -231,11 +248,12 @@ final class MessageOutbox: ObservableObject {
     }
 
     private func save() {
+        guard let context else { return }
         do {
             try context.save()
         } catch {
             // Non-fatal: log and continue. The in-memory state remains consistent.
-            print("[MessageOutbox] save error: \(error)")
+            dlog("[MessageOutbox] save error: \(error)")
         }
     }
 }
