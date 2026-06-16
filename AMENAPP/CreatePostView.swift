@@ -2029,6 +2029,41 @@ struct CreatePostView: View {
     /// Estimated height of the three-row picker card (3 × 64 pt rows + padding).
     private let attachmentPickerCardEstimatedHeight: CGFloat = 208
 
+    // MARK: - DockedCreationRail tool routing (§5.1)
+
+    /// Routes ToolID taps from DockedCreationRail to the appropriate
+    /// sheet or picker in CreatePostView. Mirrors the old threadsAttachmentBar
+    /// but works from the keyboard-attached rail.
+    private func handleRailToolSelected(_ id: ToolID) {
+        switch id {
+        case .photo:
+            showingImagePicker = true
+        case .camera:
+            guard !showingPoll else { return }
+            showingCamera = true
+        case .bible:
+            showingVersePickerSheet = true
+        case .link:
+            showingLinkSheet = true
+        case .poll:
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.75))) {
+                showingPoll.toggle()
+            }
+        case .event:
+            showingScheduleSheet = true
+        case .music:
+            guard AMENFeatureFlags.shared.musicAttachmentEnabled else { return }
+            showingMusicBrowser = true
+        case .file:
+            showingDocumentPicker = true
+        case .more:
+            withAnimation(.amenSpringStandard) { showingAttachmentPicker = true }
+        default:
+            withAnimation(.amenSpringStandard) { showingAttachmentPicker = true }
+        }
+        HapticManager.impact(style: .light)
+    }
+
     @ViewBuilder
     private func attachmentBarIcon(_ icon: String, label: String, recommended: String?, action: @escaping () -> Void) -> some View {
         let isHighlighted = (icon == recommended)
@@ -2873,7 +2908,7 @@ struct CreatePostView: View {
                             surface: .post,
                             currentText: $postText,
                             isEnabled: AMENFeatureFlags.shared.composerAdaptiveRailEnabled,
-                            onToolSelected: { _ in },
+                            onToolSelected: handleRailToolSelected,
                             onAttachmentReady: { attachment in
                                 composerAttachments.append(attachment)
                             }

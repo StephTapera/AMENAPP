@@ -42,10 +42,11 @@ public enum SurfaceStateResolver {
         }
 
         // ── Priority 2: Keyboard / input transforms. ─────────────────────────
-        // When the keyboard is up, the composer tray replaces the bottom nav.
+        // When the keyboard is up, the DockedCreationRail replaces the bottom nav.
+        // Hide the floating tab bar so it doesn't overlap the composer tray.
         if context.keyboardVisible {
             switch role {
-            case .bottomNav:    return .frosted   // relocated above keyboard by call site layout
+            case .bottomNav:    return .hidden   // slides off; DockedCreationRail is the keyboard chrome
             case .composerTray: return .frosted
             default:            break
             }
