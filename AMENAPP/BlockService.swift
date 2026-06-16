@@ -190,6 +190,13 @@ class BlockService: ObservableObject {
         }
     }
     
+    /// Check if current user has been blocked by `uid` (mid-session re-check).
+    /// Alias for isBlockedBy(userId:) with a name that reads clearly at the call site:
+    ///   `BlockService.shared.isBlocked(byUser: recipientId)`
+    func isBlocked(byUser uid: String) async -> Bool {
+        return await isBlockedBy(userId: uid)
+    }
+
     /// Check if another user has blocked current user.
     /// Uses O(1) doc-ID lookup on `blockedUsers/{userId}_{currentUserId}`.
     func isBlockedBy(userId: String) async -> Bool {

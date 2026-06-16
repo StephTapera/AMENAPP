@@ -1030,15 +1030,19 @@ class PostsManager: ObservableObject {
                 topicTag: topicTag
             )
             
+            // Defense-in-depth: filter blocked authors at iOS layer (server rules are authoritative)
+            let blockedIds = BlockService.shared.blockedUsers
+            let unblocked = posts.filter { !blockedIds.contains($0.authorId) }
+
             // Apply personalization if "For You" filter
             let finalPosts: [Post]
             if filter == "For You" {
                 // Use the new PersonalizationService for better algorithm
-                finalPosts = personalizationService.personalizePostsFeed(posts, category: category)
+                finalPosts = personalizationService.personalizePostsFeed(unblocked, category: category)
             } else {
-                finalPosts = posts
+                finalPosts = unblocked
             }
-            
+
             // Update the appropriate category array
             switch category {
             case .openTable:

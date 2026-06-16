@@ -42,7 +42,8 @@ struct ONEThreadView: View {
             }
             ONEMessageComposerView(
                 threadID: thread.id,
-                threadContract: .dmDefault
+                threadContract: .dmDefault,
+                recipientId: thread.participantUIDs.first(where: { $0 != currentUID })
             ) { text, perms in
                 try await store.send(text: text, threadID: thread.id, permissions: perms)
             }

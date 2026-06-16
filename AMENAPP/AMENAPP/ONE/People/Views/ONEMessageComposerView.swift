@@ -7,6 +7,9 @@ import SwiftUI
 struct ONEMessageComposerView: View {
     let threadID: String
     let threadContract: ONEPrivacyContract
+    /// UID of the other participant in a 1-to-1 thread; nil for group threads.
+    /// Used for mid-session block re-check before each send.
+    let recipientId: String?
     let onSend: (String, ONEMomentPermissions) async throws -> Void
 
     @State private var text = ""
@@ -26,9 +29,11 @@ struct ONEMessageComposerView: View {
 
     init(threadID: String,
          threadContract: ONEPrivacyContract,
+         recipientId: String? = nil,
          onSend: @escaping (String, ONEMomentPermissions) async throws -> Void) {
         self.threadID = threadID
         self.threadContract = threadContract
+        self.recipientId = recipientId
         self.onSend = onSend
         _overrides = State(initialValue: threadContract.permissions)
     }
@@ -246,6 +251,15 @@ struct ONEMessageComposerView: View {
         isSending = true
         sendError = nil
         defer { isSending = false }
+
+        // Mid-session block re-check (defense-in-depth; server rules are authoritative).
+        // Checks whether the recipient has blocked the current user since the thread opened.
+        if let rid = recipientId,
+           await BlockService.shared.isBlocked(byUser: rid) {
+            sendError = "Unable to send message."
+            return
+        }
+
         do {
             try await onSend(trimmed, overrides)
             text = ""
