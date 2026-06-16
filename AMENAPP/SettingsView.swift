@@ -447,6 +447,9 @@ struct LegacySettingsView: View {
         // 2FA state wipe). Previously dismiss() raced ahead of the internal FCM Task,
         // leaving stale push tokens registered for the signed-out user.
         Task { @MainActor in
+            // B-007: Clear Berean conversation history before sign-out so the
+            // static singleton doesn't leak one user's chat into the next session.
+            BereanConstitutionalPipeline.shared.clearHistory()
             authViewModel.signOut()
             // authViewModel.signOut() fires its own internal Task for FCM; yield so
             // the runtime can schedule it before we dismiss the sheet.

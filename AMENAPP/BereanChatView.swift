@@ -292,7 +292,9 @@ final class BereanChatViewModel: ObservableObject {
     // MARK: Persistence
 
     private func saveConversation() {
-        guard let last = messages.last else { return }
+        // B-008: Never persist under "demo_user" — that path is world-readable and
+        // shared across all unauthenticated sessions. Only save for real UIDs.
+        guard userId != "demo_user", let last = messages.last else { return }
         db.collection("users").document(userId)
             .collection("chatHistory")
             .addDocument(data: [

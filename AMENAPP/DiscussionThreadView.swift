@@ -35,11 +35,19 @@ final class DiscussionThreadViewModel: ObservableObject {
     var provenance: SpawnProvenance? = nil
 
     private let service = DiscussionThreadService.shared
-    private var commentListener: (any Sendable)?
-    private var threadListener:  (any Sendable)?
-    private var summaryListener: (any Sendable)?
+    private var commentListener: ListenerRegistration?
+    private var threadListener:  ListenerRegistration?
+    private var summaryListener: ListenerRegistration?
     private var dupTask: Task<Void, Never>?
     private var slowModeTask: Task<Void, Never>?
+
+    deinit {
+        // B-029: Remove Firestore listeners so they don't keep streaming after the
+        // ViewModel is deallocated. Matches the pattern in CreatorEditorViewModel.
+        commentListener?.remove()
+        threadListener?.remove()
+        summaryListener?.remove()
+    }
 
     // MARK: Start
 
