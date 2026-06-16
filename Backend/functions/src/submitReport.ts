@@ -229,6 +229,17 @@ export const submitReport = onCall(async (request) => {
     const escalationTier = computeEscalationTier(reason);
     const priority = computePriority(escalationTier);
 
+    // ===================================================================
+    // FEDERAL LAW GATE (18 U.S.C. §2258A) — DO NOT IMPROVISE
+    // All four conditions required before automatedCyberTipSubmitted=true
+    // or hashScanEnabled=true:
+    // 1. NCMEC ESP registration complete (legal/business step)
+    // 2. Hash provider (PhotoDNA/Thorn/NCMEC) contracted + secrets loaded
+    // 3. Written legal sign-off from counsel on CSAM reporting procedure
+    // 4. Non-engineer review of complete CSAM pipeline
+    // Media uploads STAY FAIL-CLOSED until all four are true.
+    // ===================================================================
+
     // ── Write report document ──────────────────────────────────────────────
     const reportId = db.collection("userReports").doc().id;
 
@@ -247,6 +258,12 @@ export const submitReport = onCall(async (request) => {
         reviewedAt: null,
         reviewerId: null,
         actionTaken: null,
+        // NCMEC launch-readiness scaffold fields
+        ncmecReadiness: "STUB_NOT_REGISTERED",  // HUMAN: replace with ESP registration ID
+        automatedCyberTipSubmitted: false,       // MUST stay false until 4-part legal gate
+        evidenceVault: null,                     // HUMAN: configure after legal sign-off
+        hashScanEnabled: false,                  // MUST stay false until 4-part legal gate
+        reportVersion: "1.0.0-scaffold",
     });
 
     functions.logger.info(
