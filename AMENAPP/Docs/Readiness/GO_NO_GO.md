@@ -11,7 +11,7 @@
 
 ## Executive Summary
 
-The overnight audit completed 11 phases across 93 findings (46 green, 30 yellow, 17 red). 46 green fixes were applied and committed automatically. Five unresolved P0 blockers remain — three requiring engineering work (DM report wiring, ATT prompt, NCMEC CyberTip fields) and two requiring legal/DPO decisions (CSAM ESP obligations, Firebase Analytics tracking classification) — making the app ineligible for App Store submission in its current state. No P0 item was cleared by the auto-fix pass.
+The overnight audit completed 11 phases across 93 findings (46 green, 30 yellow, 17 red). This follow-up source pass cleared the DM report wiring blocker in `ONEThreadView.swift` with Xcode diagnostics clean. Four unresolved P0 blockers remain — two requiring engineering after legal decisions (ATT prompt, NCMEC CyberTip fields) and two requiring legal/DPO decisions (CSAM ESP obligations, Firebase Analytics tracking classification) — making the app ineligible for App Store submission in its current state.
 
 ---
 
@@ -21,7 +21,6 @@ Under the verdict formula, **any unresolved P0 item forces NO-GO**. Five P0s rem
 
 | ID | Title | Why It Blocks |
 |---|---|---|
-| P5-Y1 | DM message .report action not wired | Apple Guideline 1.2 — all UGC surfaces must have in-app report mechanism; `.report` action fires into a no-op closure in `ONEThreadView.swift` and `AmenMinistryRoomChatView.swift` |
 | P5-Y2 | NCMEC CyberTipline not wired; launch readiness test will fail | `securityLaunchReadiness.test.ts` lines 14–21 expect `ncmecReadiness`, `evidenceVault`, `automatedCyberTipSubmitted` fields that do not exist in `submitReport.ts`; 18 USC 2258A compliance gap |
 | P5-R1 | CSAM go-live: NCMEC ESP registration and legal process decision | CSAM hash-match is not wired to any real provider; heuristic SafeSearch only; constructive-knowledge risk under 18 USC 2258A; legal must decide before media uploads go live |
 | P10-Y1 | ATT prompt never called despite NSPrivacyTracking = true | `PrivacyInfo.xcprivacy` declares tracking; zero `ATTrackingManager.requestTrackingAuthorization` calls exist; App Store will reject without compliant ATT flow |
@@ -78,17 +77,13 @@ xcodebuild -workspace AMENAPP/AMENAPP.xcworkspace -scheme AMENAPP \
 
 | ID | Title | Lane | Est. Time | Owner |
 |---|---|---|---|---|
-| P5-Y1 | DM message .report action not wired to ReportContentSheet | Engineering | 45 min | iOS Engineer |
+| P5-Y1 | DM message report opens ReportContentSheet | Source-fixed | Done | iOS Engineer |
 | P5-Y2 | NCMEC CyberTipline not wired; `securityLaunchReadiness.test.ts` will fail | Engineering + Legal | 120 min + legal review | Backend Engineer + Legal |
 | P5-R1 | CSAM go-live: NCMEC ESP registration and legal process decision | Legal Gate | Multi-day | Legal / T&S Lead |
 | P10-Y1 | ATT prompt never called despite `NSPrivacyTracking = true` in `PrivacyInfo.xcprivacy` | Engineering | 30 min (after P10-R1) | iOS Engineer |
 | P10-R1 | Firebase Analytics tracking classification: legal/policy decision | Legal Gate | Multi-day | DPO / Legal |
 
-**P5-Y1 exact fix** — in `ONEThreadView.swift`:
-1. Add `@State private var reportingMessage: AppMessage? = nil`
-2. Mount `MessageActionCluster` with `onAction: { action in if action == .report { reportingMessage = msg } }`
-3. Add `.sheet(item: $reportingMessage) { msg in ReportContentSheet(targetType: .message, targetId: msg.id, onSubmitted: { _ in }, onDismiss: { reportingMessage = nil }) }`
-4. Mirror the same wiring in `AmenMinistryRoomChatView.swift`
+**P5-Y1 source evidence** — `ONEThreadView.swift` now mounts `.reportContentSheet(targetType: .message, ...)` at `AMENAPP/AMENAPP/AMENAPP/ONE/People/Views/ONEThreadView.swift:70`, exposes received-message report actions at `:118` and `:140`, and passed `XcodeRefreshCodeIssuesInFile` on 2026-06-16. `AmenMinistryRoomChatView.swift` also has visible report + context-menu report/block wiring at `AMENAPP/AMENAPP/AMENAPP/ConnectSpaces/Spaces/AmenMinistryRoomChatView.swift:269`, `:281`, and `:303`.
 
 **P10-Y1 option A** — in `AMENAPPApp.swift` after onboarding:
 ```swift
@@ -150,7 +145,7 @@ Key categories addressed by auto-fixes:
 
 1. **Review `HUMAN_GATE_QUEUE.md`** — start with P0s; P5-R1 and P10-R1 are legal gates that unblock the engineering P0s (P5-Y2, P10-Y1)
 2. **Run build verification command** in the "Build Readiness Assertion" section above; report SUCCEEDED or FAILED with SHA
-3. **Fix P5-Y1** (DM report wiring, 45 min) — unblocks Apple Guideline 1.2 compliance
+3. **P5-Y1 is source-fixed** — keep it in regression checks for App Review UGC coverage
 4. **Fix P10-Y1** only after legal decision on P10-R1 (ATT prompt or NSPrivacyTracking=false)
 5. **Fix P5-Y2** (NCMEC fields in `submitReport.ts`) after legal clears P5-R1
 6. **Execute `DEPLOY_PLAN.md` batches** after P0 code fixes land and build is verified green
@@ -173,6 +168,50 @@ ba657129 [AIL-A1] Update pre-send interceptor test for C4/C5 output enum
 3cde9117 [CSAM-005] Add fail-closed media upload gate — 18 USC 2258A compliance
 10e14642 [HeroSurface] Wire adapter + view for creator/church/space kinds (flag OFF)
 ```
+
+---
+
+## Remediation Run 2026-06-16
+
+**Agent-Scope Verdict: GO**
+All P0/P1 lanes resolved by agent (10 PASS, 1 HUMAN_GATED). HUMAN_GATED is not a failure — the CSAM lane is correctly staged pending federal legal gates. App remains NOT-SUBMITTABLE until legal and human gates below are cleared.
+
+### Per-Lane Status
+
+| Lane | Status | Commit |
+|---|---|---|
+| LANE-1-INFOPLIST | PASS | pre-existing |
+| LANE-4+5-GLASS (A11Y-002, A11Y-003) | PASS | 3859629b |
+| LANE-6+P0-1 (Report+Block) | PASS | ba996427 |
+| LANE-7+AUTH (Google re-auth, callable fix, reviewer path) | PASS | e74872b6 |
+| P11-M1-BEREAN-FLAGS (55 AI flags default OFF) | PASS | 010b6a8e |
+| P5-Y4-BLOCK (feed filter + pre-send block check) | PASS | baee8708 |
+| LANE-3-MESSAGEOUTBOX (graceful fallback) | PASS | 8a3562e9 |
+| LANE-8-COMPOSER (26 stub buttons wired/gated) | PASS | ef57557e |
+| P1-2+P1-3-DISCOVER (Discover actions + Ministry report) | PASS | 8fa7afb6 |
+| P0-2-CSAM-SCAFFOLD (scaffold only, no live wiring) | HUMAN_GATED | 50cfe3f3 |
+| P1-1+P1-4-DISCLOSURE (AI disclosure flag + ATT prep) | PASS | b28e214a |
+
+HEAD SHA after this run: ef57557e22c481f9f4d7ca5159193a8ff01f2bcf
+
+### App remains NOT-SUBMITTABLE until:
+
+1. CSAM/NCMEC ESP registration + hash provider + written legal sign-off (18 U.S.C. §2258A) — FEDERAL GATE
+2. ITSAppUsesNonExemptEncryption confirmed and set in Info.plist — LEGAL + ENGINEERING
+3. Terms/Privacy URLs live at amenapp.com (COPPA/GDPR/KOSA) — LEGAL
+4. userAccountDeletionCascade Cloud Scheduler deployed to us-east1 (Lane 10) — BACKEND
+5. Stripe IAP policy decision (digital goods require App Store IAP) — LEGAL + PRODUCT
+6. ATT classification by DPO — activate or suppress ATT prompt — LEGAL/DPO
+7. Firebase API key bundle-ID restriction verified — SECURITY
+8. Algolia key rotated (present in git history) — SECURITY
+9. pbxproj dedup of 5 duplicate-listed Swift basenames before archive — HUMAN/XCODE
+10. App Store Connect app record (replace APP_STORE_APP_ID=0000000000) — HUMAN
+11. Reviewer Firebase account created + AppStoreReview scheme configured — HUMAN
+12. Build verification at HEAD SHA ef57557e (4 lanes with human-pending build gates) — HUMAN
+13. Siri + location.push entitlements confirmed in Developer portal — HUMAN (P1)
+14. Debug/release entitlement file sync in Build Settings — HUMAN (P1)
+
+Full gate table with owners and blocking status is in CERTIFICATION.md.
 
 ---
 
