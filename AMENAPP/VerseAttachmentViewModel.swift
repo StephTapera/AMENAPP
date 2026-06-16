@@ -401,7 +401,6 @@ final class VerseAttachmentViewModel: ObservableObject {
         
         // 1. Same chapter, nearby verses
         let baseVM = AttachVerseViewModel()
-        baseVM.selectedTranslation = selectedTranslation
         
         // Search by book name for related verses
         await searchEngine.search(query: current.book, translation: selectedTranslation, baseViewModel: baseVM)
