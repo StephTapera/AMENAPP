@@ -24,7 +24,8 @@ final class BereanTranslationComparisonService: ObservableObject {
 
     func compare(
         reference: String,
-        translations: [String] = ["ESV", "NIV", "KJV", "NLT"]
+        // TODO(legal): ESV/NIV/NLT removed — copyrighted without license (AMEN-CONTENT-001).
+        translations: [String] = ["KJV", "WEB", "BSB"]
     ) async throws -> TranslationComparison {
         let cacheKey = "\(reference):\(translations.joined())"
         if let cached = cache[cacheKey] { return cached }

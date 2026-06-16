@@ -19,14 +19,14 @@ final class BereanScriptureKnowledgeGraph {
     ///   - language: The session language (used by the resolution engine).
     ///   - sessionId: Optional session identifier for the resolution engine.
     ///   - claimedTexts: Optional map of ref → alleged verse text to verify against the CF.
-    ///   - translation: Bible translation code passed to the verification CF (e.g. "ESV").
+    ///   - translation: Bible translation code passed to the verification CF (e.g. "KJV"). TODO(legal): was ESV — default changed to KJV per AMEN-CONTENT-001.
     ///   - mode: Constitutional mode — drives the verification policy for any mismatches.
     func resolveReferences(
         in text: String,
         language: BereanSupportedLanguage,
         sessionId: String? = nil,
         claimedTexts: [String: String] = [:],
-        translation: String = "ESV",
+        translation: String = "KJV", // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
         mode: BereanConstitutionalMode = .discern
     ) async throws -> [BereanScriptureReference] {
         var resolved = try await scriptureEngine.resolve(text: text, sessionId: sessionId, language: language)

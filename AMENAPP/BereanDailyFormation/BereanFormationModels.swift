@@ -120,7 +120,8 @@ struct BereanMockUser {
     static let id               = "user_001"
     static let name             = "Jordan"
     static let tradition        = "non-denominational"
-    static let translationPref  = "ESV"
+    // TODO(legal): was ESV (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
+    static let translationPref  = "KJV"
 }
 
 // MARK: - Seasonal rhythm (liturgical calendar)

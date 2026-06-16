@@ -66,21 +66,44 @@ struct BereanContextCoordinator {
     /// Wraps the sanitized value in XML delimiters so the backend can treat it as
     /// opaque data rather than instructions.
     static func sanitizeCommunityContent(_ raw: String) -> String {
-        // Step 1: strip known injection sequences
         var cleaned = raw
-        let injectionPatterns = [
+
+        let injectionPatterns: [String] = [
             "\n\nIgnore previous instructions",
             "\n\nIgnore all previous",
+            "\nIgnore previous instructions",
+            "\nIgnore all previous",
+            "\t\tIgnore previous instructions",
+            "\t\tIgnore all previous",
             "<SYSTEM>",
             "</SYSTEM>",
-            "</s>"
+            "</s>",
+            "###",
+            "<|im_start|>",
+            "<|im_end|>",
+            "<|endoftext|>",
+            "<|system|>",
+            "[INST]",
+            "[/INST]"
         ]
         for pattern in injectionPatterns {
             cleaned = cleaned.replacingOccurrences(of: pattern, with: "", options: .caseInsensitive)
         }
 
-        // Step 2: wrap in XML delimiters so the backend parser treats it as
-        // community content, not as a system instruction.
+        let confusableRegexPatterns: [String] = [
+            // Lookalike sequences for "system" built from Unicode homoglyphs
+            // Covers Cyrillic/Greek/fullwidth substitutions for s, y, t, e, m
+            "[\u{0455}\u{FF53}][\u{0443}\u{FF59}][\u{0442}\u{FF54}][\u{0435}\u{FF45}][\u{043C}\u{FF4D}]",
+            // Lookalike sequences for "ignore" built from Unicode homoglyphs
+            "[\u{0456}\u{FF49}][\u{0261}\u{FF47}][\u{0274}\u{FF4E}][\u{FF4F}\u{03BF}][\u{0433}\u{FF52}][\u{0435}\u{FF45}]"
+        ]
+        for pattern in confusableRegexPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+                let range = NSRange(cleaned.startIndex..., in: cleaned)
+                cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "")
+            }
+        }
+
         return "<community_content>\(cleaned)</community_content>"
     }
 }

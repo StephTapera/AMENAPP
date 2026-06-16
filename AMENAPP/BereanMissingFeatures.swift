@@ -535,9 +535,10 @@ struct VerseDetailView: View {
     @State private var verseText: String = ""
     @State private var isLoading = true
     @State private var translations: [String: String] = [:]
-    @State private var selectedTranslation = "NIV"
+    @State private var selectedTranslation = "KJV" // TODO(legal): was NIV (Biblica, copyrighted) — changed to KJV (public domain) per AMEN-CONTENT-001
     
-    let availableTranslations = ["NIV", "ESV", "KJV", "NLT", "NASB"]
+    // TODO(legal): NIV/ESV/NLT/NASB removed — copyrighted without license (AMEN-CONTENT-001).
+    let availableTranslations = ["KJV", "WEB", "BSB"]
     
     var body: some View {
         NavigationStack {
@@ -647,11 +648,11 @@ struct VerseDetailView: View {
             do {
                 let passage = try await YouVersionBibleService.shared.fetchVerse(
                     reference: verseReference,
-                    version: .esv
+                    version: .kjv // TODO(legal): was .esv (Crossway, copyrighted) — changed to KJV per AMEN-CONTENT-001
                 )
                 await MainActor.run {
                     verseText = passage.text
-                    translations["ESV"] = passage.text
+                    translations["KJV"] = passage.text // TODO(legal): was ESV (Crossway, copyrighted) per AMEN-CONTENT-001
                     isLoading = false
                 }
             } catch {

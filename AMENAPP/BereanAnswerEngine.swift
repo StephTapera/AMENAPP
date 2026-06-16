@@ -47,14 +47,18 @@ struct ScripturePassage: Codable, Identifiable {
     }
     
     enum BibleVersion: String, Codable {
+        // Public-domain / open-license — safe to render.
         case bsb = "BSB"
         case web = "WEB"
-        case esv = "ESV"
-        case niv = "NIV"
         case kjv = "KJV"
-        case nkjv = "NKJV"
-        case nlt = "NLT"
-        case nasb = "NASB"
+        // TODO(legal): cases below are copyrighted and must not be used for text display (AMEN-CONTENT-001).
+        // Retained in Codable enum for wire-format compatibility only.
+        // NIV (Biblica), ESV (Crossway), NLT (Tyndale), NASB (Lockman Foundation).
+        case nkjv = "NKJV"  // NKJV (Thomas Nelson) — also licensed; keep for Codable compat
+        case esv = "ESV"   // TODO(legal): do not display ESV text without license
+        case niv = "NIV"   // TODO(legal): do not display NIV text without license
+        case nlt = "NLT"   // TODO(legal): do not display NLT text without license
+        case nasb = "NASB" // TODO(legal): do not display NASB text without license
     }
 }
 
@@ -387,7 +391,7 @@ class BereanAnswerEngine: ObservableObject {
         let youVersion = YouVersionBibleService.shared
         
         do {
-            let passages = try await youVersion.fetchVerses(references: references, version: .esv)
+            let passages = try await youVersion.fetchVerses(references: references, version: .kjv) // TODO(legal): was .esv — changed to KJV (public domain) per AMEN-CONTENT-001
             dlog("📖 BereanEngine: Fetched \(passages.count) verses from YouVersion")
             return passages
         } catch {
@@ -401,7 +405,7 @@ class BereanAnswerEngine: ObservableObject {
                     chapter: parsed.chapter,
                     verses: parsed.verses,
                     text: "[Scripture text unavailable - please check reference]",
-                    version: .esv
+                    version: .kjv // TODO(legal): was .esv — changed to KJV (public domain) per AMEN-CONTENT-001
                 )
             }
         }

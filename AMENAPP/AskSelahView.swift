@@ -22,6 +22,8 @@ struct AskSelahView: View {
     @State private var hasSubmitted = false
     @State private var errorMessage: String?
     @FocusState private var isInputFocused: Bool
+    /// Stored so we can cancel streaming when the view disappears.
+    @State private var activeTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -83,6 +85,9 @@ struct AskSelahView: View {
         .onAppear {
             query = initialQuery
             loadSources()
+        }
+        .onDisappear {
+            activeTask?.cancel()
         }
     }
 
@@ -267,7 +272,7 @@ struct AskSelahView: View {
     // MARK: - Logic
 
     private func loadSources() {
-        Task {
+        activeTask = Task {
             sourceBundle = await selahService.buildSourceBundle(
                 forVerses: initialVerses,
                 query: initialQuery
@@ -288,7 +293,8 @@ struct AskSelahView: View {
 
         let currentBundle = sourceBundle
 
-        Task {
+        activeTask?.cancel()
+        activeTask = Task {
             do {
                 let stream = selahService.askSelah(
                     query: trimmed,
@@ -296,6 +302,7 @@ struct AskSelahView: View {
                 )
 
                 for try await chunk in stream {
+                    guard !Task.isCancelled else { break }
                     streamedContent += chunk
                 }
 
@@ -303,6 +310,7 @@ struct AskSelahView: View {
                 extractCitations(from: streamedContent)
                 isStreaming = false
             } catch {
+                guard !Task.isCancelled else { return }
                 errorMessage = error.localizedDescription
                 isStreaming = false
             }

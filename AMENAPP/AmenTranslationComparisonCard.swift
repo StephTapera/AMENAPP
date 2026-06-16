@@ -8,7 +8,8 @@ import SwiftUI
 
 struct AmenTranslationComparisonCard: View {
     let reference: String
-    var translationOrder: [String] = ["ESV", "NIV", "KJV", "NLT"]
+    // TODO(legal): ESV/NIV/NLT removed — copyrighted without license (AMEN-CONTENT-001). Restricted to public-domain.
+    var translationOrder: [String] = ["KJV", "WEB", "BSB"]
     var onDismiss: (() -> Void)? = nil
 
     @StateObject private var service = BereanTranslationComparisonService.shared

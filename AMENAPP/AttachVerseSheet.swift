@@ -78,17 +78,22 @@ struct AttachableVerse: Identifiable, Equatable {
     let translation: String
 }
 
+// TODO(legal): NIV/ESV/NLT/NASB removed from picker — copyrighted without license (AMEN-CONTENT-001).
+// Retain enum cases for Codable/switch compatibility but restrict to public-domain in UI.
 enum LocalBibleTranslation: String, CaseIterable {
-    case NIV, ESV, KJV, NKJV, NLT, NASB
+    case KJV, WEB, BSB
+    // case NIV  // TODO(legal): restore once NIV (Biblica) license confirmed
+    // case ESV  // TODO(legal): restore once ESV (Crossway) license confirmed
+    // case NLT  // TODO(legal): restore once NLT (Tyndale) license confirmed
+    // case NASB // TODO(legal): restore once NASB (Lockman Foundation) license confirmed
+    case NKJV   // NKJV (Thomas Nelson) — also licensed; kept for Codable compat only
 
     var apiVersion: ScripturePassage.BibleVersion {
         switch self {
-        case .NIV:  return .niv
-        case .ESV:  return .esv
         case .KJV:  return .kjv
+        case .WEB:  return .web
+        case .BSB:  return .bsb
         case .NKJV: return .nkjv
-        case .NLT:  return .nlt
-        case .NASB: return .nasb
         }
     }
 }
@@ -248,7 +253,7 @@ enum LocalVerseLibrary {
 @MainActor
 class AttachVerseViewModel: ObservableObject {
     @Published var searchText = ""
-    @Published var selectedTranslation: LocalBibleTranslation = .NIV
+    @Published var selectedTranslation: LocalBibleTranslation = .BSB
     @Published var results: [AttachableVerse] = []
     @Published var selectedVerse: AttachableVerse? = nil
     @Published var isLoading = false

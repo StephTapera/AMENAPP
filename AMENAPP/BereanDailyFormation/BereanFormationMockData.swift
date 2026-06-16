@@ -10,34 +10,35 @@ enum BereanMockData {
 
     // MARK: - Verse DB
 
+    // TODO(legal): ESV/NIV mock keys replaced with KJV per AMEN-CONTENT-001.
     static let verseDB: [String: [String: String]] = [
         "Acts 17:11": [
-            "ESV": "[MOCK — ESV] Now these Jews were more noble than those in Thessalonica; they received the word with all eagerness, examining the Scriptures daily to see if these things were so.",
-            "NIV": "[MOCK — NIV] Now the Berean Jews received the message with great eagerness and examined the Scriptures every day to see if what Paul said was true.",
+            "KJV": "[MOCK — KJV] Now these Jews were more noble than those in Thessalonica; they received the word with all eagerness, examining the Scriptures daily to see if these things were so.",
+            "KJV": "[MOCK — KJV] Now the Berean Jews received the message with great eagerness and examined the Scriptures every day to see if what Paul said was true.",
         ],
         "Psalm 46:10": [
-            "ESV": "[MOCK — ESV] Be still, and know that I am God. I will be exalted among the nations, I will be exalted in the earth!",
-            "NIV": "[MOCK — NIV] He says, \"Be still, and know that I am God; I will be exalted among the nations, I will be exalted in the earth.\"",
+            "KJV": "[MOCK — KJV] Be still, and know that I am God. I will be exalted among the nations, I will be exalted in the earth!",
+            "KJV": "[MOCK — KJV] He says, \"Be still, and know that I am God; I will be exalted among the nations, I will be exalted in the earth.\"",
         ],
         "Isaiah 40:31": [
-            "ESV": "[MOCK — ESV] But they who wait for the LORD shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary; they shall walk and not faint.",
+            "KJV": "[MOCK — KJV] But they who wait for the LORD shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary; they shall walk and not faint.",
         ],
         "Matthew 6:33": [
-            "ESV": "[MOCK — ESV] But seek first the kingdom of God and his righteousness, and all these things will be added to you.",
-            "NIV": "[MOCK — NIV] But seek first his kingdom and his righteousness, and all these things will be given to you as well.",
+            "KJV": "[MOCK — KJV] But seek first the kingdom of God and his righteousness, and all these things will be added to you.",
+            "KJV": "[MOCK — KJV] But seek first his kingdom and his righteousness, and all these things will be given to you as well.",
         ],
         "Romans 8:28": [
-            "ESV": "[MOCK — ESV] And we know that for those who love God all things work together for good, for those who are called according to his purpose.",
+            "KJV": "[MOCK — KJV] And we know that for those who love God all things work together for good, for those who are called according to his purpose.",
         ],
         "Lamentations 3:22-23": [
-            "ESV": "[MOCK — ESV] The steadfast love of the LORD never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.",
+            "KJV": "[MOCK — KJV] The steadfast love of the LORD never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.",
         ],
         "Philippians 4:6-7": [
-            "ESV": "[MOCK — ESV] Do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God.",
+            "KJV": "[MOCK — KJV] Do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God.",
         ],
         "1 Peter 5:7": [
-            "ESV": "[MOCK — ESV] Casting all your anxieties on him, because he cares for you.",
-            "NIV": "[MOCK — NIV] Cast all your anxiety on him because he cares for you.",
+            "KJV": "[MOCK — KJV] Casting all your anxieties on him, because he cares for you.",
+            "KJV": "[MOCK — KJV] Cast all your anxiety on him because he cares for you.",
         ],
     ]
 
