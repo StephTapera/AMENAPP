@@ -26,8 +26,9 @@ struct RhythmInsightCard: View {
                 .foregroundStyle(.primary)
 
             HStack(spacing: 20) {
-                stat(value: "\(rhythm.currentStreakDays)", label: "day streak")
-                stat(value: "\(rhythm.weeklyCount)", label: "this week")
+                // streak count hidden per constitution — vanityMetricsAlwaysHidden
+                stat(value: "Consistent", label: "this week")
+                stat(value: "\(rhythm.weeklyCount)", label: "sessions")
                 if let hour = rhythm.preferredHour {
                     stat(value: hourLabel(hour), label: "best time")
                 }

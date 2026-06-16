@@ -89,8 +89,8 @@ final class BereanChatViewModel: ObservableObject {
         }
 
         // A-003: COPPA guard — minors (under 13 or teen 13-17) must not access AI generation.
-        guard AgeAssuranceService.shared.currentUserTier == .adult else {
-            errorMessage = "This feature is not available for your account."
+        guard !AgeAssuranceService.shared.currentUserTier.isMinor else {
+            errorMessage = "Berean is not available for users under 13."
             return
         }
 
@@ -120,54 +120,50 @@ final class BereanChatViewModel: ObservableObject {
             beginReasoning()
         }
 
-        // Build history from existing messages (excluding the empty placeholder)
-        let history: [OpenAIChatMessage] = messages
-            .dropLast(2)
-            .suffix(10)
-            .map { OpenAIChatMessage(content: $0.content, isFromUser: $0.role == .user) }
+        // Note: Conversation history is now managed internally by BereanConstitutionalPipeline.
+        // The pipeline maintains its own per-session conversationHistory and sends it to the backend.
 
         streamTask = Task {
             do {
                 // A-002: Route through constitutional safety gates.
-                // Crisis pre-screen runs synchronously before any API call.
-                // If a crisis signal is detected, abort and surface a crisis resource card.
-                // TODO: Full pipeline routing tracked in A-002 — requires
-                //       BereanPersonalityMode → BereanPipelineMode mapping before
-                //       BereanConstitutionalPipeline.shared.ask() can replace ClaudeService.
-                if CrisisDetectionService.shared.hasLocalCrisisSignal(in: text) {
+                // BereanConstitutionalPipeline handles the I-4 crisis pre-screen
+                // internally, so the local crisis check here is removed to avoid
+                // double-handling. The pipeline sets isCrisisEscalated on the
+                // shared observable; the view observes it and shows the crisis card.
+
+                // Map BereanPersonalityMode → BereanPipelineMode for pipeline wire type.
+                let pipelineMode: BereanPipelineMode = {
+                    switch currentMode {
+                    case .shepherd:   return .ask
+                    case .scholar:    return .discern
+                    case .coach:      return .ask
+                    case .builder:    return .build
+                    case .strategist: return .build
+                    case .creator:    return .reflect
+                    case .debater:    return .guard_
+                    }
+                }()
+
+                let pipeline = BereanConstitutionalPipeline.shared
+                await pipeline.ask(
+                    query: text,
+                    mode: pipelineMode,
+                    userId: userId
+                )
+
+                // If crisis was escalated the pipeline sets isCrisisEscalated=true
+                // and returns no answer. Bail out; the view observes isCrisisEscalated.
+                if pipeline.isCrisisEscalated {
                     messages[assistantIndex].isStreaming = false
-                    messages[assistantIndex].content = "It sounds like you may be going through something really difficult. Please reach out to a trusted pastor or contact a crisis line: 988 Suicide & Crisis Lifeline (call or text 988)."
+                    messages[assistantIndex].content = ""
                     isThinking = false
                     if isStudyModeEnabled { resolveReasoning() }
                     return
                 }
 
-                let stream = ClaudeService.shared.sendMessage(
-                    text,
-                    conversationHistory: history,
-                    mode: currentMode
-                )
-
-                // C-020: First-token timeout. If no chunk arrives within 15 s, cancel
-                // and show a user-facing retry prompt.
-                var receivedFirstChunk = false
-                let timeoutTask = Task {
-                    try? await Task.sleep(for: .seconds(15))
-                    if !receivedFirstChunk {
-                        streamTask?.cancel()
-                        errorMessage = "Berean is taking too long — tap to try again."
-                    }
-                }
-
-                for try await chunk in stream {
-                    try Task.checkCancellation()
-                    if !receivedFirstChunk {
-                        receivedFirstChunk = true
-                        timeoutTask.cancel()
-                    }
-                    messages[assistantIndex].content += chunk
-                }
-                timeoutTask.cancel() // Ensure cleanup if loop exits normally
+                let answer = pipeline.lastResponse?.answer
+                    ?? "Berean is temporarily unavailable. Please try again."
+                messages[assistantIndex].content = answer
                 messages[assistantIndex].isStreaming = false
                 if self.isStudyModeEnabled {
                     self.resolveReasoning()

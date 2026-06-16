@@ -314,14 +314,16 @@ struct AmenSpaceDetailView: View {
                             hostBadge: hostBadge,
                             scrollOffset: scrollOffset,
                             onJoin: {
-                                // FIXME: A-005 — onJoin must call
-                                // AmenSpaceEntitlementService.shared.checkEntitlement(userId:spaceId:)
-                                // and write a membership document to Firestore before setting
-                                // isSubscribed = true. Setting isSubscribed optimistically here
-                                // is a client-side display shortcut only; the server must be the
-                                // source of truth. Until wired, the paywall can be bypassed by
-                                // calling this closure directly.
-                                withAnimation { isSubscribed = true }
+                                // A-005 FIX: delegate to server-side entitlement check.
+                                // isSubscribed is only set if the server confirms membership.
+                                Task {
+                                    do {
+                                        let granted = try await AmenSpaceEntitlementService.shared.checkEntitlement(spaceId: space.id)
+                                        await MainActor.run { isSubscribed = granted }
+                                    } catch {
+                                        // fail closed — do not unlock on error
+                                    }
+                                }
                             },
                             onLeave: { withAnimation { isSubscribed = false } }
                         )
@@ -379,11 +381,15 @@ struct AmenSpaceDetailView: View {
                                 if !isSubscribed {
                                     PaywallOverlay(
                                         onJoin: {
-                                            // FIXME: A-005 — Same as hero onJoin: must call
-                                            // AmenSpaceEntitlementService.shared.checkEntitlement()
-                                            // and write to Firestore before unlocking content.
-                                            withAnimation(reduceMotion ? .easeInOut(duration: 0.01) : .spring(response: 0.38, dampingFraction: 0.78)) {
-                                                isSubscribed = true
+                                            // A-005 FIX: delegate to server-side entitlement check.
+                                            // isSubscribed is only set if the server confirms membership.
+                                            Task {
+                                                do {
+                                                    let granted = try await AmenSpaceEntitlementService.shared.checkEntitlement(spaceId: space.id)
+                                                    await MainActor.run { isSubscribed = granted }
+                                                } catch {
+                                                    // fail closed — do not unlock on error
+                                                }
                                             }
                                         },
                                         onGiftCode: { showScholarshipAccess = true }

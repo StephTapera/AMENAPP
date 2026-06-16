@@ -47,13 +47,14 @@ struct AMENAPPApp: App {
     @State private var showNotifOnboarding = false
     /// GenerationalOS: shown once after first login when the preset has not yet been chosen.
     @State private var showGenerationalPresetPicker = false
-    // COPPA: Age gate shown once before accessing the app. Stored in AppStorage so it
-    // persists across launches and cannot be bypassed by clearing session state.
-    @AppStorage("hasCompletedAgeVerification") private var hasCompletedAgeVerification = false
+    // COPPA / CHILD-001: Age gate completion stored in Keychain (via AgeGateKeychain),
+    // NOT AppStorage/UserDefaults. Keychain items survive reinstall under
+    // kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, preventing the reinstall-bypass
+    // attack documented in audit finding CHILD-001.
     @State private var ageGateEligible = false
     // A-001: showAgeGate drives the fullScreenCover that blocks ContentView until the
-    // user has confirmed they are old enough. Separate from hasCompletedAgeVerification
-    // so it can be dismissed without writing to AppStorage on every launch.
+    // user confirms they meet the minimum age. Initialized from AgeGateKeychain in
+    // onAppear; dismissed when AgeGateView sets ageGateEligible = true.
     @State private var showAgeGate = false
     @StateObject private var killSwitch = RemoteKillSwitch.shared
     @StateObject private var featureFlags = AMENFeatureFlags.shared
@@ -283,10 +284,10 @@ struct AMENAPPApp: App {
                 }
             }
             // A-001: COPPA age gate — blocks access to ContentView until the user
-            // confirms they meet the minimum age requirement. The cover is shown when
-            // hasCompletedAgeVerification is false and is non-dismissible; AgeGateView
-            // sets both hasCompletedAgeVerification (AppStorage, persisted) and
-            // ageGateEligible (binding, dismisses this cover) on approval.
+            // confirms they meet the minimum age requirement. Driven by showAgeGate
+            // (set in onAppear from AgeGateKeychain); non-dismissible. AgeGateView
+            // writes AgeGateKeychain.hasCompleted = true and sets ageGateEligible
+            // (the binding) to true, which dismisses this cover.
             .fullScreenCover(isPresented: $showAgeGate) {
                 AgeGateView(isEligible: $ageGateEligible)
                     .interactiveDismissDisabled(true)
@@ -310,10 +311,10 @@ struct AMENAPPApp: App {
                 Text("This version of AMEN is no longer supported. Please update to the latest version to continue.")
             }
             .onAppear {
-                    // A-001: Show COPPA age gate on first launch before any content is accessible.
-                    // hasCompletedAgeVerification is AppStorage-backed so it survives reinstalls
-                    // only if the keychain/iCloud backup also survives — deliberate, for COPPA audit.
-                    if !hasCompletedAgeVerification {
+                    // A-001 / CHILD-001: Show COPPA age gate when Keychain says not yet verified.
+                    // Keychain is the sole authoritative store (survives reinstall).
+                    // Fail-closed: AgeGateKeychain.hasCompleted returns false on any read error.
+                    if !AgeGateKeychain.hasCompleted {
                         showAgeGate = true
                     }
 

@@ -1,198 +1,253 @@
-# AMEN App Store Readiness — GO / NO-GO
-
-**Date:** 2026-06-16
-**Audit type:** Autonomous overnight E2E + human-gated staging
-**Branch:** feature/berean-island-w0
-**Bundle ID:** tapera.AMENAPP
-**Deployment Target:** iOS 17.0
-**Verdict:** NO-GO
+# AMEN — Go / No-Go Verdict (Module C: AI Safety)
+*Generated: 2026-06-16 | Branch: app-store-readiness-overnight*
 
 ---
 
-## Executive Summary
+## VERDICT: NO-GO
 
-The overnight audit completed 11 phases across 93 findings (46 green, 30 yellow, 17 red). 46 green fixes were applied and committed automatically. Five unresolved P0 blockers remain — three requiring engineering work (DM report wiring, ATT prompt, NCMEC CyberTip fields) and two requiring legal/DPO decisions (CSAM ESP obligations, Firebase Analytics tracking classification) — making the app ineligible for App Store submission in its current state. No P0 item was cleared by the auto-fix pass.
+**Rationale:** 21 P0 (blocking) findings remain open across the AI safety audit. Module C AI Ship-Gate condition 15 requires zero P0 findings before any AI feature flag may flip ON. With 21 P0s spanning prompt injection, COPPA/age gating, App Check bypass, autonomous messaging, missing kill switches, wildcard CORS, AI content labeling suppressed by default, and AI memory not deleted on account deletion, the product cannot proceed to AI flag enablement or App Store submission in its current state. No partial exceptions apply — each of the 21 P0s independently blocks the gate.
 
----
-
-## Verdict Reasoning
-
-Under the verdict formula, **any unresolved P0 item forces NO-GO**. Five P0s remain open:
-
-| ID | Title | Why It Blocks |
-|---|---|---|
-| P5-Y1 | DM message .report action not wired | Apple Guideline 1.2 — all UGC surfaces must have in-app report mechanism; `.report` action fires into a no-op closure in `ONEThreadView.swift` and `AmenMinistryRoomChatView.swift` |
-| P5-Y2 | NCMEC CyberTipline not wired; launch readiness test will fail | `securityLaunchReadiness.test.ts` lines 14–21 expect `ncmecReadiness`, `evidenceVault`, `automatedCyberTipSubmitted` fields that do not exist in `submitReport.ts`; 18 USC 2258A compliance gap |
-| P5-R1 | CSAM go-live: NCMEC ESP registration and legal process decision | CSAM hash-match is not wired to any real provider; heuristic SafeSearch only; constructive-knowledge risk under 18 USC 2258A; legal must decide before media uploads go live |
-| P10-Y1 | ATT prompt never called despite NSPrivacyTracking = true | `PrivacyInfo.xcprivacy` declares tracking; zero `ATTrackingManager.requestTrackingAuthorization` calls exist; App Store will reject without compliant ATT flow |
-| P10-R1 | Firebase Analytics tracking classification: legal/policy decision | `NSPrivacyTracking = true` set but no ATT prompt implemented; whether Firebase Analytics constitutes cross-app tracking requires DPO review before choosing Option A or B |
-
-None of the five P0 items are cleared by the 46 auto-fixes applied this run.
+Total findings: 79
+- GREEN (fixed): 23
+- YELLOW (staged/in-progress): 34
+- RED (unresolved): 22
+- **P0 blocking: 21**
+- P1 critical: 18
 
 ---
 
-## Build Readiness Assertion
+## Module C AI Ship-Gate Checklist
 
-This is NOT a build claim. The following static checks passed or are flagged:
+| # | Gate Condition | Status | Notes |
+|---|---------------|--------|-------|
+| 1 | No provider keys in iOS client code | UNVERIFIED | Not audited in this pass; must confirm ANTHROPIC_API_KEY absent from all Swift/plist files |
+| 2 | All sensitive AI callables have auth + App Check | FAIL | bereanChatProxyStream has no App Check enforcement (C-INF-1-001, CINF3-002); invoker=public, Bearer-token only |
+| 3 | All sensitive context is consent-gated before AI call | FAIL | AskSelahView streams without consent check (C-OUT-2-002); BereanCoCreatorService bypasses pipeline and consent entirely (C-OUT-1-002) |
+| 4 | Private/blocked/deleted content excluded by construction (not by behavior) | UNVERIFIED | Not fully audited in this pass; postContext injection gap (CIN3-001) is relevant |
+| 5 | All AI side-effects go through propose→confirm→execute round-trip | FAIL | No ProposedAction struct exists; no executeConfirmedAction callable exists; saveToChurchNotes fires on tap with no idempotency key (CACT-001, CACT-003) |
+| 6 | AI cannot publish/message/delete/invite/pay/subscribe/moderate/change-settings silently | FAIL | Helix WorkflowTemplate sends DMs autonomously on triggers without per-send confirmation (CACT-002, CACT-010) |
+| 7 | Injection→tool-exec eval at 100% (adversarial eval harness) | FAIL | systemPromptSuffix accepted verbatim from client (CIN2-001); postContext.bodyText inserted as plain string (CIN3-001); jailbreak patterns not stripped server-side (CIN3-002) |
+| 8 | PII redaction live in all AI callables | UNVERIFIED | Not audited in this pass; no evidence of server-side PII redaction layer in bereanChatProxyStream |
+| 9 | Per-user rate limits + quotas + kill switches live | FAIL | No kill switch on bereanChatProxy or bereanChatProxyStream (C-INF-1-003, CINF3-002); streaming path has no model tier ceiling (C-INF-1-004) |
+| 10 | Streaming gated by sensitivity (high-risk = generate-then-filter) | FAIL | bereanChatProxyStream pipes raw Anthropic deltas with no output validation, no disclosure, no generate-then-filter (C-OUT-2-001) |
+| 11 | AI-generated content labeled in UI | FAIL | bereanAiDisclosureEnabled defaults false; disclosure suppressed on all Berean output surfaces in production (C-OUT-3-001, CINF6-001) |
+| 12 | AI memory user-controllable + deleted on account deletion | FAIL | users/{uid}/bereanMemory not in AccountDeletionService deletion list (CINF2-002) |
+| 13 | Minor-tier AI defaults enforced (stricter context, no memory, no agentic actions) | FAIL | bereanChatProxyStream has no COPPA age gate (C-OUT-1-001, C-INF-1-002); BereanMemoryManager has no minor check (CINF5-002) |
+| 14 | App Store AI disclosure drafts complete | FAIL | bereanAiDisclosureEnabled defaults false; legal/DPO review not confirmed complete (CINF6-001) |
+| 15 | Zero P0 findings remaining | FAIL | 21 P0 findings open |
 
-- [ ] No duplicate Swift file inclusions in pbxproj — **UNRESOLVED:** 5 duplicate basenames confirmed (`AmenAudienceSimulatorView`, `AmenPrivacyEngine`, `AmenPrivacyModels`, `AmenPrivacyPresetView`, `ResourcesContentView`); must be deduplicated before archive
-- [ ] No orphan/duplicate Berean constitutional system — **PASS:** constitutional trust files present and unique
-- [ ] No debug-only imports leaking to release — **PASS:** 0 debug bypass count confirmed by audit
-- [ ] No .md files resource-copied into app binary — **PASS:** 0 .md files observed in Copy Bundle Resources phases
-- [ ] CSAM escalation imports present — **PASS:** 15 CSAM-handling files confirmed present; **FLAGGED:** hash-match wiring to real provider absent (see P5-R1)
+**Gate result: 0 of 15 PASS. NO-GO.**
 
-**Additional static invariants from baseline:**
+---
 
-| Invariant | Status |
-|---|---|
-| `fatalError` in `MessageOutbox.swift:95` — production crash on SwiftData failure | UNRESOLVED — replace with do/catch fallback |
-| `APP_STORE_APP_ID = 0000000000` placeholder in project | UNRESOLVED — App Store Connect record not created |
-| Stale `AMENBuildGitBranch` in `Info.plist` (points to `feature/connected-intelligence-20260609-r2`) | UNRESOLVED — update before archive |
-| `ALGOLIA_SEARCH_KEY` committed to `Config.xcconfig` and git history | UNRESOLVED — rotate key + scrub git history |
+## Build-Readiness Assertion
 
-**To verify build, run:**
+NOT a build claim. Static analysis only. Build status is unverified by this audit.
 
-```bash
-cd "/Users/stephtapera/Desktop/AMEN/AMENAPP copy"
-xcodebuild -workspace AMENAPP/AMENAPP.xcworkspace -scheme AMENAPP \
-  -destination 'generic/platform=iOS' build \
+Canonical build command:
+```
+xcodebuild -scheme AMENAPP -destination 'generic/platform=iOS' build \
   -clonedSourcePackagesDirPath ./SourcePackages.nosync \
-  -derivedDataPath ./DerivedData.nosync \
-  2>&1 | tee deploy-logs/build-verify-$(date +%Y%m%d%H%M).log
+  -derivedDataPath ./DerivedData.nosync
 ```
 
----
-
-## Functions / Rules Status
-
-| Codebase | Status | Notes |
-|---|---|---|
-| Default codebase tsc | NOT RUN this pass | Prior audit: passing; no TS changes this run |
-| Creator codebase tsc | NOT RUN this pass | Prior audit: passing; no TS changes this run |
-| Rules emulator tests | NOT RUN | Requires human to run `firebase emulators:exec` per DEPLOY_PLAN.md |
-| `securityLaunchReadiness.test.ts` | WILL FAIL | Missing `ncmecReadiness`, `evidenceVault`, `automatedCyberTipSubmitted` fields in `submitReport.ts` (P5-Y2) |
+**HUMAN-PENDING:** A human must run the canonical command from the repo root on a clean tree and report SUCCEEDED or FAILED with the current SHA before any gate can advance to build-verified state. Agents cannot make this attestation.
 
 ---
 
-## Remaining P0 Blockers (must clear before submission)
+## Remaining P0 Blockers
 
-| ID | Title | Lane | Est. Time | Owner |
-|---|---|---|---|---|
-| P5-Y1 | DM message .report action not wired to ReportContentSheet | Engineering | 45 min | iOS Engineer |
-| P5-Y2 | NCMEC CyberTipline not wired; `securityLaunchReadiness.test.ts` will fail | Engineering + Legal | 120 min + legal review | Backend Engineer + Legal |
-| P5-R1 | CSAM go-live: NCMEC ESP registration and legal process decision | Legal Gate | Multi-day | Legal / T&S Lead |
-| P10-Y1 | ATT prompt never called despite `NSPrivacyTracking = true` in `PrivacyInfo.xcprivacy` | Engineering | 30 min (after P10-R1) | iOS Engineer |
-| P10-R1 | Firebase Analytics tracking classification: legal/policy decision | Legal Gate | Multi-day | DPO / Legal |
+1. **CIN2-001** — `systemPromptSuffix` from client inserted verbatim into system-prompt instruction channel (bereanChatProxy.ts + bereanChatProxyStream.ts). Remove field from API contract entirely.
 
-**P5-Y1 exact fix** — in `ONEThreadView.swift`:
-1. Add `@State private var reportingMessage: AppMessage? = nil`
-2. Mount `MessageActionCluster` with `onAction: { action in if action == .report { reportingMessage = msg } }`
-3. Add `.sheet(item: $reportingMessage) { msg in ReportContentSheet(targetType: .message, targetId: msg.id, onSubmitted: { _ in }, onDismiss: { reportingMessage = nil }) }`
-4. Mirror the same wiring in `AmenMinistryRoomChatView.swift`
+2. **CIN3-001** — `postContext.bodyText` inserted as plain text in system prompt with no XML delimiting or server-side injection stripping (bereanChatProxy.ts + bereanChatProxyStream.ts). Add `<user_post_body>` delimiters, 500-char cap on stream path, and server-side strip of known injection sequences.
 
-**P10-Y1 option A** — in `AMENAPPApp.swift` after onboarding:
-```swift
-import AppTrackingTransparency
-ATTrackingManager.requestTrackingAuthorization(completionHandler: { status in
-    // Firebase Analytics respects this automatically
-})
-```
+3. **CIN3-002** — `systemPromptSuffix` bypasses client-side jailbreak pattern validation (BereanSafetyPolicy.swift); server has no equivalent strip. Remove field or add server-side pattern matching equivalent to jailbreakPatterns.
 
-**P10-Y1 option B** — if DPO confirms session-only analytics: set `NSPrivacyTracking = false` in `PrivacyInfo.xcprivacy`.
+4. **CACT-001** — No `ProposedAction` typed model exists; C-ACT-1 confirm→execute round-trip is not architecturally enforced anywhere. Define `ProposedAction<T>` struct and `executeConfirmedAction` callable with server-side re-authorization.
 
-Do not implement P10-Y1 until P10-R1 legal decision is in hand.
+5. **CACT-002** — Helix `WorkflowTemplate` includes `.sendDM` steps that fire autonomously on triggers without per-send user confirmation. Remove or gate `sendDM` behind mandatory per-send human approval.
 
----
+6. **CACT-003** — `saveToChurchNotes` executes immediately on first tap with no idempotency key and no server re-authorization. Add deterministic document ID (hash of uid + card.id + day) and route through `executeConfirmedAction` callable.
 
-## Remaining P1 Items (clear before beta)
+7. **CACT-010** — Helix `new_member_welcome` and `inactivity_nudge` templates auto-send DMs to other users on event/AI-detected triggers without per-message confirmation. Replace `.sendDM` with `.sendDMDraft` requiring admin review of each individual send.
 
-| ID | Title | Lane | Est. Time |
-|---|---|---|---|
-| BTN-001 | Spaces Join/Paywall bypasses entitlement check | Engineering | 2 hr |
-| SAFE-010 | Minor guardian approval falls back to `return true` when document absent | Engineering | 30 min |
-| SAFE-002 | Report+Block absent from SpaceCardView, PrayerRoomView, AmenPrayerFeedView | Engineering | 3–4 hr |
-| PERF-006 | `fatalError` in `MessageOutbox.swift:95` crashes production app | Engineering | 1 hr |
-| PRIV-001 | Three `NSUsageDescription` strings missing from `Info.plist` | Engineering | 15 min |
-| SEC-006 | `ITSAppUsesNonExemptEncryption` missing from `Info.plist` | Engineering + Legal | 20 min + legal |
-| AUTH-004 | Google re-auth on account deletion shows text only | Engineering | 2–3 hr |
-| AUTH-006 | Terms/Privacy URLs must serve live legal documents | Legal Gate | — |
-| AUTH-009 | `AccountRecoveryView` soft-delete has no re-auth guard | Engineering | 1–2 hr |
-| AUTH-013 | 30-day deletion disclosure not backed by server purge job | Backend + Legal | Multi-day |
-| BTN-002 | 26 AdaptiveComposer card buttons are silent stubs | Engineering | 1–2 days |
-| BTN-003 | `VisitConfirmationBanner` has no loading guard | Engineering | 1 hr |
-| BTN-004 | `GivingImpactView` PDF sheet has no dismiss button | Engineering | 1 hr |
-| SAFE-003 | CSAM pipeline reactive only — no proactive hash-scan | Backend + Legal Gate | Multi-day |
-| SAFE-005 | Minors not blocked from public Discovery at iOS layer | Engineering | 2 hr |
-| PRIV-005 | Berean AI fires before first-run AI consent UI | Engineering | 1–2 days |
-| PRIV-007 | Full privacy policy not accessible before login | Engineering | 2 hr |
-| A11Y-002 | LiquidGlassModifiers lack Reduce Transparency fallback | Engineering | 3–4 hr |
-| A11Y-003 | LiquidGlassAnimations ignore Reduce Motion | Engineering | 3–4 hr |
-| FIRE-010 | `createSpaceTier` CF missing space-owner check | Backend | 1 hr + deploy |
+8. **C-OUT-2-001** — `bereanChatProxyStream` streams raw Anthropic deltas with no output validation, no AI disclosure, and no App Check. Implement buffer-then-emit pattern with `validateRawTextOutput`, `ensureAIDisclosure`, and `getAppCheck().verifyToken()`.
+
+9. **C-OUT-1-001** — `bereanChatProxyStream` has no COPPA age gate; under-13 / no-DOB users blocked by the callable can reach the streaming endpoint directly. Port the fail-closed age/DOB check from `bereanChatProxy` lines 116–162.
+
+10. **C-OUT-2-002** — `AskSelahView` streams tokens with no consent check, no feature flag guard, and no AI content disclosure label. Add `consentCreatorAI` guard, `selahEnabled` flag check, and `AmenAIUsageLabel` below streamed content.
+
+11. **C-OUT-1-002** — `BereanCoCreatorService.buildContent()` returns hardcoded static strings, never calls the constitutional pipeline, presents fabricated strings as Berean AI output. Replace with real `BereanPipelineClient` call or remove surface until implemented.
+
+12. **C-OUT-3-001** — `bereanAiDisclosureEnabled` defaults `false`; the in-product AI disclaimer is suppressed on all Berean output surfaces. Change default to `true` and ensure all Berean output views render the disclosure footnote.
+
+13. **C-INF-1-001** — `bereanChatProxyStream`: no App Check enforcement on SSE streaming endpoint; `invoker=public`, Bearer-token only. Add manual `admin.appCheck().verifyToken()` before processing any request body.
+
+14. **C-INF-1-002** — `bereanChatProxyStream`: no COPPA/age gate — complete bypass of under-13 rejection available to any authenticated user. Add fail-closed age/DOB check before SSE headers are written.
+
+15. **C-INF-1-003** — Neither `bereanChatProxy` nor `bereanChatProxyStream` has a Remote Config kill switch. Add `berean_chat_kill_switch` check at top of both handlers before any Anthropic invocation.
+
+16. **C-INF-1-004** — `bereanChatProxyStream` has no subscription tier check; free users can select `scholar`/`debater` modes and receive Sonnet responses. Add `getBereanTierForUser()` + `resolveEntitledModel()` logic before the Anthropic fetch.
+
+17. **C-INF-1-005** — `bereanChatProxyStream`: wildcard CORS origin (`*`) allows any web client to drive Anthropic API calls using a stolen token. Replace with explicit origin allowlist or remove CORS headers if iOS-only.
+
+18. **CINF2-002** — Account deletion does not delete `users/{uid}/bereanMemory` subcollection. Add path to `AccountDeletionService.deleteAccount()` subcollections list and wire `bereanDeleteAllMemory` Cloud Function to account deletion trigger.
+
+19. **CINF3-002** — `bereanChatProxy` has no kill switch; `bereanChatProxyStream` has no kill switch AND no App Check. (Consolidates C-INF-1-001 + C-INF-1-003.) Add kill switch to both; add App Check to stream path.
+
+20. **CINF5-002** — `BereanMemoryManager` has no minor/age check; minors will accumulate AI memory entries when `berean_memory_enabled` flips ON. Add `AgeAssuranceService.shared.currentUserTier.isMinor` guard in `BereanMemoryManager` and in `bereanGetMemory`/`bereanDeleteMemory` Cloud Functions. Block enabling `berean_memory_enabled` until gate is deployed.
+
+21. **CINF6-001** — `bereanAiDisclosureEnabled` defaults `false`; `AI-assisted content · Not pastoral guidance` footnote disabled in production. Change default to `true`; complete legal/DPO review before App Store submission.
 
 ---
 
-## What Was Fixed Automatically
+## Remaining P1 Items
 
-- **46 GREEN fixes applied and committed** across accessibility, privacy, logging, cleanup, and safety lanes
-- See `AUTOFIX_CHANGELOG.md` for the complete per-file list
+18 P1 (critical, non-blocking for ship-gate but required before public launch) findings remain open.
 
-Key categories addressed by auto-fixes:
-- Accessibility label gaps and `.accessibilityValue` additions
-- Private logging (`%{private}@` substitutions in `AMENLogger.swift`)
-- Dead emulator config removed from `CloudFunctionsService.swift`
-- `PermissionsCenterView` wired into `PrivacySettingsView`
-- Berean constitutional trust view deduplication
-- A11y hints on interactive elements across 8+ views
+Top 5:
 
----
+1. **Hallucination confidence threshold not surfaced in UI** — Berean responses with confidence below threshold are displayed without any uncertainty indicator; users cannot distinguish high-confidence from low-confidence AI output.
 
-## Human Actions Required This Morning
+2. **BereanContextCoordinator sanitization is client-side only** — `sanitizeCommunityContent()` wraps community content in XML tags on the client, but the server does not validate or re-apply the delimiter, trusting client sanitization of untrusted data.
 
-1. **Review `HUMAN_GATE_QUEUE.md`** — start with P0s; P5-R1 and P10-R1 are legal gates that unblock the engineering P0s (P5-Y2, P10-Y1)
-2. **Run build verification command** in the "Build Readiness Assertion" section above; report SUCCEEDED or FAILED with SHA
-3. **Fix P5-Y1** (DM report wiring, 45 min) — unblocks Apple Guideline 1.2 compliance
-4. **Fix P10-Y1** only after legal decision on P10-R1 (ATT prompt or NSPrivacyTracking=false)
-5. **Fix P5-Y2** (NCMEC fields in `submitReport.ts`) after legal clears P5-R1
-6. **Execute `DEPLOY_PLAN.md` batches** after P0 code fixes land and build is verified green
-7. **Rotate `ALGOLIA_SEARCH_KEY`** immediately — key is in git history; see `Config.xcconfig`
-8. **Create App Store Connect record** to replace `APP_STORE_APP_ID = 0000000000` placeholder
+3. **No server-side PII redaction in bereanChatProxy or bereanChatProxyStream** — Prayer requests and community content may contain full names, phone numbers, addresses, and health information passed to Anthropic without redaction.
+
+4. **Berean memory entries have no user-visible expiry or auto-purge** — `BereanMemoryView` shows entries but there is no TTL, no auto-expiry UI, and no bulk-delete that also purges from Firestore. Users cannot confirm their data is gone.
+
+5. **WhyAmISeeingThisSheetV2 and DailyOfficeView do not render the AI disclosure footnote** — Only `BereanStudyCardView` has the disclosure wired; at least 4 other Berean output surfaces are missing it even when `bereanAiDisclosureEnabled` is `true`.
 
 ---
 
-## Commit History This Run
+## Consolidated Human Action List
 
-```
-d573be73 appstore: readiness audit deliverables + go/no-go (2026-06-16)
-8669a3dd appstore: auto-fix GREEN items (a11y, privacy, logging, cleanup)
-e0a4c24c [B-007/B-008/B-029] Fix three privacy/resource-management regressions
-d5209c77 [A-011] Fix fake Spanish localization — real es translations
-26b1c640 [AIL-A0] Publish Phase 0 audit + mark G1/G2/G3 RESOLVED → GATE OPEN for Phase 2
-ba657129 [AIL-A1] Update pre-send interceptor test for C4/C5 output enum
-56793992 [AIL-A1] Fix C4/C5 decode — bring Swift mirror up to TS contract
-54537193 [BuildFix] Zero errors: resolve 9 root-cause gate failures blocking W1
-3cde9117 [CSAM-005] Add fail-closed media upload gate — 18 USC 2258A compliance
-10e14642 [HeroSurface] Wire adapter + view for creator/church/space kinds (flag OFF)
-```
+Actions are ordered: P0 code fixes first, then credential/secret actions, then deploys, then flag flips, then App Store submission. No step may be skipped.
+
+### Phase 1 — P0 Code Fixes (must be done before any deploy)
+
+1. Remove `systemPromptSuffix` from `BereanChatRequest` interface and `StreamRequest` counterpart in `bereanChatProxy.ts` and `bereanChatProxyStream.ts`. Delete the server-side append lines. (CIN2-001, CIN3-002)
+
+2. Add XML-delimited `<user_post_body>` wrappers around `postContext.bodyText` in `buildCallDataPrompt()` and `buildCallDataBlock()`. Add 500-char cap to stream path. Add server-side injection-sequence strip. (CIN3-001)
+
+3. Define `ProposedAction<T>` struct in iOS, `confirmProposedAction(id:)` method on `BereanContextActionEngine`, and `executeConfirmedAction` Firebase callable (us-east1) with server-side re-authorization. (CACT-001)
+
+4. Remove `sendDM` from `WorkflowStepType` or replace with `sendDMDraft` in `HelixModels.swift`. Update backend executor to block auto-send. (CACT-002, CACT-010)
+
+5. Add idempotency key (deterministic document ID) to `saveToChurchNotes` in `ContentApprovalSheet` and `ContentDiscussionLauncher`. (CACT-003)
+
+6. Implement buffer-then-emit pattern in `bereanChatProxyStream.ts`: accumulate deltas, call `validateRawTextOutput`, apply `ensureAIDisclosure`, emit with `aiDisclosureApplied:true` and `safetyStatus` fields. (C-OUT-2-001)
+
+7. Port the fail-closed age/DOB gate from `bereanChatProxy.ts` lines 116–162 to `bereanChatProxyStream.ts`. (C-OUT-1-001, C-INF-1-002)
+
+8. Add consent guard, `selahEnabled` feature flag check, and `AmenAIUsageLabel` to `AskSelahView.swift`. (C-OUT-2-002)
+
+9. Replace `BereanCoCreatorService.buildContent()` hardcoded strings with a real `BereanPipelineClient.shared.sendQuery()` call, or remove the co-creator surface entirely until implemented. (C-OUT-1-002)
+
+10. Change `bereanAiDisclosureEnabled` default to `true` in `AMENFeatureFlags.swift` line 912. Ensure all Berean output views render the disclosure footnote. (C-OUT-3-001, CINF6-001)
+
+11. Add manual `admin.appCheck().verifyToken()` to `bereanChatProxyStream.ts` before processing any request body. (C-INF-1-001)
+
+12. Add `berean_chat_kill_switch` Remote Config check to both `bereanChatProxy.ts` and `bereanChatProxyStream.ts` immediately after auth verification. (C-INF-1-003)
+
+13. Add `getBereanTierForUser()` + `resolveEntitledModel()` tier ceiling to `bereanChatProxyStream.ts` before the Anthropic fetch. (C-INF-1-004)
+
+14. Replace `Access-Control-Allow-Origin: '*'` in `bereanChatProxyStream.ts` with an explicit origin allowlist, or remove CORS headers entirely if the endpoint is iOS-only. (C-INF-1-005)
+
+15. Add `users/\(userId)/bereanMemory` to the subcollections array in `AccountDeletionService.deleteAccount()`. Wire `bereanDeleteAllMemory` Cloud Function to account deletion trigger. (CINF2-002)
+
+16. Add `AgeAssuranceService.shared.currentUserTier.isMinor` guard to `BereanMemoryManager.fetchEntries()` and `BereanMemoryView`. Add minor check to `bereanGetMemory` and `bereanDeleteMemory` Cloud Functions. (CINF5-002)
+
+### Phase 2 — Canonical Build Verification
+
+17. Run the canonical build command from repo root:
+    ```
+    xcodebuild -scheme AMENAPP -destination 'generic/platform=iOS' build \
+      -clonedSourcePackagesDirPath ./SourcePackages.nosync \
+      -derivedDataPath ./DerivedData.nosync
+    ```
+    Report SUCCEEDED or FAILED with the SHA. Do not proceed to deploys until SUCCEEDED.
+
+### Phase 3 — Credential and Secret Actions
+
+18. Confirm `ANTHROPIC_API_KEY` does not appear in any iOS Swift file, plist, or compiled bundle. If found, rotate immediately and remove from client code.
+
+19. Confirm `FIREBASE_WEB_API_KEY` and all other backend secrets are not in iOS client code or committed to the repository.
+
+20. Complete legal/DPO review of the disclosure text `'AI-assisted content · Not pastoral guidance'` in `BereanStudyCardView.swift` and `'This is not a replacement for pastoral care'` in `BereanProvenanceChips.swift`. Get written sign-off before proceeding to App Store submission.
+
+### Phase 4 — Deploys
+
+21. Deploy `Backend/functions` (creator codebase) from repo root:
+    ```
+    firebase deploy --only functions:creator:bereanChatProxy,functions:creator:bereanChatProxyStream
+    ```
+    Log output to `deploy-logs/`. Confirm both functions deploy to us-east1 (us-central1 is at quota).
+
+22. Deploy `executeConfirmedAction` callable (new function) to us-east1. Add entry to Interim Region Table in `docs/FUNCTION_INVENTORY.md`.
+
+23. Deploy `bereanGetMemory`, `bereanDeleteMemory`, and `bereanDeleteAllMemory` Cloud Functions with minor-check and account-deletion-trigger updates.
+
+24. Verify `berean_chat_kill_switch` Remote Config parameter exists and is set to `false` (enabled) in the Firebase console before traffic resumes.
+
+### Phase 5 — Flag Flips (only after all P0s resolved and build verified)
+
+25. Enable `bereanAiDisclosureEnabled = true` via Remote Config (this should now be the hardcoded default; Remote Config confirmation is belt-and-suspenders).
+
+26. Do NOT flip `berean_memory_enabled` until Phase 1 item 16 (minor gate) is deployed and verified.
+
+27. Do NOT flip any Helix workflow flags until Phase 1 item 4 (sendDM removal) is deployed and verified.
+
+28. Do NOT flip any Berean Agent or streaming AI flags until all 21 P0s are resolved, the build is verified SUCCEEDED, and all deploys in Phase 4 are confirmed.
+
+### Phase 6 — App Store Submission Gate
+
+29. Re-run Module C AI Ship-Gate checklist. All 15 conditions must show PASS.
+
+30. Confirm zero P0 findings remain open.
+
+31. Confirm legal/DPO sign-off from item 20 is on file.
+
+32. Submit to App Store only after all 31 items above are complete.
 
 ---
 
-## Summary Scorecard
+## AI-Specific Conditions for Flag Flips
 
-| Category | Findings | Green (Pass/Fixed) | Yellow | Red |
-|---|---|---|---|---|
-| Apple Review + Surfaces | P1–P2 | — | — | — |
-| Button Matrix | P3 | — | — | — |
-| Auth + Onboarding | P4 | — | — | — |
-| UGC Safety + Moderation | P5 | — | 2 P0 blocking | 1 P0 legal gate |
-| Privacy + Data Map | P6 | — | — | — |
-| Business + Firebase | P7–P8 | — | — | — |
-| Cloud Functions Creator | P9 | — | — | — |
-| Cloud Functions Default | P9 | — | — | — |
-| Build Settings + A11y | P10 + P12 | — | 1 P0 blocking | 1 P0 legal gate |
-| Perf + Secrets | P13–P14 | — | — | — |
-| Modules + Testing | P11 + P15 | — | — | — |
-| **TOTAL** | **93** | **46** | **30 (3 P0)** | **17 (2 P0)** |
+None of the following flags may flip ON until ALL conditions listed under each are cleared:
 
-**P0 count: 5 unresolved (3 engineering + 2 legal gates)**
-**P1 count: 20 remaining (8 blocking beta)**
-**Green fixes: 46 applied and committed**
+**`bereanAiDisclosureEnabled`**
+- C-OUT-3-001 and CINF6-001 resolved (default changed to `true` in code)
+- Legal/DPO review of disclosure text complete (item 20)
+- All Berean output views confirmed rendering the disclosure footnote
+
+**`berean_memory_enabled`**
+- CINF2-002 resolved (bereanMemory in account deletion path)
+- CINF5-002 resolved (minor gate in BereanMemoryManager + Cloud Functions)
+- COPPA parental consent flow confirmed for under-13 accounts (if memory is enabled for any minor tier)
+
+**Any Berean Agent or Berean chat streaming flag**
+- CIN2-001 resolved (systemPromptSuffix removed from API contract)
+- CIN3-001 resolved (postContext XML delimiting + server-side injection strip)
+- C-INF-1-001 resolved (App Check on streaming endpoint)
+- C-INF-1-002 resolved (age gate on streaming endpoint)
+- C-INF-1-003 resolved (kill switches on both callables)
+- C-INF-1-004 resolved (model tier ceiling on streaming endpoint)
+- C-INF-1-005 resolved (CORS wildcard removed)
+- C-OUT-2-001 resolved (buffer-then-emit + output validation on stream)
+
+**Any Helix workflow automation flag**
+- CACT-001 resolved (ProposedAction + executeConfirmedAction architecture deployed)
+- CACT-002 and CACT-010 resolved (sendDM removed or gated behind per-send confirmation)
+
+**Any AskSelah or co-creator flag**
+- C-OUT-2-002 resolved (AskSelahView consent + flag + disclosure label)
+- C-OUT-1-002 resolved (BereanCoCreatorService uses real pipeline or surface removed)
+
+**All AI flags globally**
+- Gate 15: zero P0 findings remaining
+- Build verified SUCCEEDED at the post-fix SHA
+- All P0 Cloud Function deploys confirmed in deploy-logs/
+
+---
+
+*This file reflects Module C AI Safety audit results as of 2026-06-16. It must be updated and the verdict re-evaluated after each P0 resolution. A NO-GO verdict does not expire until a human re-runs the gate checklist and all 15 conditions show PASS.*

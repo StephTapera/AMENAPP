@@ -129,12 +129,13 @@ struct BereanPrayerBriefingView: View {
                 .accessibilityHidden(true)
 
             if streak.currentStreak > 0 {
-                Text("\(streak.currentStreak) day streak")
+                // streak count hidden per constitution — vanityMetricsAlwaysHidden
+                Text("Your prayer rhythm")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.accentColor)
             } else {
-                Text("Start your prayer streak today")
+                Text("Your prayer history appears here")
                     .font(.subheadline)
                     .foregroundStyle(Color.accentColor)
             }
@@ -146,8 +147,8 @@ struct BereanPrayerBriefingView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             streak.currentStreak > 0
-                ? "\(streak.currentStreak) day prayer streak"
-                : "Start your prayer streak today"
+                ? "Your prayer rhythm"
+                : "Your prayer history appears here"
         )
     }
 
