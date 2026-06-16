@@ -906,6 +906,11 @@ final class AMENFeatureFlags: ObservableObject {
     /// Master gate for the AdaptiveHeroEngine hero surface (creator / church / space kinds).
     @Published private(set) var heroSurfaceEnabled: Bool = false
 
+    // MARK: - P1-1: AI Disclosure Footnote
+    /// When true, shows "AI-assisted content · Not pastoral guidance" beneath AI-generated
+    /// Berean responses. Default OFF — enable via Remote Config after legal/DPO review.
+    @Published private(set) var bereanAiDisclosureEnabled: Bool = false
+
     private init() {
         applyUITestOverrides()
         Task { await fetchRemoteConfig() }
@@ -1618,6 +1623,9 @@ final class AMENFeatureFlags: ObservableObject {
 
             // Adaptive Hero Surface — default OFF until QA checklist passes
             "hero_surface_enabled": false as NSObject,
+
+            // P1-1: AI Disclosure Footnote — default OFF until legal/DPO review
+            "berean_ai_disclosure_enabled": false as NSObject,
         ]
     }
 
@@ -2276,6 +2284,9 @@ final class AMENFeatureFlags: ObservableObject {
         prayerOSEnabled              = config["prayer_os"].boolValue
         scriptureIntelligenceEnabled = config["scripture_intelligence"].boolValue
         verseLookupInlineEnabled     = config["verse_lookup_inline"].boolValue
+
+        // P1-1: AI Disclosure Footnote
+        bereanAiDisclosureEnabled = config["berean_ai_disclosure_enabled"].boolValue
 
         syncSelahFlags(config)
         syncBASFlags(config)
