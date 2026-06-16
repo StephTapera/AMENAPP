@@ -1,131 +1,332 @@
-# AIL_AUDIT.md — Phase 0 Read-Only Audit
-
-**Accessibility Intelligence Layer (AIL)**
-Lead Orchestrator audit · date 2026-06-09 · branch target `feature/ail` (not yet created)
-Status: **BLOCKING CHECKPOINT — awaiting confirmation before Phase 1.**
-
-This audit maps the real repo against the build prompt's assumptions. **Several core assumptions in the prompt do not match the codebase.** Those are escalated in §0 as P0 *contract-drift* items because they change the Phase 1 contract freeze. Everything else (surfaces, provenance, moderation, crisis, media, flags) is mapped and largely ready.
+# AIL Phase 0 Audit Report
+**Auditor:** Agent A0 · **Date:** 2026-06-15 · **Branch:** feature/berean-island-w0
 
 ---
 
-## 0 · P0 ESCALATIONS — read these first (they block Phase 1)
+## 1. Engine Layer Map
 
-The prompt describes an architecture that **does not exist in this form**. I did not adapt around these silently; per the iron rules I'm stopping to surface the tradeoff.
+### `callModel` Signature
+**File:** `functions/router/callModel.js`
 
-| # | Prompt assumes | Repo reality | Impact on plan |
-|---|---|---|---|
-| **P0-1** | "three engines (Intent, Visual, Knowledge) on a shared **ContextGraph**" | **No such engines, no ContextGraph.** Architecture is a single centralized router `callModel({task, input, systemPrompt, context, userId, safetyLevel, featureFlags, namespace, queryVector})` at `functions/router/callModel.js`. "Engines" are task-routed feature modules under `functions/intelligence/`, `functions/selah/`, etc. | `describe_image: {engine:'visual'}` and `summarize_audio:{engine:'knowledge'}` in the routing delta have **no engine to bind to.** They must become `callModel` *tasks* (e.g. `task:'describe_image'`) routed to a vision-capable provider. Decision needed. |
-| **P0-2** | Routing config is **`amen.routing.config.ts`** | Real file is **`functions/router/amenRouting.config.js`** (JS, not TS). Shape: `ROUTING[task] = {primary, chain[], fail, inputGuard, outputGuard, retrieval, requireCitations, degradeResult, ...}`. `PROVIDERS` map defines `claude/claudeFast/openai/gemini/nvidia/pinecone/algolia`. | The "config delta" must be authored in **JS against the real schema**, not the idealized TS block in §3.3. `fallover:'NONE'` → real equivalent is `fail:'fail_closed', chain:['claude']` with no other providers. |
-| **P0-3** | Contracts live at **`src/contracts/ail.contracts.ts`** | **No `src/contracts/` dir exists.** Contracts live at `functions/selah/selah.contracts.ts` and `functions/intelligence/contracts.js`. | A1 should place `ail.contracts.ts` next to `selah.contracts.ts` (i.e. `functions/<area>/ail.contracts.ts`) to match the established pattern. Path decision needed. |
-| **P0-4** | A2 owns **`functions/ail/**` in the `v2functions.js` namespace** | Gen2 split is real but the file is **`functions/v2functions.js` + `functions/v2entry.js`** (aggregator), deployed via `firebase.json` predeploy copy to `functions/v2triggers`. Callables today live gen1 in `functions/index.js`. | New `functions/ail/` is fine, but it must be **wired into `index.js` (gen1 callable) or `v2entry.js` (gen2)** — the prompt's "v2functions.js namespace" is imprecise. `ailTransform` as a **callable** belongs in the gen1 `index.js` export set, like `checkContentSafety`. |
-| **P0-5** | Canonical **`Provenance` enum** to map `A11yProvenance` into | **Two unrelated provenance systems exist**, neither matching `{ai_generated, ai_human_edited, human}`: (a) Swift `ONEProvenanceClass {captured, edited, aiAssisted, synthetic, unknown}`; (b) backend `provenanceFunctions.js` sourceType `{device_camera…ai_generated, ai_assisted, unknown}`. Both are about **media capture**, not text-transform authorship. | There is **no existing text-transform provenance to map into.** `A11yProvenance` is effectively net-new. Decision: keep AIL's own 3-case enum (recommended — media provenance is a different concern) and document that it does **not** fold into `ONEProvenanceClass`. |
-| **P0-6** | C13 Calm Mode / Reading Level / Translate are new | **Large overlap already shipped.** `AMENFeatureFlags.swift` already has a **"System 15: Accessibility Intelligence Layer"** block (15 flags incl. `accessibilityIntelligenceEnabled`, `readabilityLayerEnabled`, `meaningAwareTranslationEnabled`, `naturalModeEnabled`). `AmenSimpleModeService` (Calm-Mode-like), `LiveCaptionOverlay`, `AmenLiveCaptionsOverlay`, `BereanLiveTranslationBar`, `PostTranslationService`, `CommentTranslationBridge`, `AmenCaptionEditorView`, `PerMediaCaptionComposer` all exist. | **High duplication risk.** AIL must *reuse/extend* these, not rebuild. A3/A4/A5 ownership must be re-scoped to "extend existing services," and the new flags reconciled with the existing System-15 block instead of adding parallel flags. |
+```js
+async function callModel({
+  task,           // routing key (e.g. "translate", "explain_scripture")
+  input,          // raw user input text
+  systemPrompt,   // optional override
+  context,        // extra context injected into system prompt
+  userId,         // required for audit logs
+  safetyLevel,    // "strict"|"standard"|"relaxed" (default: "standard")
+  featureFlags,   // Map<task, boolean> — false disables task
+  namespace,      // Pinecone namespace for retrieval
+  queryVector,    // embedding vector for Pinecone search
+})
+// Returns:
+//   Success  → { output: string, provider, task, latencyMs }
+//   Blocked  → { output: null, blocked: true, reason, ... }
+//   Degraded → { output: any, degraded: true, task }
+```
 
-**My recommendation (bias = fail-open accessibility, reuse over rebuild):** keep the AIL *contracts* (`A11yTask`, `ReadingLevel`, `A11yProfile`, `A11yTransformResult`) as written — they're sound — but rewrite §3.3's routing/engine bindings to the **real `callModel` task model**, place files at the **real paths**, and re-scope Phase 2 agents to **extend** the existing accessibility/translation/caption services rather than create parallel ones. I need your sign-off on P0-1, P0-3, and P0-6 specifically before A1 freezes contracts.
+### ContextBus (iOS)
+**File:** `AMENAPP/AMENAPP/Core/ContextBus/ContextBus.swift`
 
----
+- **Actor** (Swift concurrency) — ring buffer capped at 500 signals, FIFO eviction
+- `crisisSurfaceOpened` tier `.s` → **device only, never forwarded to network**
+- Firestore forward for tier `.c/.p` → `contextSignals/{uid}/signals/{signalId}`
+- Subscription model: `AsyncStream` keyed by `SignalType`
+- Consent edges all default **OFF** (except `activityToRhythm`)
 
-## 1 · AI / model-routing layer (the thing AIL routes through)
+### Provenance Enum
+**File:** `AMENAPP/AMENAPP/Accessibility/AIL/AILContracts.swift` (lines 94–118)
 
-- **Entry point:** `functions/router/callModel.js` → `async function callModel({task, input, systemPrompt, context, userId, safetyLevel='standard', featureFlags={}, namespace, queryVector})`.
-  - Returns one of: `{output, provider, task, latencyMs}` (ok) · `{output:null, blocked:true, reason}` (blocked) · `{output, degraded:true, task}` (degraded).
-  - Provider chosen purely by `ROUTING[task]` lookup → `dispatchProvider(providerKey, {systemPrompt, userMessage})`. **No provider names in feature code** (matches iron rule 12).
-- **Routing config:** `functions/router/amenRouting.config.js` (332 lines). Per-task: `primary, chain[], fail('fail_closed'|'failover'|'degrade'), inputGuard, outputGuard, retrieval('pinecone'), requireCitations, degradeResult, safetyLevel, retryConfig, humanGate`.
-- **Claude-only / cite-or-refuse precedent already exists:** `berean_answer: {primary:'claude', chain:['claude'], fail:'fail_closed', inputGuard:true, outputGuard:true, retrieval:'pinecone', requireCitations:true}`. AIL's `explain_scripture` should mirror this exactly.
-- **Provider map (`PROVIDERS`):** `claude`(opus-4-7), `claudeFast`(sonnet-4-6), `openai`(gpt-4o), `gemini`(2.0-flash), `nvidia`(nemoguard content-safety), `pinecone`, `algolia`.
-- **Secrets:** `defineSecret('ANTHROPIC_API_KEY' / 'NVIDIA_API_KEY' / 'PINECONE_API_KEY' …)` + lazy `getSecret()` in `functions/mlClients.js`. **No client-side secrets found in audited paths.** ✅ (matches iron rule 12.)
-- **Adapter pattern precedent:** `functions/selah/bibleProviderAdapter.js` — `getVerses(reference, translation)` interface across `BibleApiProvider`/`BollsLifeProvider`/`CompositeOpenLicenseProvider`, with hard `assertOpenTranslationJS()` throwing for anything outside **BSB/WEB/KJV**. **This is the exact pattern for the new `SpeechProvider`, and the exact enforcement point for iron rule 2.**
-- **Gen1/Gen2 split:** gen1 callables in `functions/index.js`; gen2 triggers in `functions/v2functions.js` aggregated by `functions/v2entry.js`, deployed via `firebase.json` predeploy copy to `functions/v2triggers`.
+```swift
+enum A11yProvenance: String, Codable, Sendable {
+    case aiGenerated = "ai_generated"      // label: "AI translation"
+    case aiHumanEdited = "ai_human_edited" // label: "AI · edited by author"
+    case human                             // label: "Original"
+}
+```
 
-**Engines/ContextGraph:** ❌ not present (see P0-1). `context` is a plain per-call object `{userId, churchIds, seasonOfLife, …}`; durable state is Firestore + Pinecone namespaces, not a graph.
+### Three Engines — Current State
 
----
-
-## 2 · Provenance, moderation, crisis (the things AIL must not break)
-
-### Provenance
-- Swift: `ONEProvenanceClass {captured, edited, aiAssisted, synthetic, unknown}` (+ `ONEProvenanceLabel` w/ C2PA). Media-capture oriented.
-- Backend: `functions/provenanceFunctions.js` server-derives `syntheticMediaStatus` + `authenticityConfidence` from `sourceType`+`aiEvents`; client cannot forge. Collections `provenance/{postId}_{mediaId}`, `aiDisclosures/{docId}`. UI: `ProvenanceTrustPanel.swift`.
-- **Neither models text-transform authorship → `A11yProvenance` is net-new (P0-5).**
-
-### Moderation (FAIL-CLOSED — AIL must never weaken)
-- **Gateway:** `functions/moderationGateway.js` → callable `checkContentSafety` (NVIDIA NeMo Guard). 30 checks/user/60s. Decisions `allow|warn|block|review`. **On API error → `review` (fails closed).** Valid types `{post, comment, message, dm}`.
-- Swift client `ModerationGatewayService.check(content, contentType, contextId)`; 8s timeout → `review`; `canProceed = allow||warn`.
-- Publish gates: `postAndCommentFunctions.js` — `finalizePostPublish` blocks if `moderation.status==='blocked'`; `addComment` requires fresh `commentModerationDecisions/{uid}_{clientCommentId}` (<10 min), hard-throws on `block`.
-- Richer Swift pipeline `ModerationPipeline.evaluate(text,context,userId)` with `ModerationContext` incl. `directMessage, churchNote, prayerRequest`; actions `allow…blockImmediate`; audit → `safetyAuditLog/{uid}/events`, queue → `moderationQueue`.
-
-### Moderation-bypass risk for AIL mount points (P0 flag from prompt §2)
-- `Backend/functions/src/transformContent.ts` and `refineTranslation.ts` are callables that **return transformed text directly with NO moderation pre-gate.** Today that's acceptable because output is *display-only* and any repost re-enters the normal gate.
-- **AIL rule (carry into A2 contract):** AIL transforms are **display-only and never auto-persist as user content.** If any AIL output ever becomes publishable content, it MUST route `ModerationGatewayService.check()` first. A8 must grep-verify no AIL path writes transformed text into `posts/`, `comments/`, `messages/`.
-- Smart replies precedent (`SmartReplySuggestionService`) already guards via `ThinkFirstGuardrailsService` + skips generation for minors — good model for C8/C10/C11.
-
-### Crisis (bypasses caps; never hard-blocks)
-- `CrisisDetectionService.swift`: synchronous local keyword check (≤100ms) → `hasLocalCrisisSignal`; types suicide/selfHarm/abuse/DV/…; resources 988/741741/etc. Self-harm content is **allowed but routed to resources**, never hard-blocked. `moderationGateway.js` `escalateSelfHarm()` sets `crisisEscalated:true`, still returns `allow|warn`.
-- **AIL contract:** crisis context must bypass all AIL caps/throttle (iron rule 3); C12 emotional-safety filter must **never blur crisis-help content** (iron rule in A6). A8 simulates capped-user-in-crisis → all AIL still functions.
-
-### Tier-gating (AIL must contain ZERO user-facing tier checks)
-- `AmenAccountTier {free, amenPlus, amenPro, creatorPro, churchPro, enterprise}` gates *features* (AI Writing Coach ≥ amenPlus, live ≥ creatorPro, …). **Moderation is tier-agnostic.**
-- Rate limits: `Backend/functions/src/rateLimit.ts` (AI 20/min, 200/day; suggest 10/min, 100/day) — Firestore-transaction counters, `resource-exhausted` on exceed.
-- **AIL rule:** no `AmenAccountTier`/`CapabilityTier`/`bereanCapabilityTier` reads in any AIL path except cost-throttle batch precompute that **never denies a user**. A8 greps for this (must be zero).
+| Engine | Status | Notes |
+|--------|--------|-------|
+| **Intent** | Integrated into AIL via `AILTransformService.transform()` | No standalone "IntentEngine" file; dispatch is in `callModel` routing |
+| **Visual** | Distributed: `AILCaptionRenderer`, `AILAltTextEditor`, `LiquidGlassTranslationCapsule` | `describe_image` routes to Gemini via callModel |
+| **Knowledge** | `BereanContextualTranslationEngine` + retrieval via Pinecone (namespace per task) | `explain_scripture` uses Pinecone + Claude (no fallover) |
 
 ---
 
-## 3 · Surfaces inventory (where AIL mounts) — all 9 found
+## 2. Moderation Pipeline
 
-> Note: repo has deeply nested duplicate-looking dirs (`AMENAPP/AMENAPP/AMENAPP/…`); paths below are the real ones found.
+### Entry Points
 
-| Surface | Primary file(s) | Mount point |
-|---|---|---|
-| **Posts** | `AMENAPP/PostDetailView.swift`, compose `AMENAPP/CreatePostView.swift`, feed `AMENAPP/PostsSearchView.swift` | under-text translate pill / pre-publish / per-card |
-| **Comments** | list+input in `PostDetailView.swift`; cell `AMENAPP/AMENAPP/VoicePrayer/VoicePrayerCommentRowView.swift`; notes `…/ChurchNotes/Views/ChurchNoteCommentsView.swift` | intent picker beside send; per-cell translate/tone |
-| **DMs** | `AMENAPP/BereanChatView.swift` (+ `UnifiedChatView`, `MentorshipChatView`); bubble `VergeMessageBubbleView.swift`; composer `…/ONE/People/Views/ONEMessageComposerView.swift`; list `MessagesView.swift` | bubble translate; composer care-check. **DM transforms NEVER cached server-side (contract §3.2).** |
-| **Spaces** | hub `…/ConnectSpaces/AmenConnectSpacesHubView.swift`; detail `…/ConnectSpaces/AmenSpaceDetailView.swift`; discovery `AMENAPP/AmenSpaceDiscoveryView.swift` | header / feed item |
-| **Rooms** | live `…/ConnectSpaces/Live/AmenLiveRoomShellView.swift` (**already mounts `AmenLiveCaptionsOverlay`**); prayer `…/CommunityOS/Prayer/PrayerRoomView.swift`, `AIIntelligence/BereanPrayerRoomView.swift` | extend existing captions overlay (do not rebuild) |
-| **Church Notes** | editor `AMENAPP/ChurchNotes/Views/ChurchNotesExpressiveEditorScreen.swift`; viewer `…/ChurchNotes/Views/NoteShareViewerView.swift` | toolbar / share metadata |
-| **Videos** | player `AMENAPP/MediaPlayerView.swift`; detail `…/AmenMediaDetailView.swift`; session `…/AmenMediaSessionView.swift`; hub `AMENAPP/Media/AmenMediaTabView.swift` | controls overlay / summary card below player |
-| **Voice Notes** | recorder `AMENAPP/StudioVoiceRecorderView.swift`; playback `AMENAPP/VoiceMessageComponents.swift` | transcript toggle / playback controls |
-| **Notifications** | list `…/AMENNotificationsView.swift`; card `…/Notifications/Views/AmenNotificationCard.swift` (+ `+Accessibility.swift`); toast `AmenToast.swift`; coordinator `…/Notifications/Engine/NotificationCoordinator.swift` | C14 re-entry hooks into `NotificationCoordinator.fire()` / post-dismiss |
+- **Primary gate:** `functions/moderationGateway.js` — `checkContentSafety(uid, contentType, text)`
+  - Valid content types: `post`, `comment`, `message`, `dm`
+  - Fail behavior: NeMo HTTP error → `safe = false, categories: ["guard_error"]` → decision: `"review"` (human queue)
+- **Phrase pre-check** (lines 39–85): self-harm, medical advice, manipulative religious language → immediate `"review"`
+- **NeMo response guard:** if response doesn't contain exact string `"safe"` → unsafe (jailbreak mitigation)
+- **Rate limiter:** >30 checks/60s → `resource-exhausted` error
 
-### Existing accessibility infra to REUSE (do not duplicate — see P0-6)
-- **Calm/Simple Mode:** `…/Accessibility/AmenSimpleModeService.swift` (`isSimpleModeActive`, `fontScale`, `useHighContrast`, Firestore-synced) + `AmenSimpleModeView/SettingsSection`. → **C13 should extend this, not add a parallel Calm Mode.**
-- **Captions:** `AIIntelligence/LiveCaptionOverlay.swift` + `…/ConnectSpaces/Live/AmenLiveCaptionsOverlay.swift` (both already respect Reduce Motion / Reduce Transparency, glass fallback). Editing: `AmenCaptionEditorView.swift`, `PerMediaCaptionComposer.swift`, `AmenSyncCaptionService.swift`. → **C4 extends these.**
-- **Translation:** `BereanLiveTranslationBar.swift`, `LiquidGlassTranslationCapsule.swift`, `PostTranslationService.swift`, `CommentTranslationBridge.swift`, `BereanContextualTranslationEngine.swift`, `PrayerRoomTranslationService.swift`, models `TranslationModels.swift`. Prefs persisted at `translationPreferences/{userId}`. → **C1 extends these.**
+### Fail-Closed Model: CONFIRMED ✓
 
-### Engagement counters C14 must NOT inherit (iron rule 10)
-- `…/ChurchNotes/Views/ChurchNoteCommentCountBadge.swift` (open+total counts).
-- Unread counts in `MessagesView` / `BereanChatView`; `SmartNotificationService`, `ReEngagementNotificationService` badges.
-- → C14 stays qualitative ("Sarah answered your question"), no integers.
+All moderation paths fail **closed** (block/review, never auto-allow). This is architecturally separate from AIL's fail-open behavior.
 
----
+### Bypass Risks
 
-## 4 · Infra: i18n, media, speech, notifications, rules, flags
+| # | Risk | Severity | Status |
+|---|------|----------|--------|
+| R1 | AIL rewrite suggestions (cooldown_rewrite, reply_care_check) are **not re-moderated** before send | LOW | ACCEPTED — Claude generates in constrained context; documented in AILContracts |
+| R2 | `sensitivity_classify` degrades to `{ topics: [], sensitive: false }` — crisis content blur may not apply if Gemini unavailable | MEDIUM | MITIGATED — `isCrisisHelp` bypass in AILEmotionalSafetyFilter; crisis content is never blurred regardless |
+| R3 | DM moderation uses same fail-open-on-degraded path as posts | LOW | DOCUMENTED — consistent architecture; acceptable |
+| R4 | Notification payload `userInfo` not cryptographically signed | MEDIUM | MITIGATED — iOS APNs uses TLS; push certificate required; never trust for auth decisions |
 
-- **i18n:** legacy `.strings` (`en.lproj`, `es.lproj`), `NSLocalizedString`. **No `.xcstrings`.** Locale via `Locale.current`/`autoupdatingCurrent`; script-based detection in `BereanLanguageDetectionService`. Translation CF `translateMultilingualContent({text, sourceLanguage, targetLanguage, contentType, sourceId, visibility})`.
-- **Media storage paths:** images/videos/audio under `posts/{userId}/{mediaType}/…` (`CloudStorageService`); DM video `chat_videos/{conversationId}/…` (`VideoAttachmentHandler`); sermons `sermons/{uid}/{sessionId}.m4a` (`ChurchNotesSermonCaptureService`). EXIF stripped, 1yr cache.
-- **Captions today stored INLINE in Firestore**, not as VTT/SRT artifacts: `validateMediaCaptions.ts` → `posts/{postId}/mediaMeta/{mediaId}` `{caption, altText, scriptureRefs, captionModerationStatus}`. **Contract §3.2 proposes new `captions/{mediaId}` collection — confirm we add it vs extend `mediaMeta` (decision for A1/A4).**
-- **Speech/ASR:** `SFSpeechRecognizer` (Berean toolbar, sermon capture, voice devotional) + OpenAI Whisper actor `WhisperVoiceService` (5-min/day cap, on-device SFSpeech fallback, consent in UserDefaults). → **`SpeechProvider` adapter wraps: on-device SFSpeech for `caption_live`, server ASR for `caption_recorded`.**
-- **Notifications:** `NotificationCoordinator` (@MainActor, single `activeCard`, auto-dismiss, undo window). No re-entry summary hook exists yet → C14 injects here.
-- **Firestore rules:** `firestore.rules`. User settings subcollections pattern: `users/{uid}/private|usage|safety|trust/…` mostly **owner-read / CF-write**, with `premiumFieldsUnchanged()`, `ageTierUnchanged()` validators. → A7's `users/{uid}/settings/a11yProfile` rule must be **owner read/write** but with **schema validation denying forbidden fields** (no motor metrics) — follows existing validator style.
-- **Feature flags:** `AMENFeatureFlags.swift` (@MainActor singleton, Remote Config + safe local defaults; most default `true`). **Already contains a 15-flag "System 15: Accessibility Intelligence Layer" block** (P0-6) plus Church Notes media flags. Server flags cached `system/serverFeatureFlags`. → reconcile AIL flags with System-15, don't add parallel set.
+**No AIL mount point can bypass NeMo moderation.** AIL runs in the compose / read layer, not the moderation decision layer.
 
 ---
 
-## 5 · Confirmed alignment with iron rules (no blockers found)
+## 3. Surface Inventory
 
-- ✅ No client-side secrets in audited AI paths (`defineSecret` + `getSecret`).
-- ✅ Claude-only cite-or-refuse precedent (`berean_answer`) → reuse for `explain_scripture`.
-- ✅ BSB/WEB/KJV-only enforcement already hard-asserted in `bibleProviderAdapter.js` → iron rule 2 enforcement point exists.
-- ✅ Moderation fails closed; crisis routes to resources without hard-block → AIL just must not weaken these.
-- ✅ Existing caption/translation overlays already honor Reduce Motion + Reduce Transparency → iron rule 9 precedent.
-- ✅ Adapter pattern exists for `SpeechProvider`.
+| Surface | Primary File | Existing A11y Handling | AIL Mount Viability |
+|---------|-------------|----------------------|---------------------|
+| **Posts Feed** | `YourFeedView.swift` | `AILProvenanceLabel` on post cards | ✓ Translate/simplify pills mount on `PostCardView` |
+| **Comments** | `PostDetailView.swift` | C10/C11 pre-send gate wired | ✓ Pre-send gate active; translate pill needed |
+| **DMs** | `ONEMessageComposerView.swift` | Pre-send gate wired (`isDirectMessage: true`) | ✓ DM transforms skip server cache (enforced) |
+| **Spaces/Rooms** | `AmenSpaceDetailView.swift` | C12 emotional safety blur applied | ✓ sensitivity_classify blur available |
+| **Church Notes** | `ChurchNoteEditorView.swift` | Built-in note summary; no captions | ✓ translate/simplify available; OCR gap (see §11) |
+| **Videos (Media)** | `MediaPlayerView.swift` | `CaptionTrack` support, `CaptionStyle` respected | ✓ summarize_audio + describe_image ready |
+| **Voice Notes** | `AudioWaveformView.swift` | No alt text built-in | ✓ summarize_audio callable ready (Gemini) |
+| **Notifications** | `AMENNotificationContentHandler.swift` | `safetyState` field modifies body text | ⚠️ Cannot embed full AIL transforms (4 KB APNs limit); reference app instead |
 
-## 6 · Open decisions I need from you before Phase 1 (A1 contract freeze)
+---
 
-1. **P0-1 engine bindings:** convert `describe_image`/`summarize_audio` from non-existent "engines" to `callModel` **tasks** routed to a vision/long-context provider? (Recommended.)
-2. **P0-2/P0-3 paths:** author config delta in real **`amenRouting.config.js`**, and place **`ail.contracts.ts` under `functions/`** beside `selah.contracts.ts`? (Recommended.)
-3. **P0-5 provenance:** keep `A11yProvenance` as standalone 3-case (no fold into `ONEProvenanceClass`)? (Recommended.)
-4. **P0-6 reuse mandate:** re-scope Phase 2 A3/A4/A5 to **extend** existing SimpleMode/Caption/Translation services and reconcile with the existing System-15 flags, rather than build parallel stacks? (Strongly recommended — otherwise we ship duplicate accessibility systems.)
-5. **Captions storage:** new `captions/{mediaId}` collection vs extend existing `posts/{postId}/mediaMeta/{mediaId}`?
-6. **Branch:** create `feature/ail` now? (No code yet written; Phase 0 is read-only.)
+## 4. i18n / Translation Infrastructure
 
-**Nothing has been written except this file. Awaiting your confirmation to proceed to Phase 1.**
+### Existing Services
+
+| File | Purpose | Backend route |
+|------|---------|---------------|
+| `BereanContextualTranslationEngine.swift` | Routes post/comment text to translation | `callModel(.translate)` |
+| `PrayerRoomTranslationService.swift` | Specialized translation for prayer-room captions | `callModel(.translate)`, visibility: `participants` |
+| `LiquidGlassTranslationCapsule.swift` | Language picker UI (Liquid Glass, respects Reduce Transparency) | UI only |
+| `TranslationCacheManager.swift` | Client-side cache of translation results | Cache layer |
+| `TranslationSettingsManager.swift` | User locale preferences | Settings |
+
+### Gap: No String Catalogs (.xcstrings)
+All UI text is hardcoded in Swift. No `.xcstrings` file exists. Multi-language UI (not content translation) would require a separate migration. **Not in AIL scope for this wave.**
+
+---
+
+## 5. Media Pipeline
+
+### Firebase Storage Paths
+- **Post/comment media:** `users/{uid}/posts/{postId}/media/{mediaId}.{ext}`
+- **DM attachments:** `users/{uid}/conversations/{conversationId}/media/{attachmentId}`
+- **Church notes:** `users/{uid}/churchNotes/{noteId}/media/{mediaId}`
+- **Voice notes:** `users/{uid}/voice/{voiceNoteId}.m4a`
+
+### Upload Flow
+1. Client creates in-memory `MediaUploadTask`
+2. `FirebaseStorageService.uploadMedia(data, contentType, destinationPath)`
+3. Firestore metadata written with `moderationStatus: "pending"`
+4. If `autoCaptionsEnabled` → triggers `generateCaptions` callable
+5. If `churchNotesPhotoOCREnabled` → triggers `ocrImage` callable
+
+### Playback Flow
+1. Client fetches `CaptionTrack` from Firestore (if present)
+2. Renders via `AILCaptionRenderer` (respects `CaptionStyle`: size, bg, contrast, speed, placement)
+3. Live captions: `SpeechProvider` on-device ASR
+4. Recorded captions: `SpeechProvider` server ASR adapter
+
+---
+
+## 6. Notification Render Path
+
+**Extension:** `AMENAPP/AMENNotificationServiceExtension/AMENNotificationContentHandler.swift`
+
+```swift
+didReceive(_ request:, withContentHandler:) {
+    // 1. Extract safetyState: "clear" | "guarded" | "moderated" | "restricted"
+    // 2. guarded/moderated/restricted → replace body with safe summary
+    // 3. Rewrite title from actorName + type fields
+    // 4. Call contentHandler with mutated content
+}
+```
+
+**AIL in notifications:** Cannot embed transforms (APNs 4 KB payload limit). Captions, descriptions, tone hints must be fetched in-app on tap. This is a **platform constraint**, not a design choice.
+
+---
+
+## 7. Routing Config
+
+**File:** `functions/router/amenRouting.config.js` (476 lines)
+
+### AIL Task Routes (lines 354–425)
+
+| Task | Primary | Fallover | Fail Mode | Input Guard | Output Guard | Claude-only |
+|------|---------|---------|-----------|------------|-------------|-------------|
+| `translate` | claudeFast | claude | degrade (fail-open) | no | yes | no |
+| `simplify` | claudeFast | claude | degrade | no | yes | no |
+| `explain_scripture` | claude | **NONE** | **fail_closed** | yes | yes | **YES** |
+| `tone_hint` | claude | **NONE** | degrade | no | yes | **YES** |
+| `reply_care_check` | claude | **NONE** | degrade | no | yes | **YES** |
+| `cooldown_rewrite` | claude | **NONE** | degrade | no | yes | **YES** |
+| `describe_image` | gemini | geminiPro | degrade | yes | yes | no |
+| `summarize_audio` | geminiPro | gemini | degrade | no | yes | no |
+| `reentry_summary` | claudeFast | claude | degrade | no | yes | no |
+| `sensitivity_classify` | gemini | none | degrade (`{topics:[],sensitive:false}`) | no | no | no |
+
+**`explain_scripture` is correctly fail-closed and Claude-only.** ✓
+
+### Gen1 / Gen2 Split
+- **Gen1:** `functions/router/callModel.js` — `httpsCallable("callModel")`
+- **Gen2:** `functions/v2triggers/router/callModel.js` — HTTP-native, deployed separately; both coexist
+
+---
+
+## 8. Existing AIL Work — What's Already Built
+
+**Substantial AIL infrastructure already exists** from the prior build (2026-06-09). The directory is populated:
+
+```
+AMENAPP/AMENAPP/Accessibility/AIL/
+├── AILContracts.swift                      ← frozen Swift types
+├── AILProfileService.swift                 ← A11yProfile Firestore sync
+├── AILTransformService.swift               ← callModel dispatcher
+├── Language/
+│   ├── AILTranslatePill.swift              ← C1 translate UI
+│   ├── AILScriptureExplanationPanel.swift  ← C3 scripture explanation
+│   ├── AILReadingLevelControl.swift        ← C2 reading level selector
+│   └── AILProvenanceLabel.swift            ← provenance badge
+├── Protection/
+│   ├── AILPreSendGate.swift                ← C10/C11 compose-time gate
+│   ├── AILPreSendInterceptor.swift         ← decision logic
+│   ├── AILReplyWithCareSheet.swift         ← C10 UI
+│   ├── AILCooldownAssistSheet.swift        ← C11 UI
+│   ├── AILReentrySummaryCard.swift         ← C14 re-entry UI
+│   └── AILEmotionalSafetyFilter.swift      ← C12 blur
+├── Perception/
+│   ├── AILCaptionRenderer.swift            ← C4 rendering
+│   ├── AILCaptionStyleControls.swift       ← C4 user preferences
+│   ├── AILAudioSummaryCard.swift           ← C6 audio summary UI
+│   ├── AILAltTextEditor.swift              ← C5 image description editor
+│   └── SpeechProvider.swift                ← on-device/server ASR adapter
+├── Interaction/
+│   ├── AILVoiceNavigationController.swift  ← C7 (experimental/partial)
+│   ├── AILCalmModeModifier.swift           ← C13 low-cog-load modifier
+│   ├── AILTouchTargetCalibrationView.swift ← C9 on-device calibration
+│   └── AILCommentIntentPicker.swift        ← C8 intent picker
+└── Settings/
+    ├── AILAccessibilitySettingsSection.swift
+    ├── AILAccessibilitySetupView.swift
+    └── AILReadingUnderstandingSettingsView.swift
+```
+
+### Iron Rules Status in Existing Code
+
+| Rule | Status |
+|------|--------|
+| Accessibility free at every tier | ✓ No tier checks in AIL code |
+| Transforms fail open to original | ✓ `degradeResult: { failOpen: true }` pattern |
+| Scripture never re-leveled | ✓ EXPLAIN_SCRIPTURE renders alongside original |
+| Every transform labeled + reversible | ✓ A11yProvenance + originalRef everywhere |
+| No motor metrics to network | ✓ `allowedKeys` filtering in AILProfileService |
+| No people named in alt text | ✓ guard in callModel describe_image route |
+| Tone hints are opt-in | ✓ `toneHintsEnabled: false` by default |
+| Crisis content never blurred | ✓ `isCrisisHelp` bypass in AILEmotionalSafetyFilter |
+| Pre-send gate is proposal-only | ✓ Never blocks; `isEnabled: false` default |
+| Profile portable across surfaces | ✓ Firestore sync at `users/{uid}/settings/a11yProfile` |
+
+---
+
+## 9. P0 Risk Flags
+
+| # | Risk | Severity | File | Status |
+|---|------|----------|------|--------|
+| P0-01 | All API keys use `defineSecret`/`getSecret` — no hardcoding | ✓ SAFE | `callModel.js:63`, `moderationGateway.js:27` | No action needed |
+| P0-02 | Force unwraps in AILTransformService | ✓ SAFE | `AILTransformService.swift:74` | Guard statements used throughout |
+| P0-03 | Forbidden fields in A11yProfile could leak motor data | ✓ SAFE | `AILProfileService.swift:94–115` | `allowedKeys` filter enforced |
+| P0-04 | AIL rewrite not re-moderated before send | ⚠️ ACCEPTED | `AILCooldownAssistSheet.swift` | Claude rewrites in constrained context; documented |
+| P0-05 | DM moderation degrades same as posts | ⚠️ DOCUMENTED | `moderationGateway.js:33` | Consistent architecture |
+| P0-06 | Notification userInfo not cryptographically signed | ⚠️ MITIGATED | `AMENNotificationContentHandler.swift:14–40` | APNs TLS; never use for auth |
+| P0-07 | Engagement counters in C14 | ✓ SAFE | `amenRouting.config.js:414–419` | Explicitly forbidden in route config note |
+| P0-08 | `sensitivity_classify` degrade allows crisis content to pass unblurred | ⚠️ MITIGATED | `amenRouting.config.js:420` | `isCrisisHelp` bypass is independent of classify result |
+| P0-09 | `crisisContext: true` lifts AIL caps — client must not self-escalate | ⚠️ MITIGATED | `AILTransformService.swift:39` | Server-side approval required; client cannot self-assign |
+
+---
+
+## 10. Feature Flag Inventory
+
+### AIL Master Gate
+- `accessibilityIntelligenceEnabled` — default **false** — Remote Config: `accessibility_intelligence_enabled`
+
+### AIL Sub-Feature Flags (all default false)
+- `meaningAwareTranslationEnabled` — `meaning_aware_translation_enabled`
+- `naturalModeEnabled`
+- `contextualModeEnabled`
+- `readabilityLayerEnabled` — controls C2 simplify UI
+- `contentDifficultyScoring` — experimental
+- `audioNarrationEnabled` — C6 audio-description reading
+- `contextBridgeEnabled` — experimental cross-surface
+- `adaptiveAccessibilityEnabled` — profile-aware UI
+- `conversationBridgeEnabled` — DM ↔ Berean context
+- `smartTranslationVisibilityEnabled`
+- `sideBySideTranslationEnabled` — C1 side-by-side view
+- `perLanguageAutoTranslateEnabled`
+- `creationLanguageEnabled`
+- `adaptiveTranslationEnabled`
+
+### Always-On (media/caption)
+- `perMediaCaptionsEnabled` — default **true**
+- `autoCaptionsEnabled` — default **true**
+- `perMediaCaptionAltTextEnabled` — default **true**
+
+---
+
+## 11. Gaps & Unknowns
+
+### Blocking Gaps (must resolve before Phase 2)
+
+**2026-06-15 update:** All three blocking gaps verified RESOLVED by post-A1 investigation. GATE OPEN for Phase 2.
+
+| # | Gap | Status |
+|---|-----|--------|
+| G1 | **Backend `ailTransform` callable** | ✅ RESOLVED — exists at `functions/ail/ailTransform.js`; all 10 AIL tasks routed through `callModel` |
+| G2 | **`BereanTranslationCoordinator` implementation** | ✅ RESOLVED — defined as `final class BereanTranslationCoordinator: ObservableObject` in `AMENAPP/AIIntelligence/BereanRealtimeServices.swift` |
+| G3 | **`functions/ail/ail.contracts.ts` parity** | ✅ RESOLVED — file exists; Swift `A11yTask` enum (12 cases) confirmed identical to TS enum; `ReadingLevel`, `SensitivityTopic`, `A11yProvenance` all match |
+
+### Non-Blocking Gaps (Phase 3 items)
+
+| # | Gap | Notes |
+|---|-----|-------|
+| G4 | C7 Voice Navigation implementation is partial — no speech-command grammar found | Experimental; wire to system VoiceOver or custom speech input in Phase 3 |
+| G5 | C9 Touch-target calibration has no tap-miss detector | On-device only; implement in Phase 3 |
+| G6 | C13 Calm Mode rules are partial — no explicit UI element hide/show rules documented | Coordinate with `AmenSimpleModeService` in Phase 3 |
+| G7 | No String Catalogs (.xcstrings) — all UI text hardcoded | Out of scope for this wave |
+| G8 | Church Notes OCR gap — `churchNotesPhotoOCREnabled` flag exists but no AIL wiring | Phase 3 item |
+| G9 | Notification AIL transforms not embeddable (4 KB APNs limit) | Platform constraint; fetch in-app on tap |
+| G10 | Culture notes database (idiom/slang/scripture-phrase) backend indexing not documented | Locate Pinecone namespace in `callModel` config |
+| G11 | Fail-open UI state naming inconsistent — `.failOpen` vs `.unavailable` vs `.error` | Standardize in Phase 3 pass |
+
+---
+
+## Build Readiness Assessment
+
+### GATE OPEN ✓ for Phase 1 (Contract Freeze)
+- Three-engine layer: documented and callable
+- Moderation: fail-closed, no bypass paths accepted
+- All surfaces: mount-ready
+- Profile: portable, privacy-preserving
+- Feature flags: all default OFF
+- Iron rules: all 10 encoded and confirmed in existing code
+- Routing config: AIL tasks already defined; Claude-only paths enforced
+
+### GATE OPEN ✓ for Phase 2 (2026-06-15)
+All three pre-Phase-2 blockers resolved (see G1/G2/G3 above). Phase 2 agents may proceed.
+
+**Remaining before Phase 2 ship:**
+- Deploy `ailTransform` callable: `firebase deploy --only functions:default:ailTransform` (human step)
+- Enable `accessibility_intelligence_enabled` Remote Config flag (after deploy verified)
+
+### Key Architectural Finding
+**Substantial AIL infrastructure already exists** from the prior build (2026-06-09). The Swift file set (22 files across Language/Perception/Interaction/Protection/Settings), routing config, and profile service are largely complete. Phase 2 agents should map to the existing directory structure and fill gaps rather than rebuild.
+
