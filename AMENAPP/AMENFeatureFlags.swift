@@ -902,6 +902,10 @@ final class AMENFeatureFlags: ObservableObject {
     /// Verse Lookup capability — inline verse retrieval and insertion in any composer.
     @Published private(set) var verseLookupInlineEnabled: Bool = false
 
+    // MARK: - System 42: Adaptive Hero Surface (default OFF — flip after QA checklist passes)
+    /// Master gate for the AdaptiveHeroEngine hero surface (creator / church / space kinds).
+    @Published private(set) var heroSurfaceEnabled: Bool = false
+
     private init() {
         applyUITestOverrides()
         Task { await fetchRemoteConfig() }
@@ -1611,6 +1615,9 @@ final class AMENFeatureFlags: ObservableObject {
             "prayer_os": false as NSObject,
             "scripture_intelligence": false as NSObject,
             "verse_lookup_inline": false as NSObject,
+
+            // Adaptive Hero Surface — default OFF until QA checklist passes
+            "hero_surface_enabled": false as NSObject,
         ]
     }
 
@@ -2439,6 +2446,7 @@ final class AMENFeatureFlags: ObservableObject {
         connectDiscoveryAdaptiveBackgroundEnabled = config["connect_discovery_adaptive_background"].boolValue
         connectDiscoveryDynamicIslandEnabled      = config["connect_discovery_dynamic_island"].boolValue
         connectDiscoveryCalmCapEnabled            = config["connect_discovery_calm_cap"].boolValue
+        heroSurfaceEnabled = config["hero_surface_enabled"].boolValue
     }
 }
 
@@ -2449,4 +2457,29 @@ private enum AppVersion {
         let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
         return current.compare(minimum, options: .numeric) != .orderedAscending
     }
+}
+
+// MARK: - Context Intelligence OS (ctx_) — all default false until staged rollout
+
+extension AMENFeatureFlags {
+    static var ctx_signal_bus_enabled: Bool { false }
+    static var ctx_permissions_center_enabled: Bool { false }
+    static var ctx_crisis_dampening_enabled: Bool { false }
+    static var ctx_gentle_check_ins_enabled: Bool { false }
+    static var ctx_rhythm_engine_enabled: Bool { false }
+    static var ctx_offline_capture_enabled: Bool { false }
+    static var ctx_basic_continuity_enabled: Bool { false }
+    static var ctx_note_to_give_bridge_enabled: Bool { false }
+    static var ctx_message_prayer_extraction_enabled: Bool { false }
+    static var ctx_visit_verification_enabled: Bool { false }
+    static var ctx_giving_receipts_enabled: Bool { false }
+    static var ctx_constellation_model_enabled: Bool { false }
+    static var ctx_berean_context_injection_enabled: Bool { false }
+    static var ctx_verse_resonance_enabled: Bool { false }
+    static var ctx_cohort_resonance_enabled: Bool { false }
+    static var ctx_giving_portfolio_enabled: Bool { false }
+    static var ctx_continuity_cross_device_enabled: Bool { false }
+    static var ctx_seasons_insights_enabled: Bool { false }
+    static var ctx_volunteer_needs_posting_enabled: Bool { false }
+    static var ctx_group_formation_analytics_enabled: Bool { false }
 }

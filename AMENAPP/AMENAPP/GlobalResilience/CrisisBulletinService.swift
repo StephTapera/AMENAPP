@@ -39,7 +39,11 @@ final class CrisisBulletinService: ObservableObject {
     // MARK: Private state
 
     private var listenerRegistration: ListenerRegistration?
-    private let db = Firestore.firestore()
+    // lazy so Firestore.firestore() is not called until startListening() first
+    // accesses db — by that point FirebaseApp.configure() has already run in
+    // AppDelegate and Firestore is ready. An eager `let` here crashes if the
+    // singleton is touched before Firebase is configured.
+    private lazy var db = Firestore.firestore()
 
     // MARK: Init
 
