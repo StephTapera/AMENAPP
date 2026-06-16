@@ -5,35 +5,40 @@ struct LiquidGlassMaterial: ViewModifier {
     let elevated: Bool
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
         content
             .background {
                 RoundedRectangle(cornerRadius: elevated ? LiquidGlassTokens.cornerRadiusLarge : LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
-                    .fill(elevated ? LiquidGlassTokens.blurElevated : LiquidGlassTokens.blurThin)
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .systemBackground)) : AnyShapeStyle(elevated ? LiquidGlassTokens.blurElevated : LiquidGlassTokens.blurThin))
                     .overlay(alignment: .top) {
-                        RoundedRectangle(cornerRadius: elevated ? LiquidGlassTokens.cornerRadiusLarge : LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(colorScheme == .dark ? 0.18 : 0.7), Color.white.opacity(0.05)],
-                                    startPoint: .top,
-                                    endPoint: .center
+                        if !reduceTransparency {
+                            RoundedRectangle(cornerRadius: elevated ? LiquidGlassTokens.cornerRadiusLarge : LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(colorScheme == .dark ? 0.18 : 0.7), Color.white.opacity(0.05)],
+                                        startPoint: .top,
+                                        endPoint: .center
+                                    )
                                 )
-                            )
-                            .blendMode(.screen)
+                                .blendMode(.screen)
+                        }
                     }
                     .overlay(alignment: .bottom) {
-                        RoundedRectangle(cornerRadius: elevated ? LiquidGlassTokens.cornerRadiusLarge : LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.clear, Color.black.opacity(colorScheme == .dark ? 0.18 : 0.06)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
+                        if !reduceTransparency {
+                            RoundedRectangle(cornerRadius: elevated ? LiquidGlassTokens.cornerRadiusLarge : LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.clear, Color.black.opacity(colorScheme == .dark ? 0.18 : 0.06)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
                                 )
-                            )
+                        }
                     }
                     .overlay {
-                        if let tint {
+                        if let tint, !reduceTransparency {
                             RoundedRectangle(cornerRadius: elevated ? LiquidGlassTokens.cornerRadiusLarge : LiquidGlassTokens.cornerRadiusMedium, style: .continuous)
                                 .fill(
                                     LinearGradient(

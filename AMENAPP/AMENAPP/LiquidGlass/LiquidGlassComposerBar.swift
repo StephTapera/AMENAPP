@@ -8,6 +8,7 @@ struct LiquidGlassComposerBar: View {
     var onAskBerean: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var focused: Bool
     @State private var selectedType: LivingEntryType = .note
 
@@ -88,10 +89,10 @@ struct LiquidGlassComposerBar: View {
         .padding(12)
         .background(
             Capsule(style: .continuous)
-                .fill(LiquidGlassTokens.blurRegular)
+                .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .systemBackground)) : AnyShapeStyle(LiquidGlassTokens.blurRegular))
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(Color.white.opacity(0.6), lineWidth: 0.8)
+                        .stroke(Color.white.opacity(reduceTransparency ? 0.0 : 0.6), lineWidth: 0.8)
                 )
         )
         .shadow(color: LiquidGlassTokens.shadowFloating.color, radius: LiquidGlassTokens.shadowFloating.radius, y: LiquidGlassTokens.shadowFloating.y)

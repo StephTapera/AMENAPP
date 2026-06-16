@@ -8,6 +8,7 @@ struct LivingEntryLiquidGlassCard<Content: View>: View {
     let content: Content
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
     init(
@@ -29,7 +30,7 @@ struct LivingEntryLiquidGlassCard<Content: View>: View {
             .padding(16)
             .background(background)
             .scaleEffect(pressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.22, dampingFraction: 0.78), value: pressed)
+            .animation(reduceMotion ? .linear(duration: 0) : .spring(response: 0.22, dampingFraction: 0.78), value: pressed)
     }
 
     @ViewBuilder
