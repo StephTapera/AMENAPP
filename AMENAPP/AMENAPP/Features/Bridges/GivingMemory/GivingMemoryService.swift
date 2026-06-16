@@ -20,9 +20,10 @@ actor GivingMemoryService {
     /// Wires the ContextBus subscription. Call once from AppDelegate / App init.
     func install() {
         Task {
-            let stream = ContextBus.shared.subscribe(to: [.giftCompleted])
+            let stream = await ContextBus.shared.subscribe(to: [.giftCompleted])
             for await signal in stream {
-                guard AMENFeatureFlags.ctx_giving_receipts_enabled else { continue }
+                let enabled = await MainActor.run { AMENFeatureFlags.ctx_giving_receipts_enabled }
+                guard enabled else { continue }
                 await recordGift(from: signal)
             }
         }

@@ -58,7 +58,7 @@ class LiquidGlassVerseSearchService: ObservableObject {
     @Published var results: [BibleVerse] = []
     @Published var isLoading = false
     @Published var searchIntent: VerseSearchIntent = .topic
-    @Published var selectedTranslation: LocalBibleTranslation = .NIV
+    @Published var selectedTranslation: LocalBibleTranslation = .BSB
     
     private var searchTask: Task<Void, Never>?
     

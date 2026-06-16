@@ -1,3 +1,4 @@
+#if canImport(Testing)
 import Testing
 import Foundation
 @testable import AMENAPP
@@ -165,3 +166,4 @@ extension VisitVerificationService {
     /// Exposes the count of currently registered church regions for test assertions.
     var registeredChurchCount: Int { registeredChurches.count }
 }
+#endif

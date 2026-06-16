@@ -2,11 +2,10 @@
 // AMEN — Global Resilience System
 //
 // Single call-site entry point that bootstraps every Global Resilience service
-// at app launch. Call GlobalResilienceWiring.wire() once from either:
+// at app launch. Call GlobalResilienceWiring.wire() once from:
 //
-//   AMENAPPApp.init()
-//   — or —
 //   AppDelegate.application(_:didFinishLaunchingWithOptions:)
+//   — AFTER FirebaseApp.configure() —
 //
 // Also inject the three environment objects into the root view hierarchy:
 //
@@ -16,6 +15,7 @@
 //       .environmentObject(GlobalResilienceFeatureFlags.shared)
 
 import SwiftUI
+import FirebaseCore
 import FirebaseFunctions
 
 // MARK: - GlobalResilienceWiring
@@ -24,11 +24,17 @@ enum GlobalResilienceWiring {
 
     /// Bootstrap all Global Resilience services.
     ///
-    /// Safe to call multiple times — each service uses a lazy singleton and is
-    /// idempotent on repeated invocations. The Remote Config fetch is re-issued
-    /// on every call, which is intentional: new sessions should always try to
-    /// pull fresh flag values.
+    /// Must be called from AppDelegate AFTER FirebaseApp.configure().
+    /// Calling before configure() is a programming error — it will assert in
+    /// DEBUG and return without wiring anything in RELEASE.
     static func wire() {
+        // Crash fence: Firestore and Remote Config both throw if FirebaseApp.configure()
+        // has not been called. Do not move this call to AMENAPPApp.init() — the
+        // AppDelegate runs configure() first, but AMENAPPApp.init() executes before it.
+        guard FirebaseApp.app() != nil else {
+            assertionFailure("[GlobalResilienceWiring] wire() called before FirebaseApp.configure()")
+            return
+        }
 
         // 1. Fetch all 12 Remote Config feature flags asynchronously.
         //    Flags default to false (safe-off) until the first successful fetch.
@@ -59,35 +65,23 @@ enum GlobalResilienceWiring {
 
 // MARK: - CALL SITE INSTRUCTIONS
 //
-// ── AMENAPPApp.init() ──────────────────────────────────────────────────────────
-//
-//   init() {
-//       // … existing init code …
-//       GlobalResilienceWiring.wire()
-//   }
-//
-// ── AMENAPPApp body (WindowGroup) ─────────────────────────────────────────────
-//
-//   var body: some Scene {
-//       WindowGroup {
-//           AccountStatusGate {
-//               ContentView()
-//                   // … existing modifiers …
-//                   .environmentObject(CapabilityMonitor.shared)
-//                   .environmentObject(LowDataModeManager.shared)
-//                   .environmentObject(GlobalResilienceFeatureFlags.shared)
-//           }
-//       }
-//   }
-//
-// ── AppDelegate.application(_:didFinishLaunchingWithOptions:) (alternative) ───
+// ── AppDelegate.application(_:didFinishLaunchingWithOptions:) ─────────────────
 //
 //   func application(
 //       _ application: UIApplication,
 //       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
 //   ) -> Bool {
-//       // … existing setup …
-//       GlobalResilienceWiring.wire()
+//       // App Check provider factory MUST be set before configure()
+//       AppCheck.setAppCheckProviderFactory(...)
+//       FirebaseApp.configure()           // ← configure() FIRST
+//       GlobalResilienceWiring.wire()     // ← wire() AFTER
 //       return true
 //   }
+//
+// ── Do NOT call from AMENAPPApp.init() ───────────────────────────────────────
+//
+//   AMENAPPApp.init() executes BEFORE AppDelegate.didFinishLaunchingWithOptions,
+//   so Firebase is not yet configured when init() runs. The guard in wire()
+//   will catch this if it ever regresses and produce a clear assertionFailure.
+//
 // ──────────────────────────────────────────────────────────────────────────────

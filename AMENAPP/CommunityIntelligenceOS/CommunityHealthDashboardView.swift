@@ -79,7 +79,7 @@ struct EngagementAlert: Identifiable {
     }
 }
 
-struct CommunityHealthSnapshot {
+struct CommunityDashboardSnapshot {
     let overallScore: Double
     let scoreDelta7d: Double
     let dimensions: [HealthDimension]
@@ -90,7 +90,7 @@ struct CommunityHealthSnapshot {
     let newConnections: Int
     let mentorshipPairs: Int
 
-    static let preview = CommunityHealthSnapshot(
+    static let preview = CommunityDashboardSnapshot(
         overallScore: 0.76,
         scoreDelta7d: 0.03,
         dimensions: [
@@ -125,14 +125,14 @@ struct CommunityHealthSnapshot {
 // MARK: - Main View
 
 struct CommunityHealthDashboardView: View {
-    let snapshot: CommunityHealthSnapshot
+    let snapshot: CommunityDashboardSnapshot
     @State private var localAlerts: [EngagementAlert]
     @State private var selectedDimension: HealthDimension? = nil
     @State private var showDimensionDetail = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(snapshot: CommunityHealthSnapshot) {
+    init(snapshot: CommunityDashboardSnapshot) {
         self.snapshot = snapshot
         self._localAlerts = State(initialValue: snapshot.alerts)
     }

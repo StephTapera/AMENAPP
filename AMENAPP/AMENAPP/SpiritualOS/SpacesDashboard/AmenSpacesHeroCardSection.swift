@@ -553,7 +553,7 @@ private struct PrayTogetherPlaceholderSheet: View {
     @State private var prayerText = ""
     @State private var isSubmitting = false
     @State private var submitted = false
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
 
     var body: some View {
         NavigationStack {
@@ -632,7 +632,7 @@ private struct SchedulePlaceholderSheet: View {
     @State private var eventNote = ""
     @State private var isSubmitting = false
     @State private var submitted = false
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
 
     var body: some View {
         NavigationStack {
@@ -702,7 +702,7 @@ private struct OpenNotesPlaceholderSheet: View {
     @State private var newNoteText = ""
     @State private var isLoading = true
     @State private var isSaving = false
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
 
     var body: some View {
         NavigationStack {
@@ -864,7 +864,7 @@ private struct SpaceDiscussionSheet: View {
     @State private var body_ = ""
     @State private var isSubmitting = false
     @State private var submitted = false
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
 
     var body: some View {
         NavigationStack {

@@ -105,7 +105,7 @@ final class AmenLifePlannerViewModel {
     // MARK: - Private backing
 
     private var _todaySuggestion: String?
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
 
     // MARK: - Load
 

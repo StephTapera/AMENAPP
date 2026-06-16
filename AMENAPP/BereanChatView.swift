@@ -55,7 +55,7 @@ final class BereanChatViewModel: ObservableObject {
     @Published var studyModeState: BereanStudyModeState = .off
     @Published var reasoningNodes: [BereanReasoningNode] = []
 
-    private lazy var db = Firestore.firestore()
+    private let db = Firestore.firestore()
     private var userId: String { Auth.auth().currentUser?.uid ?? "demo_user" }
     private var streamTask: Task<Void, Never>? = nil
 
@@ -88,10 +88,8 @@ final class BereanChatViewModel: ObservableObject {
             return
         }
 
-        // A-003: COPPA guard — Tier B (13–15) and blocked accounts (under 13) must
-        // not access AI generation. Tier C (16–17) and Tier D (18+) are permitted.
-        guard AgeAssuranceService.shared.tier != .blocked &&
-              AgeAssuranceService.shared.tier != .tierB else {
+        // A-003: COPPA guard — minors (under 13 or teen 13-17) must not access AI generation.
+        guard AgeAssuranceService.shared.currentUserTier == .adult else {
             errorMessage = "This feature is not available for your account."
             return
         }
@@ -368,6 +366,12 @@ struct BereanChatView: View {
     // MARK: - Addition 3: Save to Church Notes toast
     @State private var showSavedToNotesToast = false
 
+    // MARK: - CRISIS-001: Pipeline crisis escalation observer (ships ON, no flag)
+    // Observes BereanConstitutionalPipeline.shared.isCrisisEscalated so that when
+    // the pipeline's I-4 invariant fires the user immediately sees 988 resources.
+    @ObservedObject private var pipeline = BereanConstitutionalPipeline.shared
+    @State private var showCrisisCard = false
+
     init(initialMode: BereanPersonalityMode = .shepherd,
          initialQuery: String? = nil,
          conversationTitle: String? = nil) {
@@ -537,6 +541,16 @@ struct BereanChatView: View {
                 } else if composerVM.state == .streaming {
                     composerVM.setState(.idle)
                 }
+            }
+            // CRISIS-001: Observe the pipeline's isCrisisEscalated flag (I-4 invariant).
+            // When the pipeline detects a crisis signal it sets this flag and aborts
+            // the call. We mirror it immediately into showCrisisCard so the full-screen
+            // 988 resource overlay appears with no delay and cannot be silently dismissed.
+            .onChange(of: pipeline.isCrisisEscalated) { _, escalated in
+                if escalated { showCrisisCard = true }
+            }
+            .fullScreenCover(isPresented: $showCrisisCard) {
+                CrisisResourceOverlayView(isPresented: $showCrisisCard)
             }
         }
     }

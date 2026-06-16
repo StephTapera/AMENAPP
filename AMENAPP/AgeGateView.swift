@@ -15,16 +15,91 @@
 //  - AgeAssuranceService.loadTier() defaults to .teen (fail-closed) when no
 //    profile exists, preventing accidental adult-tier access.
 //
+//  CHILD-001 FIX: hasCompletedAgeVerification is now stored in the iOS Keychain
+//  (kSecClassGenericPassword) instead of UserDefaults (@AppStorage). This prevents
+//  a reinstall-bypass attack where a malicious user could clear UserDefaults by
+//  deleting and reinstalling the app. Keychain items survive reinstall under
+//  kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, preserving the COPPA gate
+//  across reinstalls on the same device. The gate is intentionally fail-closed:
+//  if the Keychain read fails for any reason, the gate is shown.
+//
 
 import SwiftUI
+import Security
+
+// MARK: - Keychain helper for age gate flag (CHILD-001)
+
+/// A simple Keychain-backed Boolean that replaces @AppStorage for the COPPA age
+/// gate flag. Survives app reinstall on the same device, preventing the
+/// uninstall-reinstall bypass documented in audit finding CHILD-001.
+enum AgeGateKeychain {
+    private static let service  = (Bundle.main.bundleIdentifier ?? "com.amenapp") + ".agegate"
+    private static let account  = "hasCompletedAgeVerification"
+    private static let trueData = Data([0x01])
+
+    /// Returns true only when the Keychain item is present and equals the sentinel byte.
+    /// Fails closed: returns false on any read error so the gate is always shown on doubt.
+    static var hasCompleted: Bool {
+        get {
+            let query: [CFString: Any] = [
+                kSecClass:            kSecClassGenericPassword,
+                kSecAttrService:      service,
+                kSecAttrAccount:      account,
+                kSecReturnData:       true,
+                kSecMatchLimit:       kSecMatchLimitOne
+            ]
+            var result: AnyObject?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            guard status == errSecSuccess,
+                  let data = result as? Data,
+                  data == trueData else {
+                return false  // fail-closed: gate shows on any read failure
+            }
+            return true
+        }
+        set {
+            if newValue {
+                // Write or update the sentinel byte
+                let query: [CFString: Any] = [
+                    kSecClass:       kSecClassGenericPassword,
+                    kSecAttrService: service,
+                    kSecAttrAccount: account
+                ]
+                // Try update first; if item doesn't exist, add it
+                let updateAttrs: [CFString: Any] = [
+                    kSecValueData:      trueData,
+                    kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+                ]
+                let updateStatus = SecItemUpdate(query as CFDictionary, updateAttrs as CFDictionary)
+                if updateStatus == errSecItemNotFound {
+                    var addQuery = query
+                    addQuery[kSecValueData] = trueData
+                    addQuery[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+                    _ = SecItemAdd(addQuery as CFDictionary, nil)
+                }
+            } else {
+                // Delete the item so the gate reappears
+                let query: [CFString: Any] = [
+                    kSecClass:       kSecClassGenericPassword,
+                    kSecAttrService: service,
+                    kSecAttrAccount: account
+                ]
+                _ = SecItemDelete(query as CFDictionary)
+            }
+        }
+    }
+}
+
+// MARK: - View
 
 struct AgeGateView: View {
     @Binding var isEligible: Bool
-    // AUDIT B-003: hasCompletedAgeVerification is stored in UserDefaults (@AppStorage) which
-    // is cleared on reinstall.  A malicious user can bypass the age gate by uninstalling and
-    // reinstalling the app.  This flag should be migrated to Keychain so that it survives
-    // reinstalls and cannot be trivially erased.  Keychain migration tracked in B-003.
-    @AppStorage("hasCompletedAgeVerification") private var hasCompletedAgeVerification = false
+
+    // CHILD-001: Backing store moved from @AppStorage (UserDefaults) to Keychain.
+    // The computed getter/setter on AgeGateKeychain wraps SecItemCopyMatching /
+    // SecItemAdd / SecItemUpdate / SecItemDelete.  Reads fail-closed: if the Keychain
+    // item is absent the gate shows, preventing a reinstall bypass.
+    @State private var _keychainVerified: Bool = AgeGateKeychain.hasCompleted
 
     @State private var birthDate = Calendar.current.date(
         byAdding: .year, value: -16, to: Date()
@@ -87,8 +162,10 @@ struct AgeGateView: View {
 
             Button("Continue") {
                 if age >= AppConfig.Legal.minimumAge {
-                    // Do NOT store birthDate — only record that verification passed
-                    hasCompletedAgeVerification = true
+                    // CHILD-001: Write to Keychain (not UserDefaults) so this flag
+                    // survives reinstall and cannot be cleared by deleting the app.
+                    AgeGateKeychain.hasCompleted = true
+                    _keychainVerified = true
                     isEligible = true
                 } else {
                     showUnderAgeMessage = true

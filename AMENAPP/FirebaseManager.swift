@@ -12,6 +12,7 @@ import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
+import FirebaseFunctions
 import GoogleSignIn
 import AuthenticationServices
 import CryptoKit
@@ -449,6 +450,10 @@ class FirebaseManager {
             "allowTagging": true,
             "hasCompletedOnboarding": false,
             "authProvider": "google",
+            // COPPA: age must be verified before the user can access the app.
+            // AgeGateView presents when this is true; validateUserAge CF clears it.
+            "ageVerificationRequired": true,
+            "ageVerified": false,
             // ToS + Privacy Policy acceptance stamped at account creation.
             // Google/Apple IdP accounts implicitly accept by completing sign-in.
             "tosVersion": "1.0",
@@ -550,6 +555,10 @@ class FirebaseManager {
             "allowTagging": true,
             "hasCompletedOnboarding": false,
             "authProvider": "apple",
+            // COPPA: age must be verified before the user can access the app.
+            // AgeGateView presents when this is true; validateUserAge CF clears it.
+            "ageVerificationRequired": true,
+            "ageVerified": false,
             // ToS + Privacy Policy acceptance stamped at account creation.
             "tosVersion": "1.0",
             "privacyPolicyVersion": "1.0",
@@ -583,8 +592,37 @@ class FirebaseManager {
         try? await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: userData)
     }
 
+    // MARK: - Profile Moderation (C-5)
+
+    /// Screens username, displayName, and bio through the server-side moderation pipeline.
+    /// Returns nil when all fields are allowed; returns a user-facing error string when flagged.
+    /// Fail-safe: on network error, returns nil (allow) so a backend glitch cannot lock users out.
+    func moderateProfileFields(username: String? = nil, displayName: String? = nil, bio: String? = nil) async -> String? {
+        var payload: [String: Any] = [:]
+        if let username { payload["username"] = username }
+        if let displayName { payload["displayName"] = displayName }
+        if let bio { payload["bio"] = bio }
+        guard !payload.isEmpty else { return nil }
+
+        let functions = Functions.functions(region: "us-east1")
+        do {
+            let result = try await functions.httpsCallable("moderateProfileFields").call(payload)
+            guard let data = result.data as? [String: Any],
+                  let allowed = data["allowed"] as? Bool,
+                  !allowed,
+                  let reason = data["reason"] as? String else {
+                return nil
+            }
+            return reason
+        } catch {
+            // Fail-safe: allow on service error
+            dlog("⚠️ FirebaseManager: moderateProfileFields error (allowing): \(error)")
+            return nil
+        }
+    }
+
     // MARK: - Firestore Operations
-    
+
     /// Reference to a collection
     func collection(_ path: String) -> CollectionReference {
         firestore.collection(path)

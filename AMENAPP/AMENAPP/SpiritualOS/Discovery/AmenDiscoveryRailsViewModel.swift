@@ -26,7 +26,7 @@ final class AmenDiscoveryRailsViewModel {
 
     // MARK: Private
 
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
     private var currentUserId: String = ""
 
     // MARK: Load

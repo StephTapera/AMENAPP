@@ -11,6 +11,8 @@
 //
 
 import SwiftUI
+
+#if canImport(AdaptiveHeroEngine)
 import AdaptiveHeroEngine
 
 /// Flag-gated wrapper for the Adaptive Hero surface.
@@ -141,4 +143,5 @@ struct HeroSurfaceView: View {
     .environment(\.accessibilityReduceTransparency, true)
     .environment(\.dynamicTypeSize, .accessibility3)
 }
-#endif
+#endif // DEBUG
+#endif // canImport(AdaptiveHeroEngine)

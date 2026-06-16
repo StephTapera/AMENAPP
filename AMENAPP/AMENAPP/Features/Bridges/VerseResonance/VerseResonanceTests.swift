@@ -5,6 +5,7 @@
 // No UIHostingController / accessibility-tree walks per project feedback.
 // Network is not exercised — CF calls are not made in unit tests.
 
+#if canImport(Testing)
 import Testing
 import Foundation
 @testable import AMENAPP
@@ -241,3 +242,4 @@ struct VerseResonanceTests {
                 "ResonantVerse.id must be a unique UUID per instance")
     }
 }
+#endif

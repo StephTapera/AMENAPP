@@ -41,7 +41,7 @@ final class AmenJourneyEngine {
     // MARK: - Private state
 
     private var userId: String?
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
 
     // Feature flag — mirrors Remote Config value via AppStorage.
     // Defaults to true when the key has never been written (nil object = first install).

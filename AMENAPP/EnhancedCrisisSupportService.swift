@@ -15,7 +15,7 @@ import SwiftUI
 class EnhancedCrisisSupportService {
     static let shared = EnhancedCrisisSupportService()
     
-    private lazy var db = Firestore.firestore()
+    private let db = Firestore.firestore()
     private init() {}
     
     // MARK: - Risk Assessment

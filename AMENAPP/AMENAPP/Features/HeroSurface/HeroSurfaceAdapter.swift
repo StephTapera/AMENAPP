@@ -11,6 +11,8 @@
 //
 
 import SwiftUI
+
+#if canImport(AdaptiveHeroEngine)
 import AdaptiveHeroEngine
 
 // MARK: - Creator / User
@@ -128,3 +130,4 @@ private func heroAbbreviatedDay(for dayOfWeek: Int) -> String {
     let index = min(max(dayOfWeek - 1, 0), names.count - 1)
     return names[index]
 }
+#endif

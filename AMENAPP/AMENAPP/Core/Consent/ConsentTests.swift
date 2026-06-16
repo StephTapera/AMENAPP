@@ -1,3 +1,4 @@
+#if canImport(Testing)
 import Testing
 import Foundation
 @testable import AMENAPP
@@ -117,3 +118,4 @@ struct CrisisDampeningTests {
         UserDefaults.standard.removeObject(forKey: windowKey)
     }
 }
+#endif

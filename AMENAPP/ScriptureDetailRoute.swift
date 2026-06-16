@@ -25,7 +25,7 @@ struct ScriptureDetailRoute: View {
     init(context: SelahLaunchContext, onDismiss: @escaping () -> Void) {
         self.context = context
         self.onDismiss = onDismiss
-        self._selectedTranslation = State(initialValue: LocalBibleTranslation(rawValue: context.translationPreference) ?? .NIV)
+        self._selectedTranslation = State(initialValue: LocalBibleTranslation(rawValue: context.translationPreference) ?? .BSB)
     }
     
     var body: some View {

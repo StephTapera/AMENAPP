@@ -77,7 +77,7 @@ private struct ConsentEdgeRow: View {
             }
             .font(.caption)
             .buttonStyle(.plain)
-            .foregroundStyle(.accentColor)
+            .foregroundStyle(Color.accentColor)
         }
         .padding(.vertical, 4)
     }

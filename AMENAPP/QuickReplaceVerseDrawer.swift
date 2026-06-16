@@ -244,7 +244,7 @@ struct QuickReplaceVerseDrawer: View {
             guard !Task.isCancelled else { return }
             
             let baseVM = AttachVerseViewModel()
-            await searchEngine.search(query: query, translation: .NIV, baseViewModel: baseVM)
+            await searchEngine.search(query: query, translation: .BSB, baseViewModel: baseVM)
             
             quickSearchResults = searchEngine.results
             isSearching = false

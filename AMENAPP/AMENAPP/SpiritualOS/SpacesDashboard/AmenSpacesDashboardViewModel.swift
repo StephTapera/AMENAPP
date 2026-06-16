@@ -61,7 +61,7 @@ final class AmenSpacesDashboardViewModel {
     // MARK: - Private
 
     private let spaceId: String
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
 
     // MARK: - Init
 

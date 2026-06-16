@@ -123,7 +123,7 @@ final class AmenChurchHubViewModel {
     // MARK: - Private
 
     private let churchId: String
-    private let db = Firestore.firestore()
+    @ObservationIgnored private let db = Firestore.firestore()
 
     // MARK: - Init
 

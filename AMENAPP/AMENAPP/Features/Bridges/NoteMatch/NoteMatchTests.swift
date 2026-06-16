@@ -10,6 +10,7 @@
 //   • No UIHostingController accessibility-tree walks
 //   • No XCTest — use Swift Testing (@Test, #expect)
 
+#if canImport(Testing)
 import Testing
 import Foundation
 
@@ -237,3 +238,4 @@ struct BridgeCapabilityTests {
         #expect(ConsentEdge.allCases.contains(.notesToGiving))
     }
 }
+#endif
