@@ -109,7 +109,7 @@ final class AILTransformService {
 
         return A11yTransformResult(
             task: task,
-            text: data["output"] as? String ?? data["text"] as? String,
+            output: Self.parseOutput(from: data),
             provenance: provenance,
             sourceLang: data["sourceLang"] as? String,
             targetLang: data["targetLang"] as? String,
@@ -119,5 +119,52 @@ final class AILTransformService {
             failOpen: false,
             crisisBypass: (data["crisisBypass"] as? Bool) ?? false
         )
+    }
+
+    /// Decodes the `output` union from the wire dict.
+    /// Shape-based discrimination: string → .text, object with `cues` → .captionTrack,
+    /// object with `flagged` → .imageDescription, absent/null → .none (fail-open).
+    private static func parseOutput(from data: [String: Any]) -> A11yTransformOutput {
+        guard let raw = data["output"] else { return .none }
+        if let s = raw as? String { return .text(s) }
+        guard let dict = raw as? [String: Any] else { return .none }
+
+        // CaptionTrack: required `cues` array is the discriminator.
+        if let rawCues = dict["cues"] as? [[String: Any]] {
+            let cues = rawCues.compactMap { c -> CaptionCue? in
+                guard let start = c["startMs"] as? Int,
+                      let end   = c["endMs"]   as? Int,
+                      let text  = c["text"]    as? String else { return nil }
+                return CaptionCue(startMs: start, endMs: end, text: text)
+            }
+            let prov = A11yProvenance(rawValue: dict["provenance"] as? String ?? "") ?? .aiGenerated
+            let track = CaptionTrack(
+                mediaId:          dict["mediaId"]          as? String ?? "",
+                lang:             dict["lang"]             as? String ?? "",
+                cues:             cues,
+                provenance:       prov,
+                moderationStatus: dict["moderationStatus"] as? String ?? "pending",
+                createdAt:       (dict["createdAt"]        as? Double) ?? 0,
+                updatedAt:       (dict["updatedAt"]        as? Double) ?? 0,
+                deletedAt:        dict["deletedAt"]        as? Double
+            )
+            return .captionTrack(track)
+        }
+
+        // ImageDescription: `flagged` bool is the discriminator.
+        if dict["flagged"] != nil {
+            let prov = A11yProvenance(rawValue: dict["provenance"] as? String ?? "") ?? .aiGenerated
+            let conf = A11yConfidence(rawValue: dict["confidence"] as? String ?? "") ?? .medium
+            let desc = ImageDescription(
+                mediaId:    dict["mediaId"] as? String ?? "",
+                text:       dict["text"]    as? String ?? "",
+                provenance: prov,
+                confidence: conf,
+                flagged:    dict["flagged"] as? Bool ?? false
+            )
+            return .imageDescription(desc)
+        }
+
+        return .none
     }
 }

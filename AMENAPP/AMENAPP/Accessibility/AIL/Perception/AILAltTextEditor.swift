@@ -186,11 +186,19 @@ struct AILAltTextEditor: View {
             return
         }
 
-        let text = result.text ?? ""
+        // C5: the backend returns an ImageDescription, not a plain string.
+        // Extract text and quality confidence from the structured payload.
+        let text: String
+        if case .imageDescription(let desc) = result.output {
+            text = desc.text
+            confidence = desc.confidence
+        } else {
+            text = result.text ?? ""
+            confidence = result.confidence
+        }
         generatedText = text
         draft = text
-        provenance = result.provenance     // .aiGenerated on success
-        confidence = result.confidence
+        provenance = result.provenance
         phase = text.isEmpty ? .failedOpen : .generated
     }
 

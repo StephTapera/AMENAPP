@@ -156,6 +156,9 @@ struct CaptionTrack: Codable, Hashable, Sendable {
     let cues: [CaptionCue]
     var provenance: A11yProvenance
     var moderationStatus: String      // pending | approved | flagged
+    var createdAt: Double             // Unix epoch; mirrors TS `number`
+    var updatedAt: Double
+    var deletedAt: Double?            // nil when active; non-nil on soft-delete
 }
 
 /// C5 image description / alt text. Never names or identifies people (iron rule 6).
@@ -169,13 +172,53 @@ struct ImageDescription: Codable, Hashable, Sendable {
 
 enum A11yConfidence: String, Codable, Sendable { case high, medium, low }
 
+// MARK: - Transform output union (TS: string | CaptionTrack | ImageDescription | null)
+
+/// Mirrors the `output` field of the TS A11yTransformResult.
+/// Discriminated by wire shape: strings → .text, objects with `cues` → .captionTrack,
+/// objects with `flagged` → .imageDescription, JSON null → .none.
+enum A11yTransformOutput: Sendable {
+    case text(String)
+    case captionTrack(CaptionTrack)
+    case imageDescription(ImageDescription)
+    case none
+
+    /// String payload for text-only tasks. C4/C5 consumers must pattern-match `output` directly.
+    var textValue: String? {
+        if case .text(let s) = self { return s }
+        return nil
+    }
+}
+
+extension A11yTransformOutput: Codable {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() { self = .none; return }
+        if let s = try? c.decode(String.self) { self = .text(s); return }
+        // CaptionTrack has `cues`; ImageDescription has `flagged`. Try each in order.
+        if let track = try? c.decode(CaptionTrack.self) { self = .captionTrack(track); return }
+        if let desc  = try? c.decode(ImageDescription.self) { self = .imageDescription(desc); return }
+        self = .none  // unrecognized shape — fail-open to none
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .text(let s):             try c.encode(s)
+        case .captionTrack(let t):     try c.encode(t)
+        case .imageDescription(let d): try c.encode(d)
+        case .none:                    try c.encodeNil()
+        }
+    }
+}
+
 // MARK: - Transform result
 
 /// Unified result of the ailTransform callable. On fail-open, `failOpen == true`
 /// and the caller renders the ORIGINAL content with a quiet "unavailable" state.
 struct A11yTransformResult: Codable, Sendable {
     let task: A11yTask
-    let text: String?                 // text output (translate/simplify/explain/tone/summary/rewrite/reentry)
+    var output: A11yTransformOutput   // TS: string | CaptionTrack | ImageDescription | null
     var provenance: A11yProvenance
     var sourceLang: String?
     var targetLang: String?
@@ -185,10 +228,14 @@ struct A11yTransformResult: Codable, Sendable {
     var failOpen: Bool                // true ⇒ render original + "unavailable"
     var crisisBypass: Bool            // produced under crisis-context bypass
 
+    /// Backward-compatible accessor for text-only consumers (C1/C2/C3/C10/C11/C12/C14).
+    /// C4/C5 consumers must pattern-match `output` to access CaptionTrack/ImageDescription.
+    var text: String? { output.textValue }
+
     /// Fail-open sentinel the client returns when the callable errors or is unavailable.
     static func failedOpen(task: A11yTask, originalRef: String) -> A11yTransformResult {
         A11yTransformResult(
-            task: task, text: nil, provenance: .human,
+            task: task, output: .none, provenance: .human,
             sourceLang: nil, targetLang: nil, cultureNotes: nil,
             confidence: .low, originalRef: originalRef,
             failOpen: true, crisisBypass: false
