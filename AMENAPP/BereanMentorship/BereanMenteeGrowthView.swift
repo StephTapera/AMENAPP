@@ -9,10 +9,10 @@ import SwiftUI
 
 struct BereanMenteeGrowthView: View {
     @StateObject private var service = BereanMentorshipService.shared
-    @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = true
+    @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @AppStorage("berean_plus_enabled") private var isPlusEnabled: Bool = true
+    @AppStorage("berean_plus_enabled") private var isPlusEnabled: Bool = false
     @State private var showMeetingPrep: Bool = false
     @State private var checkedGoals: Set<String> = []
     @State private var aiInsightText: String = ""

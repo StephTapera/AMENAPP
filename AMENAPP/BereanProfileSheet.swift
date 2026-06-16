@@ -17,8 +17,8 @@ struct BereanProfileSheet: View {
     // MARK: Appearance preference
 
     @AppStorage("berean_appearance") private var appearanceRaw = "system"
-    @AppStorage("berean_memory_enabled") private var memoryEnabled = true
-    @AppStorage("berean_explicit_protection") private var safeMode = true
+    @AppStorage("berean_memory_enabled") private var memoryEnabled = false
+    @AppStorage("berean_explicit_protection") private var safeMode = false
 
     @State private var showAlignmentSettings = false
     @State private var showUpgradeSheet = false

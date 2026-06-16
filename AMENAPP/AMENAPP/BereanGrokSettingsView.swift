@@ -7,10 +7,10 @@ import SwiftUI
 
 struct BereanGrokSettingsView: View {
     @ObservedObject private var flags = AMENFeatureFlags.shared
-    @AppStorage("berean_helper_model_user_enabled")     private var helperEnabled = true
-    @AppStorage("berean_external_context_user_enabled") private var externalEnabled = true
-    @AppStorage("berean_show_provenance_labels")        private var provenanceLabels = true
-    @AppStorage("berean_always_require_scripture")      private var alwaysScripture = true
+    @AppStorage("berean_helper_model_user_enabled")     private var helperEnabled = false
+    @AppStorage("berean_external_context_user_enabled") private var externalEnabled = false
+    @AppStorage("berean_show_provenance_labels")        private var provenanceLabels = false
+    @AppStorage("berean_always_require_scripture")      private var alwaysScripture = false
     @AppStorage("berean_disable_public_context")        private var disablePublicContext = false
 
     var body: some View {

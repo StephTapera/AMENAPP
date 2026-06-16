@@ -739,19 +739,20 @@ struct ObservabilitySnapshot {
 // MARK: - AI Feature Flags
 struct AIFeatureFlags {
     // Per-surface toggles (mirrors Firebase RemoteConfig in production)
-    var bereanChatEnabled: Bool = true
-    var postCreationAIEnabled: Bool = true
-    var commentAIEnabled: Bool = true
-    var dmSafetyEnabled: Bool = true
-    var churchNotesAIEnabled: Bool = true
-    var prayerRequestAIEnabled: Bool = true
-    var feedIntelligenceEnabled: Bool = true
-    var discoveryAIEnabled: Bool = true
-    var translationEnabled: Bool = true
-    var wellnessAIEnabled: Bool = true
-    var wisdomLibraryAIEnabled: Bool = true
-    var opportunitiesAIEnabled: Bool = true
-    var onboardingAIEnabled: Bool = true
+    // All default OFF — flipped ON only via Remote Config after consent verification
+    var bereanChatEnabled: Bool = false
+    var postCreationAIEnabled: Bool = false
+    var commentAIEnabled: Bool = false
+    var dmSafetyEnabled: Bool = false
+    var churchNotesAIEnabled: Bool = false
+    var prayerRequestAIEnabled: Bool = false
+    var feedIntelligenceEnabled: Bool = false
+    var discoveryAIEnabled: Bool = false
+    var translationEnabled: Bool = false
+    var wellnessAIEnabled: Bool = false
+    var wisdomLibraryAIEnabled: Bool = false
+    var opportunitiesAIEnabled: Bool = false
+    var onboardingAIEnabled: Bool = false
     var crisisDetectionEnabled: Bool = true
 
     func isEnabled(for surface: AMENSurface, category: AITaskCategory) -> Bool {

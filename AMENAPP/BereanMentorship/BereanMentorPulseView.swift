@@ -10,7 +10,7 @@ import FirebaseAuth
 
 struct BereanMentorPulseView: View {
     @StateObject private var service = BereanMentorshipService.shared
-    @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = true
+    @AppStorage("bereanMentorshipOS_enabled") private var isEnabled: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedMentorship: BereanMentorship?

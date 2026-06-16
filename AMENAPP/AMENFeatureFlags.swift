@@ -28,16 +28,16 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var trustScoringEnabled: Bool = true
 
     // MARK: - System 2: Berean RAG
-    @Published private(set) var bereanRAGEnabled: Bool = true
-    @Published private(set) var bereanConversationMemoryEnabled: Bool = true
-    @Published private(set) var bereanSourceAttributionEnabled: Bool = true
-    @Published private(set) var bereanStreamingResponseEnabled: Bool = true
-    @Published private(set) var bereanVoiceEnabled: Bool = true
-    @Published private(set) var bereanAdaptiveModeEnabled: Bool = true
+    @Published private(set) var bereanRAGEnabled: Bool = false
+    @Published private(set) var bereanConversationMemoryEnabled: Bool = false
+    @Published private(set) var bereanSourceAttributionEnabled: Bool = false
+    @Published private(set) var bereanStreamingResponseEnabled: Bool = false
+    @Published private(set) var bereanVoiceEnabled: Bool = false
+    @Published private(set) var bereanAdaptiveModeEnabled: Bool = false
     /// Kill switch: false disables Deep mode for all users instantly via Remote Config.
-    @Published private(set) var bereanDeepEnabled: Bool = true
+    @Published private(set) var bereanDeepEnabled: Bool = false
     /// Kill switch: false bypasses server entitlement enforcement for emergency rollback.
-    @Published private(set) var bereanEntitlementEnforcementEnabled: Bool = true
+    @Published private(set) var bereanEntitlementEnforcementEnabled: Bool = false
 
     // MARK: - System 3: Spiritual Check-In
     @Published private(set) var spiritualCheckInEnabled: Bool = true
@@ -116,7 +116,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var mediaDetailViewEnabled: Bool = true
     @Published private(set) var enhancedNotificationsEnabled: Bool = true
     @Published private(set) var serverNotificationsV2Enabled: Bool = true
-    @Published private(set) var bereanChatRedesignEnabled: Bool = true
+    @Published private(set) var bereanChatRedesignEnabled: Bool = false
     @Published private(set) var inAppBrowserEnabled: Bool = true
     @Published private(set) var composerApprovedAudioEnabled: Bool = true
     @Published private(set) var smartAttachmentsEnabled: Bool = true
@@ -144,12 +144,12 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var adaptiveTranslationEnabled: Bool = false
 
     // MARK: - System 16: Berean Spiritual Intelligence Layers
-    @Published private(set) var bereanSpiritualLayersEnabled: Bool = true
-    @Published private(set) var livingScriptureGraphEnabled: Bool = true
-    @Published private(set) var spiritualStateLayerEnabled: Bool = true
-    @Published private(set) var guidedDiscipleshipEnabled: Bool = true
-    @Published private(set) var scriptureImmersionEnabled: Bool = true
-    @Published private(set) var authorityAlignmentEnabled: Bool = true
+    @Published private(set) var bereanSpiritualLayersEnabled: Bool = false
+    @Published private(set) var livingScriptureGraphEnabled: Bool = false
+    @Published private(set) var spiritualStateLayerEnabled: Bool = false
+    @Published private(set) var guidedDiscipleshipEnabled: Bool = false
+    @Published private(set) var scriptureImmersionEnabled: Bool = false
+    @Published private(set) var authorityAlignmentEnabled: Bool = false
 
     // MARK: - System 17: Resources Intelligence
     @Published private(set) var resourcesIntelligenceEnabled: Bool = true
@@ -194,7 +194,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var helpingSomeoneElseEnabled: Bool = true
     @Published private(set) var supportFollowupsEnabled: Bool = true
     @Published private(set) var nonprofitRecommendationEnabled: Bool = true
-    @Published private(set) var bereanResourceRoutingEnabled: Bool = true
+    @Published private(set) var bereanResourceRoutingEnabled: Bool = false
 
     // MARK: - Selah Scripture Actions (command bar: Save/Reflect/Berean/Continue)
     @Published private(set) var selahScriptureActionsEnabled: Bool = true
@@ -219,7 +219,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var onboardingV2Enabled: Bool = true
 
     // MARK: - System 19: Berean Pulse
-    @Published private(set) var bereanPulseEnabled: Bool = true
+    @Published private(set) var bereanPulseEnabled: Bool = false
 
     // MARK: - Amen Pulse (Personalized Daily Surface)
     /// Master gate for the bounded App-Store-Today daily surface (Pulse/ module).
@@ -270,7 +270,7 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var amenDailyDigestHolidayEnabled: Bool = true
     @Published private(set) var amenDailyDigestChristianCalendarEnabled: Bool = true
     @Published private(set) var amenDailyDigestExpandedSheetEnabled: Bool = true
-    @Published private(set) var amenDailyDigestBereanAIActionEnabled: Bool = true
+    @Published private(set) var amenDailyDigestBereanAIActionEnabled: Bool = false
     @Published private(set) var amenDailyDigestChurchNotesActionEnabled: Bool = true
     @Published private(set) var amenDailyDigestFindChurchActionEnabled: Bool = true
     @Published private(set) var amenDailyDigestSelahActionEnabled: Bool = true
@@ -349,23 +349,23 @@ final class AMENFeatureFlags: ObservableObject {
 
     // MARK: - System 21: Berean Intelligence Layer v2
     /// Kill switch: false disables all three theological lens modes (Wisdom/Prayer/Discernment) instantly.
-    @Published private(set) var bereanTheoLensEnabled: Bool = true
+    @Published private(set) var bereanTheoLensEnabled: Bool = false
     /// Gates the Selah bridge (Save to Selah from Berean).
-    @Published private(set) var bereanSelahBridgeEnabled: Bool = true
+    @Published private(set) var bereanSelahBridgeEnabled: Bool = false
     /// Gates the Church Notes bridge (Save to Church Notes from Berean).
-    @Published private(set) var bereanChurchNotesBridgeEnabled: Bool = true
+    @Published private(set) var bereanChurchNotesBridgeEnabled: Bool = false
     /// Gates mode-aware + safety-aware smart pills.
-    @Published private(set) var bereanSmartPillsEnabled: Bool = true
+    @Published private(set) var bereanSmartPillsEnabled: Bool = false
     /// Gates the theology boundary / hard-block scrubber (always-on by default; kill only for debugging).
-    @Published private(set) var bereanTheologyBoundaryEnabled: Bool = true
+    @Published private(set) var bereanTheologyBoundaryEnabled: Bool = false
     /// Gates the persistent study memory UI and consent flow.
-    @Published private(set) var bereanPersistentMemoryEnabled: Bool = true
+    @Published private(set) var bereanPersistentMemoryEnabled: Bool = false
     /// Gates study thread continuity (Create/Resume study threads).
-    @Published private(set) var bereanStudyThreadsEnabled: Bool = true
+    @Published private(set) var bereanStudyThreadsEnabled: Bool = false
     /// Gates translation comparison feature.
-    @Published private(set) var bereanTranslationCompareEnabled: Bool = true
+    @Published private(set) var bereanTranslationCompareEnabled: Bool = false
     /// Gates the research view (expandable source metadata panel).
-    @Published private(set) var bereanResearchViewEnabled: Bool = true
+    @Published private(set) var bereanResearchViewEnabled: Bool = false
 
     // MARK: - System 20: Messaging Micro Animations (Layer 1 + Layer 2)
     @Published private(set) var messagingLiquidGlassAnimationsEnabled: Bool = true
@@ -944,15 +944,15 @@ final class AMENFeatureFlags: ObservableObject {
             "moderation_appeals_enabled": true as NSObject,
             "trust_scoring_enabled": true as NSObject,
 
-            // Berean
-            "berean_rag_enabled": true as NSObject,
-            "berean_conversation_memory_enabled": true as NSObject,
-            "berean_source_attribution_enabled": true as NSObject,
-            "berean_streaming_response_enabled": true as NSObject,
-            "berean_voice_enabled": true as NSObject,
-            "berean_adaptive_mode_enabled": true as NSObject,
-            "berean_deep_enabled": true as NSObject,
-            "berean_entitlement_enforcement_enabled": true as NSObject,
+            // Berean — default OFF; flipped ON only via Remote Config after consent verification
+            "berean_rag_enabled": false as NSObject,
+            "berean_conversation_memory_enabled": false as NSObject,
+            "berean_source_attribution_enabled": false as NSObject,
+            "berean_streaming_response_enabled": false as NSObject,
+            "berean_voice_enabled": false as NSObject,
+            "berean_adaptive_mode_enabled": false as NSObject,
+            "berean_deep_enabled": false as NSObject,
+            "berean_entitlement_enforcement_enabled": false as NSObject,
 
             // AMEN Distinctives - default OFF until rollout
             "ff_prayer_ledger": false as NSObject,
@@ -1049,7 +1049,7 @@ final class AMENFeatureFlags: ObservableObject {
             "media_detail_view_enabled": true as NSObject,
             "enhanced_notifications_enabled": true as NSObject,
             "server_notifications_v2_enabled": true as NSObject,
-            "berean_chat_redesign_enabled": true as NSObject,
+            "berean_chat_redesign_enabled": false as NSObject,
             "in_app_browser_enabled": true as NSObject,
             "composer_approved_audio_enabled": true as NSObject,
             "smart_attachments_enabled": true as NSObject,
@@ -1076,13 +1076,13 @@ final class AMENFeatureFlags: ObservableObject {
             "creation_language_enabled": false as NSObject,
             "adaptive_translation_enabled": false as NSObject,
 
-            // Berean Spiritual Intelligence Layers
-            "berean_spiritual_layers_enabled": true as NSObject,
-            "living_scripture_graph_enabled": true as NSObject,
-            "spiritual_state_layer_enabled": true as NSObject,
-            "guided_discipleship_enabled": true as NSObject,
-            "scripture_immersion_enabled": true as NSObject,
-            "authority_alignment_enabled": true as NSObject,
+            // Berean Spiritual Intelligence Layers — default OFF; flip via Remote Config
+            "berean_spiritual_layers_enabled": false as NSObject,
+            "living_scripture_graph_enabled": false as NSObject,
+            "spiritual_state_layer_enabled": false as NSObject,
+            "guided_discipleship_enabled": false as NSObject,
+            "scripture_immersion_enabled": false as NSObject,
+            "authority_alignment_enabled": false as NSObject,
 
             // Resources Intelligence
             "resources_intelligence_enabled": true as NSObject,
@@ -1119,7 +1119,7 @@ final class AMENFeatureFlags: ObservableObject {
             "helping_someone_else_enabled": true as NSObject,
             "support_followups_enabled": true as NSObject,
             "nonprofit_recommendation_enabled": true as NSObject,
-            "berean_resource_routing_enabled": true as NSObject,
+            "berean_resource_routing_enabled": false as NSObject,
 
             // Amen Daily Digest
             "amen_daily_digest_enabled": true as NSObject,
@@ -1127,7 +1127,7 @@ final class AMENFeatureFlags: ObservableObject {
             "amen_daily_digest_holiday_enabled": true as NSObject,
             "amen_daily_digest_christian_calendar_enabled": true as NSObject,
             "amen_daily_digest_expanded_sheet_enabled": true as NSObject,
-            "amen_daily_digest_berean_ai_action_enabled": true as NSObject,
+            "amen_daily_digest_berean_ai_action_enabled": false as NSObject,
             "amen_daily_digest_church_notes_action_enabled": true as NSObject,
             "amen_daily_digest_find_church_action_enabled": true as NSObject,
             "amen_daily_digest_selah_action_enabled": true as NSObject,
@@ -1136,8 +1136,8 @@ final class AMENFeatureFlags: ObservableObject {
             // Onboarding & Auth Remediation — SAFETY INFRASTRUCTURE, default ON (security fix H2)
             "ff_onboarding_v2": true as NSObject,
 
-            // Berean Pulse
-            "berean_pulse_enabled": true as NSObject,
+            // Berean Pulse — default OFF; flip via Remote Config
+            "berean_pulse_enabled": false as NSObject,
 
             // Amen Pulse (daily surface) — default OFF
             "amen_pulse_enabled": false as NSObject,
@@ -1304,16 +1304,16 @@ final class AMENFeatureFlags: ObservableObject {
             "analytics_enabled": true as NSObject,
             "performance_telemetry_enabled": true as NSObject,
 
-            // Berean Intelligence Layer v2
-            "berean_theo_lens_enabled": true as NSObject,
-            "berean_selah_bridge_enabled": true as NSObject,
-            "berean_church_notes_bridge_enabled": true as NSObject,
-            "berean_smart_pills_enabled": true as NSObject,
-            "berean_theology_boundary_enabled": true as NSObject,
-            "berean_persistent_memory_enabled": true as NSObject,
-            "berean_study_threads_enabled": true as NSObject,
-            "berean_translation_compare_enabled": true as NSObject,
-            "berean_research_view_enabled": true as NSObject,
+            // Berean Intelligence Layer v2 — default OFF; flip via Remote Config
+            "berean_theo_lens_enabled": false as NSObject,
+            "berean_selah_bridge_enabled": false as NSObject,
+            "berean_church_notes_bridge_enabled": false as NSObject,
+            "berean_smart_pills_enabled": false as NSObject,
+            "berean_theology_boundary_enabled": false as NSObject,
+            "berean_persistent_memory_enabled": false as NSObject,
+            "berean_study_threads_enabled": false as NSObject,
+            "berean_translation_compare_enabled": false as NSObject,
+            "berean_research_view_enabled": false as NSObject,
 
             // System 31: Voice Prayer & Testimony Comments — default OFF until enforcement tests pass
             "voice_prayer_comments_enabled": false as NSObject,

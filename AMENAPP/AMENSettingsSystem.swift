@@ -1543,7 +1543,7 @@ struct NotificationsSettingsViewNew: View {
     @AppStorage("amen_notif_prayer")          private var prayer: Bool = true
     @AppStorage("amen_notif_events")          private var events: Bool = true
     @AppStorage("amen_notif_community")       private var community: Bool = true
-    @AppStorage("amen_notif_berean")          private var bereanInsights: Bool = true
+    @AppStorage("amen_notif_berean")          private var bereanInsights: Bool = false
 
     @AppStorage("amen_notif_scheduled")       private var scheduled: Bool = true
     @AppStorage("amen_notif_drafts")          private var draftReminders: Bool = false
@@ -2001,12 +2001,12 @@ struct FeedDiscoverySettingsViewNew: View {
 // MARK: - 8. Berean AI Settings
 
 struct BereanAISettingsViewNew: View {
-    @AppStorage("amen_berean_enabled")      private var bereanEnabled: Bool = true
+    @AppStorage("amen_berean_enabled")      private var bereanEnabled: Bool = false
     @AppStorage("amen_berean_mode")         private var defaultMode: String = "Study"
-    @AppStorage("amen_berean_memory")       private var contextMemory: Bool = true
-    @AppStorage("amen_berean_transparency") private var aiTransparency: Bool = true
-    @AppStorage("amen_berean_data_usage")   private var dataUsage: Bool = true
-    @AppStorage("amen_berean_in_feed")      private var bereanInFeed: Bool = true
+    @AppStorage("amen_berean_memory")       private var contextMemory: Bool = false
+    @AppStorage("amen_berean_transparency") private var aiTransparency: Bool = false
+    @AppStorage("amen_berean_data_usage")   private var dataUsage: Bool = false
+    @AppStorage("amen_berean_in_feed")      private var bereanInFeed: Bool = false
     @AppStorage("amen_berean_style")        private var responseStyle: String = "Balanced"
 
     @State private var showClearMemoryConfirm = false
