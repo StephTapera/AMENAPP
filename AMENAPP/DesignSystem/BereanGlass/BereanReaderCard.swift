@@ -1,4 +1,4 @@
-// LiquidGlassCard.swift
+// BereanReaderCard.swift
 // AMEN — Berean Reading Surface: BereanReaderCard component (W1)
 // Flag: bereanGlassComponents (dev-only)
 //
