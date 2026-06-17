@@ -309,9 +309,27 @@ class AuthenticationViewModel: ObservableObject {
     /// Persists the collected DOB → tier and clears the gate. Throws
     /// `AgeAssuranceError.underMinimumAge` if the user is below the minimum, which
     /// the caller surfaces and uses to block/sign out.
+    ///
+    /// C-3 FIX: On success, also stamps `hasCompletedAgeVerification: true` on the
+    /// main user document so downstream guards can check age assurance status without
+    /// reading the private subcollection.
     func completeAgeGate(dateOfBirth: Date) async throws {
         guard let userId = firebaseManager.currentUser?.uid else { return }
+        // setDateOfBirth writes to users/{uid}/private/age_assurance.
+        // It throws AgeAssuranceError.underMinimumAge if the user is too young —
+        // in that case the caller is responsible for signing the user out.
         try await AgeAssuranceService.shared.setDateOfBirth(userId: userId, dateOfBirth: dateOfBirth)
+
+        // Stamp the main user document so the gate check survives a cold-start
+        // where the private subcollection read would add an extra round-trip.
+        // Best-effort: a write failure here is non-fatal — the private subcollection
+        // write above already succeeded, so the gate will clear on next launch.
+        lazy var db = Firestore.firestore()
+        try? await db.collection("users").document(userId).setData(
+            ["hasCompletedAgeVerification": true],
+            merge: true
+        )
+
         needsAgeGate = false
         dlog("✅ [AgeGate] DOB persisted + tier assigned for \(userId)")
     }
@@ -696,6 +714,17 @@ class AuthenticationViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
+            // P1-J: Check if this email is banned before creating the Firebase account.
+            let bannedQuery = try? await Firestore.firestore()
+                .collection("banned_emails")
+                .document(email.lowercased().trimmingCharacters(in: .whitespaces))
+                .getDocument()
+            if bannedQuery?.exists == true {
+                errorMessage = "This account is not eligible for registration."
+                dlog("🚫 [SignUp] Blocked banned email: \(email)")
+                return
+            }
+
             _ = try await firebaseManager.signUp(
                 email: email,
                 password: password,

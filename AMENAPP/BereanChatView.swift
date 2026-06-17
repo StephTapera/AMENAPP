@@ -1993,8 +1993,28 @@ struct BereanChatView: View {
         return "\(sender): \(preview), sent at \(time)"
     }
 
+    /// Small "AI-Powered Assistant" disclosure capsule shown above the first greeting message.
+    private var aiDisclosureBadge: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "sparkles")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.blue)
+            Text("AI-Powered Assistant")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.blue)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.blue.opacity(0.10), in: Capsule())
+        .accessibilityLabel("Berean is an AI-powered assistant, not a pastor, therapist, or emergency responder.")
+    }
+
     private func structuredMessageView(_ message: BereanChatMsg) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            // P1-D: Show AI disclosure badge above the first assistant greeting only
+            if message.role == .assistant, vm.messages.first?.id == message.id {
+                aiDisclosureBadge
+            }
             if message.role == .user {
                 userMessageBubble(message)
             } else if AMENFeatureFlags.shared.bereanChatRedesignEnabled {

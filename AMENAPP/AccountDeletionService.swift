@@ -293,5 +293,12 @@ final class AccountDeletionService: ObservableObject {
         // Audit C-02: wipe all E2EE key material so deleted-then-reinstalled or
         // shared-device accounts cannot inherit/leak prior keys.
         AMENEncryptionService.shared.wipeAllKeys()
+        // P1-G: wipe Apple Sign-In Keychain identity hint so a new sign-in
+        // on the same device cannot see the deleted account's Welcome Back hint.
+        // userId comes from Auth.auth().currentUser?.uid at call time —
+        // clearLocalState() is always called before Auth account deletion.
+        if let uid = Auth.auth().currentUser?.uid {
+            AmenIdentityHintStore.shared.clear(uid: uid)
+        }
     }
 }

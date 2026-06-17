@@ -385,8 +385,19 @@ final class NotificationDeepLinkRouter: ObservableObject {
         lazy var db = Firestore.firestore()
         switch destination {
         case .post(let postId, _):
-            let doc = try? await db.collection("posts").document(postId).getDocument()
-            return doc?.exists ?? false
+            guard let doc = try? await db.collection("posts").document(postId).getDocument(),
+                  doc.exists else { return false }
+            // P1-K: Verify follower access for private posts before navigating.
+            let visibility = doc.data()?["visibility"] as? String ?? "everyone"
+            if visibility != "everyone" {
+                let authorId = doc.data()?["authorId"] as? String ?? ""
+                let currentUid = Auth.auth().currentUser?.uid ?? ""
+                if authorId == currentUid { return true }  // own post always accessible
+                let followDoc = try? await db.collection("follows")
+                    .document("\(currentUid)_\(authorId)").getDocument()
+                return followDoc?.exists ?? false
+            }
+            return true
         case .conversation(let conversationId, _):
             let doc = try? await db.collection("conversations").document(conversationId).getDocument()
             return doc?.exists ?? false

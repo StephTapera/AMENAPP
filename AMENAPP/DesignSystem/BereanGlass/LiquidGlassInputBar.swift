@@ -69,7 +69,7 @@ struct BereanStudyInputBar: View {
                 if showScriptureLookup, let lookup = onScriptureLookup {
                     Button(action: lookup) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 16))
+                            .font(.callout)
                             .foregroundStyle(Color.bereanInk.opacity(0.55))
                     }
                     .frame(width: BereanMetrics.minTapTarget, height: BereanMetrics.minTapTarget)
@@ -79,7 +79,7 @@ struct BereanStudyInputBar: View {
                 if showMic, let mic = onMic {
                     Button(action: mic) {
                         Image(systemName: "mic.fill")
-                            .font(.system(size: 16))
+                            .font(.callout)
                             .foregroundStyle(Color.bereanInk.opacity(0.55))
                     }
                     .frame(width: BereanMetrics.minTapTarget, height: BereanMetrics.minTapTarget)
@@ -91,7 +91,7 @@ struct BereanStudyInputBar: View {
                     text = ""
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 30))
+                        .font(.title2)
                         .foregroundStyle(canSend ? Color.bereanInk : Color.bereanTan)
                         .animation(.easeInOut(duration: 0.15), value: canSend)
                 }

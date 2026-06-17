@@ -40,7 +40,7 @@ struct FloatingPrimaryCTA: View {
                     )
 
                 Image(systemName: iconName)
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.title3.weight(.medium))
                     .foregroundStyle(Color.bereanInk.opacity(0.82))
             }
         }
@@ -52,13 +52,8 @@ struct FloatingPrimaryCTA: View {
         .accessibilityAddTraits(.isButton)
     }
 
-    @ViewBuilder
-    private var buttonFill: some View {
-        if reduceTransparency {
-            Color.bereanIvory
-        } else {
-            Color.bereanIvory.opacity(0.92)
-        }
+    private var buttonFill: Color {
+        reduceTransparency ? Color.bereanIvory : Color.bereanIvory.opacity(0.92)
     }
 }
 

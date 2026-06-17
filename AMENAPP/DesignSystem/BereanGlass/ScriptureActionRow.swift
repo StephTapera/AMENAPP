@@ -1,71 +1,114 @@
 // ScriptureActionRow.swift
-// AMEN — Berean Reading Surface component (W0 shell → W1 implementation)
+// AMEN — Berean Reading Surface: ScriptureActionRow component (W1)
 //
-// W0: Public signature frozen.
-// W1: Implement inside a single GlassEffectContainer.
-//     Scroll-aware: collapses when reader scrolls down (actionRowCollapse spring),
-//     restores on scroll stop. Blurs reader text behind the row.
-//     Actions: Save · Share · Pray · Explain · More.
-//     All actions require 44pt targets + VoiceOver labels.
-//     Share routes through Guard before any share sheet is shown.
+// Scripture passage title + 5 actions in one glass container.
+// Scroll-aware collapse: caller drives isCollapsed via scroll offset.
+// Share: caller confirms + routes through Guard before invoking onShare.
+// ReduceTransparency: solid bereanIvory bar.
 
 import SwiftUI
 
-/// Scripture passage context + primary actions, clustered in one GlassEffectContainer.
+/// Scripture passage context + primary actions.
+/// Wrap in a GlassEffectContainer at the call site for batched blur.
 struct ScriptureActionRow: View {
 
     let passageTitle: String
     let isCollapsed: Bool
     let onSave: () -> Void
-    let onShare: () -> Void   // caller confirms + routes through Guard before invoking
+    let onShare: () -> Void
     let onPray: () -> Void
     let onExplain: () -> Void
     let onMore: () -> Void
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        // W1: Replace with GlassEffectContainer + collapse animation.
-        // Collapse/expand is gated on reduceMotion: spring when motion is allowed,
-        // instant opacity-only when reduce motion is enabled (actionRowCollapse spring).
-        if !isCollapsed {
-            VStack(spacing: 4) {
-                Text(passageTitle)
-                    .font(BereanType.subheadline())
-                    .foregroundStyle(Color.bereanInk)
-
-                HStack(spacing: 0) {
-                    actionButton("bookmark",             label: "Save",    action: onSave)
-                    actionButton("square.and.arrow.up",  label: "Share",   action: onShare)
-                    actionButton("hands.and.sparkles.fill", label: "Pray", action: onPray)
-                    actionButton("text.magnifyingglass", label: "Explain", action: onExplain)
-                    actionButton("ellipsis",             label: "More",    action: onMore)
-                }
+        VStack(spacing: 0) {
+            if !isCollapsed {
+                rowContent
+                    .transition(
+                        reduceMotion
+                        ? .opacity
+                        : .move(edge: .bottom).combined(with: .opacity)
+                    )
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            // W1: collapse transition respects reduce motion.
-            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
         }
+        .animation(
+            .berean(BereanSpring.actionRowCollapse, reduceMotion: reduceMotion),
+            value: isCollapsed
+        )
+        .clipped()
+    }
+
+    private var rowContent: some View {
+        VStack(spacing: 6) {
+            // Passage title
+            Text(passageTitle)
+                .font(BereanType.subheadline())
+                .foregroundStyle(Color.bereanInk.opacity(0.75))
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 10)
+
+            // Divider
+            Rectangle()
+                .fill(Color.bereanTan.opacity(0.5))
+                .frame(height: BereanMetrics.strokeWidth)
+                .padding(.horizontal, 20)
+
+            // Action strip
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                actionButton("bookmark",                label: "Save",    action: onSave)
+                actionButton("square.and.arrow.up",     label: "Share",   action: onShare)
+                actionButton("hands.and.sparkles.fill", label: "Pray",    action: onPray)
+                actionButton("text.magnifyingglass",    label: "Explain", action: onExplain)
+                actionButton("ellipsis",                label: "More",    action: onMore)
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 10)
+        }
+        .background(reduceTransparency ? Color.bereanIvory : Color.bereanIvory.opacity(0.92))
     }
 
     @ViewBuilder
     private func actionButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .frame(width: BereanMetrics.minTapTarget, height: BereanMetrics.minTapTarget)
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.body.weight(.regular))
+                Text(label)
+                    .font(BereanType.caption())
+            }
+            .foregroundStyle(Color.bereanInk)
+            .frame(minWidth: BereanMetrics.minTapTarget, minHeight: BereanMetrics.minTapTarget)
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
         .accessibilityLabel(label)
     }
 }
 
-#Preview {
-    ScriptureActionRow(
-        passageTitle: "John 1:1",
-        isCollapsed: false,
-        onSave: {}, onShare: {}, onPray: {}, onExplain: {}, onMore: {}
-    )
-    .padding()
+#Preview("Visible") {
+    VStack {
+        Spacer()
+        ScriptureActionRow(
+            passageTitle: "John 1:1-5 (NIV)",
+            isCollapsed: false,
+            onSave: {}, onShare: {}, onPray: {}, onExplain: {}, onMore: {}
+        )
+    }
+    .background(Color.bereanWhite)
+}
+
+#Preview("Collapsed") {
+    VStack {
+        Spacer()
+        ScriptureActionRow(
+            passageTitle: "John 1:1-5 (NIV)",
+            isCollapsed: true,
+            onSave: {}, onShare: {}, onPray: {}, onExplain: {}, onMore: {}
+        )
+    }
+    .background(Color.bereanWhite)
 }

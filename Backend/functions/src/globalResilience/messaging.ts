@@ -449,6 +449,21 @@ async function sendFcmPush(params: FcmPushParams): Promise<void> {
         logger.warn("[sendMessageGlobal] Could not read trust profile", { recipientId }, trustErr);
     }
 
+    // P1-I: Check whether the recipient has muted the sender.
+    // Muted users must not generate push notifications to the muting user.
+    try {
+        const muteDoc = await db
+            .collection("users").doc(recipientId)
+            .collection("mutedUsers").doc(senderUid).get();
+        if (muteDoc.exists) {
+            logger.info("[sendMessageGlobal] Recipient has muted sender — suppressing push", { recipientId, senderUid });
+            return;
+        }
+    } catch (muteErr) {
+        // Non-fatal — if mute check fails, fall through and deliver the push.
+        logger.warn("[sendMessageGlobal] Could not check mute status (non-fatal)", { recipientId, senderUid }, muteErr);
+    }
+
     // Fetch recipient's FCM token.
     const recipientDoc = await db.collection("users").doc(recipientId).get();
     const recipientData = recipientDoc.data() ?? {};

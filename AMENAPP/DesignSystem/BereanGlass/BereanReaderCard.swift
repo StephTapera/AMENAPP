@@ -2,16 +2,15 @@
 // AMEN — Berean Reading Surface: BereanReaderCard component (W1)
 // Flag: bereanGlassComponents (dev-only)
 //
-// Wraps the canonical LiquidGlassCard (LiquidGlass/LiquidGlassCard.swift) with
-// bereanIvory tint. Do NOT reimplement glass from scratch — the canonical card
-// handles livingGlassMaterial + ReduceTransparency via LiquidGlassMaterial.swift.
-// ReduceTransparency override here adds ivory solid background + bereanTan stroke.
+// Wraps canonical LiquidGlassCard (LiquidGlass/LiquidGlassCard.swift) with
+// bereanIvory tint. The canonical card already handles livingGlassMaterial
+// and ReduceTransparency via LiquidGlassMaterial.swift.
+// This wrapper adds optional header text and tap routing.
 
 import SwiftUI
 
 /// Berean reading surface card with optional header and tap action.
-/// Internally wraps the canonical LiquidGlassCard with contextTint: .bereanIvory.
-/// ReduceTransparency fallback: solid bereanIvory + bereanTan hairline stroke.
+/// ReduceTransparency fallback: solid bereanIvory + bereanTan stroke.
 struct BereanReaderCard<Content: View>: View {
 
     let header: String?
@@ -19,6 +18,7 @@ struct BereanReaderCard<Content: View>: View {
     let content: () -> Content
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
 
     init(
         header: String? = nil,
@@ -44,7 +44,7 @@ struct BereanReaderCard<Content: View>: View {
 
     private var solidCard: some View {
         innerContent
-            .background(Color.bereanIvory)
+            .background(colorScheme == .dark ? Color(.systemGray6) : Color.bereanIvory)
             .clipShape(RoundedRectangle(cornerRadius: BereanMetrics.cardRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: BereanMetrics.cardRadius, style: .continuous)
@@ -86,12 +86,12 @@ struct BereanReaderCard<Content: View>: View {
     .background(Color.bereanIvory)
 }
 
-#Preview("No header, tappable") {
-    BereanReaderCard(onTap: { print("tapped") }) {
-        Text("A card with no header.")
+#Preview("No header") {
+    BereanReaderCard {
+        Text("A card without a header.")
             .font(BereanReaderType.body)
             .foregroundStyle(Color.bereanInk)
+            .padding()
     }
     .padding()
-    .background(Color.bereanIvory)
 }

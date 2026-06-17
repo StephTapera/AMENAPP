@@ -78,7 +78,8 @@ struct HomeView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var lastScrollOffset: CGFloat = 0
     @State private var showToolbar = true
-    @Environment(\.tabBarVisible) private var tabBarVisible  // ✅ Access tab bar visibility
+    @Environment(\.tabBarVisible) private var tabBarVisible
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var lastScrollTime: Date = Date()
 
     // Hysteresis thresholds — hide quickly on downward scroll, restore on upward
@@ -121,12 +122,14 @@ struct HomeView: View {
             }
         }
 
+        let scrollAnim: Animation = reduceMotion ? .easeInOut(duration: 0.08) : .easeOut(duration: 0.2)
+        let hideAnim: Animation  = reduceMotion ? .easeInOut(duration: 0.08) : .easeOut(duration: 0.15)
+
         // At top (within 20pts of zero) - always show UI, no animation fighting
         if offset > -20 {
             AMENTabBarScrollBridge.shared.expand()
             if !showToolbar || !tabBarVisible.wrappedValue {
-                // Single smooth animation without bounce
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(scrollAnim) {
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
                 }
@@ -138,7 +141,7 @@ struct HomeView: View {
         if delta > scrollUpThreshold {
             AMENTabBarScrollBridge.shared.expand()
             if !showToolbar || !tabBarVisible.wrappedValue {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(scrollAnim) {
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
                 }
@@ -148,7 +151,7 @@ struct HomeView: View {
         else if delta < -scrollDownThreshold && offset < -50 {
             AMENTabBarScrollBridge.shared.minimize()
             if showToolbar || tabBarVisible.wrappedValue {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(hideAnim) {
                     showToolbar = false
                     tabBarVisible.wrappedValue = false
                 }
@@ -158,7 +161,7 @@ struct HomeView: View {
         // Auto-collapse category pills when scrolling down
         if delta < -60 && offset < -100 {
             if isCategoriesExpanded {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(hideAnim) {
                     isCategoriesExpanded = false
                 }
             }
@@ -253,7 +256,7 @@ struct HomeView: View {
                                 Text("amen")
                                     .font(AMENFont.bold(24))
                                     .foregroundStyle(.primary)
-                                Image(systemName: "chevron.up")
+                                Image(systemName: "chevron.down")
                                     .font(.systemScaled(9, weight: .medium))
                                     .foregroundStyle(.primary.opacity(0.6))
                                     .rotationEffect(.degrees(isCategoriesExpanded ? 180 : 0))
@@ -654,15 +657,18 @@ struct HomeView: View {
 
 /// Shows only posts from accounts the current user follows.
 /// Filters PostsManager.allPosts client-side using FollowService.followingIds.
+/// Muted users are excluded so their posts don't surface here either.
 struct FollowingFeedView: View {
     @ObservedObject private var postsManager = PostsManager.shared
     @ObservedObject private var followService = FollowService.shared
+    @ObservedObject private var muteService = MuteService.shared
 
     private var followingPosts: [Post] {
         let ids = followService.following
         guard !ids.isEmpty else { return [] }
         return postsManager.allPosts
             .filter { ids.contains($0.authorId) }
+            .filter { !muteService.mutedUsers.contains($0.authorId) }
             .sorted { $0.createdAt > $1.createdAt }
     }
 
@@ -736,12 +742,14 @@ struct FollowingFeedView: View {
 // MARK: - Quiet Feed View
 
 /// Chronological feed with no algorithmic boost, ads, or trending injections.
-/// Shows a max of ~40 most recent posts.
+/// Shows a max of ~40 most recent posts. Muted users are excluded.
 struct QuietFeedView: View {
     @ObservedObject private var postsManager = PostsManager.shared
+    @ObservedObject private var muteService = MuteService.shared
 
     private var quietPosts: [Post] {
         Array(postsManager.allPosts
+            .filter { !muteService.mutedUsers.contains($0.authorId) }
             .sorted { $0.createdAt > $1.createdAt }
             .prefix(40))
     }
