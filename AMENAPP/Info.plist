@@ -66,7 +66,10 @@
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>
+		<string>app.amen.selah.read.scripture</string>
 	</array>
+	<key>NSSiriUsageDescription</key>
+	<string>AMEN uses Siri to let you open prayers, scripture, and church notes hands-free, and to resume Selah reading sessions on other devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>AMEN uses the camera to let you take photos and videos for posts, stories, and profile pictures.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

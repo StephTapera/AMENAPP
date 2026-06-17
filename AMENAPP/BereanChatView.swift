@@ -368,6 +368,8 @@ struct BereanChatView: View {
     // Observes BereanConstitutionalPipeline.shared.isCrisisEscalated so that when
     // the pipeline's I-4 invariant fires the user immediately sees 988 resources.
     @ObservedObject private var pipeline = BereanConstitutionalPipeline.shared
+    // C-05: COPPA age gate — P0-8 fix
+    @ObservedObject private var minorSafety = BereanAgeGateService.shared
     @State private var showCrisisCard = false
 
     init(initialMode: BereanPersonalityMode = .shepherd,
@@ -389,6 +391,15 @@ struct BereanChatView: View {
     @State private var cardsAppeared: Bool = false
 
     var body: some View {
+        // C-05: COPPA age gate — block confirmed under-13 users from Berean AI (P0-8 fix)
+        if minorSafety.isConfirmedUnder13 {
+            BereanMinorBlockedView()
+        } else {
+            _bereanChatContent
+        }
+    }
+
+    @ViewBuilder private var _bereanChatContent: some View {
         GeometryReader { proxy in
             // proxy.safeAreaInsets.top is 59pt on Dynamic Island devices,
             // 47pt on TrueDepth notch devices, ≤24pt on SE/older.

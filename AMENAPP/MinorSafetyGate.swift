@@ -16,17 +16,28 @@ final class BereanAgeGateService: ObservableObject {
     func loadAgeStatus() async {
         guard let uid = Auth.auth().currentUser?.uid else { isLoaded = true; return }
         do {
-            let doc = try await Firestore.firestore().collection("users").document(uid).getDocument()
-            let data = doc.data() ?? [:]
-            // Check birthYear field; default to allowing access if not set
-            if let birthYear = data["birthYear"] as? Int {
-                let currentYear = Calendar.current.component(.year, from: Date())
-                isConfirmedUnder13 = (currentYear - birthYear) < 13
-            }
-            isLoaded = true
+            try await fetchAndApplyAgeStatus(uid: uid)
         } catch {
-            isLoaded = true // on error, default to allowing access
+            // First attempt failed — retry once before failing closed.
+            do {
+                try await fetchAndApplyAgeStatus(uid: uid)
+            } catch {
+                // A12-007: fail closed on persistent Firestore error.
+                // Block access conservatively to protect minors during outages.
+                isConfirmedUnder13 = true
+                isLoaded = true
+            }
         }
+    }
+
+    private func fetchAndApplyAgeStatus(uid: String) async throws {
+        let doc = try await Firestore.firestore().collection("users").document(uid).getDocument()
+        let data = doc.data() ?? [:]
+        if let birthYear = data["birthYear"] as? Int {
+            let currentYear = Calendar.current.component(.year, from: Date())
+            isConfirmedUnder13 = (currentYear - birthYear) < 13
+        }
+        isLoaded = true
     }
 }
 
