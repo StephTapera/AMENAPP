@@ -10,7 +10,7 @@ function read(rel: string): string {
 
 describe("remaining release scopes hardening", () => {
     test("Berean streaming endpoint enforces Auth, App Check, entitlement, quota, and output validation", () => {
-        const stream = read("functions/src/bereanChatProxyStream.ts");
+        const stream = read("Backend/functions/src/bereanChatProxyStream.ts");
         expect(stream).toContain("verifyToken(appCheckToken)");
         expect(stream).toContain("verifyIdToken");
         expect(stream).toContain("getBereanTierForUser");
@@ -21,14 +21,14 @@ describe("remaining release scopes hardening", () => {
     });
 
     test("legacy client-supplied Church Notes AI draft callable is disabled", () => {
-        const legacyDraft = read("functions/src/churchNotes/createChurchNotesAIDraft.ts");
+        const legacyDraft = read("Backend/functions/src/churchNotes/createChurchNotesAIDraft.ts");
         expect(legacyDraft).toContain("Legacy client-supplied Church Notes AI drafts are disabled");
         expect(legacyDraft).not.toContain("generatedText: String(request.data?.generatedText");
     });
 
     test("post reactions are server-authoritative callables with Auth and App Check", () => {
-        const reactions = read("functions/src/postReactions.ts");
-        const index = read("functions/src/index.ts");
+        const reactions = read("Backend/functions/src/postReactions.ts");
+        const index = read("Backend/functions/src/index.ts");
         expect(index).toContain("export * from \"./postReactions\"");
         expect(reactions).toContain("enforceAppCheck: true");
         expect(reactions).toContain("requireAuthAndAppCheck");

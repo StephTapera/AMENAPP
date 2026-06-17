@@ -1,3 +1,7 @@
+/**
+ * @deprecated Superseded by Backend/functions/src/ TypeScript codebase (creator codebase).
+ * Retained for gradual migration only — do not add new callables here.
+ */
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { logger } = require("firebase-functions");

@@ -37,12 +37,12 @@ describe("account lifecycle callable surface", () => {
     });
 
     test("exports auth/account lifecycle callables used by iOS", () => {
-        const index = read("index.ts");
+        const index = read("src/index.ts");
         expect(index).toContain('export * from "./twoFactorAuth"');
         expect(index).toContain('export * from "./accountLifecycle"');
         expect(index).toContain('export * from "./userAccountDeletionCascade"');
 
-        const twoFactor = read("twoFactorAuth.ts");
+        const twoFactor = read("src/twoFactorAuth.ts");
         [
             "request2FAOTP",
             "verify2FAOTP",
@@ -53,7 +53,7 @@ describe("account lifecycle callable surface", () => {
             "verifyBackupCode",
         ].forEach((name) => expect(twoFactor).toContain(`export const ${name}`));
 
-        const account = read("accountLifecycle.ts");
+        const account = read("src/accountLifecycle.ts");
         [
             "createAmenUserProfile",
             "deactivateAccount",
@@ -65,7 +65,7 @@ describe("account lifecycle callable surface", () => {
     });
 
     test("backup codes are stored as hashes, not plaintext code fields", () => {
-        const twoFactor = read("twoFactorAuth.ts");
+        const twoFactor = read("src/twoFactorAuth.ts");
         expect(twoFactor).toContain("backupCodeSalt");
         expect(twoFactor).toContain("codeHash");
         expect(twoFactor).not.toContain('code": code');

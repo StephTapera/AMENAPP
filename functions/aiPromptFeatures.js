@@ -1,4 +1,7 @@
 /**
+ * @deprecated Superseded by Backend/functions/src/ TypeScript codebase (creator codebase).
+ * Retained for gradual migration only — do not add new callables here.
+ *
  * aiPromptFeatures.js
  * AMEN App — AI-powered callable prompt features (UI-driven)
  *

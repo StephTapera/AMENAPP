@@ -1,4 +1,7 @@
 /**
+ * @deprecated Superseded by Backend/functions/src/ TypeScript codebase (creator codebase).
+ * Retained for gradual migration only — do not add new callables here.
+ *
  * bereanFeaturesFunctions.js
  * AMEN App — Berean AI Feature Cloud Functions
  *

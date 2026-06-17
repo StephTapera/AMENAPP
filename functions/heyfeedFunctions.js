@@ -1,4 +1,7 @@
 /**
+ * @deprecated Superseded by Backend/functions/src/ TypeScript codebase (creator codebase).
+ * Retained for gradual migration only — do not add new callables here.
+ *
  * heyFeedFunctions.js
  * AMEN Cloud Functions — Hey Feed NL Intelligence Layer
  *
