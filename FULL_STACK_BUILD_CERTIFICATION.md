@@ -1,6 +1,82 @@
 # FULL-STACK BUILD CERTIFICATION
 
-## Reanchored Certification Attempt - 2026-06-16
+## Reanchored Certification Attempt - 2026-06-16 (Pass 2)
+
+Verification branch: `cert/reanchor-eee648b4`
+Verification HEAD (cert commit): `389a79a163b5e4c025d271a34667618a22f8d84e`
+Source HEAD pinned from: `eee648b4dafe67e8f6d5bceed65d7cdde62a1354`
+Stamp guard: `HEAD == cert SHA — safe to report`
+Result: **NOT CERTIFIED / HONEST RED.** Meaningful progress vs. prior attempt (257→121 test failures, 30→18 failing suites, both emulators now run), but Layer 1 iOS build remains red and Layer 2 iOS tests remain blocked.
+
+### Summary Table
+
+| Layer | Status | Evidence |
+|---|---|---|
+| T0 — Pin HEAD | ✅ GREEN | Created `cert/reanchor-eee648b4` at `eee648b4`. Cert commit `389a79a1` applied. `git rev-parse HEAD == 389a79a1` at stamp time. |
+| T1 — Artifact hygiene | ✅ GREEN | `git ls-files \| grep -E '\\.nosync/' \| wc -l` = `0`. No untracked build artifacts. `.gitignore` covers all `.nosync/` patterns. |
+| T1 — iOS app build | 🔴 RED | Attempt 1: code signing failure (`resource fork not allowed`) on `AMENWidgetExtensionExtension.appex` and `AMENNotificationServiceExtension.appex`. Applied `xattr -rc` to both bundles. Attempt 2: `** BUILD FAILED **` with `Multiple commands produce '…BUILD_REQUEST.md'` and `Multiple commands produce '…BereanHomeView.stringsdata'` — caused by uncommitted `project.pbxproj` changes in the working tree (concurrent agent activity re-introduced duplicate file refs that `eee648b4` had fixed). |
+| T2 — iOS test compile | ⏸ BLOCKED | Dependent on Layer 1. Not attempted. |
+| T3 — Backend TS compile | ✅ GREEN | `npx tsc --noEmit` exited 0, no output. |
+| T4 — Backend Jest | 🔴 RED (improving) | `Test Suites: 18 failed, 49 passed, 67 total` / `Tests: 121 failed, 1032 passed, 1153 total`. Down from 257/911 (prior cert). See failure classification below. |
+| T5 — Firestore emulator | ✅ GREEN | Emulator started, Firestore rules compile passed. Prior jar-download blocker resolved. |
+| T5 — Storage emulator | ✅ GREEN (emulator) | Storage emulator started cleanly (`cloud-storage-rules-runtime-v1.1.3.jar` present). |
+| T5 — Storage rules content | 🔴 RED | `storage.rules` missing required media quarantine patterns: `mediaUploads/{userId}/{mediaId}/raw/`, `mediaProcessed/`, `allow write: if false` for server-only paths. Real security gap. |
+
+### T4 Failure Classification
+
+**Fixed this session** (cert commit `389a79a1` — 24 tests recovered):
+
+| Suite | Root cause | Fix applied |
+|---|---|---|
+| `berean.historySanitization` (17 tests) | Phase 8 security hardening added `<human_turn>` / `<assistant_turn>` content wrapping to `sanitizeConversationHistory`; test expectations were pre-wrapping | Updated expectations to match wrapped format; helper functions `u()` / `a()` document the wrapping contract |
+| `aiBackendOwnership` (5 tests) | 5 legacy JS files (`openAIFunctions`, `bereanFunctions`, `aiPromptFeatures`, `bereanFeaturesFunctions`, `heyfeedFunctions`) missing `@deprecated` JSDoc | Added `@deprecated` block to each |
+| `remainingReleaseScopes` (2 tests) | Test read paths used `functions/src/` instead of `Backend/functions/src/` for church notes, post reactions, and index files | Corrected paths to `Backend/functions/src/` |
+
+**Remaining failures — named causes:**
+
+| Suite(s) | Test count | Cause | Fix required |
+|---|---|---|---|
+| `berean.quotaUnified` (4) + `berean.streamingSafety` (7) + `remainingReleaseScopes` (1) | 12 | **Streaming proxy missing security stack**: `bereanChatProxyStream.ts` has rate limiting via `enforceRateLimit` but lacks App Check verification, entitlement/model gating, unified `aiUsage/{uid}/daily` quota, `validateRawTextOutput`, AI disclosure in SSE events, and `safeText` distinction. Real quota bypass: users can exhaust callable quota and switch to streaming. | Implement App Check + entitlement + quota + output safety stack in the streaming proxy, mirroring `bereanChatProxy.ts` |
+| `accountLifecycle` (2) | 2 | **2FA implementation incomplete**: `twoFactorAuth.ts` exports only `request2FAOTP`, `verify2FAOTP`, `disable2FASession`. Missing: `enableTwoFactor`, `disableTwoFactor`, `generateBackupCodes`, `regenerateBackupCodes`, `verifyBackupCode`, and security fields `backupCodeSalt` / `codeHash`. | Implement missing 2FA functions |
+| `aiAppCheckEnforcement` | ~14 | New callable files (`capabilities/registry`, `capabilities/scripture`, `contextEngine`, `selah/discernmentEngine`, `berean/controllers/generateStructuredResponse`, etc.) declare `enforceAppCheck:false` without being in the PRE_AUTH_ALLOWLIST. Also: `aiModeration.js` assigns identity from `data.userId` (not `context.auth.uid`). | Either add to allowlist (with justification) or fix `enforceAppCheck:true`; fix identity sourcing in `aiModeration.js` |
+| `securityPosture` | 3 | 96 callable source files missing `enforceAppCheck:true`; signed URL expiry not bounded; Storage rules missing `mediaUploads`/`mediaProcessed` server-own rules; `reports` collection taxonomy missing child safety categories in rules. | Fix per-finding |
+| `spiritualSystems` | ~22 | App Check guards throw `unauthenticated` instead of `failed-precondition` — auth check fires before App Check enforcement in test mock. Also: behavior assertion drift on visibility/reaction validation. | Fix auth/App Check ordering in handlers; update behavior assertions |
+| `berean.realtimeReleaseReadiness` | 4 | `firebase.json` deploy config not targeting hardened rules/indexes files; Firestore rules missing realtime collection coverage; iOS WebSocket transport documentation issue. | Fix deploy config + rules |
+| `bereanPremiumContracts` | 1 | Firestore rules don't protect private Berean collections from client writes to generated streams. | Update Firestore rules |
+| `semanticIntelligence` | 4 | AI generation path returning `generationSource: "fallback"` instead of `"ai"` (Grok/Claude mock not activated); scripture ref filtering returning empty array. | Fix mock setup for AI provider in test |
+| `securityLaunchReadiness` | 3 | iOS client missing `submitTrustSafetyReport` call; `storage.rules` missing media quarantine/server-own patterns; legacy iOS report path check. | Implement storage rules + wire iOS callable |
+| `communityHubs` | ~14 | Functions return `failed-precondition` where tests expect normal execution — flag-gated functions off in test environment. | Fix test environment flag setup |
+| `selahMedia` | ~13 | `requireAppCheck` not called before `requireAuth` in 6 Selah functions; behavior assertion drift on idempotency and audit logs. | Fix guard ordering; update assertions |
+| `covenant/stripeCovenantWebhook` | ~5 | `Stripe.Event` namespace type incompatible with current Stripe typings (`StripeConstructor.Event` not exported). | Update Stripe type import |
+| `amenConnect` | ~4 | Same `Stripe.Event` namespace type error; `Stripe` used as a type namespace. | Update Stripe type import |
+| `explainVideoContent` + `profileMini` + `churchNotes` | several | Behavior assertion drift; mock setup issues. | Investigate per-suite |
+
+### T1 iOS Build — Human Actions Required
+
+1. **Commit or stash working-tree `project.pbxproj` changes** before next build attempt. The "Multiple commands produce" errors come from uncommitted duplicate file refs added by concurrent agents.
+2. After clean tree: delete `DerivedData.nosync/` and run canonical build:
+   ```sh
+   rm -rf DerivedData.nosync
+   xcodebuild -scheme AMENAPP -destination 'generic/platform=iOS' build \
+     -clonedSourcePackagesDirPath ./SourcePackages.nosync \
+     -derivedDataPath ./DerivedData.nosync
+   ```
+3. If signing still fails with resource fork error after a clean build: run `xattr -rc AMENAPP.xcodeproj` on the project before building.
+
+### Merge Gate (unchanged)
+
+Every integration-branch merge must run this five-layer pass:
+1. iOS app build through Xcode MCP or human shell canonical clean command.
+2. iOS build-for-testing through Xcode MCP or human shell canonical command.
+3. Backend compile: `cd Backend/functions && npx tsc --noEmit && npm run build`; legacy syntax: `find functions -name '*.js' -not -path '*/node_modules/*' -not -path '*/.history/*' -print0 | xargs -0 -n 1 node --check`.
+4. Jest: `cd Backend/functions && npm test`; `cd functions && npm test`.
+5. Rules: Firebase dry-run compile for Firestore/Storage and emulator-backed rules tests.
+
+Any red layer blocks the merge until the owning lane fixes forward. No test narrowing, disabling, or diagnostic suppression counts as a green certificate.
+
+---
+
+## Reanchored Certification Attempt - 2026-06-16 (Pass 1)
 
 Verification branch: `cert-reanchor-4bb2ffdd`  
 Verification HEAD: `4bb2ffdd9955f113f4b723fbc901743c7ab9af83`  
