@@ -30,7 +30,9 @@ import type { VerificationTier, DmRiskLevel } from "./contracts";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const REGION = "us-central1";
+// us-east1 — us-central1 is at quota (999/1000). New functions deploy to
+// us-east1 per docs/deploy-topology.md + CLAUDE.md. See Interim Region Table.
+const REGION = "us-east1";
 
 /** Threshold: account age in days below which a new-money-request is blocked. */
 const ACCOUNT_AGE_BLOCK_DAYS = 30;
