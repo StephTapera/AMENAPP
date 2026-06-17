@@ -12,7 +12,7 @@ Build stamp: `2026-06-17T15:55:55Z`
 | T3 — Backend TS compile | ✅ GREEN | `npx tsc --noEmit` exit 0, no output |
 | T4 — Backend Jest | ✅ GREEN | 67/67 suites, 1175/1175 tests, 0 failures — was 121 |
 | T2 — iOS test compile | ⏸ NOT ATTEMPTED | See note below |
-| T5 — Storage rules | 🔴 HUMAN-PENDING | `firebase deploy --only storage` from root required (media quarantine patterns) |
+| T5 — Storage rules | ✅ GREEN | Added `mediaUploads/{userId}/{mediaId}/raw/` + `mediaProcessed/` server-own rules. Deployed to amen-5e359 via `firebase deploy --only storage`. Commit `90a0c4c3`. |
 | P0 agent items | ✅ ALL DONE | 12 P0 items closed in batches 1–3; see table below |
 | P1 agent items | ✅ ALL DONE | 10 P1 items closed in batch 4 + batch 5 |
 | P2-A (region) | ✅ DONE | bereanChatProxy + Stream → us-east1 |
