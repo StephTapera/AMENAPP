@@ -1,5 +1,44 @@
 # FULL-STACK BUILD CERTIFICATION
 
+## Reanchored Certification Attempt - 2026-06-16
+
+Verification branch: `cert-reanchor-4bb2ffdd`  
+Verification HEAD: `4bb2ffdd9955f113f4b723fbc901743c7ab9af83`  
+Stamp guard: `HEAD == cert SHA - safe to report`
+
+Result: **NOT CERTIFIED / HONEST RED**. The run is pinned, artifact hygiene is fixed, and the former BIL duplicate-placeholder collision is absent, but the app build fails before Swift compilation on missing package products. Downstream layers were sampled only to name causes; they do not convert the cert to green.
+
+| Layer | Status | Evidence |
+|---|---|---|
+| T0 - Pin HEAD | GREEN | Created branch `cert-reanchor-4bb2ffdd` at `4bb2ffdd9955f113f4b723fbc901743c7ab9af83`. Final guard returned `HEAD == cert SHA - safe to report`. |
+| T1 - Artifact hygiene | GREEN | `git ls-files \| grep -E '\\.nosync/' \| wc -l` returned `0`. `.gitignore` contains `DerivedData.nosync/`, `SourcePackages.nosync/`, `PackageCache.nosync/`, `*.nosync/`, and `.build/`. |
+| T1 - iOS app build | RED | Clean `DerivedData.nosync` build with workspace cache reached the build graph, then failed with missing package products: `LiveKit`, many Firebase products, `GoogleSignIn`, `GoogleSignInSwift`, `GoogleGenerativeAI`, and multiple Algolia products. No BIL `.stringsdata` duplicate appears in the current `build.log`. |
+| T1 - iOS test compile | BLOCKED | Simulator discovery failed: `CoreSimulatorService connection became invalid` / `Failed to initialize simulator device set`. App build is already red, so build-for-testing was not a valid certification layer. |
+| T2 - Backend Jest | RED | `Backend/functions`: full Jest run tail reported `Test Suites: 29 failed, 35 passed, 64 total`; `Tests: 218 failed, 754 passed, 972 total`. First listed suite `src/churchDiscoveryPhase2.test.ts` passes in isolation, pointing to shared harness/cross-suite compile/setup issues rather than that suite's assertions. |
+| T2 - Backend failure classes | RED | Observed TS2305 missing exports (`generateDynamicReplyPreviews`, `amenConnect`), Firebase Admin mock/setup shape error (`admin.apps` undefined), and Stripe namespace/type mismatches. |
+| T3 - Storage rules | NOT RUN | Not run because T1 is red and simulator/package state prevents an honest full-stack green stamp. Prior storage runtime download blocker remains unverified in this reanchored run. |
+
+### Reanchored Evidence Tails
+
+```text
+T1 app build:
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP.xcodeproj: error: Missing package product 'LiveKit' (in target 'AMENAPP' from project 'AMENAPP')
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP.xcodeproj: error: Missing package product 'FirebaseCore' (in target 'AMENAPP' from project 'AMENAPP')
+/Users/stephtapera/Desktop/AMEN/AMENAPP copy/AMENAPP.xcodeproj: error: Missing package product 'AlgoliaSearch' (in target 'AMENAPP' from project 'AMENAPP')
+** BUILD FAILED **
+
+T2 backend tests:
+Test Suites: 29 failed, 35 passed, 64 total
+Tests:       218 failed, 754 passed, 972 total
+
+T2 first-suite isolation:
+PASS src/churchDiscoveryPhase2.test.ts
+Tests: 21 passed, 21 total
+
+Layer 2 simulator availability:
+Unable to locate device set: Error Domain=NSPOSIXErrorDomain Code=61 "Connection refused"
+```
+
 Generated: 2026-06-11 16:04:58 MST
 Verification HEAD: `4f044d91`
 Report commit HEAD: `4a2dd121`
