@@ -160,6 +160,21 @@ final class BereanChatViewModel: ObservableObject {
                 return
             }
 
+            // PRIV-005: If consent was not yet granted the pipeline refuses the call
+            // and sets requiresAIConsent. Remove the placeholder and bail out — the
+            // view's .bereanAIConsentGate() presents the disclosure sheet. The user's
+            // typed text is restored so they can resend after granting consent.
+            if pipeline.requiresAIConsent {
+                messages.remove(at: assistantIndex)
+                if let last = messages.last, last.role == .user {
+                    messages.removeLast()
+                    inputText = last.content
+                }
+                isThinking = false
+                if isStudyModeEnabled { resolveReasoning() }
+                return
+            }
+
             let answer = pipeline.lastResponse?.answer
                 ?? "Berean is temporarily unavailable. Please try again."
             messages[assistantIndex].content = answer
@@ -492,6 +507,10 @@ struct BereanChatView: View {
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
+            // PRIV-005: First-run Berean AI consent disclosure. Presented whenever the
+            // pipeline reports requiresAIConsent. The model is never called until the
+            // user grants consent here.
+            .bereanAIConsentGate()
             // Addition 3: Saved-to-Notes toast
             .overlay(alignment: .top) {
                 if showSavedToNotesToast {

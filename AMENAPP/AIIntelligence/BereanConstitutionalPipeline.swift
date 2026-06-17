@@ -116,6 +116,10 @@ final class BereanConstitutionalPipeline: ObservableObject {
     /// The view must observe this and present the crisis resource card.
     /// Never cleared automatically — call clearHistory() to reset.
     @Published var isCrisisEscalated: Bool = false
+    /// PRIV-005: Set to true when a query is attempted before first-run AI consent.
+    /// The view observes this (via `.bereanAIConsentGate()`) and presents the
+    /// disclosure sheet. The model is NOT called until consent is recorded.
+    @Published var requiresAIConsent: Bool = false
 
     // MARK: Supporting Types
 
@@ -177,6 +181,16 @@ final class BereanConstitutionalPipeline: ObservableObject {
         if CrisisDetectionService.shared.hasLocalCrisisSignal(in: trimmedQuery) {
             dlog("[BereanPipeline] I-4: crisis signal detected — aborting pipeline, setting isCrisisEscalated.")
             isCrisisEscalated = true
+            return
+        }
+
+        // PRIV-005: First-run AI consent gate. Berean is a generative-AI surface;
+        // no query content is sent for AI processing until the user has granted
+        // informed consent. Fail-closed: if consent is unknown we refuse the call
+        // and surface the disclosure sheet via requiresAIConsent.
+        guard BereanAIConsentManager.hasConsentedNow() else {
+            dlog("[BereanPipeline] PRIV-005: AI consent not granted — refusing pipeline call, surfacing consent sheet.")
+            requiresAIConsent = true
             return
         }
 
