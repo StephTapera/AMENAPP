@@ -19,9 +19,17 @@
 
 import Foundation
 import UIKit
+import CryptoKit
 import FirebaseFirestore
 import FirebaseAuth
 import FirebaseAnalytics
+
+/// One-way truncated hash for analytics — lets us correlate events for the same
+/// user without storing a recoverable UID in any analytics pipeline.
+private func uidHash(_ uid: String) -> String {
+    let digest = SHA256.hash(data: Data(uid.utf8))
+    return digest.compactMap { String(format: "%02x", $0) }.joined().prefix(16).description
+}
 
 // MARK: - Analytics Event
 
@@ -390,25 +398,25 @@ enum AMENAnalyticsEvent {
         case .mediaFilterChanged(let filter):
             return ["filter": filter]
         case .suggestionImpression(let userId, let position, let reason):
-            return ["suggested_user_id": userId, "position": position, "reason_type": reason]
+            return ["suggested_user_id": uidHash(userId), "position": position, "reason_type": reason]
         case .suggestionFollowTap(let userId, let position):
-            return ["suggested_user_id": userId, "position": position]
+            return ["suggested_user_id": uidHash(userId), "position": position]
         case .suggestionFollowSuccess(let userId):
-            return ["suggested_user_id": userId]
+            return ["suggested_user_id": uidHash(userId)]
         case .suggestionFollowFailure(let userId):
-            return ["suggested_user_id": userId]
+            return ["suggested_user_id": uidHash(userId)]
         case .suggestionProfileOpen(let userId):
-            return ["suggested_user_id": userId]
+            return ["suggested_user_id": uidHash(userId)]
         case .suggestionDismiss(let userId):
-            return ["suggested_user_id": userId]
+            return ["suggested_user_id": uidHash(userId)]
         case .suggestionsRailSeen(let count):
             return ["suggestion_count": count]
         case .suggestionPeekOpen(let userId, let surface):
-            return ["suggested_user_id": userId, "surface": surface]
+            return ["suggested_user_id": uidHash(userId), "surface": surface]
         case .suggestionPeekExpand(let userId, let surface):
-            return ["suggested_user_id": userId, "surface": surface]
+            return ["suggested_user_id": uidHash(userId), "surface": surface]
         case .suggestionFullProfileOpen(let userId, let surface):
-            return ["suggested_user_id": userId, "surface": surface]
+            return ["suggested_user_id": uidHash(userId), "surface": surface]
         case .suggestionRailHidden(let surface):
             return ["surface": surface]
         case .suggestionRailRestored(let surface):

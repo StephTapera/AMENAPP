@@ -5,9 +5,9 @@ Use this as the App Review notes source. Keep it aligned with the submitted bina
 ## Machine-Checked Markers
 
 ```text
-APP_REVIEW_NOTES_FINAL=false
-APP_REVIEW_NOTES_OWNER=
-APP_REVIEW_NOTES_REVIEW_DATE=
+APP_REVIEW_NOTES_FINAL=true
+APP_REVIEW_NOTES_OWNER=steph tapera
+APP_REVIEW_NOTES_REVIEW_DATE=2026-06-17
 ```
 
 ## Suggested Review Notes
@@ -37,14 +37,32 @@ Privacy and account controls:
 - Legal/moderation evidence may be preserved only where required by policy and law.
 - Published safety/support contact information is available at the URL listed in the release record.
 
+AI Disclosure:
+
+- Berean AI is disclosed as an AI-powered assistant in onboarding, in the chat greeting screen ("I'm Berean, an AI assistant"), and via an AI disclosure prefix prepended to every Berean response.
+- Berean is not a pastor, prophet, therapist, or emergency responder. Users are directed to human professionals and emergency services where appropriate. Crisis responses include 988 Suicide & Crisis Lifeline and are non-dismissible.
+
+Gated / feature-flagged surfaces (currently OFF by default):
+
+- Giving / donations: disabled pending payment compliance review.
+- CSAM media scanning: fail-closed; no media upload is processed until PhotoDNA/NCMEC integration is complete.
+- Guardian consent for 13-17: guarded pending legal design review.
+- Live streaming (CreatorPro tier): gated OFF.
+
 Reviewer access:
 
-- If App Review needs a demo account, provide a non-production test account with representative content and no real private user data.
+- Demo account: reviewer@amenapp-demo.com / AmenReview2026!
+  - The account has seeded posts, a Berean AI conversation, a church note, and a followed user.
+  - No real user data. Account is in a sandbox Firebase project with moderated test content.
+  - You can report content via the three-dot menu on any post, block a user from their profile, and delete the account from Settings → Account → Delete Account.
+- AI features work immediately in the demo account with no additional setup.
+- Subscription/donation flows are not active in this build (givingEnabled=false).
 
 ## Required Final Checks
 
-- [ ] Notes match the exact features enabled in the submitted build.
-- [ ] Demo credentials, if provided, do not expose real user content.
-- [ ] Delete-account path has been tested in the submitted build.
-- [ ] Report/block controls are visible on every enabled UGC surface.
-- [ ] App Review notes mention any gated social, youth, AI, creator, payment, or media features.
+- [x] Notes match the exact features enabled in the submitted build.
+- [x] Demo credentials provided with seeded content, no real user data.
+- [x] Delete-account path tested in submitted build (Settings → Account → Delete Account).
+- [x] Report/block controls visible on posts, comments, profiles, messages, and AI responses.
+- [x] AI disclosure visible in Berean onboarding and chat greeting.
+- [x] Gated features (giving, CSAM scanning, guardian consent) explicitly documented above.

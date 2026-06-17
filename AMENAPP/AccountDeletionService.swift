@@ -57,7 +57,8 @@ final class AccountDeletionService: ObservableObject {
             "users/\(userId)/blockedUsers",
             "users/\(userId)/blocks",
             "users/\(userId)/savedSearches",
-            "users/\(userId)/private"      // DOB / age assurance — must delete
+            "users/\(userId)/private",     // DOB / age assurance — must delete
+            "users/\(userId)/bereanMemory" // CINF2-002: Berean AI memory entries — must delete
         ]
         for path in subcollections {
             try await deleteCollectionBatch(path: path)
@@ -94,6 +95,10 @@ final class AccountDeletionService: ObservableObject {
 
         // 5. Delete Algolia search index records (non-fatal — failure must not block deletion)
         await deleteAlgoliaRecords(userId: userId)
+
+        // 5.5. Delete Pinecone semantic vectors (non-fatal — failure must not block deletion)
+        // Covers namespaces: users/{uid}, selah_notes/{uid}, berean_context/{uid}
+        await deletePineconeVectors(userId: userId)
 
         // 6. Delete Realtime Database nodes
         // These are not covered by Firestore deletion and contain personal data:
@@ -267,6 +272,17 @@ final class AccountDeletionService: ObservableObject {
         } catch {
             // Non-fatal: Algolia deletion failure must not block account deletion
             dlog("⚠️ [AccountDeletion] Algolia delete failed (non-fatal): \(error)")
+        }
+    }
+
+    private func deletePineconeVectors(userId: String) async {
+        let callable = functions.httpsCallable("deletePineconeUserVectors")
+        do {
+            _ = try await callable.safeCall(["userId": userId])
+            dlog("✅ [AccountDeletion] Pinecone vectors deleted")
+        } catch {
+            // Non-fatal: Pinecone deletion failure must not block account deletion
+            dlog("⚠️ [AccountDeletion] Pinecone delete failed (non-fatal): \(error)")
         }
     }
 
