@@ -36,12 +36,37 @@ Build stamp: `2026-06-17T15:55:55Z`
 | Jest 121→0 | Backend test failures | c823e28c |
 | Storage rules | HUMAN-PENDING deploy | `firebase deploy --only storage` from root |
 
-### Human Actions Required
+### Remaining Open Items
 
-1. **iOS clean build** — kill concurrent agents, resolve project.pbxproj, delete DerivedData.nosync/, run canonical build. Send result here.
-2. **Storage rules deploy** — `firebase deploy --only storage` from repo root.
-3. **Demo account** — create reviewer@amenapp-demo.com per APP_REVIEW_NOTES.md.
-4. **Human-legal gates** — COPPA, CSAM vendor, CHILD-003/004, Stripe PAY-001/002.
+- **Demo account** — create reviewer@amenapp-demo.com per APP_REVIEW_NOTES.md. *(one engineering task)*
+- **T2 iOS test compile** — separate pass, run when all concurrent agents stopped.
+
+### Legal Gates (v2 — corrected critical path, 2026-06-17)
+
+Two blocking clusters. Stripe defers. NCMEC is a free quick-win today.
+
+#### Cluster A — CSAM (two parallel tracks)
+
+| Track | Owner | Action |
+|---|---|---|
+| A1. NCMEC ESP registration | Eng/Legal | Self-serve: esp.ncmec.org/registration — file today. Free, fast. This is the CyberTipline reporting endpoint, separate from detection. |
+| A2. Detection vendor | Legal + Vendor | Engage PhotoDNA (Microsoft) or Thorn Scout. Vendor SLAs drive timeline. Wire detection into upload pipeline (`AmenSafetyModerationProvider.swift`) once contract signed. `isMediaScanningAvailable=false` stays until both A1 + A2 are live. |
+
+#### Cluster B — Minor-safety / Privacy (one counsel engagement, three deliverables)
+
+COPPA (under-13), guardian consent (13–17, CHILD-003), and parent deletion (CHILD-004) are one workstream. The April 22, 2026 amended Rule deadline has passed — this is "comply to operate," not "attest and ship." Buying a recognized **VPC vendor** (Verifiable Parental Consent) collapses the consent-mechanism build entirely.
+
+| Deliverable | Path |
+|---|---|
+| B1. Verifiable parental consent (CHILD-003) | Buy a VPC vendor — collapses the build. Wire iOS SDK. |
+| B2. Under-13 data handling (COPPA core) | Counsel → data inventory, retention policy, parental notices, written security program. VPC vendor covers consent mechanism. |
+| B3. Parent-initiated account deletion (CHILD-004) | Operational runbook + product flow. Scope with counsel. |
+
+#### Deferred (post-v1)
+
+| Gate | Reason deferred |
+|---|---|
+| Stripe PAY-001/002 | `givingEnabled=false` stays for v1. Giving ships as a fast-follow once Stripe Connect onboarding completes (Stripe's clock, not ours). Remove from blocking critical path. |
 
 ---
 
