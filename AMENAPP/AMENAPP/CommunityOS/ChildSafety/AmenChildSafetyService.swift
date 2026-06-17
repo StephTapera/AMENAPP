@@ -562,8 +562,13 @@ final class AmenChildSafetyService: ObservableObject {
             .document(contactId)
             .getDocument()
 
-        // OPEN-2 placeholder: document absent means guardian tools not yet active — allow.
-        if !doc.exists { return true }
+        // SAFE-010 fix: fail-closed — no guardian document means no DM allowed, regardless of
+        // whether guardian tools have been activated. Allowing DMs without a guardian link
+        // creates a COPPA-class safety gap for new minors.
+        if !doc.exists {
+            dlog("[AmenChildSafetyService] canDM: DENIED — no guardian document for minorId=\(minorId)")
+            return false
+        }
 
         // CRITICAL: fail closed — no approval field on an existing document = no DM allowed.
         // A partial write or race condition that produces a document without the `approved`
