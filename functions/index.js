@@ -1973,3 +1973,9 @@ const capabilityScripture = require("./lib/capabilities/capabilities/scripture")
 exports.scripture_detectReferences = capabilityScripture.scripture_detectReferences;
 exports.scripture_getVerses        = capabilityScripture.scripture_getVerses;
 exports.scripture_searchVerses     = capabilityScripture.scripture_searchVerses;
+
+// ── Accessibility Intelligence Layer (AIL) ────────────────────────────────────
+// Deployed to us-east1 (us-central1 quota exhausted 2026-06-13; see Interim Region Table).
+// iOS call site: AILTransformService.swift via Functions.functions(region: "us-east1").
+const ailModule = require("./ail/ailTransform");
+exports.ailTransform = ailModule.ailTransform;

@@ -1,21 +1,19 @@
 // FloatingPrimaryCTA.swift
-// AMEN — Berean Reading Surface component (W0 shell → W1 implementation)
+// AMEN — Berean Reading Surface: FloatingPrimaryCTA component (W1)
 //
-// W0: Public signature frozen.
-// W1: Implement as a soft circular arrow button (arrow.forward.circle.fill or
-//     context-appropriate variant). bereanPressScale on tap.
-//     Floats above the bottom safe area — does NOT overlap keyboard.
-//     44pt minimum target.
-//     ReduceTransparency = solid bereanIvory button background.
+// Soft 56pt circular button — floats above content, does NOT overlap keyboard.
+// Press scale ~0.92 via bereanPressScale(). ReduceTransparency: solid bereanIvory.
 
 import SwiftUI
 
-/// A floating circular primary call-to-action button for the Berean surface.
-/// Used to advance the primary flow: Continue Study / Open Passage / Start Prayer / Next Reflection.
+/// Floating circular primary call-to-action for the Berean reading surface.
+/// Caller positions via padding — button does not self-position.
 struct FloatingPrimaryCTA: View {
 
     let label: BereanCTALabel
     let action: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var iconName: String {
         switch label {
@@ -27,26 +25,49 @@ struct FloatingPrimaryCTA: View {
     }
 
     var body: some View {
-        // W1: Replace with full glass floating button + press scale.
         Button(action: action) {
-            Image(systemName: iconName)
-                .font(.system(size: 44))
-                .foregroundStyle(Color.bereanInk.opacity(0.8))
+            ZStack {
+                Circle()
+                    .fill(buttonFill)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(Color.bereanTan, lineWidth: BereanMetrics.strokeWidth)
+                    )
+                    .frame(width: 56, height: 56)
+                    .shadow(
+                        color: Color.bereanInk.opacity(BereanMetrics.shadowOpacity),
+                        radius: BereanMetrics.shadowRadius, y: 4
+                    )
+
+                Image(systemName: iconName)
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(Color.bereanInk.opacity(0.82))
+            }
         }
-        .frame(width: BereanMetrics.minTapTarget + 12, height: BereanMetrics.minTapTarget + 12)
+        .buttonStyle(.plain)
+        .frame(width: 56, height: 56)
         .contentShape(Circle())
         .bereanPressScale()
         .accessibilityLabel(label.rawValue)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    @ViewBuilder
+    private var buttonFill: some View {
+        if reduceTransparency {
+            Color.bereanIvory
+        } else {
+            Color.bereanIvory.opacity(0.92)
+        }
     }
 }
 
 #Preview {
-    VStack(spacing: 24) {
-        FloatingPrimaryCTA(label: .continueStudy,  action: {})
-        FloatingPrimaryCTA(label: .openPassage,    action: {})
-        FloatingPrimaryCTA(label: .startPrayer,    action: {})
-        FloatingPrimaryCTA(label: .nextReflection, action: {})
+    VStack(spacing: 20) {
+        ForEach([BereanCTALabel.continueStudy, .openPassage, .startPrayer, .nextReflection], id: \.rawValue) { lbl in
+            FloatingPrimaryCTA(label: lbl, action: {})
+        }
     }
-    .padding()
+    .padding(40)
     .background(Color.bereanIvory)
 }

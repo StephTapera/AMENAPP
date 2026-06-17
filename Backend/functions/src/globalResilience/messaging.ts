@@ -4,7 +4,8 @@
  *
  * Callable Cloud Functions for resilient global messaging:
  *   sendMessageGlobal  — Auth + App Check gated, idempotent message write with
- *                        block-check and privacy-aware FCM push.
+ *                        pre-delivery hold gate, block-check, and privacy-aware
+ *                        FCM push.
  *   getThreadOfflineCache — Returns the last 50 messages in a thread for
  *                           offline-first clients.
  *
@@ -16,13 +17,22 @@
  *   /devices/{uid}/capability_profiles/{deviceId}   — DeviceCapabilityProfile
  *   /trust_profiles/{userId}                         — TrustProfile
  *   /blockedUsers/{uidA_uidB}                        — block edge docs
+ *   /moderationQueue                                 — held messages awaiting review
+ *
+ * H-3 Pre-delivery hold gate (status lifecycle):
+ *   "sent"           — message passed screening; FCM push delivered to recipient
+ *   "pending_review" — elevated-risk content; held from recipient until human
+ *                      review; sender informed via response; no FCM push to recipient
+ *
+ * Fail-closed: if screenMessageBody throws for any reason, the message is held
+ * (pending_review) rather than silently allowed through.
  */
 
 import * as admin from "firebase-admin";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { logger } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { requireAuthAndAppCheck } from "../amenAI/common";
+import { requireAuthAndAppCheck, lightweightModeration } from "../amenAI/common";
 import { isBlocked } from "../aclHelper";
 import type { DmRiskLevel } from "./contracts";
 
@@ -69,6 +79,80 @@ function parseClientTimestamp(value: unknown): number | null {
     return null;
 }
 
+// ─── Pre-delivery content screening ──────────────────────────────────────────
+//
+// Two-tier keyword lists for DM-specific content.
+//
+// Crisis tier: language indicating the sender or recipient may be in danger.
+//   A sent message with these keywords is held from the recipient, queued for
+//   human review, and the sender receives a "pending_review" status.
+//   This gives safety moderators the opportunity to escalate or connect
+//   the involved parties with resources.
+//
+// High-risk tier: content that is strongly correlated with harassment,
+//   sexual coercion, or targeted threats in private messaging contexts.
+//   Same hold behavior as crisis tier.
+//
+// CONSERVATIVE BY DESIGN: some entries (e.g. "overdose") will produce false
+// positives in benign contexts. The hold is not a punishment — the message
+// is queued for review and released if it is benign. Fail-closed is the
+// explicit requirement for this gate (H-3).
+//
+// lightweightModeration() from amenAI/common is additionally called on the
+// full body to catch categories that are relevant to DMs but not covered by
+// the keyword lists (impersonation, spiritual coercion, financial exploitation).
+// If lightweightModeration() throws for any reason, the message is held.
+
+const DM_CRISIS_KEYWORDS: string[] = [
+    "end it", "end my life", "kill myself", "want to die", "can't go on",
+    "cannot go on", "no reason to live", "take my life", "don't want to be here",
+    "dont want to be here", "going to hurt myself", "hurt myself", "self harm",
+    "self-harm", "cut myself", "overdose", "suicidal", "suicide",
+];
+
+const DM_HIGH_RISK_KEYWORDS: string[] = [
+    "send nudes", "send pics", "send photos", "sexting",
+    "i'll kill you", "ill kill you", "you're dead", "youre dead",
+    "going to find you", "know where you live",
+];
+
+/**
+ * screenMessageBody
+ *
+ * Runs the DM-specific keyword check followed by lightweightModeration().
+ *
+ * Returns { hold: true, reason } when the message should be withheld from the
+ * recipient, or { hold: false, reason: "" } when it can be delivered.
+ *
+ * FAIL-CLOSED: any exception from lightweightModeration() produces hold=true
+ * with reason="moderation_error". The caller must treat an exception from
+ * screenMessageBody itself the same way (caller is required to default to hold).
+ */
+export function screenMessageBody(text: string): { hold: boolean; reason: string } {
+    const lower = text.toLowerCase();
+
+    for (const kw of DM_CRISIS_KEYWORDS) {
+        if (lower.includes(kw)) return { hold: true, reason: "crisis_language" };
+    }
+
+    for (const kw of DM_HIGH_RISK_KEYWORDS) {
+        if (lower.includes(kw)) return { hold: true, reason: "high_risk_content" };
+    }
+
+    // Secondary pass: catch categories not covered by keyword lists.
+    try {
+        const lwm = lightweightModeration(text);
+        if (!lwm.ok) {
+            return { hold: true, reason: lwm.reason ?? "policy_violation" };
+        }
+    } catch (_err) {
+        // lightweightModeration threw — fail closed.
+        return { hold: true, reason: "moderation_error" };
+    }
+
+    return { hold: false, reason: "" };
+}
+
 // ─── sendMessageGlobal ────────────────────────────────────────────────────────
 
 interface SendMessageGlobalRequest {
@@ -82,7 +166,9 @@ interface SendMessageGlobalRequest {
 
 interface SendMessageGlobalResponse {
     messageId: string;
-    status: "sent";
+    status: "sent" | "pending_review";
+    /** Set only when status="pending_review". Explains the hold to the sender; never shown to recipient. */
+    holdReason?: string;
 }
 
 /**
@@ -92,8 +178,11 @@ interface SendMessageGlobalResponse {
  *   1. Auth + App Check enforcement
  *   2. Idempotency (7-day TTL key in /threads/{threadId}/processedIdempotencyKeys)
  *   3. Block relationship check (bidirectional, via aclHelper)
- *   4. Firestore write to /threads/{threadId}/messages/{newId}
- *   5. Privacy-aware FCM push:
+ *   4. Pre-delivery hold gate (H-3): screenMessageBody() before write
+ *   5. Firestore write to /threads/{threadId}/messages/{newId}
+ *      - status field: "sent" | "pending_review"
+ *      - Held messages are also enqueued in /moderationQueue for human review
+ *   6. Privacy-aware FCM push (suppressed for held messages):
  *        - sharedDeviceMode=true OR dmRiskLevel="high" → neutral payload
  *        - otherwise → senderName + body preview
  */
@@ -163,7 +252,41 @@ export const sendMessageGlobal = onCall<SendMessageGlobalRequest, Promise<SendMe
             );
         }
 
-        // ── 5. Write message ─────────────────────────────────────────────────
+        // ── 5. Pre-delivery hold gate (H-3) ─────────────────────────────────
+        // Evaluate message body before writing to Firestore.
+        // If screening throws for any reason we default to hold (fail-closed).
+        // Media-only messages (no bodyText) are not screened here; they go
+        // through the existing mediaModerationPipeline after upload.
+        type DeliveryStatus = "sent" | "pending_review";
+        let deliveryStatus: DeliveryStatus = "sent";
+        let holdReason: string | undefined;
+
+        if (bodyText) {
+            let screening: { hold: boolean; reason: string };
+            try {
+                screening = screenMessageBody(bodyText);
+            } catch (_screenErr) {
+                // screenMessageBody itself threw — fail closed.
+                screening = { hold: true, reason: "moderation_error" };
+                logger.error("[sendMessageGlobal] screenMessageBody threw (fail-closed hold)", {
+                    senderUid,
+                    threadId,
+                });
+            }
+
+            if (screening.hold) {
+                deliveryStatus = "pending_review";
+                holdReason = screening.reason;
+                logger.info("[sendMessageGlobal] Message held for pre-delivery review", {
+                    senderUid,
+                    recipientId,
+                    threadId,
+                    holdReason,
+                });
+            }
+        }
+
+        // ── 6. Write message ─────────────────────────────────────────────────
         const threadRef = db.collection("threads").doc(threadId);
         const messageRef = threadRef.collection("messages").doc();
         const messageId = messageRef.id;
@@ -180,7 +303,10 @@ export const sendMessageGlobal = onCall<SendMessageGlobalRequest, Promise<SendMe
                 ? Timestamp.fromMillis(clientTimestamp)
                 : null,
             serverTimestamp: FieldValue.serverTimestamp(),
-            status: "sent",
+            // deliveryStatus controls recipient visibility (Firestore rules read this field).
+            // "pending_review" messages are not visible to the recipient.
+            status: deliveryStatus,
+            ...(holdReason !== undefined ? { holdReason } : {}),
         };
 
         const now = Date.now();
@@ -203,26 +329,54 @@ export const sendMessageGlobal = onCall<SendMessageGlobalRequest, Promise<SendMe
             recipientId,
             threadId,
             messageId,
+            deliveryStatus,
         });
 
-        // ── 6. FCM push (non-blocking — failure must not fail the callable) ──
-        try {
-            await sendFcmPush({
-                senderUid,
+        // ── 7. Enqueue held messages for human review ────────────────────────
+        // Non-blocking. Failure to enqueue must not fail the callable — the message
+        // is already written with status="pending_review" and is safe.
+        if (deliveryStatus === "pending_review") {
+            db.collection("moderationQueue").add({
+                type: "dm_pre_delivery_hold",
+                senderId: senderUid,
                 recipientId,
-                messageId,
                 threadId,
-                bodyText,
-            });
-        } catch (fcmErr) {
-            logger.error(
-                "[sendMessageGlobal] FCM push failed (non-fatal)",
-                { senderUid, recipientId, messageId },
-                fcmErr
+                messageId,
+                holdReason,
+                priority: holdReason === "crisis_language" ? "high" : "medium",
+                createdAt: FieldValue.serverTimestamp(),
+                policyVersion: "2026-06-16",
+            }).catch((err) =>
+                logger.error("[sendMessageGlobal] moderationQueue write failed (non-fatal)", err)
             );
         }
 
-        return { messageId, status: "sent" };
+        // ── 8. FCM push — suppressed for held messages ───────────────────────
+        // The recipient must never receive a notification about a message that
+        // has not yet been cleared for delivery.
+        if (deliveryStatus === "sent") {
+            try {
+                await sendFcmPush({
+                    senderUid,
+                    recipientId,
+                    messageId,
+                    threadId,
+                    bodyText,
+                });
+            } catch (fcmErr) {
+                logger.error(
+                    "[sendMessageGlobal] FCM push failed (non-fatal)",
+                    { senderUid, recipientId, messageId },
+                    fcmErr
+                );
+            }
+        }
+
+        return {
+            messageId,
+            status: deliveryStatus,
+            ...(holdReason !== undefined ? { holdReason } : {}),
+        };
     }
 );
 
@@ -244,12 +398,14 @@ interface FcmPushParams {
  *   - sharedDeviceMode === true  → neutral payload (no sender name / content)
  *   - dmRiskLevel === "high"     → neutral payload
  *   - otherwise                  → include senderName + first 50 chars of bodyText
+ *
+ * Only called when deliveryStatus === "sent". Held messages never trigger FCM.
  */
 async function sendFcmPush(params: FcmPushParams): Promise<void> {
     const { senderUid, recipientId, messageId, threadId, bodyText } = params;
     const db = getFirestore();
 
-    // 6a. Fetch sender's display name for the push notification.
+    // Fetch sender's display name for the push notification.
     const senderDoc = await db.collection("users").doc(senderUid).get();
     const senderData = senderDoc.data() ?? {};
     const senderName: string =
@@ -257,7 +413,7 @@ async function sendFcmPush(params: FcmPushParams): Promise<void> {
         (senderData.username as string | undefined) ??
         "Someone";
 
-    // 6b. Fetch recipient's device record (most recently updated capability profile).
+    // Fetch recipient's device record (most recently updated capability profile).
     let sharedDeviceMode = false;
     try {
         const deviceSnap = await db
@@ -277,7 +433,7 @@ async function sendFcmPush(params: FcmPushParams): Promise<void> {
         logger.warn("[sendMessageGlobal] Could not read device capability profile", { recipientId }, deviceErr);
     }
 
-    // 6c. Fetch recipient's trust profile for dmRiskLevel.
+    // Fetch recipient's trust profile for dmRiskLevel.
     let dmRiskLevel: DmRiskLevel = "low";
     try {
         const trustSnap = await db.collection("trust_profiles").doc(recipientId).get();
@@ -293,7 +449,7 @@ async function sendFcmPush(params: FcmPushParams): Promise<void> {
         logger.warn("[sendMessageGlobal] Could not read trust profile", { recipientId }, trustErr);
     }
 
-    // 6d. Fetch recipient's FCM token.
+    // Fetch recipient's FCM token.
     const recipientDoc = await db.collection("users").doc(recipientId).get();
     const recipientData = recipientDoc.data() ?? {};
     const fcmToken: string | undefined =
@@ -305,7 +461,7 @@ async function sendFcmPush(params: FcmPushParams): Promise<void> {
         return;
     }
 
-    // 6e. Build notification payload based on privacy flags.
+    // Build notification payload based on privacy flags.
     const useNeutralPayload = sharedDeviceMode || dmRiskLevel === "high";
 
     const notificationPayload: admin.messaging.Notification = useNeutralPayload
@@ -384,6 +540,11 @@ interface GetThreadOfflineCacheResponse {
  * Auth + App Check required. Thread participant membership is verified
  * by checking that the caller's UID appears as either senderId or recipientId
  * in the first message fetched, or that they are listed in the thread document.
+ *
+ * Messages with status="pending_review" are included in the response for
+ * the sender (so they can see "under review" state in their own thread view),
+ * but the iOS client is responsible for filtering them out of the recipient's
+ * message list until the status changes to "sent".
  */
 export const getThreadOfflineCache = onCall<
     GetThreadOfflineCacheRequest,

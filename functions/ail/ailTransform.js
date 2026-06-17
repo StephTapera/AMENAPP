@@ -129,7 +129,7 @@ const failOpen = (crisisBypass = false) => ({ failOpen: true, crisisBypass });
 
 exports.ailTransform = onCall(
   {
-    region: "us-central1",
+    region: "us-east1",  // us-central1 quota exhausted as of 2026-06-13; see docs/FUNCTION_INVENTORY.md Interim Region Table
     enforceAppCheck: true,           // App Check required (security fail-closed)
     timeoutSeconds: 30,
     memory: "256MiB",

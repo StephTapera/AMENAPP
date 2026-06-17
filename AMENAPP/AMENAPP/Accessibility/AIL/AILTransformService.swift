@@ -23,7 +23,7 @@ final class AILTransformService {
 
     static let shared = AILTransformService()
 
-    private let functions = Functions.functions(region: "us-central1")
+    private let functions = Functions.functions(region: "us-east1")  // ailTransform at us-east1 (quota)
     private init() {}
 
     /// Run an AIL transform. Always resolves — never throws — so callers can wire
