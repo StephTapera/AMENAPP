@@ -498,6 +498,15 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AMENBuildInfo.swift,
+				Docs/Readiness/AMEN_OVERNIGHT_READINESS_E2E.md,
+				Docs/Readiness/DEEP_SAFETY_GAP_REPORT.md,
+				Docs/Readiness/DEPLOY_PLAN.md,
+				Docs/Readiness/FIREBASE_RULES_AND_FUNCTIONS.md,
+				Docs/Readiness/GO_NO_GO.md,
+				Docs/Readiness/HUMAN_GATE_QUEUE.md,
+				Docs/Readiness/PII_AND_DATA_CLASSIFICATION.md,
+				Docs/Readiness/READINESS_AUDIT.md,
+				Docs/Readiness/SECURITY_AND_SECRETS.md,
 				Info.plist,
 			);
 			target = EF81519A2F184E97008912E3 /* AMENAPP */;
