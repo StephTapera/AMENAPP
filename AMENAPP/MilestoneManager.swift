@@ -171,7 +171,7 @@ class MilestoneManager: ObservableObject {
             badgeColor: .orange,
             title: "\(days) days of showing up",
             body: "You've posted every day for \(days) days. Keep going at your own pace — every step of faithfulness counts.",
-            primaryLabel: "Keep it going",
+            primaryLabel: "Continue",
             secondaryLabel: "Dismiss",
             primaryAction: {
                 dlog("🔥 Streak milestone \(days) - keep going")

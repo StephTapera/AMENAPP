@@ -238,6 +238,7 @@ struct FullscreenMediaViewer: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Close media viewer")
     }
 
     private var counterBadge: some View {

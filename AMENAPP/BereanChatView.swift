@@ -124,69 +124,51 @@ final class BereanChatViewModel: ObservableObject {
         // The pipeline maintains its own per-session conversationHistory and sends it to the backend.
 
         streamTask = Task {
-            do {
-                // A-002: Route through constitutional safety gates.
-                // BereanConstitutionalPipeline handles the I-4 crisis pre-screen
-                // internally, so the local crisis check here is removed to avoid
-                // double-handling. The pipeline sets isCrisisEscalated on the
-                // shared observable; the view observes it and shows the crisis card.
+            // A-002: Route through constitutional safety gates.
+            // BereanConstitutionalPipeline handles the I-4 crisis pre-screen
+            // internally, so the local crisis check here is removed to avoid
+            // double-handling. The pipeline sets isCrisisEscalated on the
+            // shared observable; the view observes it and shows the crisis card.
 
-                // Map BereanPersonalityMode → BereanPipelineMode for pipeline wire type.
-                let pipelineMode: BereanPipelineMode = {
-                    switch currentMode {
-                    case .shepherd:   return .ask
-                    case .scholar:    return .discern
-                    case .coach:      return .ask
-                    case .builder:    return .build
-                    case .strategist: return .build
-                    case .creator:    return .reflect
-                    case .debater:    return .guard_
-                    }
-                }()
-
-                let pipeline = BereanConstitutionalPipeline.shared
-                await pipeline.ask(
-                    query: text,
-                    mode: pipelineMode,
-                    userId: userId
-                )
-
-                // If crisis was escalated the pipeline sets isCrisisEscalated=true
-                // and returns no answer. Bail out; the view observes isCrisisEscalated.
-                if pipeline.isCrisisEscalated {
-                    messages[assistantIndex].isStreaming = false
-                    messages[assistantIndex].content = ""
-                    isThinking = false
-                    if isStudyModeEnabled { resolveReasoning() }
-                    return
+            // Map BereanPersonalityMode → BereanPipelineMode for pipeline wire type.
+            let pipelineMode: BereanPipelineMode = {
+                switch currentMode {
+                case .shepherd:   return .ask
+                case .scholar:    return .discern
+                case .coach:      return .ask
+                case .builder:    return .build
+                case .strategist: return .build
+                case .creator:    return .reflect
+                case .debater:    return .guard_
                 }
+            }()
 
-                let answer = pipeline.lastResponse?.answer
-                    ?? "Berean is temporarily unavailable. Please try again."
-                messages[assistantIndex].content = answer
+            let pipeline = BereanConstitutionalPipeline.shared
+            await pipeline.ask(
+                query: text,
+                mode: pipelineMode,
+                userId: userId
+            )
+
+            // If crisis was escalated the pipeline sets isCrisisEscalated=true
+            // and returns no answer. Bail out; the view observes isCrisisEscalated.
+            if pipeline.isCrisisEscalated {
                 messages[assistantIndex].isStreaming = false
-                if self.isStudyModeEnabled {
-                    self.resolveReasoning()
-                }
-                validateCitations(in: assistantIndex)
-                saveConversation()
-            } catch is CancellationError {
-                messages[assistantIndex].isStreaming = false
-                if self.isStudyModeEnabled {
-                    self.resolveReasoning()
-                }
-                if messages[assistantIndex].content.isEmpty {
-                    messages[assistantIndex].content = "Cancelled."
-                }
-            } catch {
-                messages[assistantIndex].isStreaming = false
-                if self.isStudyModeEnabled {
-                    self.resolveReasoning()
-                }
-                messages[assistantIndex].content = "Something went wrong. Please try again."
-                errorMessage = error.localizedDescription
-                dlog("BereanChatView stream error: \(error)")
+                messages[assistantIndex].content = ""
+                isThinking = false
+                if isStudyModeEnabled { resolveReasoning() }
+                return
             }
+
+            let answer = pipeline.lastResponse?.answer
+                ?? "Berean is temporarily unavailable. Please try again."
+            messages[assistantIndex].content = answer
+            messages[assistantIndex].isStreaming = false
+            if self.isStudyModeEnabled {
+                self.resolveReasoning()
+            }
+            validateCitations(in: assistantIndex)
+            saveConversation()
             isThinking = false
         }
     }
@@ -1836,6 +1818,7 @@ struct BereanChatView: View {
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Add attachment")
             .opacity(vm.inputText.isEmpty ? 1 : 0)
             .animation(.easeOut(duration: 0.15), value: vm.inputText.isEmpty)
 

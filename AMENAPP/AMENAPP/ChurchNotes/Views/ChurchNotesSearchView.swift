@@ -47,7 +47,7 @@ struct ChurchNotesSearchView: View {
                         Text("Audio").tag("audio")
                         Text("Video").tag("video")
                         Text("Image").tag("image")
-                        Text("Document").tag("document")
+                        Text("File / PDF").tag("document")
                     }
                     Toggle("Has transcript", isOn: boolBinding(\.hasTranscript))
                     Toggle("Has OCR", isOn: boolBinding(\.hasOCR))

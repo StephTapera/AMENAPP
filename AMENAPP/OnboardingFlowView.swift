@@ -115,7 +115,7 @@ struct OnboardingFlowView: View {
                 .animation(.spring(response: 0.5, dampingFraction: 0.8), value: currentPage)
             }
         }
-        .interactiveDismissDisabled()
+        .interactiveDismissDisabled(currentPage > 0)
         .onAppear { loadSuggestedUsers() }
     }
 
