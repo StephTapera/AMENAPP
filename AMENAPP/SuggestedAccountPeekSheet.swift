@@ -178,7 +178,10 @@ struct SuggestedAccountPeekSheet: View {
 
     private var statsRow: some View {
         HStack(spacing: 24) {
-            statItem(count: vm.followerCount, label: "Followers")
+            // B-018: Follower count is hidden for private accounts — metrics are private by default.
+            if !vm.isPrivateAccount {
+                statItem(count: vm.followerCount, label: "Followers")
+            }
             statItem(count: vm.postCount, label: "Posts")
         }
         .frame(maxWidth: .infinity)

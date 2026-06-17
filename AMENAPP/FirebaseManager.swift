@@ -16,6 +16,7 @@ import FirebaseFunctions
 import GoogleSignIn
 import AuthenticationServices
 import CryptoKit
+import Security
 
 /// Centralized Firebase manager for handling all Firebase operations
 class FirebaseManager {
@@ -490,6 +491,47 @@ class FirebaseManager {
 
     // MARK: - Apple Sign-In
     
+    // MARK: - B-002 Keychain cache for Apple display name
+    //
+    // Apple provides fullName ONLY on the very first sign-in. Subsequent sign-ins
+    // from any device receive nil. Caching to Keychain ensures the name survives
+    // re-installs and second-device sign-ins on the same physical device.
+
+    private let appleNameKeychainService = "com.amen.app"
+    private let appleNameKeychainAccount = "appleDisplayName"
+
+    private func cacheAppleDisplayName(_ name: String) {
+        guard let data = name.data(using: .utf8) else { return }
+        let deleteQuery: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: appleNameKeychainService,
+            kSecAttrAccount: appleNameKeychainAccount
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        let addQuery: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: appleNameKeychainService,
+            kSecAttrAccount: appleNameKeychainAccount,
+            kSecValueData: data,
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
+    private func loadCachedAppleDisplayName() -> String? {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: appleNameKeychainService,
+            kSecAttrAccount: appleNameKeychainAccount,
+            kSecReturnData: true,
+            kSecMatchLimit: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
     /// Sign in with Apple
     func signInWithApple(idToken: String, nonce: String, fullName: PersonNameComponents?) async throws -> FirebaseAuth.User {
         let credential = OAuthProvider.appleCredential(
@@ -497,22 +539,39 @@ class FirebaseManager {
             rawNonce: nonce,
             fullName: fullName
         )
-        
+
+        // Cache fullName to Keychain whenever Apple provides it (first sign-in on any device).
+        if let fullName = fullName, let givenName = fullName.givenName, !givenName.isEmpty {
+            let cachedName = [givenName, fullName.familyName].compactMap { $0 }.joined(separator: " ")
+            cacheAppleDisplayName(cachedName)
+        }
+
         let authResult = try await auth.signIn(with: credential)
-        
+
         // Check if this is a new user and create profile if needed
         if authResult.additionalUserInfo?.isNewUser == true {
             try await createAppleUserProfile(user: authResult.user, fullName: fullName)
         }
-        
+
         return authResult.user
     }
-    
+
     /// Create user profile for Apple Sign-In
     private func createAppleUserProfile(user: FirebaseAuth.User, fullName: PersonNameComponents?) async throws {
-        // Apple provides full name only on first sign-in
-        let firstName = fullName?.givenName ?? "User"
-        let lastName = fullName?.familyName ?? ""
+        // Apple provides full name only on first sign-in; fall back to Keychain cache (B-002).
+        let firstName: String
+        let lastName: String
+        if let fullName = fullName, let givenName = fullName.givenName, !givenName.isEmpty {
+            firstName = givenName
+            lastName = fullName.familyName ?? ""
+        } else if let cached = loadCachedAppleDisplayName() {
+            let parts = cached.split(separator: " ", maxSplits: 1).map(String.init)
+            firstName = parts.first ?? "User"
+            lastName = parts.count > 1 ? parts[1] : ""
+        } else {
+            firstName = "User"
+            lastName = ""
+        }
         let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
         let email = user.email ?? "user@privaterelay.appleid.com"
         

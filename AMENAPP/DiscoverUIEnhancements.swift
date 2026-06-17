@@ -410,7 +410,8 @@ struct EnhancedProfileCard: View {
                                     .foregroundStyle(.blue)
                             }
                         }
-                        Text(person.displayName + " · " + formatFollowers(person.followerCount))
+                        // B-018: Follower counts are not shown in discover — metrics are private by default.
+                        Text(person.displayName)
                             .font(.systemScaled(13))
                             .foregroundStyle(Color.secondary)
                     }

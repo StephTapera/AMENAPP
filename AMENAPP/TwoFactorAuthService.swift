@@ -12,6 +12,7 @@
 //
 
 import Foundation
+import CryptoKit
 import FirebaseAuth
 import FirebaseFirestore
 import SwiftUI
@@ -262,7 +263,7 @@ class TwoFactorAuthService: ObservableObject {
         let newBatch = db.batch()
         for code in codes {
             let docRef = codesRef.document()
-            newBatch.setData(["code": code, "used": false, "createdAt": Timestamp(date: Date())], forDocument: docRef)
+            newBatch.setData(["codeHash": sha256(code), "used": false, "createdAt": Timestamp(date: Date())], forDocument: docRef)
         }
         try await newBatch.commit()
 
@@ -281,31 +282,42 @@ class TwoFactorAuthService: ObservableObject {
             .replacingOccurrences(of: " ", with: "")
             .replacingOccurrences(of: "-", with: "")
             .trimmingCharacters(in: .whitespaces)
+            .lowercased()
+        let inputHash = sha256(normalized)
 
-        let doc = try await db.collection("users").document(userId).getDocument()
-        guard var backupCodes = doc.data()?["backupCodes"] as? [String] else {
-            throw TwoFactorError.verificationFailed("No backup codes configured")
-        }
+        let codesRef = db.collection("users").document(userId).collection("backupCodes")
+        let snapshot = try await codesRef
+            .whereField("used", isEqualTo: false)
+            .getDocuments()
 
-        var matched: String?
-        for stored in backupCodes {
-            let norm = stored.replacingOccurrences(of: " ", with: "")
-                .replacingOccurrences(of: "-", with: "")
-                .trimmingCharacters(in: .whitespaces)
-            if norm.lowercased() == normalized.lowercased() { matched = stored; break }
-        }
-        guard let valid = matched else {
+        guard let match = snapshot.documents.first(where: {
+            ($0.data()["codeHash"] as? String) == inputHash
+        }) else {
             throw TwoFactorError.verificationFailed("Invalid backup code")
         }
-        backupCodes.removeAll { $0 == valid }
-        let newCount = max(0, backupCodes.count)
-        try await db.collection("users").document(userId).updateData([
-            "backupCodes": backupCodes,
-            "backupCodesRemaining": newCount,
+
+        // Mark code used + decrement count atomically
+        let batch = db.batch()
+        batch.updateData(["used": true, "usedAt": Timestamp(date: Date())], forDocument: match.reference)
+
+        let userRef = db.collection("users").document(userId)
+        batch.updateData([
+            "backupCodesRemaining": FieldValue.increment(Int64(-1)),
             "lastBackupCodeUsedAt": Timestamp(date: Date())
-        ])
-        await MainActor.run { self.backupCodesRemaining = newCount }
+        ], forDocument: userRef)
+        try await batch.commit()
+
+        let remaining = max(0, (backupCodesRemaining ?? 1) - 1)
+        await MainActor.run { self.backupCodesRemaining = remaining }
         return true
+    }
+
+    // MARK: - Hashing
+
+    private func sha256(_ input: String) -> String {
+        let data = Data(input.utf8)
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Keychain Helpers
