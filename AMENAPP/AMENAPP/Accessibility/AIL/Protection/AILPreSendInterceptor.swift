@@ -24,7 +24,7 @@ final class AILPreSendInterceptor {
 
     /// Local enable preference. OFF by default. Kept off the contended
     /// `AMENFeatureFlags` hotspot; a future Remote Config flag can drive this key.
-    static let enabledDefaultsKey = "amen.ail.preSendCheckEnabled"
+    nonisolated static let enabledDefaultsKey = "amen.ail.preSendCheckEnabled"
 
     /// When false (the default), `evaluate` always returns `.proceed` — zero interference.
     var isEnabled: Bool
@@ -53,7 +53,7 @@ final class AILPreSendInterceptor {
     ) async -> A11yTransformResult
 
     /// The production runner — routes through the single AIL transform seam (fails open).
-    static let liveRunner: TransformRunner = { task, input, ref, dm, crisis in
+    nonisolated static let liveRunner: TransformRunner = { task, input, ref, dm, crisis in
         await AILTransformService.shared.transform(
             task: task, input: input, originalRef: ref,
             isDirectMessage: dm, crisisContext: crisis
