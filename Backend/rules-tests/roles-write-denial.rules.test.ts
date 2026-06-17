@@ -7,6 +7,7 @@ import {
 import { doc, setDoc } from "firebase/firestore";
 import * as fs from "fs";
 import * as path from "path";
+import { firestoreEmulator } from "./emulatorConfig";
 
 const PROJECT_ID = "amen-creator-role-denial";
 const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore.deploy.rules");
@@ -19,8 +20,8 @@ beforeAll(async () => {
     projectId: PROJECT_ID,
     firestore: {
       rules: fs.readFileSync(RULES_PATH, "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      host: firestoreEmulator.host,
+      port: firestoreEmulator.port,
     },
   });
 });

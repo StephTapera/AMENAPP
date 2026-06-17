@@ -19,6 +19,7 @@ import Foundation
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 import Combine
 
 // MARK: - Moderation Context

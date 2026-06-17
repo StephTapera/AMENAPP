@@ -344,7 +344,7 @@ service cloud.firestore {
     // escalate privileges or bypass minor-safety gating.
     function roleAndSafetyFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'isAdmin', 'role', 'safety', 'trustScore', 'accountStatus',
+        'isAdmin', 'role', 'roles', 'isCreator', 'safety', 'trustScore', 'accountStatus',
         'violationCount', 'fcmToken'
       ]);
     }
@@ -501,17 +501,19 @@ service cloud.firestore {
       // Unauthenticated access is denied (all PII lives in subcollections).
       allow read: if isSignedIn();
 
-      // Create: must create your own profile; no premium spoof fields.
+      // Create: must create your own profile; no premium, role, or creator spoof fields.
       allow create: if isOwner(userId) && !hasRawPII() &&
         !request.resource.data.keys().hasAny(['premiumTier', 'hasPlusAccess',
           'hasProAccess', 'premiumEntitlement', 'ageTier', 'ageCategory',
-          'dateOfBirth', 'ageVerified', 'isMinor', 'minorScoped']);
+          'dateOfBirth', 'ageVerified', 'isMinor', 'minorScoped',
+          'isAdmin', 'role', 'roles', 'isCreator', 'safety', 'trustScore',
+          'accountStatus']);
 
       // Update: owner may update own profile; protected fields frozen.
       // ageTier / ageCategory / dateOfBirth / ageVerified are CF/Admin SDK only.
       // Premium entitlement fields are CF/Admin SDK only.
-      // SECURITY FIX: roleAndSafetyFieldsUnchanged() blocks isAdmin, role, safety,
-      // trustScore, accountStatus from being written by any client.
+      // SECURITY FIX: roleAndSafetyFieldsUnchanged() blocks isAdmin, role/roles,
+      // isCreator, safety, trustScore, accountStatus from being written by any client.
       allow update: if isOwner(userId) &&
         premiumFieldsUnchanged() &&
         ageTierUnchanged() &&

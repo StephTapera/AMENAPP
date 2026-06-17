@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Report Content Sheet
 // Privacy-respecting report flow. No dark patterns, no dark UX.
