@@ -389,6 +389,12 @@ struct UserProfileView: View {
     }
     
     var body: some View {
+        CreatorProfileGate(userId: userId, showsDismissButton: showsDismissButton) {
+            standardProfileBody
+        }
+    }
+
+    private var standardProfileBody: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: []) {
@@ -1412,8 +1418,8 @@ struct UserProfileView: View {
         // P0-4: Check if this user has blocked current user (BLOCKED_BY detection)
         isBlockedBy = await blockService.isBlockedBy(userId: userId)
         
-        // Check if user is muted
-        isMuted = await moderationService.isMuted(userId: userId)
+        // Check if user is muted — MuteService is the canonical store
+        isMuted = await MuteService.shared.isMutedAsync(mutedId: userId)
         
         // Check if profile is hidden from this user
         isHidden = await moderationService.isHiddenFrom(userId: userId)
@@ -1827,9 +1833,9 @@ struct UserProfileView: View {
                 try await moderationService.blockUser(userId: userId)
                 dlog("✅ Successfully blocked user: \(userId)")
                 // P1-4: Sync mute clear to server when blocking; local state was already set to false above
-                if wasMuted {
-                    try? await moderationService.unmuteUser(userId: userId)
-                    dlog("✅ Also unmuted user on server during block")
+                if wasMuted, let currentUserId = Auth.auth().currentUser?.uid {
+                    try? await MuteService.shared.unmuteUser(muterId: currentUserId, mutedId: userId)
+                    dlog("✅ Also unmuted user (via MuteService) during block")
                 }
             } else {
                 try await moderationService.unblockUser(userId: userId)
@@ -1885,21 +1891,22 @@ struct UserProfileView: View {
     private func performMuteAction() async {
         let previousState = isMuted
         isMuted.toggle()
-        
+
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
+
         do {
-            // Real backend call using ModerationService
-            let moderationService = ModerationService.shared
+            guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+            // MuteService is the canonical mute store — real-time listener keeps feed filter current.
+            // The muted user is NEVER notified.
             if isMuted {
-                try await moderationService.muteUser(userId: userId)
+                try await MuteService.shared.muteUser(muterId: currentUserId, mutedId: userId)
                 dlog("✅ Successfully muted user: \(userId)")
             } else {
-                try await moderationService.unmuteUser(userId: userId)
+                try await MuteService.shared.unmuteUser(muterId: currentUserId, mutedId: userId)
                 dlog("✅ Successfully unmuted user: \(userId)")
             }
-            
+
         } catch {
             // Rollback on error
             await MainActor.run {
@@ -2345,9 +2352,12 @@ struct UserProfileView: View {
                     // The current user always sees their own stats; for other users, hide or
                     // disable based on their showFollowerCount / showFollowersList preferences.
                     let isOwnProfile = userId == Auth.auth().currentUser?.uid
-                    let canSeeFollowerCount  = isOwnProfile || profileData.showFollowerCount
-                    let canSeeFollowingCount = isOwnProfile || profileData.showFollowingCount
-                    let canTapFollowersList  = isOwnProfile || profileData.showFollowersList
+                    // P1-H: For private accounts, follower/following counts are only
+                    // visible to the account owner and users who follow them.
+                    let canAccessPrivateStats = isOwnProfile || !profileData.isPrivateAccount || isFollowing
+                    let canSeeFollowerCount  = canAccessPrivateStats && (isOwnProfile || profileData.showFollowerCount)
+                    let canSeeFollowingCount = canAccessPrivateStats && (isOwnProfile || profileData.showFollowingCount)
+                    let canTapFollowersList  = canAccessPrivateStats && (isOwnProfile || profileData.showFollowersList)
                     let canTapFollowingList  = isOwnProfile || profileData.showFollowingList
 
                     if canSeeFollowerCount || canSeeFollowingCount {

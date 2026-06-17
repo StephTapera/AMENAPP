@@ -27,6 +27,7 @@ import {
 import { validateRawTextOutput } from "./berean/services/SafetyValidator";
 import { buildSensitiveTopicPolicyBlock } from "./berean/prompts/sensitiveTopicPolicy";
 import type { SensitivityFlag, TopicClass } from "./berean/models/berean";
+import { enforceAgeGate, checkBereanKillSwitch } from "./berean/services/ageGate";
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
@@ -59,6 +60,7 @@ export const bereanChatProxyStream = onRequest(
         timeoutSeconds: 120,
         memory: "256MiB",
         cors: false,
+        region: "us-east1",  // us-central1 at quota limit
     },
     async (req, res) => {
         // ── 1. Method ─────────────────────────────────────────────────────────
@@ -96,6 +98,22 @@ export const bereanChatProxyStream = onRequest(
         } catch (err) {
             console.warn("⚠️ bereanChatProxyStream: invalid auth token", err);
             res.status(401).json({ error: "Invalid authentication token." });
+            return;
+        }
+
+        // ── 4a. COPPA age gate [C-OUT-1-001 / C-INF-1-002] ───────────────────
+        const db = admin.firestore();
+        const ageCheck = await enforceAgeGate(uid, db);
+        if (!ageCheck.allowed) {
+            console.warn("⚠️ bereanChatProxyStream: age gate blocked", { uid, reason: ageCheck.reason });
+            res.status(403).json({ error: ageCheck.reason ?? "age_gate" });
+            return;
+        }
+
+        // ── 4b. Kill switch [C-INF-1-004] ────────────────────────────────────
+        const killActive = await checkBereanKillSwitch(db);
+        if (killActive) {
+            res.status(503).json({ error: "service_temporarily_unavailable" });
             return;
         }
 
@@ -189,6 +207,24 @@ export const bereanChatProxyStream = onRequest(
                 ? BEREAN_MODELS.coreFallback
                 : BEREAN_MODELS.standardFallback;
 
+        // ── 7b. Model tier ceiling via bereanEntitlement field [C-INF-1-004] ──
+        const userDoc = await db.collection("users").doc(uid).get();
+        const entitlement = userDoc.data()?.bereanEntitlement ?? "free";
+        const allowedModels =
+            entitlement === "premium"
+                ? [BEREAN_MODELS.standard, BEREAN_MODELS.core, BEREAN_MODELS.coreFallback, BEREAN_MODELS.standardFallback]
+                : [BEREAN_MODELS.core, BEREAN_MODELS.coreFallback];
+        if (!allowedModels.includes(finalModel as typeof BEREAN_MODELS[keyof typeof BEREAN_MODELS])) {
+            console.info("ℹ️ berean_model_clamped_by_entitlement", {
+                uid,
+                finalModel,
+                entitlement,
+                clampedTo: allowedModels[0],
+            });
+            finalModel = allowedModels[0];
+            modelDowngraded = true;
+        }
+
         // ── 8. Build system prompt ─────────────────────────────────────────────
         const apiKey = anthropicApiKey.value();
         if (!apiKey) {
@@ -200,6 +236,17 @@ export const bereanChatProxyStream = onRequest(
 
         const callData = body.callData as Record<string, unknown> | undefined;
         const sensitivityFlags: string[] = [...((callData?.sensitivityFlags as string[] | undefined) ?? [])];
+
+        // ── postContext: inject body text with XML delimiters [CIN3-001] ──────
+        const postContext = callData?.postContext as Record<string, unknown> | undefined;
+        const rawBodyText = typeof postContext?.bodyText === "string" ? postContext.bodyText : "";
+        const safeBody = rawBodyText
+            .slice(0, 500)
+            .replace(/ignore\s+(previous|all|system|above)/gi, "[filtered]")
+            .replace(/<\|im_start\|>/gi, "[filtered]");
+        const userCtxBlock = safeBody
+            ? `<user_post_context>\n${safeBody}\n</user_post_context>`
+            : "";
 
         const MEDICAL_KEYWORDS = [
             "my diagnosis",
@@ -224,6 +271,7 @@ export const bereanChatProxyStream = onRequest(
             null as unknown as TopicClass
         );
         if (policyBlock) systemPrompt += `\n\n${policyBlock}`;
+        if (userCtxBlock) systemPrompt += `\n\n${userCtxBlock}`;
 
         // ── 9. Condense history ───────────────────────────────────────────────
         const condensedHistory = condenseHistory(conversationHistory, 1300);
@@ -237,6 +285,9 @@ export const bereanChatProxyStream = onRequest(
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
         res.setHeader("X-Accel-Buffering", "no");
+        // AI content disclosure headers [C-OUT-2-001]
+        res.setHeader("X-AI-Content-Type", "ai-generated");
+        res.setHeader("X-Berean-Disclosure", "AI-assisted-not-pastoral-guidance");
         res.flushHeaders();
 
         // ── 11. Stream from Anthropic ─────────────────────────────────────────

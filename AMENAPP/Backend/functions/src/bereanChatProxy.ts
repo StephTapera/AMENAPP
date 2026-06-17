@@ -6,12 +6,17 @@
  * to api.anthropic.com, keeping the API key secure in Firebase Secret Manager.
  */
 
+import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {enforceRateLimit, RATE_LIMITS} from "./rateLimit";
 import {buildSensitiveTopicPolicyBlock} from "./berean/prompts/sensitiveTopicPolicy";
 import {SensitivityFlag, TopicClass} from "./berean/models/berean";
 import {validateRawTextOutput} from "./berean/services/SafetyValidator";
+import {checkBereanKillSwitch} from "./berean/services/ageGate";
+
+// Shared Firestore instance — initialised once per cold start
+const db = admin.firestore();
 
 interface BereanChatRequest {
     message: string;
@@ -22,7 +27,6 @@ interface BereanChatRequest {
     maxTokens?: number;
     temperature?: number;
     mode?: string;
-    systemPromptSuffix?: string;
     memoryScope?: string;
     callData?: {
         conversationId?: string;
@@ -76,10 +80,17 @@ export const bereanChatProxy = onCall(
         timeoutSeconds: 60,
         memory: "256MiB",
         enforceAppCheck: true,
+        region: "us-east1",  // us-central1 at quota limit
     },
     async (request) => {
         if (!request.auth) {
             throw new HttpsError("unauthenticated", "User must be authenticated to use Berean AI");
+        }
+
+        // [C-INF-1-003] Kill switch check — evaluated before rate-limit to fail cheapest
+        const killActive = await checkBereanKillSwitch(db);
+        if (killActive) {
+            throw new HttpsError("unavailable", "Berean AI is temporarily unavailable.");
         }
 
         await enforceRateLimit(request.auth.uid, [
@@ -275,24 +286,52 @@ function analyzeSensitivity(
     return {flags, topicClass};
 }
 
+/** [CIN3-002] Strip prompt-injection attempts from any user-provided string
+ *  before it is interpolated into the system prompt. */
+function stripInjection(value: string): string {
+    return value
+        .replace(/ignore\s+(previous|all|system|above)/gi, "[filtered]")
+        .replace(/<\|im_start\|>/gi, "[filtered]");
+}
+
 function buildCallDataPrompt(callData?: BereanChatRequest["callData"]): string | null {
     if (!callData) return null;
 
     const lines: string[] = [];
-    if (callData.faithJourneyStage) lines.push(`Faith journey stage: ${callData.faithJourneyStage}`);
-    if (callData.userPersona) lines.push(`User persona: ${callData.userPersona}`);
-    if (callData.scriptureTranslation) lines.push(`Preferred translation: ${callData.scriptureTranslation}`);
-    if (callData.responseMode) lines.push(`Safety-tuned response mode: ${callData.responseMode}`);
+
+    // [CIN3-002] Apply injection strip to all user-controlled scalar fields
+    if (callData.faithJourneyStage) {
+        lines.push(`Faith journey stage: ${stripInjection(callData.faithJourneyStage)}`);
+    }
+    if (callData.userPersona) {
+        lines.push(`User persona: ${stripInjection(callData.userPersona)}`);
+    }
+    if (callData.scriptureTranslation) {
+        lines.push(`Preferred translation: ${stripInjection(callData.scriptureTranslation)}`);
+    }
+    if (callData.responseMode) {
+        lines.push(`Safety-tuned response mode: ${stripInjection(callData.responseMode)}`);
+    }
 
     if (callData.postContext) {
-        lines.push(`Post preview: ${callData.postContext.previewText}`);
-        lines.push(`Post category: ${callData.postContext.category}`);
+        lines.push(`Post preview: ${stripInjection(callData.postContext.previewText)}`);
+        lines.push(`Post category: ${stripInjection(callData.postContext.category)}`);
         if (callData.postContext.verseReference) {
-            lines.push(`Post scripture reference: ${callData.postContext.verseReference}`);
+            lines.push(`Post scripture reference: ${stripInjection(callData.postContext.verseReference)}`);
+        }
+
+        // [CIN3-001] bodyText was declared in the interface but never appended.
+        // Cap at 500 chars, strip injection, then wrap in XML delimiters so the
+        // LLM treats it as structured context, not as an instruction.
+        const safeBody = stripInjection(
+            (callData.postContext.bodyText ?? "").slice(0, 500)
+        );
+        if (safeBody.length > 0) {
+            lines.push(`<user_post_context>\n${safeBody}\n</user_post_context>`);
         }
     }
 
-    return lines.length == 0 ? null : lines.join("\n");
+    return lines.length === 0 ? null : lines.join("\n");
 }
 
 function ensureAIDisclosure(text: string): string {

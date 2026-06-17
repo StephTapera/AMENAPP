@@ -1425,6 +1425,49 @@ struct BereanAISettingsView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
+                // P1-M: Conversation history section — retention disclosure + clear control.
+                Text("CONVERSATION HISTORY")
+                    .font(AMENFont.bold(11))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+
+                VStack(spacing: 0) {
+                    Button(role: .destructive) {
+                        BereanConstitutionalPipeline.shared.clearHistory()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Clear Conversation History")
+                                    .font(AMENFont.semiBold(15))
+                                    .foregroundStyle(.red)
+                                Text("Removes your Berean chat history from this device")
+                                    .font(AMENFont.regular(13))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "trash")
+                                .foregroundStyle(.red)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
+                .padding(.horizontal, 16)
+
+                Text("Berean conversation memory is kept for 90 days to improve context, then deleted automatically. Memory is also deleted when you delete your account.")
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
                 Spacer(minLength: 32)
             }
         }
