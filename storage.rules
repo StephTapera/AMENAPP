@@ -180,33 +180,22 @@ service firebase.storage {
     }
 
     // =========================================================================
-    // PROFILE PHOTOS — QUARANTINE UPLOAD PATH
+    // PROFILE PHOTOS — LEGACY QUARANTINE UPLOAD PATH (LOCKED)
     // =========================================================================
     //
-    //  Pre-moderation upload path: profile_photos/{uid}/{photoId}
-    //  STORAGE FIX #6 (HIGH — profile photos pre-moderation):
-    //  Profile photo uploads go to a quarantine path first.
-    //  Read is auth-only (NOT public) — profile photos are not surfaced until
-    //  the CF moderation pipeline approves and moves them to the approved bucket.
-    //  This prevents unreviewed images (including CSAM/NSFW) from being served
-    //  as public profile photos between upload and moderation completion.
+    //  H-6: iOS now uploads profile photos to the unified quarantine pipeline at
+    //  uploads/quarantine/{uid}/{photoId} (covered by the quarantine rules above).
+    //  This legacy path (profile_photos/{uid}/{photoId}) is preserved for existing
+    //  in-flight files, but client writes are now locked.  Any file already here
+    //  is readable by the owner only; no new client uploads are permitted.
     //
-    //  Approved photos are later served from uploads/approved/{uid}/{photoId}
-    //  (public read, CF-write-only — see quarantine pipeline above).
+    //  Approved photos served from uploads/approved/{uid}/{photoId} (CF Admin SDK only).
 
     match /profile_photos/{uid}/{photoId} {
-      // STORAGE FIX #6: auth-only read — quarantine photos MUST NOT be public.
-      allow read:   if isOwner(uid);
-
-      // Create-only (no update — new photo = new photoId, prevents mid-flight swap).
-      allow create: if isOwner(uid)
-                    && isAllowedImageType()
-                    && withinProfilePhotoLimit();
-
-      // No update — force a new photoId for every re-upload.
-      allow update: if false;
-
-      allow delete: if isOwner(uid);
+      // Owner-only read for any legacy files still at this path.
+      allow read:             if isOwner(uid);
+      // H-6: client writes locked — all new uploads go to uploads/quarantine/.
+      allow write, delete:    if false;
     }
 
     // =========================================================================
@@ -214,21 +203,20 @@ service firebase.storage {
     // =========================================================================
     //
     //  Path  : profilePhotos/{uid}/{photoId}
-    //  Write : owner only; image/* content type; max 5 MB
-    //  Read  : authenticated users only (STORAGE FIX #6 — was public, now auth-only
-    //          to prevent serving unreviewed / pre-approval images to anonymous visitors)
-    //
-    //  NOTE: Once the quarantine pipeline is fully deployed, client writes to this
-    //  path should be locked (allow write: if false) and photos should only arrive
-    //  here via CF Admin SDK. Until then, client writes are allowed for continuity.
+    //  Write : NO client writes — quarantine pipeline (CF Admin SDK) only.
+    //          H-6: iOS now uploads to uploads/quarantine/{uid}/{photoId}.
+    //          The scanUploadedMedia CF promotes clean files to
+    //          uploads/approved/{uid}/{photoId} (covered by the quarantine
+    //          pipeline rules above) and writes the URL to Firestore.
+    //          This legacy path is kept readable for any existing approved
+    //          photos that were written before the quarantine pipeline was
+    //          deployed, but no new client writes are permitted.
+    //  Read  : authenticated users only.
 
     match /profilePhotos/{uid}/{photoId} {
-      // STORAGE FIX #6: restrict to signed-in users only; no anonymous reads.
-      allow read:   if isSignedIn();
-      allow write:  if isOwner(uid)
-                    && isAllowedImageType()
-                    && withinProfilePhotoLimit();
-      allow delete: if isOwner(uid);
+      allow read:             if isSignedIn();
+      // H-6: client writes locked — CF Admin SDK only via quarantine pipeline.
+      allow write, delete:    if false;
     }
 
     // ── Organization / church / event media ──────────────────────────────────
@@ -393,13 +381,13 @@ service firebase.storage {
     // ── User profile path (quarantine) ────────────────────────────────────────
     // iOS path: users/{uid}/profile/{filename}  (ProfileImageSetupView.swift)
 
+    // H-6: ProfileImageSetupView previously wrote to users/{uid}/profile/profileImage.jpg.
+    // All new uploads now go through uploads/quarantine/{uid}/{photoId}.
+    // Preserved for owner reads of any files written before the quarantine pipeline.
     match /users/{uid}/profile/{filename} {
-      allow read:   if isOwner(uid);
-      allow create: if isOwner(uid)
-                    && isAllowedImageType()
-                    && withinProfilePhotoLimit();
-      allow update: if false;
-      allow delete: if isOwner(uid);
+      allow read:          if isOwner(uid);
+      // H-6: client writes locked — all new uploads go to uploads/quarantine/.
+      allow write, delete: if false;
     }
 
     // =========================================================================
@@ -577,17 +565,15 @@ service firebase.storage {
       allow delete: if false;
     }
 
-    // ── Profile images (MediaModerationPipeline .profile path) ───────────────
-    // iOS path: profile_images/{uid}/{filename}  (MediaModerationPipeline.swift)
-    // NOTE: A third profile-photo path name exists alongside profile_photos/ and
-    // profilePhotos/ — consider consolidating all three to a single canonical path.
+    // ── Profile images (legacy path — LOCKED) ────────────────────────────────
+    // H-6: iOS previously wrote to profile_images/{uid}/{filename} via UserService.
+    // All new profile photo uploads now go through uploads/quarantine/{uid}/{photoId}.
+    // This path is preserved for scan coverage (mediaScanning.ts still watches it)
+    // and owner reads of any existing files, but client creates are locked.
     match /profile_images/{uid}/{filename} {
-      allow read:   if isOwner(uid);
-      allow create: if isOwner(uid)
-                    && isAllowedImageType()
-                    && withinProfilePhotoLimit();
-      allow update: if false;
-      allow delete: if isOwner(uid);
+      allow read:          if isOwner(uid);
+      // H-6: client writes locked — all new uploads go to uploads/quarantine/.
+      allow write, delete: if false;
     }
 
     // ── Studio voice recordings ───────────────────────────────────────────────
@@ -726,6 +712,22 @@ service firebase.storage {
                     && withinImageLimit();
       allow update: if false;
       allow delete: if isOwner(uid);
+    }
+
+    // ── mediaUploads raw pipeline (server-only) ───────────────────────────────
+    // iOS clients never write directly to this path; the CF media pipeline does.
+    // Raw uploads and processed results are server-owned; client reads go through
+    // the approved/CDN path.
+    match /mediaUploads/{userId}/{mediaId}/raw/{file} {
+      allow read:         if isOwner(userId);
+      allow write:        if false;   // server-only: CF Admin SDK writes here
+      allow delete:       if false;   // server-only: CF cleans up after processing
+    }
+
+    match /mediaProcessed/{allPaths=**} {
+      allow read:         if isSignedIn();
+      allow write:        if false;   // server-only: CF writes approved media here
+      allow delete:       if false;
     }
 
     // ── Default deny (catch-all) ──────────────────────────────────────────────
