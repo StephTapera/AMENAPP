@@ -278,6 +278,8 @@ Functions that should consolidate back to us-central1 once quota is available (<
 | `getThreadOfflineCache` | us-east1 | us-central1 | GlobalResilience iOS uses `Functions.functions()` (default=us-central1); source updated |
 | `moderateUploadedDMVideo` | us-west1 | us-west1 | Storage trigger — bucket in us-west1 |
 | `moderateUploadedImage` | us-west1 | us-west1 | Storage trigger — bucket in us-west1 |
+| `bereanChatProxy` | us-central1 | us-central1 | `BereanAPIClient.swift` — existing function, updated 2026-06-16 (AMEN-LLM-003: systemPromptSuffix injection removed) |
+| `bereanChatProxyStream` | us-central1 | us-central1 | `ClaudeService.swift` — NEW service created 2026-06-16 (AMEN-LLM-001: rateLimit quota enforcement; AMEN-LLM-003: injection removed). Deployed during quota period — monitor us-central1 count. |
 
 ### Consolidation Trigger
 > When us-central1 service count drops below **850** OR when quota increase is granted:
