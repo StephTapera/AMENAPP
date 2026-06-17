@@ -5,7 +5,9 @@
 	<key>ALGOLIA_SEARCH_KEY</key>
 	<string>$(ALGOLIA_SEARCH_KEY)</string>
 	<key>AMENBuildGitBranch</key>
-	<string>feature/connected-intelligence-20260609-r2</string>
+	<string>cert/reanchor-eee648b4</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>AMENBuildGitDirty</key>
 	<string>dirty</string>
 	<key>AMENBuildGitSHA</key>
@@ -51,39 +53,12 @@
 	<false/>
 	<key>GOOGLE_VISION_API_KEY</key>
 	<string>$(GOOGLE_VISION_API_KEY)</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Berean Lens uses the camera to analyze scripture, sermon content, and events in your environment.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>AMEN uses the microphone for voice prayer recording, sermon capture, and Berean voice study sessions.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>AMEN accesses your photo library so you can share photos, set your profile picture, and attach media to posts.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>AMEN uses your location to find churches near you and to show relevant local community content.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>AMEN uses your location in the background to remind you when you arrive at or leave a saved church location.</string>
-	<key>NSSiriUsageDescription</key>
-	<string>AMEN uses Siri to let you send prayer requests and messages to your community hands-free.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>AMEN uses speech recognition to transcribe voice prayers, sermons, and Berean voice queries.</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>AMEN reads your calendar to surface upcoming church events and spiritual milestones in your Community feed.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Lets you export trusted contacts for offline access during emergencies — contacts never leave your device except in the file you explicitly save.</string>
-	<key>NSHealthShareUsageDescription</key>
-	<string>AMEN reads Fitness data (steps, mindful minutes) so the Spiritual Rhythm feature can connect your physical wellness to your spiritual formation journal. No health data is shared with third parties.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>AMEN writes mindfulness session records to HealthKit so you can track your prayer and meditation time alongside other wellness data.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>We'll send you reminders about church service times and when you're near your saved churches</string>
-	<!-- LEGAL GATE: Legal/DPO must classify whether AMEN performs cross-app tracking -->
-	<!-- If no cross-app tracking: remove this key + set NSPrivacyTracking=false in PrivacyInfo.xcprivacy -->
-	<!-- If cross-app tracking: activate ATT prompt in AMENAPPApp.swift (see HUMAN_GATE_QUEUE P10-R1) -->
-	<key>NSUserTrackingUsageDescription</key>
-	<string>AMEN uses analytics to improve app performance and personalize content. No data is sold to third parties.</string>
 	<key>SEARCH_SERVICE_URL</key>
 	<string>$(SEARCH_SERVICE_URL)</string>
 	<key>SPOTIFY_CLIENT_ID</key>

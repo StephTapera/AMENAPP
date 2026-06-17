@@ -9,6 +9,7 @@ struct AmenDiscoverView: View {
     @State private var showReasonSheet = false
     @State private var showFeedbackSheet = false
     @State private var scrollOffset: CGFloat = 0
+    @ObservedObject private var ageService = AgeAssuranceService.shared
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -108,6 +109,18 @@ struct AmenDiscoverView: View {
             .sheet(isPresented: $showFeedbackSheet) {
                 AmenDiscoverSafetyFeedbackSheet { feedback in
                     Task { await viewModel.submitFeedback(item, feedback: feedback) }
+                }
+            }
+        }
+        .overlay {
+            if ageService.currentUserTier.isMinor {
+                ZStack {
+                    Color(.systemBackground).ignoresSafeArea()
+                    ContentUnavailableView(
+                        "Discovery Not Available",
+                        systemImage: "lock.shield",
+                        description: Text("Public Discovery is not available for your account.")
+                    )
                 }
             }
         }

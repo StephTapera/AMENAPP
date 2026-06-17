@@ -98,7 +98,7 @@ final class YouthModeService: ObservableObject {
                 .document(recipientUid)
                 .getDocument()
 
-            guard doc.exists else { return true }
+            guard doc.exists else { return false }
 
             let policyRaw = doc.data()?["dmPolicy"] as? String ?? ""
             guard policyRaw == DMPolicy.verifiedAdultsBlocked.rawValue else { return true }

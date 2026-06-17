@@ -235,3 +235,60 @@ Full gate table with owners and blocking status is in CERTIFICATION.md.
 **P0 count: 4 unresolved in the original P5/P10 submission gate set (2 engineering after legal + 2 legal gates)**
 **P1 count: 20 remaining (8 blocking beta)**
 **Green fixes: 46 applied and committed**
+
+---
+
+## Pass 3 — cert/reanchor-eee648b4 — 2026-06-17
+
+**Verdict impact:** Still **NO-GO** (legal gates remain open). All agent-fixable P1 engineering items are now resolved.
+
+### Source-Fixed This Pass
+
+| ID | Fix | File(s) |
+|---|---|---|
+| PRIV-007 | Privacy Policy + Terms of Service links added to `AMENAuthLandingView` — accessible before login | `AMENAPP/AMENAPP/AMENAuthLandingView.swift` |
+| SAFE-005 | Minor age gate overlay added to `AmenDiscoverView` — `.isMinor` users see blocked state | `AMENAPP/AMENAPP/AMENAPP/AmenDiscoverView.swift` |
+| SEC-006 | `ITSAppUsesNonExemptEncryption = false` added to `Info.plist` (CryptoKit-only per `AMENEncryptionService.swift` export audit) | `AMENAPP/AMENAPP/Info.plist` |
+| SAFE-010 | `YouthModeService.dmAllowed`: missing guardian document now returns `false` (deny) instead of `true` (allow) | `AMENAPP/AMENAPP/AMENAPP/AIIntelligence/YouthModeService.swift` |
+| STALE-PLIST | `AMENBuildGitBranch` updated to `cert/reanchor-eee648b4` | `AMENAPP/AMENAPP/Info.plist` |
+
+### Pre-Existing (Audit Was Stale — Already Fixed Before This Pass)
+
+| ID | Evidence |
+|---|---|
+| P0-5 Restore Purchases | `RestorePurchasesButton` already present: `TwoFourTwoSubscriptionView:87`, `CreatorSubscriptionGateView:137,185`, `MentorshipPlanSheet:44` (toolbar), `StudioPaywallView:42` (body), `AMENConnectSignUpView:205` |
+| BTN-001 Spaces entitlement | `SpacesViewModel.toggleJoin` lines 94–99 already call `AmenSpaceEntitlementService.shared.checkEntitlement` before any Firestore write |
+| BTN-003 VisitConfirmationBanner | `isConfirming` guard + `ProgressView` + `.disabled(isConfirming)` already present |
+| BTN-004 GivingImpactView PDF dismiss | `ToolbarItem(.confirmationAction)` "Done" button already present at line 83 |
+| AUTH-009 AccountRecoveryView re-auth | View only NavigationLinks to `DeleteAccountView` which enforces re-auth; comment at line 50 confirms this |
+| PERF-006 MessageOutbox fatalError | LANE-3-MESSAGEOUTBOX pass in Remediation Run (SHA 8a3562e9) |
+
+### Remaining Blockers (Human/Legal Gates — Cannot Be Agent-Fixed)
+
+| ID | Status | Required Action |
+|---|---|---|
+| P0-2 NCMEC CyberTip | Legal Gate | Written legal sign-off + NCMEC ESP registration |
+| P0-3 deleteUserAccount CF | Human Deploy | `firebase deploy --only functions:default:deleteUserAccount` to us-east1 |
+| P0-6 Stripe IAP | Legal Gate | Legal + product decision (Option A/B/C) |
+| D-IDENTITY-001 trust-scoring | Human Deploy | CF deploy after emulator tests pass |
+| D-RULES-TEST-001 | Human | Run `firebase emulators:exec` rules test suite |
+| AUTH-006 Terms/Privacy URLs | Legal Gate | Live legal documents at amenapp.com/terms + /privacy |
+| AUTH-013 30-day purge job | Backend + Legal | `userAccountDeletionCascade` Cloud Scheduler to us-east1 |
+| PRIV-005 Berean AI consent | Complex Engineering | First-run consent gate before any Berean AI response (1–2 days) |
+| FIRE-010 createSpaceTier CF | Backend Deploy | Add space-owner check + deploy |
+
+## Module D Current Pass Addendum — 2026-06-16
+
+**Verdict impact:** Still **NO-GO**.
+
+This pass added the backend access-control source-of-truth at `AMENAPP/Docs/Readiness/BACKEND_ACCESS_CONTROL_MATRIX.md` and source-fixed one P0 identity-invariant issue in `Backend/functions/src/globalResilience/trustScoring.ts`: trust-scoring callables no longer accept cross-user `data.userId` targeting from ordinary authenticated users, and privileged trust mutations now require an admin custom claim.
+
+This is not live until a human performs the gated function deploy. Required verification:
+
+```bash
+cd "/Users/stephtapera/Desktop/AMEN/AMENAPP copy"
+npm --prefix Backend/functions run build
+firebase emulators:exec --project amen-5e359 --only firestore,functions,storage "cd Backend/rules-tests && npm test"
+```
+
+Additional backend gates added to `HUMAN_GATE_QUEUE.md`: deploy the trust-scoring fix, run backend rules emulator tests, and migrate remaining user-doc `isAdmin` backend gates to custom claims or approve the server-only mirror policy.

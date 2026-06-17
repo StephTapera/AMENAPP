@@ -175,6 +175,20 @@ struct AMENAuthLandingView: View {
                         .opacity(linkOpacity)
                         .padding(.top, 8)
 #endif
+
+                        HStack(spacing: 4) {
+                            Link("Privacy Policy", destination: URL(string: "https://amenapp.com/privacy")!)
+                                .font(.systemScaled(11))
+                                .foregroundStyle(Color(white: 0.55))
+                            Text("·")
+                                .font(.systemScaled(11))
+                                .foregroundStyle(Color(white: 0.55))
+                            Link("Terms of Service", destination: URL(string: "https://amenapp.com/terms")!)
+                                .font(.systemScaled(11))
+                                .foregroundStyle(Color(white: 0.55))
+                        }
+                        .opacity(linkOpacity)
+                        .padding(.top, 8)
                     }
                     .frame(maxWidth: 375)
                     .padding(.horizontal, 28)
@@ -195,8 +209,7 @@ struct AMENAuthLandingView: View {
                     .environmentObject(authViewModel)
             }
             .navigationDestination(isPresented: $showPhoneSignIn) {
-                SignInView(startWithPhone: true)
-                    .environmentObject(authViewModel)
+                AmenPhoneAuthView()
             }
         }
         .onAppear { runEntryAnimation() }
