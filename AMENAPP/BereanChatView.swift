@@ -550,6 +550,7 @@ struct BereanChatView: View {
             .fullScreenCover(isPresented: $showCrisisCard) {
                 CrisisResourceOverlayView(isPresented: $showCrisisCard)
             }
+            .interactiveDismissDisabled(showCrisisCard)
         }
     }
 

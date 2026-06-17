@@ -62,6 +62,7 @@ final class AppLifecycleManager {
         FollowService.shared.resetUserState()
         NotificationService.shared.stopListening()
         BlockService.shared.resetUserState()
+        MuteService.shared.resetUserState()
         PostsManager.shared.stopListeningForProfileUpdates()
         // Clear post arrays so stale block-filtered posts from the previous user
         // cannot briefly appear in the feed before the new user's posts load.
@@ -144,8 +145,12 @@ final class AppLifecycleManager {
                     dlog("✅ Firestore cache clear done — resumed \(waiters.count) waiting sign-in(s)")
                 }
             }
-            try? await Firestore.firestore().clearPersistence()
-            dlog("✅ Firestore persistence cache cleared for new session")
+            do {
+                try await Firestore.firestore().clearPersistence()
+                dlog("✅ Firestore persistence cache cleared for new session")
+            } catch {
+                dlog("⚠️ Firestore clearPersistence failed (non-fatal): \(error.localizedDescription)")
+            }
         }
     }
 }

@@ -46,6 +46,16 @@
 				<string>com.amenapp</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.amen.protocol</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>amen</string>
+			</array>
+		</dict>
 	</array>
 	<key>FEED_RANKING_URL</key>
 	<string>$(FEED_RANKING_URL)</string>

@@ -1055,10 +1055,10 @@ class FirebasePostService: ObservableObject {
                 var firestorePost = try doc.data(as: FirestorePost.self)
                 firestorePost.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
                 return firestorePost
-            }
-            
+            }.filter { !$0.removed }  // exclude soft-deleted posts
+
             var posts = firestorePosts.map { $0.toPost() }
-            
+
             // ✅ Automatically enrich posts with profile images if missing
             await enrichPostsWithProfileImages(&posts)
             
@@ -1406,11 +1406,15 @@ class FirebasePostService: ObservableObject {
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     guard !Task.isCancelled else { return }
 
+                    let blockedIds = BlockService.shared.blockedUsers
+
                     let firestorePosts = snapshot.documents.compactMap { doc -> FirestorePost? in
                         var firestorePost = try? doc.data(as: FirestorePost.self)
-                        firestorePost?.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+                        firestorePost?.id = doc.documentID
                         return firestorePost
                     }
+                    .filter { !$0.removed }                           // P0-12: exclude soft-deleted posts
+                    .filter { !blockedIds.contains($0.authorId) }  // P0-11: exclude blocked users
 
                     // P1-1: Store last document for pagination
                     if let lastDoc = snapshot.documents.last {
