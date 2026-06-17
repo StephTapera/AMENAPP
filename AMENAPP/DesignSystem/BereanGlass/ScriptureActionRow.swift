@@ -22,12 +22,16 @@ struct ScriptureActionRow: View {
     let onExplain: () -> Void
     let onMore: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         // W1: Replace with GlassEffectContainer + collapse animation.
+        // Collapse/expand is gated on reduceMotion: spring when motion is allowed,
+        // instant opacity-only when reduce motion is enabled (actionRowCollapse spring).
         if !isCollapsed {
             VStack(spacing: 4) {
                 Text(passageTitle)
-                    .font(BereanType.label)
+                    .font(BereanType.subheadline())
                     .foregroundStyle(Color.bereanInk)
 
                 HStack(spacing: 0) {
@@ -40,6 +44,8 @@ struct ScriptureActionRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
+            // W1: collapse transition respects reduce motion.
+            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
         }
     }
 

@@ -21,15 +21,19 @@ struct AIKeyboardToolbar: View {
         .crossReference, .checkContext, .clarifyTerm
     ]
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        // W1: Replace with animated glass bar anchored to keyboard.
+        // W1: Replace with animated glass bar anchored to keyboard (toolbarRise spring).
+        // Keyboard-rise animation is gated on reduceMotion:
+        //   .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.75), value: ...)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(notesActions, id: \.self) { action in
                     Button(action.displayName) {
                         onAction(action)
                     }
-                    .font(BereanType.label)
+                    .font(BereanType.subheadline())
                     .frame(minHeight: BereanMetrics.minTapTarget)
                     .accessibilityLabel(action.displayName)
                     .accessibilityHint("Routes to \(action.routesTo.rawValue) mode")

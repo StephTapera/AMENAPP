@@ -1,4 +1,4 @@
-// LiquidGlassToolbar.swift
+// BereanActionToolbar.swift
 // AMEN — Berean Reading Surface component (W0 shell → W1 implementation)
 //
 // W0: Public signature frozen.
@@ -11,9 +11,11 @@ import SwiftUI
 
 /// An ordered set of actions inside a single GlassEffectContainer.
 /// Cluster all related toolbar actions here so glass blur batches correctly.
-struct LiquidGlassToolbar: View {
+struct BereanActionToolbar: View {
 
     let items: [BereanToolbarItem]
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         // W1: Replace with GlassEffectContainer implementation + overflow handling.
@@ -21,18 +23,20 @@ struct LiquidGlassToolbar: View {
             ForEach(items) { item in
                 Button(action: item.action) {
                     Label(item.label, systemImage: item.icon)
-                        .font(BereanType.label)
+                        .font(BereanType.subheadline())
                 }
                 .frame(minWidth: BereanMetrics.minTapTarget, minHeight: BereanMetrics.minTapTarget)
                 .accessibilityLabel(item.label)
             }
         }
         .padding(.horizontal, 16)
+        // W1: animate toolbar entry with toolbarRise spring, gated on reduceMotion.
+        // .animation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.8), value: items.count)
     }
 }
 
 #Preview {
-    LiquidGlassToolbar(items: [
+    BereanActionToolbar(items: [
         BereanToolbarItem(id: "save",  icon: "bookmark",        label: "Save",    action: {}),
         BereanToolbarItem(id: "share", icon: "square.and.arrow.up", label: "Share", action: {}),
         BereanToolbarItem(id: "pray",  icon: "hands.and.sparkles.fill", label: "Pray", action: {}),
