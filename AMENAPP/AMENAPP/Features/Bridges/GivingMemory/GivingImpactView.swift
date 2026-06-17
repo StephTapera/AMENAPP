@@ -74,7 +74,16 @@ struct GivingImpactView: View {
             }
             .sheet(isPresented: $showingPDF) {
                 if let data = pdfData {
-                    PDFKitView(data: data)
+                    NavigationStack {
+                        PDFKitView(data: data)
+                            .navigationTitle("Tax Statement")
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button("Done") { showingPDF = false }
+                                }
+                            }
+                    }
                 }
             }
         } else {
