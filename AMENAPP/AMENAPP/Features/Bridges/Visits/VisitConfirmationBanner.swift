@@ -4,6 +4,7 @@ import SwiftUI
 /// during a service window. Requires explicit user confirmation — never auto-logs visits.
 struct VisitConfirmationBanner: View {
     @ObservedObject var service = VisitVerificationService.shared
+    @State private var isConfirming = false
 
     var body: some View {
         if let visit = service.pendingVisitConfirmation {
@@ -23,10 +24,24 @@ struct VisitConfirmationBanner: View {
                     .buttonStyle(.bordered)
                     .accessibilityLabel("Dismiss visit confirmation")
 
-                    Button("Yes, log visit") {
-                        Task { await service.confirmVisit(visit) }
+                    Button {
+                        guard !isConfirming else { return }
+                        isConfirming = true
+                        Task {
+                            await service.confirmVisit(visit)
+                            isConfirming = false
+                        }
+                    } label: {
+                        if isConfirming {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                        } else {
+                            Text("Yes, log visit")
+                        }
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(isConfirming)
                     .accessibilityLabel("Confirm and log this church visit")
                 }
             }
