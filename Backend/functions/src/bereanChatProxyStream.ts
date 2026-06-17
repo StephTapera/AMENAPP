@@ -42,7 +42,6 @@ const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
 interface StreamRequest {
     message: string;
-    systemPromptSuffix?: string;
     maxTokens?: number;
     mode?: string;
     conversationId?: string;
@@ -263,7 +262,6 @@ export const bereanChatProxyStream = onRequest(
         const body = req.body as StreamRequest;
         const {
             message,
-            systemPromptSuffix,
             maxTokens = 2000,
             mode = "shepherd",
             callData,
@@ -314,9 +312,6 @@ export const bereanChatProxyStream = onRequest(
 
         const callDataBlock = buildCallDataBlock(callData);
         if (callDataBlock) systemPrompt += `\n\n${callDataBlock}`;
-
-        // Append the Swift-built system prompt (contains mode instructions + guidance suffix).
-        if (systemPromptSuffix) systemPrompt += `\n\n${systemPromptSuffix}`;
 
         // ── Model selection ───────────────────────────────────────────────────
         const model = mode === "scholar" || mode === "debater"

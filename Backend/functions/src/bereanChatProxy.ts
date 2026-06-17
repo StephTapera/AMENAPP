@@ -37,7 +37,6 @@ interface BereanChatRequest {
     temperature?: number;
     mode?: string;
     modelId?: string;
-    systemPromptSuffix?: string;
     memoryScope?: string;
     callData?: {
         conversationId?: string;
@@ -180,10 +179,6 @@ export const bereanChatProxy = onCall(
         } = data;
         const maxTokens = Math.min(Math.max(Number(data.maxTokens ?? 2000), 128), 2000);
         const temperature = Math.min(Math.max(Number(data.temperature ?? 0.7), 0), 1);
-        const systemPromptSuffix = typeof data.systemPromptSuffix === "string"
-            ? data.systemPromptSuffix.slice(0, 1500)
-            : undefined;
-
         // Validate input
         if (!message || typeof message !== "string" || message.trim().length === 0) {
             throw new HttpsError("invalid-argument", "Message is required and must be a non-empty string");
@@ -338,9 +333,6 @@ export const bereanChatProxy = onCall(
             const contextualPrompt = buildCallDataPrompt(callData ?? {memoryScope});
             if (contextualPrompt) {
                 systemPrompt += `\n\n${contextualPrompt}`;
-            }
-            if (systemPromptSuffix) {
-                systemPrompt += `\n\n${systemPromptSuffix}`;
             }
             await logAgentSpan(agentRunId, {
                 type: "prompt_built",

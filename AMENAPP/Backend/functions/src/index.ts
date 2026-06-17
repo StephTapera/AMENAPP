@@ -14,6 +14,9 @@ export * from "./bereanChatProxy";
 export * from "./berean/bereanOperatingLayer";
 export * from "./berean/controllers/premiumBereanCallables";
 
+// Church Notes Discipleship — extractSpiritualActions (us-east1, general notes only, S10 no-train)
+export * from "./berean/controllers/extractSpiritualActions";
+
 // Church Trust & Safety OS — verification, moderation, grounding, livestream
 // submitChurchVerificationRequest, submitChurchProfileUpdate,
 // reviewChurchModerationItem, refreshChurchLivestreamState,
