@@ -15,6 +15,7 @@ import FirebaseDatabase
 import FirebaseFirestore
 import FirebaseAppCheck
 import FirebaseCrashlytics
+import FirebaseAnalytics
 import UserNotifications
 import AppTrackingTransparency
 
@@ -93,6 +94,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         dlog("✅ App Check configured with AmenAppCheckProviderFactory (App Attest / DeviceCheck)")
         #endif
         
+        // R1-A5: Disable Analytics collection BEFORE FirebaseApp.configure() so no
+        // analytics events fire before the user answers the ATT prompt. Collection
+        // is re-enabled only if the user grants .authorized in the callback below.
+        Analytics.setAnalyticsCollectionEnabled(false)
+        dlog("✅ Analytics collection disabled (pending ATT consent)")
+
         // Configure Firebase AFTER App Check provider is set
         FirebaseApp.configure()
         dlog("✅ Firebase configured successfully")
@@ -195,9 +202,17 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // ✅ ATT: Request App Tracking Transparency after a brief delay so the
         // launch screen has settled. Apple requires this dialog before any
         // IDFA access. App Store will reject binaries that access IDFA without it.
+        // R1-A5: Analytics collection was disabled above; re-enable it only if the
+        // user explicitly grants tracking authorization.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             ATTrackingManager.requestTrackingAuthorization { status in
                 dlog("✅ ATT authorization status: \(status.rawValue)")
+                if status == .authorized {
+                    Analytics.setAnalyticsCollectionEnabled(true)
+                    dlog("✅ Analytics collection enabled (ATT authorized)")
+                } else {
+                    dlog("✅ Analytics collection remains disabled (ATT status: \(status.rawValue))")
+                }
             }
         }
 
