@@ -222,7 +222,7 @@ fileprivate struct AmenSpaceHeroCard: View {
                         .font(.title3)
                         .foregroundStyle(Color.accentColor)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("You missed \(space.missedDiscussions) discussions")
+                        Text("Catch up on discussions")
                             .font(.subheadline.weight(.semibold))
                         Text("Tap to get caught up")
                             .font(.caption)

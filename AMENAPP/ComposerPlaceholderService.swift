@@ -52,7 +52,7 @@ final class ComposerPlaceholderService {
         async let recentComment = hasRecentComment(userId: userId)
 
         if await echoCheck    { return "Someone's standing with you in prayer..." }
-        if let lp = await lastPost, daysSince(lp) >= 7 { return "It's been a while — what's been on your mind?" }
+        // A8-007: inactivity-based branch removed — absence reminders on composer open cause guilt pressure.
         if let jd = await joinDate, daysSince(jd) < 7  { return "What's something you're thinking about?" }
         if await unanswered   { return "Still believing for something?" }
         if await recentComment { return "You've got people engaging — share something new" }
