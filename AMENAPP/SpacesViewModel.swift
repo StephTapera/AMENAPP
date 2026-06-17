@@ -7,6 +7,7 @@ import Combine
 import FirebaseFirestore
 import FirebaseAuth
 import FirebaseFunctions
+// AmenSpaceEntitlementService is in AMENAPP/AMENAPP/ConnectSpaces/Monetization/
 
 @MainActor
 class SpacesViewModel: ObservableObject {
@@ -16,6 +17,9 @@ class SpacesViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var searchText = ""
     @Published var selectedFilter: SpaceFilter = .forYou
+    /// Set to true when a join attempt is blocked by the entitlement gate.
+    /// Views should observe this to present a paywall sheet.
+    @Published var showPaywall = false
 
     enum SpaceFilter: String, CaseIterable {
         case forYou = "For You"
@@ -84,6 +88,16 @@ class SpacesViewModel: ObservableObject {
             try? await ref.delete()
             try? await spaceRef.updateData(["memberCount": FieldValue.increment(Int64(-1))])
         } else {
+            // Entitlement gate: verify server-side before writing to Firestore.
+            // Free-tier users attempting to join a paid Space are shown a paywall
+            // and the join is aborted without any Firestore write.
+            let hasEntitlement = (try? await AmenSpaceEntitlementService.shared
+                .checkEntitlement(spaceId: spaceId)) ?? false
+            guard hasEntitlement else {
+                showPaywall = true
+                return
+            }
+
             SwiftUI.withAnimation(Motion.adaptive(.spring(response: 0.4, dampingFraction: 0.75))) {
                 joinedSpaceIds.insert(spaceId)
             }

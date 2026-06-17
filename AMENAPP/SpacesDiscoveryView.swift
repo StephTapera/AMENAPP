@@ -74,6 +74,13 @@ struct SpacesDiscoveryView: View {
                     SpaceFeedView(space: space, vm: vm)
                 }
             }
+            .sheet(isPresented: $vm.showPaywall) {
+                AmenAccountPaywallView(
+                    requiredTier: .amenPlus,
+                    feature: "Join this Community",
+                    onDismiss: { vm.showPaywall = false }
+                )
+            }
             .onAppear { vm.load() }
         }
     }
