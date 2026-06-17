@@ -1,18 +1,23 @@
 # FULL-STACK BUILD CERTIFICATION
 
-## Remediation State — 2026-06-17 (4 batches committed)
+## Remediation State — 2026-06-17 (5 batches committed, T1 GREEN)
 
 Branch: `cert/reanchor-eee648b4`
-HEAD: `47ffd692` (after batch-4-p1)
+HEAD: `bc0e2d48`
+Build stamp: `2026-06-17T15:55:55Z`
 
 | Layer | Status | Evidence |
 |---|---|---|
+| T1 — iOS app build | ✅ GREEN | `BuildProject` via Xcode MCP — "The project built successfully." elapsed 250.9s, 0 errors. HEAD `bc0e2d48`. DerivedData cleared + `xattr -cr AMENAPP.xcodeproj` applied first. |
 | T3 — Backend TS compile | ✅ GREEN | `npx tsc --noEmit` exit 0, no output |
 | T4 — Backend Jest | ✅ GREEN | 67/67 suites, 1175/1175 tests, 0 failures — was 121 |
-| T1 — iOS build | 🔴 HUMAN-PENDING | project.pbxproj has duplicate file refs from concurrent agents; must be resolved by human before clean build |
+| T2 — iOS test compile | ⏸ NOT ATTEMPTED | See note below |
+| T5 — Storage rules | 🔴 HUMAN-PENDING | `firebase deploy --only storage` from root required (media quarantine patterns) |
 | P0 agent items | ✅ ALL DONE | 12 P0 items closed in batches 1–3; see table below |
 | P1 agent items | ✅ ALL DONE | 10 P1 items closed in batch 4 + batch 5 |
 | P2-A (region) | ✅ DONE | bereanChatProxy + Stream → us-east1 |
+
+> **T2 note:** `BuildProject(buildForTesting: true)` previously failed with "Could not compute dependency graph." Not re-attempted in this session to avoid destabilising the clean T1 green. Recommend a separate build-for-testing pass once other concurrent agents are fully stopped.
 
 ### P0 Gate Status
 
