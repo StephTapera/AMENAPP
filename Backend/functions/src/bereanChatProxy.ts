@@ -27,6 +27,8 @@ import {buildAgentIdentityPromptBlock, resolveBereanAgentIdentity} from "./agent
 import {evaluateBereanOutcome} from "./agents/agentOutcomes";
 import {finishAgentRun, logAgentSpan, startAgentRun} from "./agents/agentObservability";
 
+export {sanitizeConversationHistory} from "./berean/services/conversationHistory";
+
 interface BereanChatRequest {
     message: string;
     conversationHistory?: Array<{

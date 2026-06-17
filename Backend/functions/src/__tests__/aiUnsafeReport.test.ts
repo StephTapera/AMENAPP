@@ -196,17 +196,15 @@ describe("validateReportInput — surface handling", () => {
 
 describe("validateReportInput — server-owned field invariants", () => {
     test("does not surface client-supplied uid / processed / createdAt", () => {
-        const out = validateReportInput({
+        const smuggledPayload = {
             messageId: "m1",
             reason: "unsafe_advice",
             // Attempt to smuggle server-owned fields.
-            // @ts-expect-error — intentionally extra properties for the test.
             uid: "attacker-uid",
-            // @ts-expect-error
             processed: true,
-            // @ts-expect-error
             createdAt: "yesterday",
-        });
+        } as Record<string, unknown>;
+        const out = validateReportInput(smuggledPayload);
         expect((out as Record<string, unknown>).uid).toBeUndefined();
         expect((out as Record<string, unknown>).processed).toBeUndefined();
         expect((out as Record<string, unknown>).createdAt).toBeUndefined();

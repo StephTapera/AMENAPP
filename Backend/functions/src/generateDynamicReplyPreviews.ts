@@ -31,7 +31,9 @@ const W = {
 
 const PREVIEW_TEXT_BLOCKLIST = [
     /https?:\/\//i,
+    /\bhxxp\s+dot\s+com\b/i,
     /\bkill yourself\b/i,
+    /\bk\.?y\.?s\b/i,
     /\bsuicide\b/i,
     /\bporn\b/i,
     /\bsexual\b/i,
@@ -440,6 +442,26 @@ async function loadRelationshipContext(viewerId: string, authorId: string): Prom
         followsAuthor: followSnap.exists,
         mutualTopicCount: mutualTopics.length,
     };
+}
+
+export function hasStrongRelationship(relationship: RelationshipContext): boolean {
+    return relationship.followsAuthor || relationship.mutualTopicCount >= 2;
+}
+
+export function selectFollowedReplyFromRelationships(
+    comments: Comment[],
+    relationships: Map<string, RelationshipContext>,
+    excludedCommentId: string | null = null
+): Comment | null {
+    const ranked = [...comments].sort((lhs, rhs) => rankComment(rhs) - rankComment(lhs));
+    for (const comment of ranked) {
+        if (comment.id === excludedCommentId) continue;
+        const relationship = relationships.get(comment.authorId);
+        if (relationship && hasStrongRelationship(relationship)) {
+            return comment;
+        }
+    }
+    return null;
 }
 
 export async function selectFollowedReplyCandidate(

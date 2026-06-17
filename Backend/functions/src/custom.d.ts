@@ -103,7 +103,9 @@ declare module "adm-zip" {
     }
 
     export default class AdmZip {
-        constructor(input: Buffer);
+        constructor(input?: Buffer);
+        addFile(path: string, content: Buffer): void;
+        toBuffer(): Buffer;
         getEntries(): IZipEntry[];
     }
 }

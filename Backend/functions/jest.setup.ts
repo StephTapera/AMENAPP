@@ -24,6 +24,29 @@ jest.mock("firebase-functions/v2", () => ({
   logger: loggerMock,
 }));
 
+jest.mock("firebase-functions/v2/https", () => {
+  class HttpsError extends Error {
+    code: string;
+    details?: unknown;
+
+    constructor(code: string, message: string, details?: unknown) {
+      super(message);
+      this.code = code;
+      this.details = details;
+    }
+  }
+
+  const unwrapHandler = (optionsOrHandler: unknown, maybeHandler?: unknown) => (
+    typeof optionsOrHandler === "function" ? optionsOrHandler : maybeHandler
+  );
+
+  return {
+    HttpsError,
+    onCall: jest.fn(unwrapHandler),
+    onRequest: jest.fn(unwrapHandler),
+  };
+});
+
 jest.mock("firebase-functions/logger", () => loggerMock);
 
 // Note: suites that need isolated call history already call jest.clearAllMocks()

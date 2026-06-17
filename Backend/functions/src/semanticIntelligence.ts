@@ -19,6 +19,8 @@ import * as functions from "firebase-functions";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
+import { enforceRateLimit } from "./rateLimit";
+import { validateRawTextOutput } from "./berean/services/SafetyValidator";
 
 const db = admin.firestore();
 type CallableAuthContext = {
@@ -60,22 +62,15 @@ function definitionCacheKey(term: string, depth: string): string {
     return crypto.createHash("sha256").update(`${normalised}:${depth}`).digest("hex").slice(0, 24);
 }
 
-/** Enforces per-user rate limit using a sharded counter in Firestore. */
-async function checkRateLimit(uid: string): Promise<void> {
-    const hourKey = new Date().toISOString().slice(0, 13);
-    const ref = db.collection("_rateLimits").doc(`semanticDef:${uid}:${hourKey}`);
-    const snap = await ref.get();
-    const count = snap.exists ? (snap.data()?.count ?? 0) : 0;
-    if (count >= 30) {
-        throw new HttpsError(
-            "resource-exhausted",
-            "Definition rate limit reached. Try again in an hour."
-        );
-    }
-    await ref.set(
-        { count: admin.firestore.FieldValue.increment(1), uid, hour: hourKey },
-        { merge: true }
-    );
+function isLikelyScriptureReference(ref: string): boolean {
+    return /^(?:[1-3]\s)?(?:Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|1 Samuel|2 Samuel|1 Kings|2 Kings|1 Chronicles|2 Chronicles|Ezra|Nehemiah|Esther|Job|Psalms?|Proverbs|Ecclesiastes|Song of Songs|Isaiah|Jeremiah|Lamentations|Ezekiel|Daniel|Hosea|Joel|Amos|Obadiah|Jonah|Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|Matthew|Mark|Luke|John|Acts|Romans|1 Corinthians|2 Corinthians|Galatians|Ephesians|Philippians|Colossians|1 Thessalonians|2 Thessalonians|1 Timothy|2 Timothy|Titus|Philemon|Hebrews|James|1 Peter|2 Peter|1 John|2 John|3 John|Jude|Revelation)\s+\d{1,3}:\d{1,3}(?:-\d{1,3})?$/i.test(ref.trim());
+}
+
+function filterScriptureReferences(refs: string[]): string[] {
+    return refs
+        .map(ref => sanitizeString(ref, 40))
+        .filter(Boolean)
+        .filter(isLikelyScriptureReference);
 }
 
 // ---------------------------------------------------------------------------
@@ -85,9 +80,8 @@ async function checkRateLimit(uid: string): Promise<void> {
 export const defineSemanticTerm = onCall(async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
-    requireAppCheckGuard(context);
     const uid = requireAuth(context);
-    await checkRateLimit(uid);
+    requireAppCheckGuard(context);
 
     const term          = sanitizeString(data.term, 80);
     const sourceText    = sanitizeString(data.sourceText, 500);
@@ -102,6 +96,11 @@ export const defineSemanticTerm = onCall(async (request) => {
     if (!term) {
         throw new HttpsError("invalid-argument", "term is required.");
     }
+    if (term.length < 2) {
+        throw new HttpsError("invalid-argument", "term must be at least 2 characters.");
+    }
+
+    await enforceRateLimit(uid, [{ name: "semantic_definition_1hour", windowMs: 3_600_000, maxCalls: 30 }]);
 
     const cacheKey = definitionCacheKey(term, depth);
 
@@ -109,9 +108,10 @@ export const defineSemanticTerm = onCall(async (request) => {
     const cached = await db.collection("semanticDefinitions").doc(cacheKey).get();
     if (cached.exists && cached.data()?.safetyStatus === "approved") {
         functions.logger.info("semanticDef cache hit", { term, cacheKey, uid });
-        await logAnalyticsEvent("semantic_definition_loaded", uid, { term, cacheStatus: "hit", sourceType });
+        await logAnalyticsEvent("semantic_definition_cache_hit", uid, { term, cacheStatus: "hit", sourceType });
         return { ...cached.data(), id: cacheKey, cacheStatus: "hit" };
     }
+    await logAnalyticsEvent("semantic_definition_cache_miss", uid, { term, cacheStatus: "miss", sourceType });
 
     // Build definition via Berean AI proxy (studyPassage CF already exists)
     // We call the studyPassage callable internally to avoid duplicating AI logic.
@@ -206,7 +206,7 @@ export const defineSemanticTerm = onCall(async (request) => {
         if (builtin) {
             compactDefinition = builtin.compact;
             biblicalContext = depth !== "compact" ? builtin.biblical : null;
-            relatedScriptureRefs = depth !== "compact" ? builtin.refs : [];
+            relatedScriptureRefs = depth !== "compact" ? filterScriptureReferences(builtin.refs) : [];
             confidence = 0.95;
             modelUsed = "builtin-theological-dictionary";
         } else {
@@ -214,16 +214,28 @@ export const defineSemanticTerm = onCall(async (request) => {
             compactDefinition = `"${term}" is a term used in Christian tradition. Tap "Ask Berean" for a detailed theological explanation.`;
             confidence = 0.0;
             safetyNotes = "no_builtin_definition";
-            modelUsed = "fallback";
+            modelUsed = "fallback-none";
         }
 
         // Clean up pending request
-        await bereanProxyRef.delete();
+        if (typeof bereanProxyRef.delete === "function") {
+            await bereanProxyRef.delete();
+        }
 
     } catch (err) {
         functions.logger.error("defineSemanticTerm AI error", { term, err });
         await logAnalyticsEvent("semantic_definition_failed", uid, { term, sourceType });
         throw new HttpsError("internal", "Could not generate definition.");
+    }
+
+    const moderation = validateRawTextOutput([
+        compactDefinition,
+        expandedDefinition,
+        biblicalContext,
+    ].filter(Boolean).join("\n"));
+    if (!moderation.isValid) {
+        await logAnalyticsEvent("semantic_definition_moderation_rejected", uid, { term, sourceType });
+        throw new HttpsError("internal", "Generated definition failed safety validation.");
     }
 
     const generatedAt = admin.firestore.Timestamp.now();
@@ -238,6 +250,7 @@ export const defineSemanticTerm = onCall(async (request) => {
         safetyNotes: safetyNotes ?? null,
         generatedAt: generatedAt.toMillis(),
         modelUsed,
+        generationSource: modelUsed === "builtin-theological-dictionary" ? "fallback" : "fallback",
         cacheStatus: "miss",
         normalizedTerm: term.toLowerCase().trim(),
         safetyStatus: confidence > 0.5 ? "approved" : "review_required",
@@ -248,9 +261,9 @@ export const defineSemanticTerm = onCall(async (request) => {
     // Persist to shared cache (trusted server write — client cannot write here)
     if (confidence > 0.5) {
         await db.collection("semanticDefinitions").doc(cacheKey).set(result);
+        await logAnalyticsEvent("semantic_definition_persisted", uid, { term, sourceType });
     }
 
-    await logAnalyticsEvent("semantic_definition_loaded", uid, { term, cacheStatus: "miss", sourceType });
     return result;
 });
 
@@ -261,8 +274,8 @@ export const defineSemanticTerm = onCall(async (request) => {
 export const detectSmartActions = onCall(async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
-    requireAppCheckGuard(context);
     const uid = requireAuth(context);
+    requireAppCheckGuard(context);
 
     const screen       = sanitizeString(data.screen, 40);
     const sourceType   = sanitizeString(data.sourceType, 40);
@@ -275,14 +288,24 @@ export const detectSmartActions = onCall(async (request) => {
 
     const rankedActions: Array<{
         id: string; icon: string; title: string;
-        subtitle?: string; priorityRaw: number; analyticsEvent: string;
+        subtitle?: string; priorityRaw: number; analyticsEvent: string; confidence: number;
     }> = [];
     const suppressedActions: string[] = [];
+    const suppressedDetails: Array<{ id: string; suppressionReason: string }> = [];
     const reasonCodes: string[] = [];
 
     // Safety: never show actions for content that isn't available
     const hasTranscript = featureFlags["has_transcript"] === true;
     const isAuthenticated = true; // already checked above
+
+    const crisisPattern = /\b(?:suicid|kill myself|end my life|self[-\s]?harm)\b/i;
+    if (crisisPattern.test(visibleText) || crisisPattern.test(selectedText)) {
+        suppressedActions.push("all");
+        suppressedDetails.push({ id: "all", suppressionReason: "crisis_dominates" });
+        reasonCodes.push("crisis_dominates");
+        await logAnalyticsEvent("smart_action_suppressed", uid, { screen, sourceType, actionId: "all", reason: "crisis_dominates" });
+        return { rankedActions: [], suppressedActions, suppressedDetails, reasonCodes };
+    }
 
     // Scripture detected
     const scripturePattern = /(\d\s)?[A-Z][a-z]+\s\d{1,3}(:\d{1,3}(-\d{1,3})?)?/;
@@ -293,6 +316,7 @@ export const detectSmartActions = onCall(async (request) => {
             title: "Bible Context",
             priorityRaw: 3,
             analyticsEvent: "smart_action_tapped_scripture",
+            confidence: 0.9,
         });
     }
 
@@ -305,6 +329,7 @@ export const detectSmartActions = onCall(async (request) => {
             subtitle: `"${selectedText.slice(0, 20)}${selectedText.length > 20 ? "…" : ""}"`,
             priorityRaw: 2,
             analyticsEvent: "smart_action_tapped_define",
+            confidence: 0.88,
         });
     }
 
@@ -316,10 +341,13 @@ export const detectSmartActions = onCall(async (request) => {
             title: "Explain",
             priorityRaw: 2,
             analyticsEvent: "smart_action_tapped_explain_video",
+            confidence: 0.86,
         });
     } else if (sourceType === "media" && !hasTranscript) {
         suppressedActions.push("explain_video");
+        suppressedDetails.push({ id: "explain_video", suppressionReason: "transcript_not_ready" });
         reasonCodes.push("transcript_not_ready");
+        await logAnalyticsEvent("smart_action_suppressed", uid, { screen, sourceType, actionId: "explain_video", reason: "transcript_not_ready" });
     }
 
     // Church note detected
@@ -330,6 +358,7 @@ export const detectSmartActions = onCall(async (request) => {
             title: "Save Note",
             priorityRaw: 4,
             analyticsEvent: "smart_action_tapped_save_notes",
+            confidence: 0.82,
         });
     }
 
@@ -341,18 +370,27 @@ export const detectSmartActions = onCall(async (request) => {
             title: "Ask Berean",
             priorityRaw: 2,
             analyticsEvent: "smart_action_tapped_ask_berean",
+            confidence: 0.84,
         });
     }
 
     // Save to Selah — only when enabled
-    if (isAuthenticated && featureFlags["selah_media_os_enabled"] !== false) {
+    const selahEligible = ["feed", "post", "media", "mediaDetail", "churchNotes"].includes(screen)
+        || ["post", "media", "churchNote"].includes(sourceType);
+    if (isAuthenticated && featureFlags["selah_media_os_enabled"] !== false && selahEligible) {
         rankedActions.push({
             id: "save_to_selah",
             icon: "bookmark",
             title: "Save to Selah",
             priorityRaw: 5,
             analyticsEvent: "smart_action_tapped_save_selah",
+            confidence: 0.78,
         });
+    } else if (isAuthenticated && featureFlags["selah_media_os_enabled"] !== false && !selahEligible) {
+        suppressedActions.push("save_to_selah");
+        suppressedDetails.push({ id: "save_to_selah", suppressionReason: "surface_not_eligible" });
+        reasonCodes.push("surface_not_eligible");
+        await logAnalyticsEvent("smart_action_suppressed", uid, { screen, sourceType, actionId: "save_to_selah", reason: "surface_not_eligible" });
     }
 
     // Dedup and limit to 3
@@ -364,7 +402,7 @@ export const detectSmartActions = onCall(async (request) => {
 
     await logAnalyticsEvent("smart_action_rendered", uid, { screen, sourceType, count: String(deduped.length) });
 
-    return { rankedActions: deduped, suppressedActions, reasonCodes };
+    return { rankedActions: deduped, suppressedActions, suppressedDetails, reasonCodes };
 });
 
 // ---------------------------------------------------------------------------
@@ -374,8 +412,8 @@ export const detectSmartActions = onCall(async (request) => {
 export const createKnowledgeThread = onCall(async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
-    requireAppCheckGuard(context);
     const uid = requireAuth(context);
+    requireAppCheckGuard(context);
 
     const term         = sanitizeString(data.term, 80);
     const sourceType   = sanitizeString(data.sourceType, 40);
@@ -388,6 +426,11 @@ export const createKnowledgeThread = onCall(async (request) => {
 
     if (!term || !definitionId) {
         throw new HttpsError("invalid-argument", "term and definitionId are required.");
+    }
+
+    const definitionSnap = await db.collection("semanticDefinitions").doc(definitionId).get();
+    if (!definitionSnap.exists || definitionSnap.data()?.safetyStatus !== "approved") {
+        throw new HttpsError("not-found", "Approved definition not found.");
     }
 
     const now = admin.firestore.FieldValue.serverTimestamp();
@@ -405,7 +448,7 @@ export const createKnowledgeThread = onCall(async (request) => {
             displayTitle: null,
             addedAt: now,
         }],
-        relatedScriptureRefs: relatedRefs,
+        relatedScriptureRefs: filterScriptureReferences(relatedRefs),
         savedInsightIds: [definitionId],
         createdAt: now,
         updatedAt: now,
@@ -424,8 +467,8 @@ export const createKnowledgeThread = onCall(async (request) => {
 export const saveSemanticInsight = onCall(async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
-    requireAppCheckGuard(context);
     const uid = requireAuth(context);
+    requireAppCheckGuard(context);
 
     const definitionId = sanitizeString(data.definitionId, 64);
     const term         = sanitizeString(data.term, 80);
@@ -452,6 +495,9 @@ export const saveSemanticInsight = onCall(async (request) => {
 
     // Fetch the shared definition to copy its safe fields into the user's insight
     const defSnap = await db.collection("semanticDefinitions").doc(definitionId).get();
+    if (!defSnap.exists || defSnap.data()?.safetyStatus !== "approved") {
+        throw new HttpsError("not-found", "Approved definition not found.");
+    }
     const defData = defSnap.data() ?? {};
 
     const now = admin.firestore.FieldValue.serverTimestamp();
@@ -466,7 +512,7 @@ export const saveSemanticInsight = onCall(async (request) => {
         compactDefinition: defData.compactDefinition ?? "",
         sourceType,
         sourceId,
-        relatedScriptureRefs: defData.relatedScriptureRefs ?? [],
+        relatedScriptureRefs: filterScriptureReferences(defData.relatedScriptureRefs ?? []),
         createdAt: now,
         updatedAt: now,
         userNote,
@@ -485,8 +531,8 @@ export const saveSemanticInsight = onCall(async (request) => {
 export const logPresenceSignal = onCall(async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
-    requireAppCheckGuard(context);
     const uid = requireAuth(context);
+    requireAppCheckGuard(context);
 
     const screen     = sanitizeString(data.screen, 40);
     const signalType = sanitizeString(data.signalType, 40);

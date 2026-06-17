@@ -2,6 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { ImageAnnotatorClient } from "@google-cloud/vision";
+import AdmZip from "adm-zip";
 import { requireAuthAndAppCheck, lightweightModeration } from "../amenAI/common";
 
 const db        = admin.firestore();
@@ -16,6 +17,48 @@ type VisionTextDetectionClient = ImageAnnotatorClient & {
 
 const MAX_OCR_CHARS      = 40_000;
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "heic", "heif", "webp"]);
+
+export interface ExtractedPptxSlideText {
+    extractedText: string;
+    pageAttributions: Array<{
+        pageNumber: number;
+        text: string;
+        source: "pptx_slide_text";
+    }>;
+}
+
+function decodeXmlText(text: string): string {
+    return text
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, "\"")
+        .replace(/&apos;/g, "'");
+}
+
+export function extractPptxSlideText(buffer: Buffer): ExtractedPptxSlideText {
+    const zip = new AdmZip(buffer);
+    const pageAttributions = zip.getEntries()
+        .filter(entry => /^ppt\/slides\/slide\d+\.xml$/i.test(entry.entryName))
+        .sort((lhs, rhs) => lhs.entryName.localeCompare(rhs.entryName, undefined, { numeric: true }))
+        .map(entry => {
+            const pageNumber = Number(entry.entryName.match(/slide(\d+)\.xml$/i)?.[1] ?? 0);
+            const xml = entry.getData().toString("utf8");
+            const text = Array.from(xml.matchAll(/<a:t[^>]*>([\s\S]*?)<\/a:t>/g))
+                .map(match => decodeXmlText(match[1]))
+                .join("\n")
+                .trim();
+            return text ? { pageNumber, text, source: "pptx_slide_text" as const } : null;
+        })
+        .filter((value): value is ExtractedPptxSlideText["pageAttributions"][number] => value !== null);
+
+    return {
+        extractedText: pageAttributions
+            .map(page => `[Slide ${page.pageNumber}]\n${page.text}`)
+            .join("\n\n"),
+        pageAttributions,
+    };
+}
 
 async function assertJobOwner(uid: string, noteId: string, jobId: string): Promise<admin.firestore.DocumentSnapshot> {
     const jobRef  = db.collection("churchNotes").doc(noteId).collection("processingJobs").doc(jobId);

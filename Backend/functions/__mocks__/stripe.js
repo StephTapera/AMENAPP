@@ -3,7 +3,14 @@
 // stripeCovenantWebhook.test.ts calls handleStripeEvent directly,
 // bypassing the HTTP layer and signature verification.
 
+const mockSessionsCreate = jest.fn();
+
 const Stripe = jest.fn().mockImplementation(() => ({
+    checkout: {
+        sessions: {
+            create: mockSessionsCreate,
+        },
+    },
     webhooks: {
         constructEvent: jest.fn(),
     },
@@ -14,3 +21,4 @@ const Stripe = jest.fn().mockImplementation(() => ({
 
 module.exports = Stripe;
 module.exports.default = Stripe;
+module.exports.__mockSessionsCreate = mockSessionsCreate;
