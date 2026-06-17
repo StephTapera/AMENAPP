@@ -20,7 +20,7 @@ function requireAppCheck(request: CallableRequest): void {
 // MARK: - resolveCommunityObject
 // Given a URL (or provider+providerId), find or create a canonical object.
 
-export const resolveCommunityObject = onCall(async (request: CallableRequest) => {
+export const resolveCommunityObject = onCall({ enforceAppCheck: true }, async (request: CallableRequest) => {
     requireAppCheck(request);
     requireAuth(request);
 
@@ -93,7 +93,7 @@ export const resolveCommunityObject = onCall(async (request: CallableRequest) =>
 // MARK: - createOrJoinObjectHub
 // Create a hub for a canonical object if none exists, then join it.
 
-export const createOrJoinObjectHub = onCall(async (request: CallableRequest) => {
+export const createOrJoinObjectHub = onCall({ enforceAppCheck: true }, async (request: CallableRequest) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
 
@@ -173,7 +173,7 @@ export const createOrJoinObjectHub = onCall(async (request: CallableRequest) => 
 // MARK: - getObjectHub
 // Returns hub + canonical object + related objects for the hub view.
 
-export const getObjectHub = onCall(async (request: CallableRequest) => {
+export const getObjectHub = onCall({ enforceAppCheck: true }, async (request: CallableRequest) => {
     requireAppCheck(request);
     requireAuth(request);
 
@@ -181,7 +181,7 @@ export const getObjectHub = onCall(async (request: CallableRequest) => {
     if (!canonicalObjectId) throw new Error("Missing canonicalObjectId");
 
     const canonicalSnap = await db.collection("canonicalObjects").doc(canonicalObjectId).get();
-    if (!canonicalSnap.exists) throw new Error("Canonical object not found");
+    if (!canonicalSnap.exists) throw new HttpsError("not-found", "Canonical object not found.");
     const canonical = { id: canonicalSnap.id, ...canonicalSnap.data() };
 
     const hubId = (canonical as any).hubId as string | null;
@@ -206,7 +206,7 @@ export const getObjectHub = onCall(async (request: CallableRequest) => {
 
 // MARK: - getRelatedObjectHubs
 
-export const getRelatedObjectHubs = onCall(async (request: CallableRequest) => {
+export const getRelatedObjectHubs = onCall({ enforceAppCheck: true }, async (request: CallableRequest) => {
     requireAppCheck(request);
     requireAuth(request);
 
@@ -227,8 +227,19 @@ export const getRelatedObjectHubs = onCall(async (request: CallableRequest) => {
         .limit(limitCount)
         .get();
 
+    // Fetch user's muted hubs
+    const uid = requireAuth(request);
+    const mutedSnap = await db.collection("users").doc(uid).collection("mutedHubs").get();
+    const mutedHubIds = new Set(mutedSnap.docs.map(d => d.id));
+
+    const ownHubId = (canonicalSnap.data() as any)?.hubId as string | undefined;
     const hubs = hubsSnap.docs
-        .filter(d => d.id !== (canonicalSnap.data() as any)?.hubId)
+        .filter(d => d.id !== ownHubId)
+        .filter(d => {
+            const data = d.data() as Record<string, unknown>;
+            return data.safetyStatus === "approved" && data.explicitContentState === "clean";
+        })
+        .filter(d => !mutedHubIds.has(d.id))
         .map(d => ({ id: d.id, ...d.data() }));
 
     return { hubs };
@@ -236,7 +247,7 @@ export const getRelatedObjectHubs = onCall(async (request: CallableRequest) => {
 
 // MARK: - recordObjectInteraction
 
-export const recordObjectInteraction = onCall(async (request: CallableRequest) => {
+export const recordObjectInteraction = onCall({ enforceAppCheck: true }, async (request: CallableRequest) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
 
@@ -244,6 +255,11 @@ export const recordObjectInteraction = onCall(async (request: CallableRequest) =
         hubId: string;
         interactionType: string;
     };
+
+    const ALLOWED_INTERACTION_TYPES = ["saved", "shared", "prayed", "joined", "commented", "reacted"];
+    if (!ALLOWED_INTERACTION_TYPES.includes(interactionType)) {
+        throw new HttpsError("invalid-argument", `Invalid interaction type: ${interactionType}`);
+    }
 
     const membershipRef = db
         .collection("communityHubs").doc(hubId)
@@ -265,11 +281,14 @@ export const recordObjectInteraction = onCall(async (request: CallableRequest) =
 
 // MARK: - muteObjectHub
 
-export const muteObjectHub = onCall(async (request: CallableRequest) => {
+export const muteObjectHub = onCall({ enforceAppCheck: true }, async (request: CallableRequest) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
 
     const { hubId } = request.data as { hubId: string };
+
+    const hubSnap = await db.collection("communityHubs").doc(hubId).get();
+    if (!hubSnap.exists) throw new HttpsError("not-found", "Hub not found.");
 
     const membershipRef = db
         .collection("communityHubs").doc(hubId)
@@ -281,7 +300,7 @@ export const muteObjectHub = onCall(async (request: CallableRequest) => {
 
 // MARK: - reportHubContent
 
-export const reportHubContent = onCall(async (request: CallableRequest) => {
+export const reportHubContent = onCall({ enforceAppCheck: true }, async (request: CallableRequest) => {
     requireAppCheck(request);
     const uid = requireAuth(request);
 
@@ -291,6 +310,7 @@ export const reportHubContent = onCall(async (request: CallableRequest) => {
         hubId,
         reporterUid: uid,
         reason,
+        source: "objectHub",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         status: "pending",
     });
@@ -305,23 +325,44 @@ export const indexPostIntoHub = onDocumentCreated("posts/{postId}", async (event
     const data = event.data?.data();
     if (!data) return;
 
+    // Skip non-public or safety-flagged posts
+    if (data.visibility !== "public") return;
+    if (data.safetyStatus && data.safetyStatus !== "approved") return;
+    if (data.explicitContentState && data.explicitContentState !== "clean") return;
+
     const canonicalObjectId: string | undefined = data?.smartAttachment?.canonicalObjectId;
     if (!canonicalObjectId) return;
 
     const canonicalRef = db.collection("canonicalObjects").doc(canonicalObjectId);
-    await canonicalRef.update({
-        totalPostCount: admin.firestore.FieldValue.increment(1),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
     const canonicalSnap = await canonicalRef.get();
     const hubId = canonicalSnap.data()?.hubId as string | undefined;
     if (!hubId) return;
+
+    // Skip if hub is blocked/unsafe
+    const hubSnap = await db.collection("communityHubs").doc(hubId).get();
+    if (!hubSnap.exists) return;
+    const hubData = hubSnap.data() as Record<string, unknown>;
+    if (hubData.safetyStatus && hubData.safetyStatus !== "approved") return;
+    if (hubData.explicitContentState && hubData.explicitContentState !== "clean") return;
+
+    const hubTotalPostCount = (hubData.totalPostCount as number | undefined) ?? 0;
+    const objectType = (canonicalSnap.data()?.objectType as string | undefined) ?? "content";
+    const hubLabel = objectType.charAt(0).toUpperCase() + objectType.slice(1) + " Hub";
 
     await db.collection("communityHubs").doc(hubId).update({
         totalPostCount: admin.firestore.FieldValue.increment(1),
         weeklyPostCount: admin.firestore.FieldValue.increment(1),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Write communityHubPreview to the post document (safe aggregate only)
+    await event.data!.ref.update({
+        communityHubPreview: {
+            hubId,
+            canonicalObjectId,
+            aggregateText: `${hubTotalPostCount} public posts`,
+            actionText: hubLabel,
+        },
     });
 });
 

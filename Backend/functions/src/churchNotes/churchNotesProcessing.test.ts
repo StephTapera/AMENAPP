@@ -72,6 +72,9 @@ function validateProcessingJobInput(
         throw Object.assign(new Error("Invalid sourceType."), { code: "invalid-argument" });
     }
     if (!storagePath) throw Object.assign(new Error("storagePath required."), { code: "invalid-argument" });
+    if (storagePath.includes("..")) {
+        throw Object.assign(new Error("Storage path contains illegal traversal sequence."), { code: "permission-denied" });
+    }
     if (!storagePath.startsWith(`churchNotes/${uid}/`)) {
         throw Object.assign(new Error("Storage path does not belong to this user."), { code: "permission-denied" });
     }

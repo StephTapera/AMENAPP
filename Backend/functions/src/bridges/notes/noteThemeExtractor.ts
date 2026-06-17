@@ -60,6 +60,7 @@ const THEME_TAXONOMY: string[] = [
  */
 export const extractNoteThemes = functions
   .region('us-east1')
+  .runWith({ enforceAppCheck: true })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Sign in required')
@@ -131,6 +132,7 @@ export const extractNoteThemes = functions
  */
 export const getVettedOrgForTheme = functions
   .region('us-east1')
+  .runWith({ enforceAppCheck: true })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Sign in required')

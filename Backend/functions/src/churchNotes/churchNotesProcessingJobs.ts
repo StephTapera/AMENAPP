@@ -52,6 +52,9 @@ export const createChurchNoteProcessingJob = onCall(
         if (!storagePath) throw new HttpsError("invalid-argument", "storagePath required.");
 
         // Storage path must be scoped to this user to prevent path-traversal.
+        if (storagePath.includes("..")) {
+            throw new HttpsError("permission-denied", "Storage path contains illegal traversal sequence.");
+        }
         if (!storagePath.startsWith(`churchNotes/${uid}/`)) {
             throw new HttpsError("permission-denied", "Storage path does not belong to this user.");
         }

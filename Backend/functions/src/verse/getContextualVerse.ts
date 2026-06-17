@@ -44,6 +44,7 @@ const COMFORT_VERSES: Array<{ reference: string; text: string }> = [
 
 export const getContextualVerse = functions
   .region('us-east1')
+  .runWith({ enforceAppCheck: true })
   .https.onCall(async (data, context) => {
     // 1. Auth guard
     if (!context.auth) {

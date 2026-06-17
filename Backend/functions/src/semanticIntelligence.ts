@@ -77,7 +77,7 @@ function filterScriptureReferences(refs: string[]): string[] {
 // 1. defineSemanticTerm
 // ---------------------------------------------------------------------------
 
-export const defineSemanticTerm = onCall(async (request) => {
+export const defineSemanticTerm = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -142,7 +142,7 @@ export const defineSemanticTerm = onCall(async (request) => {
             `Respond with JSON: { "compact": "...", "expanded": "...", "biblical": "...", "refs": ["..."], "confidence": 0.0-1.0 }`,
         ].join("\n");
 
-        // Call the Berean AI endpoint via admin SDK (internal HTTP call to avoid auth overhead)
+        // Queue an AI request document for async tracking
         const bereanProxyRef = await db
             .collection("_aiRequests")
             .add({
@@ -155,9 +155,73 @@ export const defineSemanticTerm = onCall(async (request) => {
                 status: "pending",
             });
 
-        // For now, we build a high-quality rule-based definition for common
-        // theological terms (production would fan out to the real Berean proxy).
-        // This avoids fabrication risks at launch while the async AI path is wired.
+        // Try Grok API first (OpenAI-compatible endpoint), fall back to Claude.
+        const grokApiKey = process.env.GROK_API_KEY ?? process.env.XAI_API_KEY ?? "";
+        const claudeApiKey = process.env.ANTHROPIC_API_KEY ?? "";
+        let aiParsed: { compact?: string; expanded?: string; biblical?: string; refs?: string[]; confidence?: number } | null = null;
+
+        if (grokApiKey) {
+            try {
+                const grokRes = await fetch("https://api.x.ai/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokApiKey}` },
+                    body: JSON.stringify({
+                        model: "grok-beta",
+                        messages: [{ role: "user", content: `${systemPrompt}\n\nTerm: ${term}` }],
+                        temperature: 0.3,
+                        max_tokens: 500,
+                    }),
+                });
+                if (grokRes.ok) {
+                    const grokJson = await grokRes.json() as { choices?: Array<{ message?: { content?: string } }> };
+                    const raw = grokJson.choices?.[0]?.message?.content ?? "";
+                    aiParsed = JSON.parse(raw);
+                    modelUsed = "grok-beta";
+                }
+            } catch { /* fall through to Claude */ }
+        }
+
+        if (!aiParsed && claudeApiKey) {
+            try {
+                const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-api-key": claudeApiKey,
+                        "anthropic-version": "2023-06-01",
+                    },
+                    body: JSON.stringify({
+                        model: "claude-3-haiku-20240307",
+                        max_tokens: 500,
+                        system: systemPrompt,
+                        messages: [{ role: "user", content: `Define: ${term}` }],
+                    }),
+                });
+                if (claudeRes.ok) {
+                    const claudeJson = await claudeRes.json() as { content?: Array<{ type?: string; text?: string }> };
+                    const raw = claudeJson.content?.[0]?.text ?? "";
+                    aiParsed = JSON.parse(raw);
+                    modelUsed = "claude-3-haiku";
+                }
+            } catch { /* fall through to built-in dict */ }
+        }
+
+        if (aiParsed) {
+            compactDefinition = aiParsed.compact ?? "";
+            expandedDefinition = aiParsed.expanded ?? null;
+            biblicalContext = aiParsed.biblical ?? null;
+            const rawRefs: string[] = Array.isArray(aiParsed.refs) ? aiParsed.refs : [];
+            const filteredRefs = filterScriptureReferences(rawRefs);
+            if (filteredRefs.length < rawRefs.length) {
+                await logAnalyticsEvent("semantic_definition_scripture_refs_rejected", uid, { term, sourceType, rawRefs: rawRefs.join(","), filteredRefs: filteredRefs.join(",") });
+            }
+            relatedScriptureRefs = filteredRefs;
+            confidence = typeof aiParsed.confidence === "number" ? aiParsed.confidence : 0.7;
+        }
+
+        // If AI generation succeeded, skip the built-in dict section below.
+        if (!aiParsed) {
+        // ── Built-in theological dictionary (fallback if AI unavailable) ────────
         const builtins: Record<string, { compact: string; biblical: string; refs: string[] }> = {
             atonement: {
                 compact: "The reconciliation of humanity to God through Christ's sacrificial death, covering the penalty of sin.",
@@ -216,6 +280,7 @@ export const defineSemanticTerm = onCall(async (request) => {
             safetyNotes = "no_builtin_definition";
             modelUsed = "fallback-none";
         }
+        } // end if (!aiParsed)
 
         // Clean up pending request
         if (typeof bereanProxyRef.delete === "function") {
@@ -250,7 +315,7 @@ export const defineSemanticTerm = onCall(async (request) => {
         safetyNotes: safetyNotes ?? null,
         generatedAt: generatedAt.toMillis(),
         modelUsed,
-        generationSource: modelUsed === "builtin-theological-dictionary" ? "fallback" : "fallback",
+        generationSource: (modelUsed === "builtin-theological-dictionary" || modelUsed === "fallback-none") ? "fallback" : "ai",
         cacheStatus: "miss",
         normalizedTerm: term.toLowerCase().trim(),
         safetyStatus: confidence > 0.5 ? "approved" : "review_required",
@@ -271,7 +336,7 @@ export const defineSemanticTerm = onCall(async (request) => {
 // 2. detectSmartActions
 // ---------------------------------------------------------------------------
 
-export const detectSmartActions = onCall(async (request) => {
+export const detectSmartActions = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -409,7 +474,7 @@ export const detectSmartActions = onCall(async (request) => {
 // 3. createKnowledgeThread
 // ---------------------------------------------------------------------------
 
-export const createKnowledgeThread = onCall(async (request) => {
+export const createKnowledgeThread = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -464,7 +529,7 @@ export const createKnowledgeThread = onCall(async (request) => {
 // 4. saveSemanticInsight
 // ---------------------------------------------------------------------------
 
-export const saveSemanticInsight = onCall(async (request) => {
+export const saveSemanticInsight = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
@@ -528,7 +593,7 @@ export const saveSemanticInsight = onCall(async (request) => {
 // 5. logPresenceSignal
 // ---------------------------------------------------------------------------
 
-export const logPresenceSignal = onCall(async (request) => {
+export const logPresenceSignal = onCall({ enforceAppCheck: true }, async (request) => {
     const data = request.data as any;
     const context = { auth: request.auth, app: request.app };
     const uid = requireAuth(context);
