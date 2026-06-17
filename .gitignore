@@ -136,3 +136,11 @@ functions/.env.local
 /design-reference/
 AuthKey_*.p8
 generate-apple-music-token.mjs
+
+# Xcode/SwiftPM build artifacts - never track
+DerivedData.nosync/
+SourcePackages.nosync/
+PackageCache.nosync/
+Home.nosync/
+*.nosync/
+.build/
