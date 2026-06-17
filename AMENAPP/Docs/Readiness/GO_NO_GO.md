@@ -251,6 +251,9 @@ Full gate table with owners and blocking status is in CERTIFICATION.md.
 | SEC-006 | `ITSAppUsesNonExemptEncryption = false` added to `Info.plist` (CryptoKit-only per `AMENEncryptionService.swift` export audit) | `AMENAPP/AMENAPP/Info.plist` |
 | SAFE-010 | `YouthModeService.dmAllowed`: missing guardian document now returns `false` (deny) instead of `true` (allow) | `AMENAPP/AMENAPP/AMENAPP/AIIntelligence/YouthModeService.swift` |
 | STALE-PLIST | `AMENBuildGitBranch` updated to `cert/reanchor-eee648b4` | `AMENAPP/AMENAPP/Info.plist` |
+| P0-2 (eng) | NCMEC severe-report evidence-preservation scaffold: `moderationCases` / `trustSafetyEvents` / `evidenceVault` / `ncmecReadiness` writes with dual-approval + break-glass + legal-hold fields. `securityLaunchReadiness.test.ts` "operational artifacts" gate now PASSES. **Live CyberTip submission stays OFF** (`automatedCyberTipSubmitted:false`, STUB) until the 4-part federal legal gate clears. | `Backend/functions/src/submitReport.ts` |
+| PRIV-005 | First-run Berean AI consent gate. Fail-closed hard refusal inside `BereanConstitutionalPipeline.ask()` (covers ALL entry points) + disclosure sheet + reusable `.bereanAIConsentGate()` modifier, mirroring the DM-consent pattern. | `BereanAIConsentManager.swift` (new), `BereanAIConsentSheet.swift` (new), `BereanConstitutionalPipeline.swift`, `BereanChatView.swift` |
+| D-IDENTITY-001 / P0-3 (region) | Set deploy region to `us-east1` (us-central1 at quota): `userAccountDeletionCascade` (explicit region, fixes RULE 1 violation) + `trustScoring` (`evaluateTrustProfile`/`checkDonationSafety`/`detectRiskPatterns`). 4 Interim Region Table rows added. | `userAccountDeletionCascade.ts`, `globalResilience/trustScoring.ts`, `docs/FUNCTION_INVENTORY.md` |
 
 ### Pre-Existing (Audit Was Stale — Already Fixed Before This Pass)
 
@@ -262,20 +265,41 @@ Full gate table with owners and blocking status is in CERTIFICATION.md.
 | BTN-004 GivingImpactView PDF dismiss | `ToolbarItem(.confirmationAction)` "Done" button already present at line 83 |
 | AUTH-009 AccountRecoveryView re-auth | View only NavigationLinks to `DeleteAccountView` which enforces re-auth; comment at line 50 confirms this |
 | PERF-006 MessageOutbox fatalError | LANE-3-MESSAGEOUTBOX pass in Remediation Run (SHA 8a3562e9) |
+| P0-3 callable-name mismatch | iOS `AccountManagementService.swift:66` already calls `httpsCallable("userAccountDeletionCascade")` (matches server export) — Y-P4-01 reconciled |
+
+### Deploy Status — BLOCKED by shared build, not by missing engineering
+
+The `creator` Cloud Functions codebase (which contains BOTH `userAccountDeletionCascade`
+and `trustScoring`) does **not compile**: 5 missing modules in `src/billing/` and
+`src/ingestion/` (`affiliateTierHelper`, `manualEntry`, `youtubeProvider`,
+`googleBooksProvider`, `substackMediumProvider`) — actively being authored by the
+catalog/ingestion build. Because `creator`'s predeploy step is `tsc`, **any**
+`firebase deploy --only functions:creator:...` fails at predeploy. These files were
+left untouched (another agent's in-flight feature). Once that build is green, both
+functions deploy to us-east1 with no further source changes (region already set).
 
 ### Remaining Blockers (Human/Legal Gates — Cannot Be Agent-Fixed)
 
 | ID | Status | Required Action |
 |---|---|---|
-| P0-2 NCMEC CyberTip | Legal Gate | Written legal sign-off + NCMEC ESP registration |
-| P0-3 deleteUserAccount CF | Human Deploy | `firebase deploy --only functions:default:deleteUserAccount` to us-east1 |
+| P0-2 NCMEC CyberTip (live) | Legal Gate | Written legal sign-off + NCMEC ESP registration + secrets. Eng scaffold done; live submission stays OFF until cleared. |
 | P0-6 Stripe IAP | Legal Gate | Legal + product decision (Option A/B/C) |
-| D-IDENTITY-001 trust-scoring | Human Deploy | CF deploy after emulator tests pass |
-| D-RULES-TEST-001 | Human | Run `firebase emulators:exec` rules test suite |
 | AUTH-006 Terms/Privacy URLs | Legal Gate | Live legal documents at amenapp.com/terms + /privacy |
+| P0-3 / D-IDENTITY-001 deploy | Human Deploy (after build green) | `firebase deploy --only functions:creator:userAccountDeletionCascade` + trust-scoring fns to us-east1. Blocked by `creator` build (above). |
+| D-RULES-TEST-001 | Human | Run `firebase emulators:exec` rules test suite |
 | AUTH-013 30-day purge job | Backend + Legal | `userAccountDeletionCascade` Cloud Scheduler to us-east1 |
-| PRIV-005 Berean AI consent | Complex Engineering | First-run consent gate before any Berean AI response (1–2 days) |
 | FIRE-010 createSpaceTier CF | Backend Deploy | Add space-owner check + deploy |
+
+### Known stale launch-safety tests (not blockers from this pass)
+
+`securityLaunchReadiness.test.ts` has 2 remaining failures unrelated to NCMEC, both
+from refactors by parallel agents:
+- "Storage rules" test reads `AMENAPP/storage.rules` (removed in a "cleanup of
+  duplicated files" commit; canonical file is now repo-root `storage.rules`, being
+  rewritten by the privacy/encryption-model build). Not edited — contested file.
+- "Legacy iOS report paths" test expects a callable named `submitTrustSafetyReport`;
+  the codebase standardized on `submitReport` (the passing test at line 107 asserts
+  `httpsCallable("submitReport")`). The test is stale vs. current naming.
 
 ## Module D Current Pass Addendum — 2026-06-16
 
