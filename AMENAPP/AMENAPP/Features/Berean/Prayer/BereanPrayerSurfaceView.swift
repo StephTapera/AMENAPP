@@ -1,4 +1,4 @@
-// BereanPrayerJournalView.swift
+// BereanPrayerSurfaceView.swift
 // AMEN — Berean Reading Surface: Prayer Journal (W0 shell → W6 implementation)
 //
 // Flag: bereanPrayerJournal (default false)
@@ -19,10 +19,10 @@
 
 import SwiftUI
 
-struct BereanPrayerJournalView: View {
+struct BereanPrayerSurfaceView: View {
 
     // W6: Replace with @State or injected ObservableObject conforming to
-    //     BereanPrayerJournalViewModelProtocol.
+    //     BereanPrayerSurfaceViewModelProtocol.
 
     @State private var todayEntry = ""
 
@@ -32,14 +32,14 @@ struct BereanPrayerJournalView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Prayer Journal")
-                        .font(BereanType.displayTitle)
+                        .font(BereanReaderType.displayTitle)
                         .foregroundStyle(Color.bereanInk)
                         .padding(.horizontal, 20)
                         .padding(.top, 24)
 
-                    LiquidGlassCard(header: "Today's Prayer") {
+                    BereanReaderCard(header: "Today's Prayer") {
                         TextEditor(text: $todayEntry)
-                            .font(BereanType.bodyReading)
+                            .font(BereanReaderType.body)
                             .foregroundStyle(Color.bereanInk)
                             .scrollContentBackground(.hidden)
                             .frame(minHeight: 120)
@@ -64,5 +64,5 @@ struct BereanPrayerJournalView: View {
 }
 
 #Preview {
-    BereanPrayerJournalView()
+    BereanPrayerSurfaceView()
 }
