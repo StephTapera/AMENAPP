@@ -379,10 +379,10 @@ export * from "./covenant/setCommunitySaved";
 export * from "./covenant/createCovenantThreadReply";
 export * from "./covenant/generateThreadSummary";
 export * from "./covenant/createPrayerRequestFromMessage";
-// createPrayerRequest suppressed: added in orphan sweep da327018 (2026-06-10),
-// never deployed; PRAYER_IDENTITY_ENCRYPTION_KEY secret not yet provisioned.
-// Restore this export only after the secret is set in Secret Manager.
-// export * from "./prayer/createPrayerRequest";
+// createPrayerRequest: restored 2026-06-10 after human authorization. Deploys to
+// us-east1 (us-central1 quota exhausted). Requires PRAYER_IDENTITY_ENCRYPTION_KEY
+// secret — set by human before deploy.
+export * from "./prayer/createPrayerRequest";
 export * from "./covenant/generateCatchUpSummary";
 export * from "./covenant/calculateCovenantChurnRisk";
 export * from "./covenant/publishScheduledCovenantContent";

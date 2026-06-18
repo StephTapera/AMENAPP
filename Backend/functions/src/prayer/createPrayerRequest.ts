@@ -82,7 +82,9 @@ function encryptOwnerUid(uid: string): string {
 export const createPrayerRequest = onCall(
     {
         enforceAppCheck: true,
-        region: "us-central1",
+        // us-central1 quota exhausted (999/1000) — new function deploys to us-east1
+        // per docs/FUNCTION_INVENTORY.md §Interim Region Table.
+        region: "us-east1",
         secrets: [prayerIdentityEncryptionKey],
         timeoutSeconds: 20,
     },
