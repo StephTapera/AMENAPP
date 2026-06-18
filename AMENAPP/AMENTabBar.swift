@@ -126,19 +126,13 @@ struct AMENTabBar: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            // ── Floating compose button — centered horizontally above the pill bar ──
-            // Lifted 24pt above the top edge of the pill so it clears the capsule rim.
-            composeButton
-                .offset(y: -24)
-                .zIndex(10)
-
-            // ── 5-tab pill bar ──
+        ZStack(alignment: .bottomTrailing) {
+            // ── 5-tab pill bar — compact, icon-only liquid glass capsule ──
             HStack(spacing: 0) {
                 ForEach(AMENTab.visibleTabs, id: \.rawValue) { tab in
                     tabItem(tab)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
+                        .frame(height: 44)
                 }
             }
             .padding(.horizontal, 6)
@@ -147,12 +141,16 @@ struct AMENTabBar: View {
             .clipShape(Capsule())
             .shadow(color: Color.black.opacity(0.10), radius: 18, x: 0, y: 8)
             .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-            .zIndex(1)
+
+            // ── Floating compose FAB — pinned bottom-right, lifted clear of the bar ──
+            composeButton
+                .padding(.trailing, 4)
+                .offset(y: -64)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
-        // Extra top padding so the floating compose button isn't clipped by the ZStack bounds
-        .padding(.top, 28)
+        // Top padding so the lifted compose FAB isn't clipped by the ZStack bounds
+        .padding(.top, 64)
         .offset(y: effectivelyHidden ? 100 : 0)
         .animation(.easeOut(duration: 0.18), value: effectivelyHidden)
         // Drive the active-pill slide animation
@@ -226,42 +224,31 @@ struct AMENTabBar: View {
                         .matchedGeometryEffect(id: "activeTab", in: selectionNamespace)
                 }
 
-                // Icon + label + badge stack
-                VStack(spacing: 2) {
-                    ZStack(alignment: .topTrailing) {
-                        if tab == .profile, let url = profilePhotoURL, !url.isEmpty {
-                            profileAvatar(url: url, isSelected: isSelected)
-                        } else {
-                            Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
-                                .font(.systemScaled(20, weight: isSelected ? .semibold : .regular))
-                                .foregroundStyle(
-                                    isSelected
-                                        ? AmenTheme.Colors.iconPrimary
-                                        : AmenTheme.Colors.iconSecondary
-                                )
-                                .scaleEffect(isSelected ? 1.06 : 1.0)
-                                .animation(
-                                    Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.75)),
-                                    value: isSelected
-                                )
-                        }
-
-                        let count = badges.count(for: tab)
-                        if count > 0 {
-                            BadgeView(count: count)
-                                .offset(x: 9, y: -7)
-                        }
+                // Icon + badge stack — icon-only; labels removed for the compact glass bar.
+                // Tab names remain available to VoiceOver via the accessibilityLabel below.
+                ZStack(alignment: .topTrailing) {
+                    if tab == .profile, let url = profilePhotoURL, !url.isEmpty {
+                        profileAvatar(url: url, isSelected: isSelected)
+                    } else {
+                        Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
+                            .font(.systemScaled(21, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(
+                                isSelected
+                                    ? AmenTheme.Colors.iconPrimary
+                                    : AmenTheme.Colors.iconSecondary
+                            )
+                            .scaleEffect(isSelected ? 1.06 : 1.0)
+                            .animation(
+                                Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.75)),
+                                value: isSelected
+                            )
                     }
 
-                    Text(tab.label)
-                        .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(
-                            isSelected
-                                ? AmenTheme.Colors.iconPrimary
-                                : AmenTheme.Colors.iconSecondary
-                        )
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                    let count = badges.count(for: tab)
+                    if count > 0 {
+                        BadgeView(count: count)
+                            .offset(x: 9, y: -7)
+                    }
                 }
             }
             .frame(maxWidth: .infinity)
@@ -322,7 +309,7 @@ struct AMENTabBar: View {
             )
             .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.55), radius: 8, x: 0, y: 3)
             .shadow(color: AmenTheme.Colors.shadowCard.opacity(0.22), radius: 2, x: 0, y: 1)
-            .frame(width: 56, height: 40)
+            .frame(width: 46, height: 36)
     }
 
     // MARK: - Profile avatar

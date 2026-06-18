@@ -176,7 +176,9 @@ struct ONELiquidCameraView: View {
             permissionDeniedView
 
         default:
-            Color.black
+            // .notDetermined — brief state before setup() resolves. Use a neutral
+            // surface instead of a black flash so the camera doesn't open as a void.
+            Color(.systemBackground)
         }
 
         // Capture flash overlay
@@ -408,19 +410,20 @@ struct ONELiquidCameraView: View {
 
     private var permissionDeniedView: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            // Branded, theme-adaptive surface — not a stark black void.
+            Color(.systemBackground).ignoresSafeArea()
             VStack(spacing: ONE.Spacing.lg) {
                 Image(systemName: "camera.fill")
-                    .font(.systemScaled(48))
+                    .font(.systemScaled(44))
                     .foregroundStyle(.secondary)
                 Text("Camera Access Needed")
                     .font(.systemScaled(19, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text("ONE needs camera access to capture moments.")
+                    .foregroundStyle(.primary)
+                Text("ONE needs camera access to capture moments. You can enable it in Settings.")
                     .font(.systemScaled(14))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Button("Open Settings") {
+                Button("Enable Camera") {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
