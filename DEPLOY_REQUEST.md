@@ -46,6 +46,10 @@ Rules diff:
   - `spiritualOS_suggestions/{userId}/items/{itemId}`
   - `spiritualOS_spaceCreateDrafts/{userId}/drafts/{draftId}`
   - `spiritualOS_commandCenter/{userId}/aggregates/{aggregateId}`
+- The same rules commit also contains pre-existing report-safety edits that were already in the worktree:
+  - `userReports` owner read key changed from `reporterUid` to `reporterId`.
+  - Explicit server-only locks were added for `moderationCases`, `trustSafetyEvents`, `evidenceVault`, and `ncmecReadiness`.
+  - Human reviewer must treat the rules deploy as a combined SpiritualOS + report-safety rules diff.
 
 ## Local Verification
 
@@ -129,4 +133,3 @@ All flags stay OFF until rules and function deploys are verified with real data.
 - Screenshot matrix: light/dark/Dynamic Type XL/reduce-motion.
 - Faith-formation review per surface.
 - Hard launch gates: child safety, App Check, secret rotation, privacy labels, permission strings, account deletion, UGC report/block/contact, donation/IAP decision.
-
