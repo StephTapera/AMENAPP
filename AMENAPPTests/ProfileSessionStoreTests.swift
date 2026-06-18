@@ -1,28 +1,8 @@
-import Testing
 import Foundation
+
+#if canImport(Testing)
+import Testing
 @testable import AMENAPP
-
-// MARK: - Equatable conformance (test-only, not visible to production code)
-
-extension ProfileSessionState: Equatable {
-    public static func == (lhs: ProfileSessionState, rhs: ProfileSessionState) -> Bool {
-        lhs.bereanThreadDrafts == rhs.bereanThreadDrafts &&
-        lhs.lastActiveSurface == rhs.lastActiveSurface &&
-        lhs.badgeSnapshot == rhs.badgeSnapshot &&
-        lhs.updatedAt == rhs.updatedAt &&
-        lhs.composerDrafts.keys.sorted() == rhs.composerDrafts.keys.sorted() &&
-        lhs.readCursors.keys.sorted() == rhs.readCursors.keys.sorted() &&
-        lhs.scrollPositions.keys.sorted() == rhs.scrollPositions.keys.sorted()
-    }
-}
-
-extension BadgeCounts: Equatable {
-    public static func == (lhs: BadgeCounts, rhs: BadgeCounts) -> Bool {
-        lhs.dmUnread == rhs.dmUnread &&
-        lhs.notificationUnread == rhs.notificationUnread &&
-        lhs.prayerUnread == rhs.prayerUnread
-    }
-}
 
 // MARK: - Test Suite
 
@@ -66,6 +46,46 @@ struct ProfileSessionStoreTests {
         )
     }
 
+    private func expectState(_ restored: ProfileSessionState, matches original: ProfileSessionState, surface: String) {
+        #expect(restored.bereanThreadDrafts == original.bereanThreadDrafts)
+        #expect(restored.lastActiveSurface == original.lastActiveSurface)
+        #expect(restored.updatedAt == original.updatedAt)
+        #expect(restored.composerDrafts.keys.sorted() == original.composerDrafts.keys.sorted())
+        #expect(restored.readCursors.keys.sorted() == original.readCursors.keys.sorted())
+        #expect(restored.scrollPositions.keys.sorted() == original.scrollPositions.keys.sorted())
+
+        #expect(restored.composerDrafts[surface]?.surfaceId == original.composerDrafts[surface]?.surfaceId)
+        #expect(restored.composerDrafts[surface]?.textContent == original.composerDrafts[surface]?.textContent)
+        #expect(restored.composerDrafts[surface]?.attachmentRefs == original.composerDrafts[surface]?.attachmentRefs)
+        #expect(restored.composerDrafts[surface]?.savedAt == original.composerDrafts[surface]?.savedAt)
+
+        #expect(restored.readCursors[surface]?.surfaceId == original.readCursors[surface]?.surfaceId)
+        #expect(restored.readCursors[surface]?.lastSeenId == original.readCursors[surface]?.lastSeenId)
+        #expect(restored.readCursors[surface]?.seenAt == original.readCursors[surface]?.seenAt)
+
+        #expect(restored.scrollPositions[surface]?.surfaceId == original.scrollPositions[surface]?.surfaceId)
+        #expect(restored.scrollPositions[surface]?.anchorId == original.scrollPositions[surface]?.anchorId)
+        #expect(restored.scrollPositions[surface]?.offsetPoints == original.scrollPositions[surface]?.offsetPoints)
+
+        expectBadge(restored.badgeSnapshot, matches: original.badgeSnapshot)
+    }
+
+    private func expectEmptyState(_ state: ProfileSessionState) {
+        #expect(state.composerDrafts.isEmpty)
+        #expect(state.bereanThreadDrafts.isEmpty)
+        #expect(state.readCursors.isEmpty)
+        #expect(state.scrollPositions.isEmpty)
+        #expect(state.lastActiveSurface == nil)
+        #expect(state.updatedAt == .distantPast)
+        expectBadge(state.badgeSnapshot, matches: .zero)
+    }
+
+    private func expectBadge(_ badge: BadgeCounts, matches expected: BadgeCounts) {
+        #expect(badge.dmUnread == expected.dmUnread)
+        #expect(badge.notificationUnread == expected.notificationUnread)
+        #expect(badge.prayerUnread == expected.prayerUnread)
+    }
+
     @Test("Round-trip: snapshot then restore returns identical state")
     func testRoundTrip() async throws {
         let store = ProfileSessionStore()
@@ -78,7 +98,7 @@ struct ProfileSessionStoreTests {
         // Cleanup before any assertion so a test failure still leaves Keychain tidy.
         try await store.clear(for: profileId)
 
-        #expect(restored == original)
+        expectState(restored, matches: original, surface: "feed")
         #expect(restored.bereanThreadDrafts["thread-1"] == "Reply draft")
         #expect(restored.lastActiveSurface == "feed")
         #expect(restored.badgeSnapshot.dmUnread == 3)
@@ -95,14 +115,13 @@ struct ProfileSessionStoreTests {
 
         // profileB has never been written to, so its key will be freshly generated.
         // The AES.GCM decryption of A's ciphertext with B's key must fail, and the
-        // store must return .empty rather than throw or surface A's data.
+        // store must return an empty state rather than throw or surface A's data.
         let resultForB = try await store.restore(for: profileB)
 
         try await store.clear(for: profileA)
         try await store.clear(for: profileB)
 
-        // The contract: profileB gets .empty (its file simply does not exist).
-        #expect(resultForB == .empty)
+        expectEmptyState(resultForB)
         // Explicit guard: the sensitive badge count from A must not bleed through.
         #expect(resultForB.badgeSnapshot.dmUnread == 0)
     }
@@ -114,11 +133,8 @@ struct ProfileSessionStoreTests {
 
         let result = try await store.restore(for: profileId)
 
-        // No clear needed — nothing was written.
-        #expect(result == .empty)
-        #expect(result.composerDrafts.isEmpty)
-        #expect(result.bereanThreadDrafts.isEmpty)
-        #expect(result.badgeSnapshot == .zero)
+        // No clear needed because nothing was written.
+        expectEmptyState(result)
     }
 
     @Test("Clear: snapshot then clear then restore returns .empty")
@@ -131,8 +147,9 @@ struct ProfileSessionStoreTests {
         try await store.clear(for: profileId)
         let afterClear = try await store.restore(for: profileId)
 
-        #expect(afterClear == .empty)
-        #expect(afterClear.lastActiveSurface == nil)
+        expectEmptyState(afterClear)
         #expect(afterClear.badgeSnapshot.dmUnread == 0)
     }
 }
+
+#endif
