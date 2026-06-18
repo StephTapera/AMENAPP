@@ -50,6 +50,18 @@ function requireSelf(request, userId) {
   }
 }
 
+function toClientMillis(value) {
+  if (!value) return Date.now();
+  if (typeof value === "number") return value;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? Date.now() : parsed;
+  }
+  return Date.now();
+}
+
 // ─── Claude helper ────────────────────────────────────────────────────────────
 
 async function callClaude(apiKey, systemPrompt, userPrompt, maxTokens = 512) {
@@ -194,7 +206,13 @@ exports.getHubItems = onCall(
     {region: REGION, enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
-      const {userId, lastItemId = null, pageSize = 20, filterType = null} = request.data;
+      const {
+        userId,
+        lastItemId = null,
+        cursor = null,
+        pageSize = 20,
+        filterType = null,
+      } = request.data;
       requireSelf(request, userId);
 
       await checkRateLimit(userId, "getHubItems", 120, 60);
@@ -212,12 +230,13 @@ exports.getHubItems = onCall(
         query = query.where("type", "==", filterType);
       }
 
-      if (lastItemId) {
+      const cursorItemId = lastItemId || cursor;
+      if (cursorItemId) {
         const cursorDoc = await db()
             .collection("spiritualOS_hub")
             .doc(userId)
             .collection("items")
-            .doc(lastItemId)
+            .doc(cursorItemId)
             .get();
         if (cursorDoc.exists) {
           query = query.startAfter(cursorDoc);
@@ -227,7 +246,15 @@ exports.getHubItems = onCall(
       const snap = await query.get();
       const docs = snap.docs;
       const hasMore = docs.length > limit;
-      const items = docs.slice(0, limit).map((d) => ({itemId: d.id, ...d.data()}));
+      const items = docs.slice(0, limit).map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          itemId: d.id,
+          ...data,
+          createdAt: toClientMillis(data.createdAt),
+        };
+      });
 
       return {
         items,
@@ -532,10 +559,11 @@ exports.pinHubItem = onCall(
     {region: REGION, enforceAppCheck: true},
     async (request) => {
       requireAuth(request);
-      const {userId, itemId, isPinned} = request.data;
+      const {userId, itemId} = request.data;
       requireSelf(request, userId);
 
       if (!itemId) throw new HttpsError("invalid-argument", "itemId required.");
+      const isPinned = request.data.isPinned ?? request.data.pinned;
       if (typeof isPinned !== "boolean") {
         throw new HttpsError("invalid-argument", "isPinned must be boolean.");
       }
