@@ -1609,10 +1609,38 @@ service cloud.firestore {
     // =========================================================================
 
     match /userReports/{reportId} {
+      // Field is reporterId — matches what submitReport CF writes (submitReport.ts).
+      // Previously read 'reporterUid', so reporters could never read their own report.
       allow read: if
-        isOwner(resource.data.get('reporterUid', '')) ||
+        isOwner(resource.data.get('reporterId', '')) ||
         hasAnyClaimRole(['moderator', 'executive_admin']);
       allow create, update, delete: if false; // CF submitReport only
+    }
+
+    // =========================================================================
+    // Tier-1 severe-report artifacts — written ATOMICALLY by submitReport CF
+    // (admin SDK). These hold evidence, child-safety cases, audit trail, and
+    // NCMEC-readiness records. Fully server-owned: NO client read or write.
+    // Explicit locks (not just the catch-all default-deny) so a future
+    // permissive edit fails against an explicit `if false` rather than
+    // silently slipping past a removed catch-all. Admin SDK bypasses rules,
+    // so the moderation backend still reads/writes these normally.
+    // =========================================================================
+
+    match /moderationCases/{caseId} {
+      allow read, write: if false; // CF / admin SDK only
+    }
+
+    match /trustSafetyEvents/{eventId} {
+      allow read, write: if false; // CF / admin SDK only
+    }
+
+    match /evidenceVault/{reportId} {
+      allow read, write: if false; // CF / admin SDK only — legal hold
+    }
+
+    match /ncmecReadiness/{reportId} {
+      allow read, write: if false; // CF / admin SDK only — federal §2258A gate
     }
 
     // =========================================================================
@@ -3382,6 +3410,78 @@ service cloud.firestore {
       allow read: if isSignedIn() &&
         request.auth.uid == resource.data.authorUid;
       allow write: if false;  // CF only (generateC2PAManifest)
+    }
+
+    // =========================================================================
+    // SPIRITUAL OS — Phase 3 collections
+    // Owner-scoped reads, Cloud Function writes, minimal client state updates.
+    // =========================================================================
+
+    match /spiritualOS_digest/{userId}/items/{itemId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead is bool;
+      allow delete: if false;
+    }
+
+    match /spiritualOS_hub/{userId}/items/{itemId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['isPinned', 'isRead', 'isArchived']);
+      allow delete: if false;
+    }
+
+    match /spiritualOS_planner/{userId}/events/{eventId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && !('isBereanNote' in request.resource.data)
+        && !('bereanNote' in request.resource.data);
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['isCompleted', 'isDismissed', 'title', 'description',
+                    'startDate', 'endDate', 'isAllDay', 'color']);
+      allow delete: if isOwner(userId);
+    }
+
+    match /spiritualOS_context/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if false;
+    }
+
+    match /spiritualOS_suggestions/{userId}/items/{itemId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isDismissed']);
+      allow delete: if false;
+    }
+
+    match /spiritualOS_spaceCreateDrafts/{userId}/drafts/{draftId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.status in ['draft', 'submitted'];
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.status in ['draft', 'submitted', 'discarded']
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'description', 'coverImageURL', 'privacy', 'memberRoles',
+                    'featureToggles', 'moderation', 'encryptedPrayer', 'bereanMember',
+                    'status', 'updatedAt', 'aegisFlags']);
+      allow delete: if isOwner(userId)
+        && resource.data.status in ['draft', 'discarded'];
+    }
+
+    match /spiritualOS_commandCenter/{userId}/aggregates/{aggregateId} {
+      allow read: if isOwner(userId);
+      allow create: if false;
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isDismissed']);
+      allow delete: if false;
     }
 
     // =========================================================================
