@@ -266,10 +266,14 @@ struct AmenDiscoveryRailSection: View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 12) {
                 ForEach(rail.items) { item in
-                    AmenDiscoveryRailCard(item: item)
-                        .onTapGesture {
-                            onItemTap(item)
-                        }
+                    AmenDiscoveryRailCard(
+                        item: item,
+                        provenance: DiscoveryProvenance.text(for: rail.type, item: item),
+                        provenanceIcon: DiscoveryProvenance.icon(for: rail.type)
+                    )
+                    .onTapGesture {
+                        onItemTap(item)
+                    }
                 }
             }
             .padding(.horizontal, 18)
@@ -283,6 +287,9 @@ struct AmenDiscoveryRailSection: View {
 struct AmenDiscoveryRailCard: View {
 
     let item: DiscoveryRailItem
+    /// "Why you're seeing this" line; nil on non-personalized rows (no chip rendered).
+    var provenance: String? = nil
+    var provenanceIcon: String = "sparkles"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -410,6 +417,12 @@ struct AmenDiscoveryRailCard: View {
                     .foregroundStyle(AmenTheme.Colors.textSecondary)
                     .lineLimit(1)
             }
+
+            // "Why you're seeing this" — only on personalized rows with a real signal.
+            if let provenance {
+                DiscoveryProvenanceChip(text: provenance, systemImage: provenanceIcon)
+                    .padding(.top, 1)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.top, 8)
@@ -449,6 +462,7 @@ struct AmenDiscoveryRailCard: View {
         if let fraction = item.progressFraction {
             parts.append("\(Int(max(0, min(1, fraction)) * 100)) percent complete")
         }
+        if let provenance { parts.append("Why you're seeing this: \(provenance)") }
         return parts.joined(separator: ", ")
     }
 }
