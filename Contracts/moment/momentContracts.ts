@@ -25,12 +25,14 @@ export interface Flags {
     moment_system_enabled: boolean;
     deepen_actions_enabled: boolean;
     gather_live_enabled: boolean;
+    gather_compliance_gate_cleared: boolean;
 }
 
 export const defaultMomentFlags: Flags = {
     moment_system_enabled: false,
     deepen_actions_enabled: false,
     gather_live_enabled: false,
+    gather_compliance_gate_cleared: false,
 };
 
 export type DeepenActionKind =
@@ -54,14 +56,42 @@ export type ActionKind =
     | InviteActionKind
     | FollowActionKind;
 
+export type ActionReason =
+    | "complianceGateRequired"
+    | "flagDisabled"
+    | "uiDeferred"
+    | "v1StubOnly";
+
 export interface Action {
     id: ActionKind;
     family: VerbFamily;
     enabled: boolean;
-    reason?: string;
+    reason?: ActionReason;
 }
 
-const deepenActions: Action[] = [
+export const v1DeepenEnabledMomentTypes: readonly MomentType[] = [
+    "prayer",
+    "scripture",
+    "sermon",
+    "event",
+    "creator",
+    "study",
+    "mission",
+    "thread",
+];
+
+export const v1GatherEligibleMomentTypes: readonly MomentType[] = [
+    "prayer",
+    "scripture",
+    "sermon",
+    "event",
+    "creator",
+    "study",
+    "mission",
+    "thread",
+];
+
+const deepenActions: readonly Action[] = [
     { id: "summarize", family: "deepen", enabled: true },
     { id: "crossReference", family: "deepen", enabled: true },
     { id: "generatePrayer", family: "deepen", enabled: true },
@@ -71,10 +101,10 @@ const deepenActions: Action[] = [
     { id: "saveTo", family: "deepen", enabled: true },
 ];
 
-const gatherActions: Action[] = [
-    { id: "prayLive", family: "gather", enabled: true },
-    { id: "joinAudio", family: "gather", enabled: true },
-    { id: "joinDiscussion", family: "gather", enabled: true },
+const gatherActionKinds: readonly GatherActionKind[] = [
+    "prayLive",
+    "joinAudio",
+    "joinDiscussion",
 ];
 
 export function availableActions(moment: Moment, flags: Flags): Action[] {
@@ -84,12 +114,22 @@ export function availableActions(moment: Moment, flags: Flags): Action[] {
 
     const actions: Action[] = [];
 
-    if (flags.deepen_actions_enabled) {
+    if (flags.deepen_actions_enabled && v1DeepenEnabledMomentTypes.includes(moment.type)) {
         actions.push(...deepenActions);
     }
 
-    if (moment.temporalState === "live" && flags.gather_live_enabled) {
-        actions.push(...gatherActions);
+    const canSurfaceGather =
+        moment.temporalState === "live" &&
+        flags.gather_live_enabled &&
+        v1GatherEligibleMomentTypes.includes(moment.type);
+
+    if (canSurfaceGather) {
+        actions.push(...gatherActionKinds.map((id): Action => ({
+            id,
+            family: "gather",
+            enabled: flags.gather_compliance_gate_cleared,
+            reason: flags.gather_compliance_gate_cleared ? undefined : "complianceGateRequired",
+        })));
     }
 
     actions.push(
@@ -192,4 +232,3 @@ export interface MomentSaveDocument {
     guardian: GuardianReview;
     createdAt: number;
 }
-

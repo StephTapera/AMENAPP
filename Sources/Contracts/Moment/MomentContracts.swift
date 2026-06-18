@@ -54,11 +54,13 @@ public struct MomentFlags: Codable, Equatable, Sendable {
     public let momentSystemEnabled: Bool
     public let deepenActionsEnabled: Bool
     public let gatherLiveEnabled: Bool
+    public let gatherComplianceGateCleared: Bool
 
     public static let off = MomentFlags(
         momentSystemEnabled: false,
         deepenActionsEnabled: false,
-        gatherLiveEnabled: false
+        gatherLiveEnabled: false,
+        gatherComplianceGateCleared: false
     )
 }
 
@@ -92,6 +94,28 @@ public struct MomentAction: Codable, Equatable, Sendable {
     public let reason: String?
 }
 
+public let v1DeepenEnabledMomentTypes: [MomentType] = [
+    .prayer,
+    .scripture,
+    .sermon,
+    .event,
+    .creator,
+    .study,
+    .mission,
+    .thread,
+]
+
+public let v1GatherEligibleMomentTypes: [MomentType] = [
+    .prayer,
+    .scripture,
+    .sermon,
+    .event,
+    .creator,
+    .study,
+    .mission,
+    .thread,
+]
+
 public func availableActions(for moment: Moment, flags: MomentFlags) -> [MomentAction] {
     guard flags.momentSystemEnabled else {
         return []
@@ -99,15 +123,24 @@ public func availableActions(for moment: Moment, flags: MomentFlags) -> [MomentA
 
     var actions: [MomentAction] = []
 
-    if flags.deepenActionsEnabled {
+    if flags.deepenActionsEnabled && v1DeepenEnabledMomentTypes.contains(moment.type) {
         actions.append(contentsOf: DeepenActionKind.allCases.map {
             MomentAction(id: .deepen($0), family: .deepen, enabled: true, reason: nil)
         })
     }
 
-    if moment.temporalState == .live && flags.gatherLiveEnabled {
+    let canSurfaceGather = moment.temporalState == .live &&
+        flags.gatherLiveEnabled &&
+        v1GatherEligibleMomentTypes.contains(moment.type)
+
+    if canSurfaceGather {
         actions.append(contentsOf: GatherActionKind.allCases.map {
-            MomentAction(id: .gather($0), family: .gather, enabled: true, reason: nil)
+            MomentAction(
+                id: .gather($0),
+                family: .gather,
+                enabled: flags.gatherComplianceGateCleared,
+                reason: flags.gatherComplianceGateCleared ? nil : "complianceGateRequired"
+            )
         })
     }
 
@@ -197,4 +230,3 @@ public let gatherFunctionNames = [
     "momentJoinAudio",
     "momentJoinDiscussion",
 ]
-

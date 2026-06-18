@@ -4,10 +4,10 @@ Wave 0 freezes the Moment primitive only. Implementation agents must treat these
 
 ## Core Model
 
-- `Moment.type` decides which verb families are relevant.
+- `Moment.type` decides which verb families are relevant. In v1, every `MomentType` is eligible for the Deepen verb family; more granular per-type relevance is deferred to a later contract wave.
 - `Moment.temporalState` decides which surface can render the Moment.
 - `availableActions(moment, flags)` is pure and deterministic.
-- TypeScript in `contracts/moment/momentContracts.ts` is the source of truth.
+- TypeScript in `Contracts/moment/momentContracts.ts` is the source of truth.
 - Swift in `Sources/Contracts/Moment/MomentContracts.swift` is a mirror for app-side compile-time alignment.
 
 ## Feature Flags
@@ -17,6 +17,7 @@ All Moment flags default off:
 - `moment_system_enabled = false`
 - `deepen_actions_enabled = false`
 - `gather_live_enabled = false`
+- `gather_compliance_gate_cleared = false`
 
 No build agent may flip these flags. A flag flip requires a completed verification ledger and explicit human approval.
 
@@ -57,6 +58,8 @@ Gather functions must remain gated stubs returning `gated` or `notImplemented`. 
 - Written legal sign-off
 - Non-engineer review
 
+If `gather_live_enabled` is flipped before `gather_compliance_gate_cleared`, live Moments may surface Gather actions only as disabled controls with reason `complianceGateRequired`. No Gather action may be enabled from the UI flag alone.
+
 ## Region And Deploy Contract
 
 Moment Cloud Functions must use `us-east1`.
@@ -95,6 +98,7 @@ Encoded constraints:
 - No live-count theater: no rolling or animated participant counts, no per-event reward pulses or haptics.
 - Bounded, not infinite: no infinite event feed; Moment surfaces are finite and dismissible.
 - Deepen-first: Deepen is the only verb family wired in v1.
+- No streak or reward mechanics: Moment surfaces must not introduce streaks, achievement loops, or gamified retention counters.
 
 ## Target Ownership Boundaries
 
@@ -103,7 +107,6 @@ Encoded constraints:
 - A3 owns `functions/src/berean/momentAdapter/*`.
 - A4 owns `Sources/Features/Moment/*` and `demos/moment/*.html`, with HTML demo approval before SwiftUI.
 - A5 owns Deepen-only integration wiring.
-- A6 owns `contracts/moment/VERIFICATION_LEDGER.md`.
+- A6 owns `Contracts/moment/VERIFICATION_LEDGER.md`.
 
 No agent may edit `project.pbxproj`.
-
