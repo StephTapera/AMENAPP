@@ -72,4 +72,39 @@ Grouped by feature → who commits it to which branch:
    where a control can be silently clobbered in a merge.
 4. **Isolated build:** build `cert/clean-launch` alone (other agents paused) — that's v1's build gate.
 
-This QA wave's own work is already safe: committed on `qa/auto-sweep-2026-06-17` (`88324f5e`, `b847cf93`).
+This QA wave's own work is already safe: committed on `qa/auto-sweep-2026-06-17` (`88324f5e`, `b847cf93`, `2c222192`).
+
+---
+
+## TRIAGE RESULTS (2026-06-17, read-only — nothing applied/dropped/committed)
+
+### Untracked files → SECURED
+All 11 untracked files backed up **out-of-git** to
+`~/Desktop/AMEN_UNTRACKED_BACKUP_20260617-221719/` (64K). This is the anti-`git clean`
+insurance. Each owner should still commit their own to a durable branch when quiescing;
+the backup just guarantees nothing is lost in the meantime.
+
+### Stash classification (do NOT drop any until triaged on a calm tree)
+Stashes are durable git objects — `clean`/`reset --hard` do not erase them; only
+`stash drop`/`clear` does. So: **flag = do-not-drop**, triage when quiesced. None applied
+(applying mutates the live tree).
+
+| Stash | Size | Disposition |
+|---|---|---|
+| `@{0}` parallel-agent baseline (06-15) | 521f +6.9k/−2.5k | KEEP — possibly unique work; triage calm |
+| `@{3}` media isLoading/error fix | 1f +50/−4 | KEEP — real bug fix; verify it landed |
+| `@{1}` ConnectSpaces binding | 1f +16/−2 | VERIFY vs committed Connect work |
+| `@{5}` berean ui-rebuild audit-v4 | 1736f +114k/−56k | KEEP, do-not-drop — huge snapshot, likely superseded |
+| `@{7}` before-Xcode-apply | 2056f +107k/−506k | Historical safety snapshot |
+| `@{8}` pbxproj recovery | 157f +14k/−27k | Historical recovery snapshot |
+| `@{6}` temp-before-restoring | 3f +2.5k/−968 | Transient |
+| `@{2}` design-pass | 1f +3/−3 | Trivial/superseded |
+| `@{4}` conversationOSFunctions | 1f −1 | Trivial |
+| `@{9}` before-rebase-continue (no branch) | empty | Verify empty, then drop |
+
+### Branch-collision root cause (recorded)
+All writer-agents share ONE working tree / HEAD / index. Creating/switching a branch moves
+HEAD for everyone, so commits land cross-branch (e.g., `0604bbe8 fix(connect)` landed between
+this wave's commits on `qa/auto-sweep-2026-06-17`). Fix: serialize writers now (convergence mode);
+if parallel writing resumes, each writer runs in its **own git worktree** (independent HEAD/index).
+The shared branch is a **recovery snapshot to mine**, not a clean v1 to ship.
