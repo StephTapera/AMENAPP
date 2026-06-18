@@ -595,6 +595,23 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var connectSmartBereanEnabled: Bool = false
     @Published private(set) var connectOfflineQueueEnabled: Bool = false
 
+    // MARK: - System 38 (extension): Connect Live A/V Rooms
+    /// HARD GATE for live audio/video rooms in Connect (the `activeLiveRoom` /
+    /// `AmenLiveRoomShellView` path in AmenSpaceDetailView). Default OFF, and OFF is
+    /// the current shipped behavior — discovery passes `events: []`, so the room path
+    /// is never reached. This flag converts that data-convention guarantee into an
+    /// enforced lock: the `onJoinLive` writer guards on it, so `activeLiveRoom` stays
+    /// nil and the fullScreenCover never presents while it is false.
+    ///
+    /// DO NOT ENABLE this flag to "turn on live rooms." It is a lock, not a green light.
+    /// It must remain OFF until BOTH of the following are built AND verified:
+    ///   1. a recording-consent gate before any A/V capture, and
+    ///   2. CSAM detection hooks on the live A/V surface.
+    /// Live A/V is a surface where minors could go live; flipping this on without
+    /// (1) and (2) silently re-exposes an unfinished child-safety surface that neither
+    /// the type system, the flags, nor App Review would catch. Keep it OFF.
+    @Published private(set) var connectLiveRoomsEnabled: Bool = false
+
     // MARK: - SANCTUARY Living Video (Wave 0, default OFF)
     @Published private(set) var sanctuaryCoreEnabled: Bool = false
     @Published private(set) var sanctuaryLayersEnabled: Bool = false
@@ -1520,6 +1537,10 @@ final class AMENFeatureFlags: ObservableObject {
             "connect_smart_berean_enabled": false as NSObject,
             "connect_offline_queue_enabled": false as NSObject,
 
+            // System 38 (extension): Connect Live A/V Rooms — hard gate, OFF until
+            // recording-consent + CSAM hooks are built and verified. Do not flip on.
+            "connect_live_rooms_enabled": false as NSObject,
+
             // SANCTUARY Living Video — all default OFF until Wave 0+ validation
             "sanctuary_core": false as NSObject,
             "sanctuary_layers": false as NSObject,
@@ -2173,6 +2194,9 @@ final class AMENFeatureFlags: ObservableObject {
         connectEmptyStatesEnabled  = config["connect_empty_states_enabled"].boolValue
         connectSmartBereanEnabled  = config["connect_smart_berean_enabled"].boolValue
         connectOfflineQueueEnabled = config["connect_offline_queue_enabled"].boolValue
+
+        // System 38 (extension): Connect Live A/V Rooms — remotely killable hard gate.
+        connectLiveRoomsEnabled    = config["connect_live_rooms_enabled"].boolValue
 
         // SANCTUARY Living Video
         sanctuaryCoreEnabled          = config["sanctuary_core"].boolValue

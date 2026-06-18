@@ -347,6 +347,12 @@ struct AmenSpaceDetailView: View {
                                             UpcomingEventCard(
                                                 event: event,
                                                 onJoinLive: event.isLive ? {
+                                                    // HARD GATE: live A/V rooms stay locked until the
+                                                    // recording-consent gate and CSAM hooks exist and are
+                                                    // verified. OFF is current behavior; this guard keeps
+                                                    // activeLiveRoom nil so the fullScreenCover never presents.
+                                                    // See connectLiveRoomsEnabled doc in AMENFeatureFlags.
+                                                    guard AMENFeatureFlags.shared.connectLiveRoomsEnabled else { return }
                                                     let isEventHost = event.hostUserId == currentUserId
                                                     if isEventHost && !entitlements.currentTier.canGoLive {
                                                         showLivePaywall = true
@@ -719,12 +725,21 @@ struct AmenSpaceDetailView: View {
                 }
             }
             .fullScreenCover(item: $activeLiveRoom) { room in
-                AmenLiveRoomShellView(
-                    room: room,
-                    currentUserId: currentUserId,
-                    provider: livekitProvider,
-                    onEnd: { activeLiveRoom = nil }
-                )
+                // Redundant backstop to the onJoinLive writer guard. The modifier is
+                // kept unconditionally (toggling its presence churns view identity);
+                // the CONTENT is gated instead. With the writer locked, activeLiveRoom
+                // never becomes non-nil while connectLiveRoomsEnabled is false, so this
+                // branch is unreachable today — it exists only to fail closed.
+                if AMENFeatureFlags.shared.connectLiveRoomsEnabled {
+                    AmenLiveRoomShellView(
+                        room: room,
+                        currentUserId: currentUserId,
+                        provider: livekitProvider,
+                        onEnd: { activeLiveRoom = nil }
+                    )
+                } else {
+                    EmptyView()
+                }
             }
         }
     }
