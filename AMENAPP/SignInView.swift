@@ -1085,7 +1085,7 @@ struct SignInView: View {
             
             do {
                 // Direct Firestore query (case-insensitive)
-                lazy var db = Firestore.firestore()
+                let db = Firestore.firestore()  // CODE-LAZYDB: singleton accessor, no lazy needed
                 let snapshot = try await db.collection("users")
                     .whereField("usernameLowercase", isEqualTo: cleaned.lowercased())
                     .limit(to: 1)
@@ -1125,7 +1125,7 @@ struct SignInView: View {
     }
     
     private func lookupUserByPhone(_ phoneNumber: String) async -> (displayName: String, username: String)? {
-        lazy var db = Firestore.firestore()
+        let db = Firestore.firestore()  // CODE-LAZYDB: singleton accessor, no lazy needed
         
         // Format phone to E.164 for consistent lookup
         let formattedPhone = formatPhoneNumberForLookup(phoneNumber)

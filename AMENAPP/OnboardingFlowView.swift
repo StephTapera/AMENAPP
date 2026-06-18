@@ -362,6 +362,7 @@ private struct OnboardingAgeSlide: View {
                             .padding(16)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityHint("Shows or hides the date picker")  // A11Y-LABELS
 
                         if showPicker {
                             Divider().padding(.horizontal, 16)
@@ -591,6 +592,7 @@ private struct OnboardingTermsSlide: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(agreed ? [.isSelected] : [])  // A11Y-LABELS: convey checked state
                     .padding(.horizontal, 24)
                     .opacity(appeared ? 1 : 0)
                     .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.4), value: appeared)
@@ -797,6 +799,7 @@ private struct OnboardingPrivacySlide: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(acknowledged ? [.isSelected] : [])  // A11Y-LABELS: convey checked state
                     .padding(.horizontal, 24)
                     .opacity(appeared ? 1 : 0)
                     .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.5), value: appeared)
@@ -1023,6 +1026,7 @@ private struct OnboardingSlide3: View {
                                 .shadow(color: .black.opacity(selectedFaithStage == stage.value ? 0.12 : 0.04), radius: selectedFaithStage == stage.value ? 14 : 8, x: 0, y: selectedFaithStage == stage.value ? 6 : 3)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityAddTraits(selectedFaithStage == stage.value ? [.isSelected] : [])  // A11Y-LABELS
                             .opacity(appeared ? 1 : 0)
                             .offset(y: appeared ? 0 : 16)
                             .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(Double(index) * 0.05), value: appeared)
@@ -1118,6 +1122,7 @@ private struct OnboardingSlide4: View {
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel("Maybe later — skip notification setup")  // A11Y-LABELS
                 }
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 16)
@@ -1673,6 +1678,7 @@ private struct OnboardingSuggestedUserRow: View {
                 .amenLiquidGlassCapsuleSurface(isSelected: !isFollowing)
                 .buttonStyle(.plain)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
+                .accessibilityLabel(isFollowing ? "Unfollow \(user.displayName)" : "Follow \(user.displayName)")  // A11Y-LABELS
         }
         .padding(12)
         .background(

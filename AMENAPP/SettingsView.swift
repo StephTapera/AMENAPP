@@ -603,6 +603,7 @@ struct SDToggleRow: View {
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
+                .accessibilityLabel(label)  // A11Y-LABELS: bind hidden toggle to its row label
                 .tint(.white)
         }
         .padding(.horizontal, 16)

@@ -796,6 +796,7 @@ struct CreatePostView: View {
                 }
                 Button("Discard Post", role: .destructive) {
                     shouldPersistDraftOnExit = false
+                    clearRecoveredDraft()   // POST-01: also clear the auto-saved draft so it can't resurface on next launch
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) { }
@@ -2316,11 +2317,11 @@ struct CreatePostView: View {
                 // X (close) — always visible, left anchor
                 CompactGlassButton(icon: "xmark", isActive: false) {
                     isTextFieldFocused = false
+                    // POST-02: both branches disabled persistence; hoist the shared assignment.
+                    // (Default is `true`, so this must stay explicit for the no-content case.)
+                    shouldPersistDraftOnExit = false
                     if hasDraftableContent {
-                        shouldPersistDraftOnExit = false
                         saveDraft()
-                    } else {
-                        shouldPersistDraftOnExit = false
                     }
                     dismiss()
                 }

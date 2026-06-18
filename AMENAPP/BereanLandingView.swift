@@ -102,9 +102,10 @@ struct BereanLandingView: View {
                             .opacity(statusCardVisible ? 1 : 0)
                             .offset(y: statusCardVisible ? 0 : 10)
                             .animation(.spring(response: 0.52, dampingFraction: 0.82), value: statusCardVisible)
-                        } else if hasPreviousConversation && !suggestionsVisible {
-                            // Fallback: generic "continue last conversation" card
-                            BereanContinueCard(onTap: onContinuePrevious ?? {})
+                        } else if hasPreviousConversation && !suggestionsVisible, let onContinuePrevious {
+                            // Fallback: generic "continue last conversation" card.
+                            // BEREAN-01: only render when a tap handler exists — never a dead control.
+                            BereanContinueCard(onTap: onContinuePrevious)
                                 .padding(.horizontal, 20)
                                 .padding(.top, 28)
                                 .opacity(statusCardVisible ? 1 : 0)
@@ -307,6 +308,7 @@ private struct BereanContinuityCard: View {
             .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isPressed)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(entry.title). \(entry.subtitle)")  // A11Y-LABELS
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
@@ -366,6 +368,7 @@ struct BereanContinueCard: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isPressed)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Continue last conversation")  // A11Y-LABELS
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }

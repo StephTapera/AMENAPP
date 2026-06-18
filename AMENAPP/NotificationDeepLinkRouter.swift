@@ -382,7 +382,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
     }
 
     private func contentExists(for destination: NavigationDestination) async -> Bool {
-        lazy var db = Firestore.firestore()
+        let db = Firestore.firestore()  // CODE-LAZYDB: singleton accessor, no lazy needed
         switch destination {
         case .post(let postId, _):
             guard let doc = try? await db.collection("posts").document(postId).getDocument(),

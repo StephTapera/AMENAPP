@@ -563,6 +563,7 @@ struct AISparkleSearchButton: View {
                 .animation(.spring(response: 0.22, dampingFraction: 0.52), value: isPressed)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Ask Berean AI")  // A11Y-LABELS: icon-only button needs a label
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

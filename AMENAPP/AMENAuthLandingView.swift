@@ -405,6 +405,7 @@ struct AMENAuthLandingView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 62)
         .amenLiquidGlassCapsuleSurface(isSelected: true)
+        .accessibilityElement(children: .combine)  // A11Y-LABELS: read avatar + name + subtitle as one unit
     }
 
     private var rememberedAvatarFallback: some View {

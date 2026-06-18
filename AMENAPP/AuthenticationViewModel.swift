@@ -1036,12 +1036,19 @@ class AuthenticationViewModel: ObservableObject {
             }
 
         } catch {
+            // SIGNOUT-01: All local teardown (listener detach, key wipe, FCM deactivation,
+            // cached-state clears) already ran unconditionally above, so the user is signed
+            // out *on this device* regardless of whether the Firebase network call succeeded.
+            // Route to the auth screen either way — leaving the UI "authenticated" on top of
+            // wiped local state is the worse, inconsistent outcome.
             dlog("❌ Sign out failed: \(error.localizedDescription)")
+            isAuthenticated = false
+            needsOnboarding = false
             errorMessage = "Failed to sign out: \(error.localizedDescription)"
             showError = true
         }
     }
-    
+
     // MARK: - Password Reset
 
     func sendPasswordReset(email: String) async throws {
