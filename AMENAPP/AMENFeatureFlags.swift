@@ -226,6 +226,15 @@ final class AMENFeatureFlags: ObservableObject {
     /// Default OFF until the generation pipeline is deployed and the surface is verified.
     @Published private(set) var amenPulseEnabled: Bool = false
 
+    // MARK: - Sabbath Mode v2 (Rhythm — subtraction model)
+    /// Master gate for the v2 "Selah becomes smaller when it's succeeding" rhythm.
+    /// When OFF, SabbathRhythmController is inert and no surface is subtracted.
+    @Published private(set) var sabbathModeEnabled: Bool = false
+    /// Sub-flag: scheduled (day/window) rest trigger. Mic-free, no permissions.
+    @Published private(set) var sabbathTriggerScheduleEnabled: Bool = false
+    /// Sub-flag: manual (toggle) rest trigger.
+    @Published private(set) var sabbathTriggerManualEnabled: Bool = false
+
     // MARK: - Universal Migration & Context System
     /// Master gate for the Context System (ContextStore Passport, Migration Interview,
     /// Universal Import, matching, exports). Default OFF until each wave is validated.
@@ -1164,6 +1173,11 @@ final class AMENFeatureFlags: ObservableObject {
             // Amen Pulse (daily surface) — default OFF
             "amen_pulse_enabled": false as NSObject,
 
+            // Sabbath Mode v2 (Rhythm subtraction model) — all default OFF
+            "sabbath_mode_enabled": false as NSObject,
+            "sabbath_trigger_schedule_enabled": false as NSObject,
+            "sabbath_trigger_manual_enabled": false as NSObject,
+
             // Spiritual OS — all default OFF until human flag flip
             "spiritualOS_enabled": false as NSObject,
             "spiritualOS_daily_enabled": false as NSObject,
@@ -1827,6 +1841,10 @@ final class AMENFeatureFlags: ObservableObject {
 
         bereanPulseEnabled = config["berean_pulse_enabled"].boolValue
         amenPulseEnabled = config["amen_pulse_enabled"].boolValue
+
+        sabbathModeEnabled = config["sabbath_mode_enabled"].boolValue
+        sabbathTriggerScheduleEnabled = config["sabbath_trigger_schedule_enabled"].boolValue
+        sabbathTriggerManualEnabled = config["sabbath_trigger_manual_enabled"].boolValue
 
         syncSpiritualOSAppStorageFlags(config)
 
