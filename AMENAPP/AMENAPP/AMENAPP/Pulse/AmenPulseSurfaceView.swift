@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - Chips
 
@@ -139,7 +140,9 @@ struct AmenPulseSurfaceView: View {
 
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground).ignoresSafeArea()
+            LinearGradient(colors: [PulseInk.canvasTop, PulseInk.canvasBottom],
+                           startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
             ambientWash
 
             Group {
@@ -191,8 +194,7 @@ struct AmenPulseSurfaceView: View {
                     if !viewModel.visibleCards.contains(where: { $0.kind != .terminus }) && viewModel.phase == .empty {
                         emptyState
                     } else {
-                        chipsRow
-                        cardStack
+                        pulseStack
                     }
                 }
             }
@@ -201,73 +203,76 @@ struct AmenPulseSurfaceView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(Self.dateEyebrow().uppercased())
-                    .font(.system(size: 13, weight: .semibold)).tracking(0.4)
-                    .foregroundColor(Color(hex: "8A8A8E"))
-                Text("Pulse")
-                    .font(.system(size: 34, weight: .heavy))
-                    .foregroundColor(Color(.label))
-            }
-            Spacer()
-            HStack(spacing: 10) {
-                topButton("sparkles") { showArchive = true }
-                    .accessibilityLabel(Text("What’s New"))
-                topButton("slider.horizontal.3") { showPrefs = true }
-                    .accessibilityLabel(Text("Customize Pulse"))
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 4)
-    }
-
-    private func topButton(_ icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(Color(.label))
-                .frame(width: 38, height: 38)
-                .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
-                .background(Circle().fill(.ultraThinMaterial))
-                .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var chipsRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(PulseChip.allCases) { chip in
-                    let active = viewModel.chip == chip
-                    Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) { viewModel.chip = chip }
-                    } label: {
-                        Text(chip.title)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(active ? .white : Color(.label))
-                            .padding(.horizontal, 16).padding(.vertical, 9)
-                            .background(
-                                Capsule()
-                                    .fill(active ? Color(.label).opacity(0.86) : Color(.secondarySystemGroupedBackground))
-                                    .background(Capsule().fill(.ultraThinMaterial))
-                            )
-                            .overlay(Capsule().stroke(Color.white.opacity(active ? 0 : 0.7), lineWidth: 0.5))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
-                }
-            }
+        AmenPulseHeader(greeting: Self.greeting(),
+                        subtitle: Self.dateSubtitle(),
+                        onSettings: { showPrefs = true })
             .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-        }
+            .padding(.top, 16)
+            .padding(.bottom, 4)
     }
 
-    private var cardStack: some View {
-        LazyVStack(spacing: 18) {
-            ForEach(Array(viewModel.visibleCards.enumerated()), id: \.element.id) { _, card in
+    // MARK: Redesigned ivory-glass stack
+
+    /// The redesigned morning surface: editorial hero, status row, verse + reflection +
+    /// community cards, then the remaining timely cards and the visible terminus.
+    private var pulseStack: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            if let hero = heroCard {
+                PulseHeroCard(
+                    card: hero,
+                    namespace: nil,
+                    onBegin: { open(hero) },
+                    onInfo: { open(hero) }
+                )
+            }
+
+            PulseStatusRow(
+                verseStatus: verseStatusText,
+                prayerStatus: prayerStatusText,
+                communityStatus: communityStatusText,
+                onVerse: { if let v = verseCard { open(v) } },
+                onPrayer: { routeFirst(.prayerFollowup) },
+                onCommunity: { openCommunity() }
+            )
+
+            if let verse = verseCard {
+                DailyVerseCard(
+                    reference: verseReference(verse),
+                    verse: verseText(verse),
+                    translationChip: verseTranslation(verse),
+                    onSave: { softHaptic() },
+                    onShare: { shareCard(verse) },
+                    onStudy: { open(verse) },
+                    onListen: { softHaptic() }
+                )
+            }
+
+            PulseReflectionCard(
+                prompt: reflectionPrompt,
+                onReflect: { if let c = reflectionAnchorCard { open(c) } },
+                onPray: { routeFirst(.prayerFollowup) },
+                onJournal: { softHaptic() },
+                onDiscuss: { routeFirst(.spaceActivity) }
+            )
+
+            if !communityLines.isEmpty {
+                CommunityPulseCard(lines: communityLines, onViewPulse: { openCommunity() })
+            }
+
+            secondaryCardStack
+            terminusCard
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+    }
+
+    /// Timely cards not already represented by the hero or verse card (event, occasion,
+    /// space, prayer, what's new). These keep the matched-geometry expand behavior.
+    private var secondaryCardStack: some View {
+        let shownIds = Set([heroCard?.id, verseCard?.id].compactMap { $0 })
+        let cards = viewModel.visibleCards.filter { $0.kind != .terminus && !shownIds.contains($0.id) }
+        return LazyVStack(spacing: 18) {
+            ForEach(cards) { card in
                 PulseHeroCardView(
                     card: card,
                     namespace: morph,
@@ -276,10 +281,133 @@ struct AmenPulseSurfaceView: View {
                     onOpen: { open(card) }
                 )
             }
-            terminusCard
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 6)
+    }
+
+    // MARK: Derived content (no model mutation — presentation only)
+
+    private var heroCard: PulseCard? {
+        viewModel.visibleCards.first(where: { $0.kind == .dailyBriefHero })
+            ?? viewModel.visibleCards.first(where: { $0.kind == .scriptureHero })
+            ?? viewModel.visibleCards.first(where: { $0.kind != .terminus })
+    }
+
+    private var verseCard: PulseCard? {
+        viewModel.visibleCards.first(where: { $0.kind == .scriptureHero })
+    }
+
+    /// The card a "Reflect" tap opens into (verse if present, else the hero).
+    private var reflectionAnchorCard: PulseCard? { verseCard ?? heroCard }
+
+    private var prayerCount: Int {
+        viewModel.visibleCards.filter { $0.kind == .prayerFollowup }.count
+    }
+
+    private var communityCount: Int {
+        viewModel.visibleCards.filter { [.spaceActivity, .occasion, .churchEvent].contains($0.kind) }.count
+    }
+
+    private var verseStatusText: String {
+        verseCard == nil ? String(localized: "—") : String(localized: "Ready")
+    }
+
+    private var prayerStatusText: String {
+        prayerCount == 0 ? String(localized: "Quiet")
+            : "\(prayerCount) " + (prayerCount == 1 ? String(localized: "prompt") : String(localized: "prompts"))
+    }
+
+    private var communityStatusText: String {
+        communityCount == 0 ? String(localized: "Quiet")
+            : "\(communityCount) " + (communityCount == 1 ? String(localized: "update") : String(localized: "updates"))
+    }
+
+    /// Community lines are COUNTS / non-private signals only — never quoted private content.
+    private var communityLines: [CommunityPulseLine] {
+        var lines: [CommunityPulseLine] = []
+        let prayers = viewModel.visibleCards.filter { $0.kind == .prayerFollowup }.count
+        if prayers > 0 {
+            lines.append(.init(systemImage: "hands.sparkles",
+                               text: "\(prayers) " + (prayers == 1 ? String(localized: "prayer request from your groups")
+                                                                    : String(localized: "prayer requests from your groups"))))
+        }
+        if let space = viewModel.visibleCards.first(where: { $0.kind == .spaceActivity }) {
+            lines.append(.init(systemImage: "bubble.left.and.bubble.right", text: space.title))
+        }
+        if let occasion = viewModel.visibleCards.first(where: { $0.kind == .occasion }) {
+            lines.append(.init(systemImage: "heart", text: occasion.title))
+        }
+        if let church = viewModel.visibleCards.first(where: { $0.kind == .churchEvent }) {
+            lines.append(.init(systemImage: "building.columns", text: church.title))
+        }
+        return lines
+    }
+
+    /// A gentle, non-doctrinal reflection question derived from today's verse/hero.
+    private var reflectionPrompt: String {
+        if let verse = verseCard, let subtitle = verse.subtitle, !subtitle.isEmpty {
+            return String(localized: "Sit with this for a moment — where might it meet your day before the list, the inbox, the plans?")
+        }
+        return String(localized: "What would it look like to begin today with God before everything else?")
+    }
+
+    private func verseReference(_ card: PulseCard) -> String {
+        // The scripture card's subtitle carries the reference; fall back to the eyebrow.
+        if let subtitle = card.subtitle, let ref = subtitle.split(separator: "—").first {
+            return ref.trimmingCharacters(in: .whitespaces)
+        }
+        return card.eyebrow
+    }
+
+    private func verseText(_ card: PulseCard) -> String { card.title }
+
+    private func verseTranslation(_ card: PulseCard) -> String {
+        if let subtitle = card.subtitle, let ref = subtitle.split(separator: "—").first {
+            return ref.trimmingCharacters(in: .whitespaces)
+        }
+        return card.eyebrow
+    }
+
+    private func routeFirst(_ kind: PulseCardKind) {
+        guard let card = viewModel.visibleCards.first(where: { $0.kind == kind }) else { return }
+        if PulseActionRouter.shared.canRoute(card) {
+            PulseActionRouter.shared.route(card)
+        } else {
+            open(card)
+        }
+    }
+
+    private func openCommunity() {
+        if let space = viewModel.visibleCards.first(where: { $0.kind == .spaceActivity }) {
+            if PulseActionRouter.shared.canRoute(space) { PulseActionRouter.shared.route(space); return }
+            open(space)
+        } else {
+            softHaptic()
+        }
+    }
+
+    private func shareCard(_ card: PulseCard) {
+        softHaptic()
+        PulseActionRouter.shared.route(card)
+    }
+
+    private func softHaptic() {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+    }
+
+    private static func greeting() -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:  return String(localized: "Good morning, Friend.")
+        case 12..<17: return String(localized: "Good afternoon, Friend.")
+        case 17..<22: return String(localized: "Good evening, Friend.")
+        default:      return String(localized: "Peace to you, Friend.")
+        }
+    }
+
+    private static func dateSubtitle() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, MMMM d"
+        return f.string(from: Date()) + " · " + String(localized: "Your daily rhythm is ready.")
     }
 
     private var terminusCard: some View {
