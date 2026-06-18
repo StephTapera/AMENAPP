@@ -103,7 +103,7 @@ struct AMENDiscoveryView: View {
                             HStack {
                                 Text("AMEN DISCOVER")
                                     .font(.systemScaled(12, weight: .semibold))
-                                    .foregroundColor(Color(white: 0.45))
+                                    .foregroundStyle(.secondary)
                                     .tracking(1.4)
                                 Spacer()
                                 Button {
@@ -966,10 +966,10 @@ struct AMENDiscoveryView: View {
             HStack(spacing: 7) {
                 Image(systemName: "sparkles")
                     .font(.systemScaled(14, weight: .semibold))
-                    .foregroundColor(Color(white: 0.45))
+                    .foregroundStyle(.secondary)
                 Text("Featured")
                     .font(.systemScaled(16, weight: .semibold))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.primary)
                 Spacer()
             }
             .padding(.horizontal, 16)
@@ -1007,7 +1007,7 @@ struct AMENDiscoveryView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Explore by type")
                 .font(.systemScaled(15, weight: .semibold))
-                .foregroundColor(.black)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 16)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -1021,23 +1021,22 @@ struct AMENDiscoveryView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: item.icon)
                                     .font(.systemScaled(13, weight: .medium))
-                                    .foregroundColor(Color(white: 0.45))
+                                    .foregroundStyle(.secondary)
                                 Text(item.label)
                                     .font(.systemScaled(14, weight: .semibold))
-                                    .foregroundColor(.black)
+                                    .foregroundStyle(.primary)
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 9)
+                            // Solid readable surface (not glass): chips carry text, and the
+                            // rails design rule is "no glass on content cards". Semantic fills
+                            // adapt to light/dark, Reduce Transparency, and Increase Contrast.
                             .background(
                                 Capsule()
-                                    .fill(.ultraThinMaterial)
+                                    .fill(Color(.secondarySystemBackground))
                                     .overlay(
                                         Capsule()
-                                            .fill(Color.white.opacity(0.55))
-                                    )
-                                    .overlay(
-                                        Capsule()
-                                            .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                                            .strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5)
                                     )
                             )
                             .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
@@ -1070,23 +1069,22 @@ struct AMENDiscoveryView: View {
             HStack(alignment: .top, spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
-                        .overlay(Circle().fill(Color.white.opacity(0.55)))
-                        .overlay(Circle().strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5))
+                        .fill(Color(.tertiarySystemBackground))
+                        .overlay(Circle().strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5))
                         .frame(width: 48, height: 48)
                     Image(systemName: "sparkles")
                         .font(.systemScaled(20, weight: .semibold))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.primary)
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Ranked for meaning, not noise")
                         .font(.systemScaled(17, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.primary)
 
                     Text("Scripture trails, prayer circles, and faith-forward discovery")
                         .font(.systemScaled(13, weight: .regular))
-                        .foregroundColor(Color(white: 0.45))
+                        .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
 
@@ -1099,27 +1097,26 @@ struct AMENDiscoveryView: View {
             } label: {
                 Text("Explore")
                     .font(.systemScaled(15, weight: .semibold))
-                    .foregroundColor(.white)
+                    // Inverting label/background gives a high-contrast CTA in both
+                    // light (dark fill, light text) and dark (light fill, dark text).
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.black)
+                            .fill(Color(.label))
                     )
             }
             .buttonStyle(.plain)
         }
         .padding(20)
+        // Solid readable surface (not glass): this card holds heading + body text.
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.secondarySystemBackground))
                 .overlay(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(Color.white.opacity(0.55))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .strokeBorder(Color(white: 0.88).opacity(0.5), lineWidth: 0.5)
+                        .strokeBorder(Color(.separator).opacity(0.5), lineWidth: 0.5)
                 )
         )
         .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
@@ -2855,3 +2852,43 @@ private extension Date {
         return "\(seconds / 86400)d ago"
     }
 }
+
+// MARK: - Dark-mode verification harness (DEBUG only)
+//
+// Renders the REAL de-literaled editorial sections (no duplicated styling) across
+// appearances so the dark-mode fix can be visually confirmed. These sections do not
+// trigger the landing view's Firebase onAppear loads.
+
+#if DEBUG
+private extension AMENDiscoveryView {
+    @ViewBuilder
+    var debugEditorialSections: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                amenHeroCardsSection
+                exploreByTypeSection
+                amenIntelligenceFooter
+            }
+            .padding(.vertical, 24)
+        }
+        .background(Color(.systemBackground))
+    }
+}
+
+#Preview("Editorial — Light") {
+    AMENDiscoveryView().debugEditorialSections
+        .preferredColorScheme(.light)
+}
+
+#Preview("Editorial — Dark") {
+    AMENDiscoveryView().debugEditorialSections
+        .preferredColorScheme(.dark)
+}
+
+// Reduce Transparency note: these sections were converted from translucent material
+// (`.ultraThinMaterial` + a white overlay) to fully OPAQUE semantic fills
+// (`Color(.secondarySystemBackground)` / `.tertiarySystemBackground`). With no
+// translucency left, Reduce Transparency has nothing to fall back from. There is also
+// no writable `accessibilityReduceTransparency` environment key to force in a preview;
+// confirm via Xcode canvas → Variants if desired.
+#endif
