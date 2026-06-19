@@ -13,8 +13,9 @@
 //   • Dynamic Type via text styles.
 //   • Renders nothing when there is no real signal (never a generic label).
 //
-// Target membership: this file is new — a human must add it to the AMENAPP target
-// in Xcode before the canonical build (per repo build protocol: no agent pbxproj edits).
+// Sole-writer note (2026-06-19): reconciled after a concurrent lane shipped a clashing
+// same-named component. This is the canonical version: keeps the DiscoveryProvenance
+// resolver the rails depend on; drops the other lane's literal Color.white stroke.
 
 import SwiftUI
 
