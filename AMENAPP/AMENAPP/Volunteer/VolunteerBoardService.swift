@@ -97,6 +97,68 @@ final class VolunteerBoardService: ObservableObject {
         }
     }
 
+    // MARK: - Lifecycle (event / need / blackout / discovery)
+
+    /// Lists events the user leads or is assigned to.
+    func listMyEvents() async -> [VolunteerEventRef] {
+        do {
+            let result = try await functions.httpsCallable("listVolunteerEventsForUser").call([:])
+            return (try decode(ListVolunteerEventsResult.self, from: result.data)).events
+        } catch {
+            dlog("[VolunteerBoardService] listMyEvents failed: \(error)")
+            return []
+        }
+    }
+
+    /// Loads a single event + whether the caller leads it.
+    func getEvent(eventId: String) async -> GetServiceEventResult? {
+        do {
+            let result = try await functions.httpsCallable("getServiceEvent")
+                .call(["eventId": eventId])
+            return try decode(GetServiceEventResult.self, from: result.data)
+        } catch {
+            dlog("[VolunteerBoardService] getEvent failed: \(error)")
+            return nil
+        }
+    }
+
+    /// Creates a single dated event (caller becomes its first leader).
+    func createEvent(title: String, startUTC: String, timezone: String, location: String) async -> ServiceEvent? {
+        do {
+            let result = try await functions.httpsCallable("createServiceEvent").call([
+                "title": title, "startUTC": startUTC, "timezone": timezone, "location": location,
+            ])
+            return try decode(ServiceEvent.self, from: result.data)
+        } catch {
+            dlog("[VolunteerBoardService] createEvent failed: \(error)")
+            return nil
+        }
+    }
+
+    /// Declares a staffing need for a role (leader-only, server-enforced).
+    func addNeed(eventId: String, role: String, countNeeded: Int) async -> Bool {
+        do {
+            _ = try await functions.httpsCallable("addStaffingNeed").call([
+                "eventId": eventId, "role": role, "countNeeded": countNeeded,
+            ])
+            return true
+        } catch {
+            dlog("[VolunteerBoardService] addNeed failed: \(error)")
+            return false
+        }
+    }
+
+    /// Marks the volunteer unavailable on a date (I3). `date` is "YYYY-MM-DD".
+    func setBlackout(date: String) async -> Bool {
+        do {
+            _ = try await functions.httpsCallable("setVolunteerBlackout").call(["date": date])
+            return true
+        } catch {
+            dlog("[VolunteerBoardService] setBlackout failed: \(error)")
+            return false
+        }
+    }
+
     // MARK: - Decoding
 
     /// Decodes a callable's `[String: Any]` payload into a Codable contract type via JSONSerialization.

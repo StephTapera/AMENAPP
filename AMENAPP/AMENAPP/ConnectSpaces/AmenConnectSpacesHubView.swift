@@ -93,6 +93,9 @@ struct AmenConnectSpacesHubView: View {
     @State private var selectedTab: Int = 0
     @State private var showYouMenu: Bool = false
     @State private var showPresencePicker: Bool = false
+    @State private var showVolunteerHub: Bool = false
+    // Smart Volunteer Board entry — standalone flag module (default OFF), independent of AMENFeatureFlags.
+    @ObservedObject private var volunteerFlags = VolunteerFlagService.shared
 
     // My Spaces — live Firestore state
     @State private var mySpaces: [ConnectSpace] = []
@@ -156,6 +159,18 @@ struct AmenConnectSpacesHubView: View {
                     }
                     .accessibilityLabel("Create a new Space")
                 }
+
+                if volunteerFlags.isEnabled(.scheduling) {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            showVolunteerHub = true
+                        } label: {
+                            Image(systemName: "calendar.badge.checkmark")
+                                .font(.systemScaled(16, weight: .semibold))
+                        }
+                        .accessibilityLabel("Volunteer scheduling")
+                    }
+                }
             }
             .sheet(isPresented: $showCreateSpace, onDismiss: { Task { await loadMySpaces() } }) {
                 AmenCreateSpaceEnhancedSheet(
@@ -169,6 +184,9 @@ struct AmenConnectSpacesHubView: View {
             }
             .sheet(isPresented: $showPresencePicker) {
                 AmenSpiritualPresencePickerView()
+            }
+            .sheet(isPresented: $showVolunteerHub) {
+                VolunteerHubView(currentUserId: currentUserId)
             }
             .onAppear {
                 Analytics.logEvent("spaces_hub_viewed", parameters: [:])

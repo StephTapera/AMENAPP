@@ -133,3 +133,37 @@ export interface GetLeaderPrivateNoteRequest {
   eventId: string;
   volunteerId: string;
 }
+
+// ── Lifecycle envelopes (event/need/blackout creation + discovery) ──
+
+export interface CreateServiceEventRequest {
+  title: string;
+  startUTC: string;
+  timezone: string;
+  location: string;
+}
+
+export interface AddStaffingNeedRequest {
+  eventId: string;
+  role: string;
+  countNeeded: number;
+}
+
+/** A ServiceEvent paired with whether the caller leads it. */
+export interface VolunteerEventRef {
+  event: ServiceEvent;
+  isLeader: boolean;
+}
+
+export interface GetServiceEventResult {
+  event: ServiceEvent;
+  isLeader: boolean;
+}
+
+export interface ListVolunteerEventsResult {
+  events: VolunteerEventRef[];
+}
+
+export interface BlackoutRequest {
+  date: string; // "YYYY-MM-DD"
+}

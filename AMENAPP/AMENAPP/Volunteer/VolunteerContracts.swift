@@ -94,3 +94,21 @@ struct SignUpForSlotResult: Codable, Sendable {
     let assignmentId: String?
     let resultingStatus: AssignmentStatus?
 }
+
+// MARK: - Lifecycle envelopes (event/need/blackout creation + discovery)
+
+/// A ServiceEvent paired with whether the caller leads it.
+struct VolunteerEventRef: Codable, Identifiable, Sendable {
+    var id: String { event.id }
+    let event: ServiceEvent
+    let isLeader: Bool
+}
+
+struct ListVolunteerEventsResult: Codable, Sendable {
+    let events: [VolunteerEventRef]
+}
+
+struct GetServiceEventResult: Codable, Sendable {
+    let event: ServiceEvent
+    let isLeader: Bool
+}
