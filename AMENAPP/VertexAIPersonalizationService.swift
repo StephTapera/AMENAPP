@@ -87,13 +87,28 @@ class VertexAIPersonalizationService {
     private var sessionViewedPostIds = Set<String>()
 
     private init() {}
-    
+
+    /// Explicit opt-in for off-device personalization / behavioral training.
+    /// Defaults to false (fail-closed) until a consent surface records a choice.
+    /// NG-4 remediation (2026-06-19).
+    static var personalizationConsentGranted: Bool {
+        UserDefaults.standard.bool(forKey: "amen.personalization.trackingConsent")
+    }
+
     // MARK: - Engagement Tracking
-    
+
     /// Record user engagement event for ML training.
     /// `.view` events are throttled to once per post per app session to avoid
     /// hammering Firestore on every scroll pass.
     func recordEngagement(_ event: EngagementEvent) async throws {
+        // NG-4 / NG-5 remediation (2026-06-19): this is the only LIVE off-device
+        // behavioral signal (engagementEvents → Vertex training). It is now fail-closed:
+        //  • requires an explicit opt-in (default OFF until a consent surface ships), and
+        //  • requires a confirmed ADULT tier — minors are never profiled (COPPA).
+        guard VertexAIPersonalizationService.personalizationConsentGranted else { return }
+        let tier = await MainActor.run { AgeAssuranceService.shared.currentUserTier }
+        guard tier == .adult else { return }
+
         if event.eventType == .view {
             guard sessionViewedPostIds.insert(event.postId).inserted else { return }
         }
@@ -273,15 +288,21 @@ class VertexAIPersonalizationService {
         } catch {
             dlog("⚠️ [HYBRID] Vertex AI failed, falling back to local algorithm")
             // Fallback to local algorithm
-            return HomeFeedAlgorithm.shared.rankPosts(
-                candidatePosts,
-                for: HomeFeedAlgorithm.shared.userInterests
-            )
+            return await MainActor.run {
+                HomeFeedAlgorithm.shared.rankPosts(
+                    candidatePosts,
+                    for: HomeFeedAlgorithm.shared.userInterests
+                )
+            }
         }
         
         // Step 2: Combine with local scores (70% Vertex AI, 30% local)
-        let localScores = candidatePosts.map { post in
-            HomeFeedAlgorithm.shared.scorePost(post, for: HomeFeedAlgorithm.shared.userInterests)
+        let localScores = await MainActor.run {
+            let algorithm = HomeFeedAlgorithm.shared
+            let interests = algorithm.userInterests
+            return candidatePosts.map { post in
+                algorithm.scorePost(post, for: interests)
+            }
         }
         
         var scoredPosts: [(post: Post, score: Double)] = []

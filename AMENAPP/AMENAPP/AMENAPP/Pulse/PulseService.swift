@@ -358,7 +358,8 @@ final class PulseService {
     private func cache(_ digest: PulseDigest, userId: String) throws {
         try FileManager.default.createDirectory(at: cacheDirectoryURL, withIntermediateDirectories: true)
         let data = try JSONEncoder.pulse.encode(digest)
-        try data.write(to: cacheURL(userId, digest.date), options: .atomic)
+        // NG-3: per-user spiritual digest is sensitive — protect at rest.
+        try data.write(to: cacheURL(userId, digest.date), options: [.atomic, .completeFileProtection])
     }
 
     private func cacheURL(_ userId: String, _ dateKey: String) -> URL {
