@@ -34,18 +34,22 @@ struct SabbathTriggerResolver {
 
 // MARK: - ManualTrigger
 
-/// User-driven toggle. When the user has begun rest manually, proposes `.rest`
-/// with full confidence; otherwise silent. The single source for the manual override
-/// is held by `SabbathRhythmController`; this struct just reads it.
+/// User-driven override. When the user has manually entered a Sabbath state, proposes
+/// that exact state with full confidence (so a deliberate choice always beats an ambient
+/// guess); otherwise silent. The single source for the manual state is held by
+/// `SabbathRhythmController` — this struct just reads it.
+///
+/// `manualState` carries the chosen depth: `.rest` for a normal manual rest, or `.holyGround`
+/// when the user deepens into prayer/silence. Nil means "not manually resting".
 struct SabbathManualTrigger: SabbathTriggerSource {
     let id = "manual"
     let isEnabled: Bool
-    /// Whether the user has manually entered rest.
-    let isManuallyResting: Bool
+    /// The state the user manually chose, or nil if they are not manually resting.
+    let manualState: SabbathRhythmState?
 
     func proposal(now: Date) -> SabbathTriggerProposal {
-        guard isEnabled, isManuallyResting else { return .silent }
-        return SabbathTriggerProposal(proposedState: .rest, confidence: 1.0)
+        guard isEnabled, let manualState, manualState != .normal else { return .silent }
+        return SabbathTriggerProposal(proposedState: manualState, confidence: 1.0)
     }
 }
 

@@ -39,15 +39,30 @@ enum SabbathRhythmInvariants {
     // MARK: I3 — single hide mechanism
 
     /// I3 holds when every subtraction field maps onto a policy boolean, so the policy
-    /// is the sole arbiter of what is removed. `.normal` removes nothing; `.rest` removes
-    /// exactly the feed/metric/badge/streak fields.
+    /// is the sole arbiter of what is removed. `.normal` removes nothing; every other
+    /// state removes the full social layer (feeds/metrics/badges/streaks). `.presence`
+    /// additionally keeps navigation (you can still reach the Bible during a service),
+    /// while `.rest` and `.holyGround` minimise it.
     static func i3_policyIsSoleHideMechanism() -> Bool {
         let none = SabbathSubtractionPolicy.policy(for: .normal)
-        let rest = SabbathSubtractionPolicy.policy(for: .rest)
-        let fields: [SabbathSubtractionField] = [.feeds, .metrics, .badges, .streaks]
-        let noneHidesNothing = fields.allSatisfy { !$0.isRemoved(by: none) }
-        let restHidesAll = fields.allSatisfy { $0.isRemoved(by: rest) }
-        return noneHidesNothing && restHidesAll
+        let social: [SabbathSubtractionField] = [.feeds, .metrics, .badges, .streaks]
+
+        let noneHidesNothing = social.allSatisfy { !$0.isRemoved(by: none) }
+
+        // Every non-normal state must remove the whole social layer.
+        let quietStates: [SabbathRhythmState] = [.rest, .presence, .holyGround]
+        let quietHideSocial = quietStates.allSatisfy { state in
+            let p = SabbathSubtractionPolicy.policy(for: state)
+            return social.allSatisfy { $0.isRemoved(by: p) }
+        }
+
+        // Navigation distinction: presence keeps it, rest/holyGround remove it.
+        let presenceKeepsNav = !SabbathSubtractionField.navigation
+            .isRemoved(by: .policy(for: .presence))
+        let deepStatesHideNav = SabbathSubtractionField.navigation.isRemoved(by: .policy(for: .rest))
+            && SabbathSubtractionField.navigation.isRemoved(by: .policy(for: .holyGround))
+
+        return noneHidesNothing && quietHideSocial && presenceKeepsNav && deepStatesHideNav
     }
 
     #if DEBUG
