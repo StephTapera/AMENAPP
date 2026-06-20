@@ -126,6 +126,18 @@ struct AMENTabBar: View {
     }
 
     var body: some View {
+        // Flag-gated: native iOS 26 Liquid Glass lens when ON, current pill when OFF.
+        // Fail-closed — the OFF path is byte-for-byte the shipping bar.
+        if AMENFeatureFlags.shared.liquidGlassRedesignEnabled {
+            nativeBody
+        } else {
+            legacyBody
+        }
+    }
+
+    // MARK: - Legacy body (flag OFF — unchanged fake-material pill)
+
+    private var legacyBody: some View {
         ZStack(alignment: .bottomTrailing) {
             // ── 5-tab pill bar — compact, icon-only liquid glass capsule ──
             HStack(spacing: 0) {
@@ -158,6 +170,120 @@ struct AMENTabBar: View {
             Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.72)),
             value: selectedTab
         )
+    }
+
+    // MARK: - Native Liquid Glass body (flag ON — Wave 1)
+    //
+    // Real iOS 26 Liquid Glass lens. The capsule and the active plate live inside ONE
+    // LiquidGlassContainer (SwiftUI.GlassEffectContainer) so they blend into a single
+    // surface — the sanctioned "no glass-on-glass" way to have touching glass shapes.
+    // The active plate carries a native glassEffectID so it morphs between tab slots.
+    // Solid/opaque fallback (Reduce Transparency, pre-iOS-26) is handled inside the
+    // LiquidGlass* wrappers, so this body stays declarative and fail-closed.
+
+    private var nativeBody: some View {
+        ZStack(alignment: .bottomTrailing) {
+            LiquidGlassContainer(spacing: 10) {
+                HStack(spacing: 0) {
+                    ForEach(AMENTab.visibleTabs, id: \.rawValue) { tab in
+                        nativeTabItem(tab)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                    }
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
+                .liquidGlassSurface(.heavy, in: Capsule())
+            }
+            .shadow(color: Color.black.opacity(0.10), radius: 18, x: 0, y: 8)
+            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+
+            composeButton
+                .padding(.trailing, 4)
+                .offset(y: -64)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+        .padding(.top, 64)
+        .offset(y: effectivelyHidden ? 100 : 0)
+        .animation(.easeOut(duration: 0.18), value: effectivelyHidden)
+        .animation(
+            Motion.adaptive(.spring(response: 0.30, dampingFraction: 0.72)),
+            value: selectedTab
+        )
+    }
+
+    @ViewBuilder
+    private func nativeTabItem(_ tab: AMENTab) -> some View {
+        let isSelected = selectedTab == tab.rawValue
+        Button {
+            if selectedTab == tab.rawValue {
+                if tab == .home {
+                    NotificationCenter.default.post(name: .homeTabTapped, object: nil)
+                    HapticManager.impact(style: .light)
+                }
+                return
+            }
+            selectedTab = tab.rawValue
+            clearBadge(for: tab)
+        } label: {
+            ZStack {
+                if isSelected {
+                    nativeActivePlate
+                }
+                ZStack(alignment: .topTrailing) {
+                    if tab == .profile, let url = profilePhotoURL, !url.isEmpty {
+                        profileAvatar(url: url, isSelected: isSelected)
+                    } else {
+                        Image(systemName: isSelected ? tab.activeIcon : tab.inactiveIcon)
+                            .font(.systemScaled(21, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(
+                                isSelected
+                                    ? AmenTheme.Colors.iconPrimary
+                                    : AmenTheme.Colors.iconSecondary
+                            )
+                            .scaleEffect(isSelected ? 1.08 : 1.0)
+                            .animation(
+                                Motion.adaptive(.spring(response: 0.22, dampingFraction: 0.75)),
+                                value: isSelected
+                            )
+                    }
+
+                    let count = badges.count(for: tab)
+                    if count > 0 {
+                        BadgeView(count: count)
+                            .offset(x: 9, y: -7)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: isSelected)
+        .accessibilityLabel(tab.label)
+        .accessibilityHint(tab.accessibilityHint)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityValue({
+            let count = badges.count(for: tab)
+            return count > 0 ? "\(count) unread" : ""
+        }())
+    }
+
+    // Soft circular glass plate behind the active icon. A single native glassEffectID
+    // means SwiftUI morphs the one plate across tab slots as selection changes.
+    @ViewBuilder
+    private var nativeActivePlate: some View {
+        let plate = Circle()
+            .fill(Color.clear)
+            .frame(width: 40, height: 40)
+            .liquidGlassSurface(.heavy, in: Circle(), interactive: true)
+        if #available(iOS 26.0, *) {
+            plate.glassEffectID(1, in: selectionNamespace)
+        } else {
+            plate
+        }
     }
 
     // MARK: - Glass background (adaptive for light and dark mode)
