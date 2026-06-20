@@ -135,7 +135,7 @@ extension View {
 ///
 /// Always reach for THIS instead of the bare `GlassEffectContainer`, which in
 /// this module resolves to the legacy no-op padding container.
-struct LiquidGlassContainer<Content: View>: View {
+struct NativeLiquidGlassContainer<Content: View>: View {
     var spacing: CGFloat
     @ViewBuilder var content: () -> Content
 
@@ -161,7 +161,7 @@ struct LiquidGlassContainer<Content: View>: View {
 //
 // To morph the active plate between tab positions, attach the native
 // `glassEffectID` using a NON-String id (e.g. an Int or enum). Example, at the
-// call site inside a LiquidGlassContainer:
+// call site inside a NativeLiquidGlassContainer:
 //
 //     if #available(iOS 26.0, *) {
 //         plate.glassEffectID(selectedTab, in: namespace)   // Int id → native

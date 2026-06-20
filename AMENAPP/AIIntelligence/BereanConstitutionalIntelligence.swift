@@ -222,7 +222,8 @@ actor BereanConstitutionalReviewGate {
 
         // Check 2: crisis signal present (client-side fast path)
         let combinedText = [payload.selectedText, payload.surroundingText ?? ""].joined(separator: " ")
-        if CrisisDetectionService.shared.hasLocalCrisisSignal(in: combinedText) {
+        let hasCrisis = await MainActor.run { CrisisDetectionService.shared.hasLocalCrisisSignal(in: combinedText) }
+        if hasCrisis {
             reasons.append("Crisis signal detected in payload — action blocked.")
         }
 
@@ -248,10 +249,10 @@ actor BereanConstitutionalReviewGate {
         }
 
         if !reasons.isEmpty {
-            return .blocked(reasons: reasons, mode: resolvedMode, risk: risk)
+            return BereanConstitutionalReviewResult.blocked(reasons: reasons, mode: resolvedMode, risk: risk)
         }
 
-        return .approved(mode: resolvedMode, risk: risk)
+        return BereanConstitutionalReviewResult.approved(mode: resolvedMode, risk: risk)
     }
 
     // MARK: - Constitutional review for BereanStudyService
@@ -275,8 +276,12 @@ actor BereanConstitutionalReviewGate {
         var reasons: [String] = []
 
         // Crisis signal check
-        if !combined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-           CrisisDetectionService.shared.hasLocalCrisisSignal(in: combined) {
+        let combinedNonEmpty = !combined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasCrisisSignal = combinedNonEmpty
+            ? await MainActor.run { CrisisDetectionService.shared.hasLocalCrisisSignal(in: combined) }
+            : false
+        let studyCrisis = hasCrisisSignal
+        if studyCrisis {
             reasons.append("Crisis signal detected in study call inputs — action blocked.")
         }
 
@@ -293,10 +298,10 @@ actor BereanConstitutionalReviewGate {
         }
 
         if !reasons.isEmpty {
-            return .blocked(reasons: reasons, mode: mode, risk: risk)
+            return BereanConstitutionalReviewResult.blocked(reasons: reasons, mode: mode, risk: risk)
         }
 
-        return .approved(mode: mode, risk: risk)
+        return BereanConstitutionalReviewResult.approved(mode: mode, risk: risk)
     }
 
     // MARK: - Private helpers
