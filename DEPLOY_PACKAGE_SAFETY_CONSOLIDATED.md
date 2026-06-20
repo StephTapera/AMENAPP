@@ -184,7 +184,7 @@ Firebase Console → App Check → each CF → Enforce
 | 41 | MEDIUM | Dead-letter collection missing from multiple moderation files | CLOSED | Dead-letter collection added to all three files (STEP 3) |
 | 42 | MEDIUM | policyVersion field absent from moderation subdocuments | CLOSED | policyVersion field added (STEP 3) |
 | 43 | MEDIUM | Exact birth year stored in Firestore user document — queryable by all clients | CLOSED | birthYear blocked from client read in Firestore rules (STEP 1) |
-| 44 | MEDIUM | Guardian linking workflow has no email verification CF | OPEN | Requires new CF build and guardian email verification flow — follow-on PR |
+| 44 | MEDIUM | Guardian linking workflow has no email verification CF | BUILT (commit 35a09617) | `functions/guardianLink.js` — onGuardianLinkCreated + verifyGuardianLink; iOS GuardianLinkService/Views; rules + 8/8 jest. Deploy: `firebase deploy --only functions:onGuardianLinkCreated,functions:verifyGuardianLink --project amen-5e359`. Flag `guardian_link_enabled` default OFF until A-03. Trigger Email extension must be installed for live email; CF logs OTP (admin-only) as dev fallback. |
 | 45 | MEDIUM | addComment does not check if Firebase Auth account is disabled | CLOSED | Live Auth.getUser() disabled check added (STEP 3) |
 | 46 | MEDIUM | safeMessagingGateway.js ban check relies on stale isBanned field | CLOSED | Switched to live Auth.getUser() disabled check (STEP 3) |
 | 47 | MEDIUM | Legacy stripeWebhook.js handlers have no idempotency | OPEN | Requires idempotency key design — separate Stripe/monetization PR |
