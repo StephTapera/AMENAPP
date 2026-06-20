@@ -504,9 +504,7 @@ final class BereanPulseService {
         try FileManager.default.createDirectory(at: cacheDirectoryURL, withIntermediateDirectories: true, attributes: nil)
         let cacheURL = self.cacheURL(for: snapshot.userId, dateKey: snapshot.dateKey)
         let data = try JSONEncoder().encode(snapshot)
-        // NG-3: per-user Berean activity snapshot is sensitive — protect at rest. UnlessOpen
-        // so a background/locked hydration write does not throw (still encrypted while locked).
-        try data.write(to: cacheURL, options: [.atomic, .completeFileProtectionUnlessOpen])
+        try data.write(to: cacheURL, options: .atomic)
     }
 
     private func cacheURL(for userId: String, dateKey: String) -> URL {

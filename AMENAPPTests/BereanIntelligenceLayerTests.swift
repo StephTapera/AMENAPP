@@ -12,6 +12,104 @@
 import XCTest
 @testable import AMENAPP
 
+// MARK: - BereanSmartNotesSafetyGateTests
+
+@MainActor
+final class BereanSmartNotesSafetyGateTests: XCTestCase {
+
+    func testMissingConsentBlocksBeforeCloudSave() async throws {
+        var reachedCrisisScan = false
+        var reachedConstitutionalReview = false
+        let gate = BereanSmartNotesSafetyGate(
+            hasAIConsent: { false },
+            currentUserIsMinor: { false },
+            hasCrisisSignal: { _ in
+                reachedCrisisScan = true
+                return false
+            },
+            constitutionalReviewer: { _ in
+                reachedConstitutionalReview = true
+                return .approved(mode: .build, risk: .high)
+            }
+        )
+
+        do {
+            try await gate.validate(noteContent: "Sermon notes from Romans 8")
+            XCTFail("Missing consent should block Smart Notes save")
+        } catch let error as BereanSmartNotesSafetyGate.GateError {
+            XCTAssertEqual(error, .aiConsentRequired)
+            XCTAssertFalse(reachedCrisisScan)
+            XCTAssertFalse(reachedConstitutionalReview)
+        }
+    }
+
+    func testCrisisContentBlocksBeforeCloudSave() async throws {
+        var reachedConstitutionalReview = false
+        let gate = BereanSmartNotesSafetyGate(
+            hasAIConsent: { true },
+            currentUserIsMinor: { false },
+            hasCrisisSignal: { _ in true },
+            constitutionalReviewer: { _ in
+                reachedConstitutionalReview = true
+                return .approved(mode: .build, risk: .high)
+            }
+        )
+
+        do {
+            try await gate.validate(noteContent: "I want to hurt myself after church")
+            XCTFail("Crisis content should block Smart Notes save")
+        } catch let error as BereanSmartNotesSafetyGate.GateError {
+            XCTAssertEqual(error, .crisisInputDetected)
+            XCTAssertFalse(reachedConstitutionalReview)
+        }
+    }
+
+    func testMinorUserBlocksBeforeCloudSave() async throws {
+        var reachedConstitutionalReview = false
+        let gate = BereanSmartNotesSafetyGate(
+            hasAIConsent: { true },
+            currentUserIsMinor: { true },
+            hasCrisisSignal: { _ in false },
+            constitutionalReviewer: { _ in
+                reachedConstitutionalReview = true
+                return .approved(mode: .build, risk: .high)
+            }
+        )
+
+        do {
+            try await gate.validate(noteContent: "Sermon notes from Romans 8")
+            XCTFail("Minor users should block Smart Notes save")
+        } catch let error as BereanSmartNotesSafetyGate.GateError {
+            XCTAssertEqual(error, .minorUserBlocked)
+            XCTAssertFalse(reachedConstitutionalReview)
+        }
+    }
+
+    func testConstitutionalReviewFailureBlocksBeforeCloudSave() async throws {
+        let gate = BereanSmartNotesSafetyGate(
+            hasAIConsent: { true },
+            currentUserIsMinor: { false },
+            hasCrisisSignal: { _ in false },
+            constitutionalReviewer: { _ in
+                .blocked(
+                    reasons: ["Medical topic detected in study call - consider adding a medical guardrail note before dispatching."],
+                    mode: .guard,
+                    risk: .high
+                )
+            }
+        )
+
+        do {
+            try await gate.validate(noteContent: "Notes about medication and prayer")
+            XCTFail("Constitutional review failure should block Smart Notes save")
+        } catch let error as BereanSmartNotesSafetyGate.GateError {
+            guard case .moderationBlocked = error else {
+                return XCTFail("Expected moderationBlocked, got \(error)")
+            }
+        }
+    }
+}
+
 // MARK: - BereanTheoLensTests
 
 final class BereanTheoLensTests: XCTestCase {

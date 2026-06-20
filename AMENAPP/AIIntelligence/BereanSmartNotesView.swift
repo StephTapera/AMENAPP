@@ -83,6 +83,7 @@ struct BereanSmartNotesView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .onDisappear { stopCapture() }
+        .bereanAIConsentGate()
     }
 
     // MARK: - Capture toggle bar
@@ -264,15 +265,92 @@ struct BereanSmartNotesView: View {
         Task {
             defer { isSaving = false }
             do {
+                try await BereanSmartNotesSafetyGate().validate(noteContent: trimmed)
                 let callable = functions.httpsCallable("saveBereanSmartNotes")
                 _ = try await callable.call(["notes": trimmed])
                 saveSuccess = true
                 // Reset success badge after 2 seconds
                 try? await Task.sleep(for: .seconds(2))
                 saveSuccess = false
+            } catch let error as BereanSmartNotesSafetyGate.GateError {
+                if error == .aiConsentRequired {
+                    BereanConstitutionalPipeline.shared.requiresAIConsent = true
+                }
+                errorMessage = error.localizedDescription
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+}
+
+@MainActor
+struct BereanSmartNotesSafetyGate {
+    enum GateError: Error, Equatable, LocalizedError {
+        case aiConsentRequired
+        case minorUserBlocked
+        case crisisInputDetected
+        case moderationBlocked(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .aiConsentRequired:
+                return "Review and accept Berean AI consent before saving Smart Notes."
+            case .minorUserBlocked:
+                return "Berean AI Smart Notes are available for adults only."
+            case .crisisInputDetected:
+                return "It sounds like you may be going through something difficult. Please reach out for support."
+            case .moderationBlocked:
+                return "Berean could not process these notes. Please revise them and try again."
+            }
+        }
+    }
+
+    typealias ConstitutionalReviewer = ([String]) async -> BereanConstitutionalReviewResult
+
+    private let hasAIConsent: () async -> Bool
+    private let currentUserIsMinor: () async -> Bool
+    private let hasCrisisSignal: (String) -> Bool
+    private let constitutionalReviewer: ConstitutionalReviewer
+
+    init(
+        hasAIConsent: @escaping () async -> Bool = { await MainActor.run { BereanAIConsentManager.hasConsentedNow() } },
+        currentUserIsMinor: @escaping () async -> Bool = { await MainActor.run { AgeAssuranceService.shared.currentUserTier.isMinor } },
+        hasCrisisSignal: @escaping (String) -> Bool = { CrisisDetectionService.shared.hasLocalCrisisSignal(in: $0) },
+        constitutionalReviewer: @escaping ConstitutionalReviewer = { notes in
+            await BereanConstitutionalReviewGate.shared.reviewStudyCall(
+                texts: notes,
+                actionType: .convertToChurchNotes
+            )
+        }
+    ) {
+        self.hasAIConsent = hasAIConsent
+        self.currentUserIsMinor = currentUserIsMinor
+        self.hasCrisisSignal = hasCrisisSignal
+        self.constitutionalReviewer = constitutionalReviewer
+    }
+
+    @MainActor
+    func validate(noteContent: String) async throws {
+        guard await hasAIConsent() else {
+            throw GateError.aiConsentRequired
+        }
+
+        guard !(await currentUserIsMinor()) else {
+            throw GateError.minorUserBlocked
+        }
+
+        if hasCrisisSignal(noteContent) {
+            throw GateError.crisisInputDetected
+        }
+
+        let review = await constitutionalReviewer([noteContent])
+        guard review.passed else {
+            let reason = review.blockedReasons.first ?? "Constitutional review did not pass."
+            if reason.lowercased().contains("crisis") {
+                throw GateError.crisisInputDetected
+            }
+            throw GateError.moderationBlocked(reason)
         }
     }
 }

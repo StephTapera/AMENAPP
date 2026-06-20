@@ -226,15 +226,6 @@ final class AMENFeatureFlags: ObservableObject {
     /// Default OFF until the generation pipeline is deployed and the surface is verified.
     @Published private(set) var amenPulseEnabled: Bool = false
 
-    // MARK: - Sabbath Mode v2 (Rhythm — subtraction model)
-    /// Master gate for the v2 "Selah becomes smaller when it's succeeding" rhythm.
-    /// When OFF, SabbathRhythmController is inert and no surface is subtracted.
-    @Published private(set) var sabbathModeEnabled: Bool = false
-    /// Sub-flag: scheduled (day/window) rest trigger. Mic-free, no permissions.
-    @Published private(set) var sabbathTriggerScheduleEnabled: Bool = false
-    /// Sub-flag: manual (toggle) rest trigger.
-    @Published private(set) var sabbathTriggerManualEnabled: Bool = false
-
     // MARK: - Universal Migration & Context System
     /// Master gate for the Context System (ContextStore Passport, Migration Interview,
     /// Universal Import, matching, exports). Default OFF until each wave is validated.
@@ -534,14 +525,6 @@ final class AMENFeatureFlags: ObservableObject {
     /// Ships default OFF. Flip via Remote Config `adaptive_glass_v2_enabled`
     /// only after the Wave 6 verification matrix passes for all 11 screens.
     @Published private(set) var adaptiveGlassV2Enabled: Bool = false
-
-    // MARK: - System 31: Liquid Glass Redesign (native lens + tab bar)
-    /// Master switch for the native iOS 26 Liquid Glass redesign — the rebuilt
-    /// floating glass tab bar and the app-wide functional-chrome migration.
-    /// Ships default OFF, fail-closed to the current UI. Independent of the
-    /// App Store submission-critical compliance work. Flip via Remote Config
-    /// `liquid_glass_redesign_enabled` only after the Wave 3 a11y/perf audit passes.
-    @Published private(set) var liquidGlassRedesignEnabled: Bool = false
 
     // MARK: - System 29: Liquid Glass Intelligence Layer
     /// Master switch for all Liquid Glass intelligence features.
@@ -1181,11 +1164,6 @@ final class AMENFeatureFlags: ObservableObject {
             // Amen Pulse (daily surface) — default OFF
             "amen_pulse_enabled": false as NSObject,
 
-            // Sabbath Mode v2 (Rhythm subtraction model) — all default OFF
-            "sabbath_mode_enabled": false as NSObject,
-            "sabbath_trigger_schedule_enabled": false as NSObject,
-            "sabbath_trigger_manual_enabled": false as NSObject,
-
             // Spiritual OS — all default OFF until human flag flip
             "spiritualOS_enabled": false as NSObject,
             "spiritualOS_daily_enabled": false as NSObject,
@@ -1630,7 +1608,6 @@ final class AMENFeatureFlags: ObservableObject {
 
             // Selah Enhancement
             "adaptive_glass_v2_enabled":      false as NSObject,
-            "liquid_glass_redesign_enabled":  false as NSObject,
             "selah_personal_corpus_enabled": false as NSObject,
             "selah_discernment_enabled": false as NSObject,
             "selah_discernment_sharing_enabled": false as NSObject,
@@ -1850,10 +1827,6 @@ final class AMENFeatureFlags: ObservableObject {
 
         bereanPulseEnabled = config["berean_pulse_enabled"].boolValue
         amenPulseEnabled = config["amen_pulse_enabled"].boolValue
-
-        sabbathModeEnabled = config["sabbath_mode_enabled"].boolValue
-        sabbathTriggerScheduleEnabled = config["sabbath_trigger_schedule_enabled"].boolValue
-        sabbathTriggerManualEnabled = config["sabbath_trigger_manual_enabled"].boolValue
 
         syncSpiritualOSAppStorageFlags(config)
 
@@ -2291,7 +2264,6 @@ final class AMENFeatureFlags: ObservableObject {
         // Selah Enhancement
         // Adaptive Glass V2
         adaptiveGlassV2Enabled          = config["adaptive_glass_v2_enabled"].boolValue
-        liquidGlassRedesignEnabled      = config["liquid_glass_redesign_enabled"].boolValue
 
         selahPersonalCorpusEnabled      = config["selah_personal_corpus_enabled"].boolValue
         selahDiscernmentEnabled         = config["selah_discernment_enabled"].boolValue

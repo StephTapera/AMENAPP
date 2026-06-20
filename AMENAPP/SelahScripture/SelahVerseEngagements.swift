@@ -14,8 +14,6 @@
 
 import Foundation
 import SwiftUI
-import CryptoKit
-import Security
 
 // MARK: - Reactions
 
@@ -118,44 +116,15 @@ final class SelahVerseEngagementStore: ObservableObject {
     private let reactionsKey = "selah.engagement.reactions.v1"
     private let prayedKey = "selah.engagement.prayedThrough.v1"
 
-    // NG-3 / C-2 remediation (2026-06-19): free-text prayer notes are sensitive
-    // spiritual reflection. They were stored in plaintext UserDefaults; they are now
-    // encrypted (AES-GCM, Keychain-held key) and written to file-protected storage.
-    private let symmetricKey: SymmetricKey
-    private let reactionsFileURL: URL
-    private let prayedFileURL: URL
-
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        let dir = SelahVerseEngagementStore.storageDirectory()
-        self.reactionsFileURL = dir.appendingPathComponent("selah_reactions.enc")
-        self.prayedFileURL = dir.appendingPathComponent("selah_prayed.enc")
-        self.symmetricKey = SelahVerseEngagementStore.loadOrCreateKey()
-
-        var migrated = false
-        // Preferred: encrypted, file-protected store.
-        if let decoded: [SelahVerseReactionEntry] =
-            SelahVerseEngagementStore.decryptedLoad(reactionsFileURL, key: symmetricKey) {
+        if let data = defaults.data(forKey: reactionsKey),
+           let decoded = try? JSONDecoder().decode([SelahVerseReactionEntry].self, from: data) {
             self.reactions = decoded
-        } else if let data = defaults.data(forKey: reactionsKey),
-                  let decoded = try? JSONDecoder().decode([SelahVerseReactionEntry].self, from: data) {
-            // Migrate legacy plaintext blob, then scrub it.
-            self.reactions = decoded
-            defaults.removeObject(forKey: reactionsKey)
-            migrated = true
         }
-        if let decoded: [SelahPrayedThroughEntry] =
-            SelahVerseEngagementStore.decryptedLoad(prayedFileURL, key: symmetricKey) {
+        if let data = defaults.data(forKey: prayedKey),
+           let decoded = try? JSONDecoder().decode([SelahPrayedThroughEntry].self, from: data) {
             self.prayedThrough = decoded
-        } else if let data = defaults.data(forKey: prayedKey),
-                  let decoded = try? JSONDecoder().decode([SelahPrayedThroughEntry].self, from: data) {
-            self.prayedThrough = decoded
-            defaults.removeObject(forKey: prayedKey)
-            migrated = true
-        }
-        if migrated {
-            persistReactions()
-            persistPrayed()
         }
     }
 
@@ -210,68 +179,15 @@ final class SelahVerseEngagementStore: ObservableObject {
     // MARK: Persistence
 
     private func persistReactions() {
-        SelahVerseEngagementStore.encryptedSave(reactions, to: reactionsFileURL, key: symmetricKey)
+        if let data = try? JSONEncoder().encode(reactions) {
+            defaults.set(data, forKey: reactionsKey)
+        }
     }
 
     private func persistPrayed() {
-        SelahVerseEngagementStore.encryptedSave(prayedThrough, to: prayedFileURL, key: symmetricKey)
-    }
-
-    // MARK: - Encrypted storage helpers
-
-    private static func storageDirectory() -> URL {
-        let base = (try? FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
-            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent("SelahEngagement", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-
-    private static func decryptedLoad<T: Decodable>(_ url: URL, key: SymmetricKey) -> T? {
-        guard let data = try? Data(contentsOf: url),
-              let box = try? AES.GCM.SealedBox(combined: data),
-              let plain = try? AES.GCM.open(box, using: key) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: plain)
-    }
-
-    private static func encryptedSave<T: Encodable>(_ value: T, to url: URL, key: SymmetricKey) {
-        guard let plain = try? JSONEncoder().encode(value),
-              let sealed = try? AES.GCM.seal(plain, using: key).combined else { return }
-        try? sealed.write(to: url, options: [.atomic, .completeFileProtection])
-    }
-
-    // MARK: Keychain key (device-only)
-
-    private static let keychainAccount = "amen.selahEngagements.keySeed"
-
-    private static func loadOrCreateKey() -> SymmetricKey {
-        SymmetricKey(data: SHA256.hash(data: Data(loadOrCreateSeed().utf8)))
-    }
-
-    private static func loadOrCreateSeed() -> String {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keychainAccount,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var item: CFTypeRef?
-        if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-           let data = item as? Data, let seed = String(data: data, encoding: .utf8) {
-            return seed
+        if let data = try? JSONEncoder().encode(prayedThrough) {
+            defaults.set(data, forKey: prayedKey)
         }
-        let newSeed = UUID().uuidString
-        let base: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keychainAccount
-        ]
-        SecItemDelete(base as CFDictionary)
-        var attrs = base
-        attrs[kSecValueData as String] = Data(newSeed.utf8)
-        attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(attrs as CFDictionary, nil)
-        return newSeed
     }
 }
 

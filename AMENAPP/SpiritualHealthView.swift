@@ -373,8 +373,6 @@ struct SpiritualHealthView: View {
                 }
                 .padding(.top, 56)
                 .padding(.bottom, 16)
-                // Sabbath v2: the streak/badges card is removed in `.rest` (I3).
-                .sabbathSubtracted(.streaks)
 
                 // Eyebrow
                 Text("SPIRITUAL HEALTH")

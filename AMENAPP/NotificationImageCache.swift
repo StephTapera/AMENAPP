@@ -107,9 +107,7 @@ final class NotificationImageCache: ObservableObject {
         }
         
         await Task.detached {
-            // NG-3: protect cached profile imagery at rest (unless-open so any
-            // background refresh path can still read it).
-            try? data.write(to: path, options: [.completeFileProtectionUnlessOpen])
+            try? data.write(to: path)
         }.value
     }
     

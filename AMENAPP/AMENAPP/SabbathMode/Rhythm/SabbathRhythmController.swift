@@ -49,70 +49,32 @@ final class SabbathRhythmController: ObservableObject {
 
     // MARK: Private state
 
-    /// User's manual override (ManualTrigger source of truth): the state they deliberately
-    /// chose (`.rest`, or `.holyGround` when deepened), or nil if not manually resting.
-    private var manualRestState: SabbathRhythmState?
+    /// User's manual "I am resting" override (ManualTrigger source of truth).
+    private var isManuallyResting = false
     /// When the current rest period began, for computing `timeInState`.
     private var restEnteredAt: Date?
     /// True after a one-tap exit, forcing `.normal` until triggers naturally fall idle.
     private var exitOverrideActive = false
-    /// The user's persisted config (weekly schedule + Wave 1 trigger opt-ins). Loaded at
-    /// init so a scheduled Sabbath fires across launches; replaced via `applyConfig`.
-    private var config: SabbathRhythmConfig = .disabled
-    /// Latest injected ambient context (doomscroll / location / motion). Neutral by default,
-    /// so an absent sensor layer can never trigger a Sabbath state.
-    private var ambientSignals: SabbathAmbientSignals = .none
+    /// Wave 0 schedule (set via configureSchedule). Defaults to nil = never proposes.
+    private var schedule: SabbathSchedule?
 
     private let resolver = SabbathTriggerResolver()
     private let flags = AMENFeatureFlags.shared
     private let defaults = UserDefaults.standard
-    private let configStore = SabbathRhythmConfigStore()
     private let lastSignalKey = "sabbath_rhythm_last_rest_signal"
-    private var minuteTimer: Timer?
 
     private init() {
-        config = configStore.load()
         recompute(now: Date())
-        startMinuteTicker()
         #if DEBUG
         SabbathRhythmInvariants.runDebugChecks()
         #endif
     }
 
-    /// Re-evaluate triggers each minute so a scheduled rest window flips state on its
-    /// boundary without any user action. Cheap and inert while Sabbath Mode is OFF.
-    private func startMinuteTicker() {
-        minuteTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.recompute(now: Date()) }
-        }
-    }
-
     // MARK: Trigger configuration
 
-    /// The user's current persisted configuration (read-only snapshot for the settings UI).
-    var currentConfig: SabbathRhythmConfig { config }
-
-    /// Replace the persisted config (schedule + Wave 1 trigger opt-ins), save it locally,
-    /// and recompute. This is how the settings surface drives the engine.
-    func applyConfig(_ newConfig: SabbathRhythmConfig) {
-        config = newConfig
-        configStore.save(newConfig)
-        recompute(now: Date())
-    }
-
-    /// Set or clear just the weekly rest window, persisting it through the config.
+    /// Set or clear the weekly rest window used by `SabbathScheduleTrigger`.
     func configureSchedule(_ schedule: SabbathSchedule?) {
-        var updated = config
-        updated.schedule = schedule
-        applyConfig(updated)
-    }
-
-    /// Inject the latest ambient context (feed dwell / at-worship / walking). The future
-    /// sensor layer calls this; it is a no-op for behaviour unless the matching ambient
-    /// trigger is enabled in config and `sabbath_mode_enabled` is ON.
-    func updateAmbientSignals(_ signals: SabbathAmbientSignals) {
-        guard signals != ambientSignals else { return }
-        ambientSignals = signals
+        self.schedule = schedule
         recompute(now: Date())
     }
 
@@ -128,25 +90,9 @@ final class SabbathRhythmController: ObservableObject {
     func confirmBeginRest(intention: String?) {
         guard isEnabled else { return }
         currentIntention = intention?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-        manualRestState = .rest
+        isManuallyResting = true
         exitOverrideActive = false
         presentation = nil
-        recompute(now: Date())
-    }
-
-    /// Deepen an in-progress manual rest into prayer / silence (`.holyGround`) — the
-    /// single-surface state. No-op unless Sabbath Mode is ON and a manual rest is active.
-    func deepenToHolyGround() {
-        guard isEnabled, manualRestState != nil else { return }
-        manualRestState = .holyGround
-        exitOverrideActive = false
-        recompute(now: Date())
-    }
-
-    /// Ease a deepened rest back from `.holyGround` to ordinary `.rest` without leaving rest.
-    func returnToRest() {
-        guard isEnabled, manualRestState == .holyGround else { return }
-        manualRestState = .rest
         recompute(now: Date())
     }
 
@@ -156,7 +102,7 @@ final class SabbathRhythmController: ObservableObject {
     /// private rest signal and surfaces the non-blocking gentle return afterward.
     func leaveRest() {
         let signal = makeRestSignal(now: Date())
-        manualRestState = nil
+        isManuallyResting = false
         exitOverrideActive = true
         recompute(now: Date())
         if let signal {
@@ -164,17 +110,6 @@ final class SabbathRhythmController: ObservableObject {
             presentation = .gentleReturn(signal)
         }
         currentIntention = nil
-    }
-
-    /// Attach an optional private reflection to the just-closed rest signal. Local only.
-    func recordReturnReflection(_ text: String, for signal: SabbathRestSignal) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let updated = SabbathRestSignal(
-            timeInState: signal.timeInState,
-            reflection: trimmed.isEmpty ? nil : trimmed,
-            closedAt: signal.closedAt
-        )
-        persist(updated)
     }
 
     /// Dismiss the gentle return surface.
@@ -194,24 +129,11 @@ final class SabbathRhythmController: ObservableObject {
         let triggers: [SabbathTriggerSource] = [
             SabbathManualTrigger(
                 isEnabled: flags.sabbathTriggerManualEnabled,
-                manualState: manualRestState
+                isManuallyResting: isManuallyResting
             ),
             SabbathScheduleTrigger(
                 isEnabled: flags.sabbathTriggerScheduleEnabled,
-                schedule: config.schedule
-            ),
-            // Wave 1 ambient triggers — each opt-in via config, fed by injected signals.
-            SabbathUsageTrigger(
-                isEnabled: config.usageTriggerEnabled,
-                dwellSeconds: ambientSignals.feedDwellSeconds
-            ),
-            SabbathLocationTrigger(
-                isEnabled: config.locationTriggerEnabled,
-                isAtPlaceOfWorship: ambientSignals.isAtPlaceOfWorship
-            ),
-            SabbathMotionTrigger(
-                isEnabled: config.motionTriggerEnabled,
-                isWalking: ambientSignals.isWalking
+                schedule: schedule
             ),
         ]
 

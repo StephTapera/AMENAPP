@@ -4,7 +4,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "rootDir": "src",
-    "outDir": "lib",
+    "outDir": "lib/church",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,

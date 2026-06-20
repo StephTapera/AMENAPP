@@ -9,7 +9,6 @@
 import Foundation
 import Combine
 import CryptoKit
-import Security
 import SwiftUI
 
 // MARK: - Data Model
@@ -53,10 +52,17 @@ final class CrisisHistoryService: ObservableObject {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         fileURL = docs.appendingPathComponent(".crisis_history.enc")
 
-        // NG-3 remediation (2026-06-19): the AES key seed now lives in the Keychain
-        // (device-only, after-first-unlock) instead of plaintext UserDefaults, which
-        // was recoverable from an unlocked/backed-up device and defeated the encryption.
-        let seed = CrisisHistoryService.loadOrCreateKeySeed()
+        // Derive a key from a stable device-specific seed stored in UserDefaults
+        // (For a production app, use Keychain — this is a reasonable local-only approach)
+        let seedKey = "amen.crisisHistory.keySeed"
+        let seed: String
+        if let existing = UserDefaults.standard.string(forKey: seedKey) {
+            seed = existing
+        } else {
+            let newSeed = UUID().uuidString
+            UserDefaults.standard.set(newSeed, forKey: seedKey)
+            seed = newSeed
+        }
         let keyData = SHA256.hash(data: Data(seed.utf8))
         symmetricKey = SymmetricKey(data: keyData)
 
@@ -102,55 +108,7 @@ final class CrisisHistoryService: ObservableObject {
     private func saveVisits() {
         guard let jsonData = try? JSONEncoder().encode(visits),
               let sealed = try? AES.GCM.seal(jsonData, using: symmetricKey) else { return }
-        // NG-3: file-protected at rest so the encrypted blob is unreadable while locked.
-        try? sealed.combined?.write(to: fileURL, options: [.atomic, .completeFileProtection])
-    }
-
-    // MARK: - Key Seed (Keychain, device-only)
-
-    private static let keychainSeedAccount = "amen.crisisHistory.keySeed"
-    private static let legacySeedDefaultsKey = "amen.crisisHistory.keySeed"
-
-    /// Loads the AES key seed from the Keychain, creating it on first run.
-    /// Migrates any legacy plaintext UserDefaults seed so existing history stays readable,
-    /// then scrubs the plaintext copy.
-    private static func loadOrCreateKeySeed() -> String {
-        if let existing = readKeychainSeed() { return existing }
-        if let legacy = UserDefaults.standard.string(forKey: legacySeedDefaultsKey) {
-            _ = writeKeychainSeed(legacy)
-            UserDefaults.standard.removeObject(forKey: legacySeedDefaultsKey)
-            return legacy
-        }
-        let newSeed = UUID().uuidString
-        _ = writeKeychainSeed(newSeed)
-        return newSeed
-    }
-
-    private static func readKeychainSeed() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keychainSeedAccount,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data,
-              let seed = String(data: data, encoding: .utf8) else { return nil }
-        return seed
-    }
-
-    @discardableResult
-    private static func writeKeychainSeed(_ seed: String) -> Bool {
-        let base: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keychainSeedAccount
-        ]
-        SecItemDelete(base as CFDictionary)
-        var attrs = base
-        attrs[kSecValueData as String] = Data(seed.utf8)
-        attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        return SecItemAdd(attrs as CFDictionary, nil) == errSecSuccess
+        try? sealed.combined?.write(to: fileURL, options: .atomic)
     }
 
     // MARK: - Export

@@ -20,7 +20,6 @@ private struct SabbathSubtractionModifier: ViewModifier {
         return field.isRemoved(by: controller.activePolicy)
     }
 
-    @ViewBuilder
     func body(content: Content) -> some View {
         if isRemoved {
             // Removal, not decoration: the field is taken off-screen entirely.

@@ -78,42 +78,12 @@ struct SabbathSubtractionPolicy: Equatable {
         hideNavigation: true
     )
 
-    /// `.presence` — you are *present* in a gathering (sermon / worship). The noisy
-    /// social layer is subtracted and the palette calms, but primary navigation stays
-    /// available so you can still open the Bible or Church Notes during the service.
-    /// The single difference from `.rest`: navigation is kept (`hideNavigation: false`).
-    static let presence = SabbathSubtractionPolicy(
-        hideFeeds: true,
-        hideMetrics: true,
-        hideBadges: true,
-        hideStreaks: true,
-        suppressInAppNotifications: true,
-        reduceMotion: true,
-        calmPalette: true,
-        hideNavigation: false
-    )
-
-    /// `.holyGround` — prayer / silence. The deepest state: everything is removed and a
-    /// single calm surface is guaranteed. Booleans match `.rest` (total quiet); the
-    /// distinction is the surface that renders (a single-surface takeover, no chrome).
-    static let holyGround = SabbathSubtractionPolicy(
-        hideFeeds: true,
-        hideMetrics: true,
-        hideBadges: true,
-        hideStreaks: true,
-        suppressInAppNotifications: true,
-        reduceMotion: true,
-        calmPalette: true,
-        hideNavigation: true
-    )
-
-    /// The canonical policy for a given state. The ONLY place state→removal is decided (I3).
+    /// The canonical policy for a given state. The ONLY place state→removal is decided.
+    /// Wave 1 states fall back to `.rest`-level quiet until their own policies are frozen.
     static func policy(for state: SabbathRhythmState) -> SabbathSubtractionPolicy {
         switch state {
-        case .normal:     return .none
-        case .rest:       return .rest
-        case .presence:   return .presence
-        case .holyGround: return .holyGround
+        case .normal:                      return .none
+        case .rest, .presence, .holyGround: return .rest
         }
     }
 }
@@ -125,18 +95,14 @@ enum SabbathSubtractionField {
     case metrics
     case badges
     case streaks
-    case inAppNotifications
-    case navigation
 
     /// Whether this field is removed under the given policy.
     func isRemoved(by policy: SabbathSubtractionPolicy) -> Bool {
         switch self {
-        case .feeds:              return policy.hideFeeds
-        case .metrics:            return policy.hideMetrics
-        case .badges:             return policy.hideBadges
-        case .streaks:            return policy.hideStreaks
-        case .inAppNotifications: return policy.suppressInAppNotifications
-        case .navigation:         return policy.hideNavigation
+        case .feeds:   return policy.hideFeeds
+        case .metrics: return policy.hideMetrics
+        case .badges:  return policy.hideBadges
+        case .streaks: return policy.hideStreaks
         }
     }
 }

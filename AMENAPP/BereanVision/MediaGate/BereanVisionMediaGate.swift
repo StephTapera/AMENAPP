@@ -36,10 +36,6 @@ public struct BereanVisionMediaGate: MediaGate {
     /// shape AND carries no image-byte markers. Everything else → .block.
     public func evaluatePayload(_ payload: Any?) -> MediaGateDecision {
         guard let payload else { return .block }                 // nil → block
-        // Both derived DTOs are objects. A non-dictionary top level is an
-        // unrecognized shape → fail-closed. This also stops a bare scalar or
-        // array of scalars from passing the leaf allow-list.
-        guard payload is [String: Any] else { return .block }
         if containsImageBytes(payload, depth: 0) { return .block } // forbidden markers → block
         guard isPermittedDerivedShape(payload, depth: 0) else { return .block } // unrecognized → block
         return .allow
