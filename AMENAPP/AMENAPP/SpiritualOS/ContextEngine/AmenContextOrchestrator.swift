@@ -305,7 +305,7 @@ final class AmenContextOrchestrator: NSObject {
         await MainActor.run {
             if self.currentMode == .event {
                 self.eventCheckInSpace = nil
-                Task { await self.applyMode(.standard) }
+                Task { self.applyMode(.standard) }
             }
         }
     }

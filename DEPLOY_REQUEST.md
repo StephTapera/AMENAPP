@@ -1,8 +1,11 @@
 # Spiritual OS Deploy Request
 
-Date: 2026-06-18
-Branch: `qa/auto-sweep-2026-06-17`
-Current deploy-code SHA: `7ad7a9c5887b146ef58a1b615a9727366be13d11`
+Date: 2026-06-20
+Branch at last refresh: `feature/volunteer-board-wave0`
+Current observed SHA at last refresh: `9989d33602c8980b0a43aec8b851214cfcaf11e1`
+Xcode-visible copy: `AMENAPP/Docs/Readiness/SPIRITUAL_OS_DEPLOY_REQUEST.md`
+
+Note: the current worktree still contains unrelated dirty changes from other lanes. Treat this request as the Spiritual OS deploy plan and re-check `git status` plus the exact diff before any production deploy.
 
 ## Scope Decision
 
@@ -59,6 +62,7 @@ Passed:
 cd functions && node --check spiritualOSFunctions.js
 cd functions && npm run build:sanctuary
 cd functions && npm run build:berean
+cd functions && npm run build:context
 ```
 
 Blocked / requires human-machine verification:
@@ -69,13 +73,7 @@ FIREBASE_CLI_DISABLE_UPDATE_CHECK=true firebase emulators:exec --only firestore 
 
 Result: Firestore emulator could not start because port `8080` is already occupied. Rules syntax and denial tests are **not green** yet.
 
-Predeploy caveat:
-
-```sh
-cd functions && npm run build:context
-```
-
-Result: failed before project code due package-script quote parsing under this shell. Human deploy broker must run the root Firebase predeploy in the normal deploy environment or fix the package script before deploy.
+Predeploy caveat resolved on 2026-06-20: `build:context` now runs through `functions/scripts/build-context.js` instead of a fragile inline `node -e` command.
 
 ## Required Human Review Before Deploy
 
