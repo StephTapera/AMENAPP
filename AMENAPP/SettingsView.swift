@@ -786,6 +786,8 @@ struct WellbeingGroupView: View {
                 SDNavRow(icon: "alarm",                  label: "Prayer Reminders")         { PrayerReminderSettingsView() }
                 SDDivider()
                 SDNavRow(icon: "moon",                   label: "Quiet Mode")               { QuietModeSettingsView() }
+                SDDivider()
+                SDNavRow(icon: "sparkles",               label: "Contextual Selah")         { SelahContextualSettingsView() }
             }
         }
     }
