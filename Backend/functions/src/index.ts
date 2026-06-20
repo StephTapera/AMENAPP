@@ -62,6 +62,10 @@ export * from "./noteShare";
 // Safety OS Reaction Engine
 export * from "./safetyOSReactionEngine";
 
+// Trust & Safety moderation mesh contracts — capability-first, provider-abstracted.
+// Wave 0 only: no provider implementation or autonomous action path.
+export * from "./moderationMeshContracts";
+
 // Community Hubs & Object Intelligence
 export {
     resolveCommunityObject,

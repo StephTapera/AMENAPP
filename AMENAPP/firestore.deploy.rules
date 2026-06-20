@@ -1747,6 +1747,38 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // /guardianSignals/{signalId}
+    // GUARDIAN C-registry signal records — CF only.
+    // Advisory agents write summarized evidence refs; no client writes raw content here.
+    // =========================================================================
+
+    match /guardianSignals/{signalId} {
+      allow read: if hasAnyClaimRole(['moderator', 'executive_admin']) || isAdminSDK();
+      allow create, update, delete: if false; // CF moderation mesh only
+    }
+
+    // =========================================================================
+    // /safetyCapabilityRuns/{runId}
+    // Provider-abstracted capability execution records — CF only.
+    // Used for auditability while keeping provider choice swappable.
+    // =========================================================================
+
+    match /safetyCapabilityRuns/{runId} {
+      allow read: if hasAnyClaimRole(['moderator', 'executive_admin']) || isAdminSDK();
+      allow create, update, delete: if false; // CF moderation mesh only
+    }
+
+    // =========================================================================
+    // /safetyProviderReadiness/{docId}
+    // Legal/provider readiness gates, including CSAM four-part gate — server-owned.
+    // =========================================================================
+
+    match /safetyProviderReadiness/{docId} {
+      allow read: if hasAnyClaimRole(['owner', 'executive_admin']) || isAdminSDK();
+      allow create, update, delete: if false; // CF/admin console workflow only
+    }
+
+    // =========================================================================
     // /mediaModeration/{docId}
     // Media moderation results — CF writes only.
     // =========================================================================
