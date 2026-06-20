@@ -28,7 +28,7 @@ import * as path from "path";
 import { firestoreEmulator } from "./emulatorConfig";
 
 const PROJECT_ID = "amen-rules-test-communication-os";
-const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore 18.rules");
+const RULES_PATH = path.resolve(__dirname, "../../AMENAPP/firestore.deploy.rules");
 
 const THREAD_ID = "thread123";
 const MEMBER_UID = "user_member";
@@ -67,16 +67,17 @@ describe("Communication OS V1 — Thread Memory", () => {
   beforeEach(async () => {
     // Seed: thread member doc and a memory doc (bypassing rules)
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const adminDb = ctx.firestore();
       await setDoc(
-        doc(ctx.firestore(), `threads/${THREAD_ID}/members/${MEMBER_UID}`),
+        doc(adminDb, `threads/${THREAD_ID}/members/${MEMBER_UID}`),
         { joinedAt: new Date() },
       );
       await setDoc(
-        doc(ctx.firestore(), `threads/${THREAD_ID}/memories/mem1`),
+        doc(adminDb, `threads/${THREAD_ID}/memories/mem1`),
         { title: "Test memory", type: "note", createdBy: MEMBER_UID },
       );
       await setDoc(
-        doc(ctx.firestore(), `threads/${THREAD_ID}/messageContext/msg1`),
+        doc(adminDb, `threads/${THREAD_ID}/messageContext/msg1`),
         { summary: "Context summary", createdBy: MEMBER_UID },
       );
     });
@@ -274,12 +275,13 @@ describe("Communication OS V1 — Post Context", () => {
   beforeEach(async () => {
     // Seed post authored by AUTHOR_UID
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `posts/${POST_ID}`), {
+      const adminDb = ctx.firestore();
+      await setDoc(doc(adminDb, `posts/${POST_ID}`), {
         authorId: AUTHOR_UID,
         content: "Test post",
         createdAt: new Date(),
       });
-      await setDoc(doc(ctx.firestore(), `posts/${POST_ID}/postContext/main`), {
+      await setDoc(doc(adminDb, `posts/${POST_ID}/postContext/main`), {
         detectedLinks: [],
         detectedDates: [],
         generatedAt: new Date(),
@@ -321,12 +323,13 @@ describe("Communication OS V1 — Post Context", () => {
 describe("Communication OS V1 — Moderation (server-only)", () => {
   beforeEach(async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `posts/${POST_ID}`), {
+      const adminDb = ctx.firestore();
+      await setDoc(doc(adminDb, `posts/${POST_ID}`), {
         authorId: AUTHOR_UID,
         content: "Test post",
         createdAt: new Date(),
       });
-      await setDoc(doc(ctx.firestore(), `posts/${POST_ID}/moderation/main`), {
+      await setDoc(doc(adminDb, `posts/${POST_ID}/moderation/main`), {
         severity: "safe",
         allowed: true,
         checkedAt: new Date(),

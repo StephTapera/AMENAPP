@@ -1,5 +1,28 @@
 # FULL-STACK BUILD CERTIFICATION
 
+## Current Attempt - 2026-06-20 17:34:35 CDT
+
+Verification HEAD: `157491af`
+Result: **NOT CERTIFIED.** Backend code and rules are green at this HEAD, but iOS app/test compilation is not certified because Xcode MCP timed out and the shell build is blocked in SwiftPM/CoreSimulator package/build infrastructure before Swift compilation.
+
+| Layer | Status | Evidence |
+|---|---|---|
+| Layer 1 - iOS app clean build | 🔴 BLOCKED | Xcode MCP `BuildProject` and `GetBuildLog` timed out. CLI isolated SwiftPM clone/cache resolve returned no packages; build then failed before Swift compile with missing package products including Firebase, LiveKit, Algolia, GoogleSignIn, and GoogleGenerativeAI. A fallback default-cache `xcodebuild build` at HEAD `3acd8ea2` is still hung in package fetch/build with CoreSimulator service errors. No app compiler error has been reached. |
+| Layer 2 - iOS test targets compile | 🔴 BLOCKED | Not certified. Prior `build-for-testing` could not compute the dependency graph, and the current app build cannot complete package resolution/build. |
+| Layer 3 - Backend TypeScript | ✅ GREEN | `cd Backend/functions && npx tsc --noEmit` exited 0; `npm run build` exited 0; deployed legacy `.js` files passed `node --check`. |
+| Layer 4 - Backend Jest | ✅ GREEN | `cd Backend/functions && npx jest --runInBand`: `Test Suites: 72 passed, 72 total`; `Tests: 1228 passed, 1228 total`. |
+| Layer 5 - Firestore rules | ✅ GREEN | Broad Firestore rules suite: `21 passed, 21 total`; `305 passed, 305 total`. Includes account lifecycle, Amen Connect, church notes, communication OS, contextual action layer, gap-p0, minor-safe DM, spiritual OS, and related safety suites. |
+| Layer 5 - Storage rules | ✅ GREEN WITH 1 INTENTIONAL SKIP | Storage emulator started cleanly at `127.0.0.1:9199`. `creator-profiles.rules.test.ts`: `39 passed, 1 skipped`; storage/trust suites: `3 passed, 3 total`; `15 passed, 15 total`. The skip is the documented positive cross-service manager upload case requiring co-started Firestore + Storage emulators. |
+| Layer 5 - RTDB rules | ✅ GREEN | `account-rtdb.rules.test.ts`: `4 passed, 4 total`. |
+
+### Current Root Causes
+
+| Area | Cause | Disposition |
+|---|---|---|
+| iOS certification | Xcode MCP timeout plus shell SwiftPM/CoreSimulator instability. The isolated package cache path did not hydrate products; the default-cache build is stuck fetching/building packages. | 🔴 BLOCKED until a capable Xcode lane or human shell can run the canonical clean build and build-for-testing at the current HEAD. |
+| Rules | Previous storage emulator jar gap is resolved. Rules suites now execute and pass locally, with one intentional creator cross-service skip documented above. | ✅ GREEN |
+| Backend Jest | The earlier failing-suite cluster is resolved in `Backend/functions`. | ✅ GREEN |
+
 ## Remediation State — 2026-06-17 (5 batches committed, T1 GREEN)
 
 Branch: `cert/reanchor-eee648b4`

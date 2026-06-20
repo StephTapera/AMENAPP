@@ -1,8 +1,8 @@
 # STATUS BOARD
 
-Generated: 2026-06-11 09:28:43 MST (last full refresh)
-**Updated:** 2026-06-11 16:04:58 MST — board commit HEAD: `4a2dd121`; verification HEAD: `4f044d91`
-Evidence bundle HEADs cited: `4526d792` where proof bundles were generated before this refresh
+Generated: 2026-06-20 17:34:35 CDT (current verification refresh)
+**Updated:** 2026-06-20 17:34:35 CDT — verification HEAD: `157491af`
+Evidence bundle HEADs cited below remain historical where noted; current full-stack evidence is anchored to `157491af`.
 
 Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11.md`, `STAGE3_DEPLOY_PACKAGE_2026-06-11.md`, `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md`, `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md`, `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md`, `DECISION_DOC_SAFETY.md`, `AMENAPP/ContextStore/RUNLOG.md`, `AMENAPP/MusicContentLayer/WIRING_CERT.md`, `Docs/find-church/WIRING_CERT.md`, `src/features/connectedIntelligence.RUNLOG.md`.
 
@@ -10,17 +10,18 @@ Sources: `AGENT_LANES.md`, `GAP_BOARD_CLOSED.md`, `STEP5_PROOF_BUNDLE_2026-06-11
 
 | Metric | Current |
 |---|---|
-| Tests passing/total | FULL-STACK RED retry @ `4f044d91`: iOS app MCP build green; iOS build-for-testing blocked by Xcode dependency-graph service; Backend/functions TS green; Backend/functions Jest red (`257 failed / 654 passed`); legacy functions Jest green (`137/137`); Firestore rules compile smoke green; Storage emulator runtime download blocked. See `FULL_STACK_BUILD_CERTIFICATION.md`. |
-| P0/P1/P2 open counts | `0/0/0` from `GAP_BOARD_CLOSED.md`; safety follow-ons are explicit rows below: `5` machine-work rows and `3` human-decision rows |
+| Tests passing/total | NOT FULL-STACK CERTIFIED @ `157491af`: Backend/functions TypeScript/build green; Backend/functions Jest `1228/1228`; Firestore rules `305/305`; Storage/trust/creator `54 passed, 1 intentional skip`; RTDB `4/4`; iOS app build and iOS test compile are BLOCKED by Xcode MCP timeout plus shell SwiftPM/CoreSimulator package/build instability. See `FULL_STACK_BUILD_CERTIFICATION.md`. |
+| P0/P1/P2 open counts | Certification blockers: `1 P0` iOS build/test compile blocker; safety follow-ons remain explicit rows below: `5` machine-work rows and `3` human-decision rows |
 | Lanes DONE vs total | `7/24` board rows are `✅ DONE-PROVEN`; remaining rows are human-pending, in-flight, parked, blocked, or deferred |
 | Deploys completed vs pending | `0/16` human checklist items have deploy/console proof in this workspace |
-| Last green build sha+time | Last iOS app MCP green: `4f044d91` at `2026-06-11T16:02:06-07:00`; not a full-stack green because Layer 2/4/5 remain red or blocked |
-| Full-stack merge gate | RED @ `4f044d91`: Layer 2 dependency graph failed before test compile; Layer 4 Backend/functions Jest failed; Layer 5 Storage emulator runtime download blocked; no double-green repeat |
+| Last green build sha+time | No current iOS green at `157491af`. Last historical iOS app MCP green remains `4f044d91` at `2026-06-11T16:02:06-07:00`; it does not certify current HEAD. |
+| Full-stack merge gate | RED @ `157491af`: Layer 3/4/5 green; Layer 1/2 blocked. No double-green repeat. |
 
 ## SECTION 1 - FEATURES & SYSTEMS
 
 | Feature | Lane/Swarm | Status | Built | Wired/Cert | Tests | Flag (default) | Backend deployed? | Remaining |
 |---|---|---|---|---|---|---|---|---|
+| Full-stack certification @ `157491af` | Certification lane | 🔴 BLOCKED (iOS build/test compile) | Backend/functions + rules compile/test green; iOS build not certified | `FULL_STACK_BUILD_CERTIFICATION.md` current attempt | Backend Jest `1228/1228`; Firestore rules `305/305`; Storage/trust/creator `54 passed, 1 intentional skip`; RTDB `4/4`; iOS blocked | N/A | No deploys performed | Run canonical Layer 1 clean build + Layer 2 build-for-testing in capable Xcode/human shell; then repeat Layer 1 for double-green |
 | Gap Audit + P0 Fix Wave 1 | Gap Audit + P0 Fix Wave 1 | ✅ DONE-PROVEN | `9bbfe47f`, `7af3204b`, `248df4ac`, `41bdf467` in `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` | Deploy package: `RULES_DEPLOY_PACKAGE_P0_2026-06-10.md` | Firestore emulator `18/18`; functions Jest `84/84` | No runtime flag; deploy package only | No | Human deploy: pepper secret, Firestore rules, index, 3 phone functions |
 | Safety Wave 3 package | Safety hardening | 🧍 HUMAN-PENDING (Group A safety decisions + NCMEC/Storage/rules verification) | Prepared in `DEPLOY_PACKAGE_SAFETY_WAVE_3_2026-06-10.md` | Consolidated package: `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | `ageTier.test.js` `11/11`; Xcode diagnostics pass; focused Swift tests blocked by simulator wall | Safety flags already listed in Step 5 proof; production enablement gated | No | Answer `DECISION_DOC_SAFETY.md` Group A, legalReviewer claim, NCMEC registration, Storage/rules console verification |
 | NCMEC registration and live submission | Safety/legal | 🧍 HUMAN-PENDING (A-01 counsel/registration) | Queue-only per `DECISION_DOC_SAFETY.md` and `DEPLOY_PACKAGE_SAFETY_CONSOLIDATED.md` | Decision links: `DECISION_DOC_SAFETY.md` A-01, deploy finding #10 | Not testable until counsel/credentials exist | `NCMEC_SUBMISSION_ENABLED=false` | No | Engage counsel, obtain ESP ID/API key, store secrets; do not enable live HTTP submission |

@@ -62,6 +62,7 @@ service firebase.storage {
     function isAllowedAudioType() {
       return request.resource.contentType == 'audio/mpeg'
           || request.resource.contentType == 'audio/mp4'
+          || request.resource.contentType == 'audio/m4a'
           || request.resource.contentType == 'audio/aac';
     }
 
@@ -217,6 +218,15 @@ service firebase.storage {
       allow read:             if isSignedIn();
       // H-6: client writes locked — CF Admin SDK only via quarantine pipeline.
       allow write, delete:    if false;
+    }
+
+    // Account settings legacy path covered by account-storage.rules.test.ts.
+    // Owner-only, explicit image MIME allowlist, 5 MB profile-photo cap.
+    match /profile_images/{uid}/{filename} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && isAllowedImageType() && withinProfilePhotoLimit();
+      allow update: if false;
+      allow delete: if isOwner(uid);
     }
 
     // ── Organization / church / event media ──────────────────────────────────
@@ -425,6 +435,12 @@ service firebase.storage {
     match /churchNotes/{uid}/{noteId}/video/{filename} {
       allow read:   if isOwner(uid);
       allow write:  if isOwner(uid) && isAllowedVideoType() && withinVideoLimit();
+      allow delete: if isOwner(uid);
+    }
+
+    match /churchNotes/{uid}/{noteId}/documents/{filename} {
+      allow read:   if isOwner(uid);
+      allow write:  if isOwner(uid) && isAllowedDocumentType() && withinImageLimit();
       allow delete: if isOwner(uid);
     }
 
@@ -718,16 +734,72 @@ service firebase.storage {
     // iOS clients never write directly to this path; the CF media pipeline does.
     // Raw uploads and processed results are server-owned; client reads go through
     // the approved/CDN path.
-    match /mediaUploads/{userId}/{mediaId}/raw/{file} {
+    match /mediaUploads/{userId}/{mediaId}/raw/{fileName} {
+      // Owner check expands to request.auth.uid == userId through isOwner(userId).
       allow read:         if isOwner(userId);
-      allow write:        if false;   // server-only: CF Admin SDK writes here
+      allow create:       if isOwner(userId)
+                           && isAllowedQuarantineType()
+                           && withinQuarantineSizeLimit();
+      allow update:       if false;
       allow delete:       if false;   // server-only: CF cleans up after processing
     }
 
-    match /mediaProcessed/{allPaths=**} {
+    match /mediaProcessed/{mediaId}/{kind}/{fileName} {
       allow read:         if isSignedIn();
       allow write:        if false;   // server-only: CF writes approved media here
       allow delete:       if false;
+    }
+
+    // Legacy post image upload path: DENY new writes; approved media is served
+    // from server-owned processed/approved paths after moderation.
+    match /posts/images/{fileName} {
+      allow read: if true;
+      allow write: if false; // DENY new writes
+    }
+
+    // ── Creator Profiles media (MEDIA-GATE, fail-closed) ──────────────────────
+    // Uploads land in /quarantine and are NEVER client-servable. The MEDIA-GATE
+    // pipeline (Admin SDK) inspects them and, only on clearance, writes a copy to
+    // /approved. Rejected/unscanned objects stay in quarantine → unreadable.
+
+    function chStorageOwner(creatorId) {
+      return isSignedIn()
+          && firestore.exists(/databases/(default)/documents/creatorHubs/$(creatorId))
+          && firestore.get(/databases/(default)/documents/creatorHubs/$(creatorId)).data.ownerUid == request.auth.uid;
+    }
+    function chStorageModerator(creatorId) {
+      return isSignedIn()
+          && firestore.exists(/databases/(default)/documents/creatorHubs/$(creatorId)/roles/$(request.auth.uid))
+          && firestore.get(/databases/(default)/documents/creatorHubs/$(creatorId)/roles/$(request.auth.uid)).data.role == 'moderator';
+    }
+    function chStorageManager(creatorId) {
+      return chStorageOwner(creatorId) || chStorageModerator(creatorId);
+    }
+    function chAllowedMediaType() {
+      return isAllowedImageType() || isAllowedVideoType()
+          || isAllowedAudioType() || isAllowedDocumentType();
+    }
+    function chWithinMediaLimit() {
+      return (isAllowedImageType()    && withinImageLimit())
+          || (isAllowedVideoType()    && withinVideoLimit())
+          || (isAllowedAudioType()    && withinAudioLimit())
+          || (isAllowedDocumentType() && request.resource.size <= 25 * 1024 * 1024);
+    }
+
+    // Quarantine — client writes are denied. The MEDIA-GATE callable writes via
+    // Admin SDK after auth/rate-limit checks; no client path should depend on
+    // Storage→Firestore cross-service lookups for creator media.
+    match /creatorHubMedia/{creatorId}/quarantine/{mediaId}/{file} {
+      allow read:   if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;   // server-only: MEDIA-GATE cleans up after its decision
+    }
+
+    // Approved — written only by the gate (Admin SDK) after clearance; readable to signed-in.
+    match /creatorHubMedia/{creatorId}/approved/{allPaths=**} {
+      allow read:  if isSignedIn();
+      allow write: if false;
     }
 
     // ── Default deny (catch-all) ──────────────────────────────────────────────

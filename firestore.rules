@@ -66,6 +66,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
 
+    function isAdmin() {
+      return isAdminSDK() || hasAnyClaimRole(['owner', 'executive_admin', 'moderator']);
+    }
+
     // Does the requesting user hold a specific role claim?
     // Roles are stored in custom claims: request.auth.token.role
     // Valid values: 'owner', 'executive_admin', 'pastor', 'leader',
@@ -295,7 +299,8 @@ service cloud.firestore {
         'isDeleted',
         'deletionReason',
         'flaggedForReview',
-        'removed'
+        'removed',
+        'dynamicReplyPreviewCandidates'
       ];
     }
 
@@ -351,6 +356,175 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'isAdmin', 'role', 'roles', 'isCreator', 'safety', 'trustScore', 'accountStatus',
         'violationCount', 'fcmToken'
+      ]);
+    }
+
+    function accountLifecycleProtectedFields() {
+      return [
+        'isModerator',
+        'accountStatus',
+        'isDeactivated',
+        'deactivatedAt',
+        'deactivationExpiresAt',
+        'deactivationReason',
+        'deletionStatus',
+        'deletedAt',
+        'isDeleting',
+        'emailVerified',
+        'phoneVerified',
+        'twoFactorEnabled',
+        'twoFactorVerified',
+        'twoFactorSession',
+        'backupCodes',
+        'hasCompletedOnboarding',
+        'onboardingCompletedAt',
+        'termsAcceptedAt',
+        'privacyAcceptedAt',
+        'username',
+        'usernameLowercase'
+      ];
+    }
+
+    function accountLifecycleFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(accountLifecycleProtectedFields());
+    }
+
+    function userProfilePublicReadable() {
+      return !resource.data.keys().hasAny([
+        'email',
+        'phone',
+        'contactEmail',
+        'contactPhone',
+        'twoFactorEnabled',
+        'twoFactorVerified',
+        'twoFactorSession',
+        'backupCodes',
+        'emailVerified',
+        'phoneVerified',
+        'hasCompletedOnboarding',
+        'onboardingCompletedAt',
+        'termsAcceptedAt',
+        'privacyAcceptedAt'
+      ]);
+    }
+
+    function requesterAccountActive() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('accountStatus', 'active') == 'active' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('deletionStatus', 'none') == 'none' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isDeactivated', false) == false &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isDeleting', false) == false;
+    }
+
+    function pinnedPostFields() {
+      return ['pinnedPostId', 'pinnedAt', 'pinnedUntil', 'profilePinnedPost'];
+    }
+
+    function pinFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(pinnedPostFields());
+    }
+
+    function validPinnedPostUpdate(userId) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(pinnedPostFields()) &&
+        (
+          (
+            !('pinnedPostId' in request.resource.data) &&
+            !('pinnedAt' in request.resource.data) &&
+            !('pinnedUntil' in request.resource.data) &&
+            !('profilePinnedPost' in request.resource.data)
+          ) ||
+          (
+            request.resource.data.pinnedPostId is string &&
+            request.resource.data.profilePinnedPost is map &&
+            request.resource.data.profilePinnedPost.postId == request.resource.data.pinnedPostId &&
+            request.resource.data.profilePinnedPost.get('isPinned', false) == true &&
+            exists(/databases/$(database)/documents/posts/$(request.resource.data.pinnedPostId)) &&
+            get(/databases/$(database)/documents/posts/$(request.resource.data.pinnedPostId)).data.get('authorId', '') == userId &&
+            get(/databases/$(database)/documents/posts/$(request.resource.data.pinnedPostId)).data.get('isRemoved', false) == false &&
+            get(/databases/$(database)/documents/posts/$(request.resource.data.pinnedPostId)).data.get('removed', false) == false
+          )
+        );
+    }
+
+    function userProfileUpdateAllowed(userId) {
+      return isOwner(userId) &&
+        premiumFieldsUnchanged() &&
+        ageTierUnchanged() &&
+        roleAndSafetyFieldsUnchanged() &&
+        accountLifecycleFieldsUnchanged() &&
+        provenanceUnchanged() &&
+        (
+          (!pinFieldsChanged()) ||
+          validPinnedPostUpdate(userId)
+        );
+    }
+
+    function communityMember(communityId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid));
+    }
+
+    function communityReadable(communityId) {
+      return isSignedIn() &&
+        (
+          resource.data.get('isPrivate', false) == false ||
+          resource.data.get('creatorId', '') == request.auth.uid ||
+          request.auth.uid in resource.data.get('adminIds', []) ||
+          communityMember(communityId)
+        );
+    }
+
+    function communityClientMutableFieldsOnly() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'adminIds', 'memberCount', 'postCount', 'rankingScore', 'safetyStatus',
+        'moderationStatus', 'isOfficial', 'isArchived', 'isDeleted'
+      ]);
+    }
+
+    function connectMember(spaceId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/connectSpaces/$(spaceId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/connectSpaces/$(spaceId)/members/$(request.auth.uid)).data.get('status', 'active') == 'active';
+    }
+
+    function connectRole(spaceId) {
+      return get(/databases/$(database)/documents/connectSpaces/$(spaceId)/members/$(request.auth.uid)).data.get('role', '');
+    }
+
+    function connectPaidTier(tierId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/connectMemberships/$(request.auth.uid + '_' + tierId)) &&
+        get(/databases/$(database)/documents/connectMemberships/$(request.auth.uid + '_' + tierId)).data.get('membershipStatus', '') == 'active' &&
+        get(/databases/$(database)/documents/connectMemberships/$(request.auth.uid + '_' + tierId)).data.get('paymentState', '') == 'paid';
+    }
+
+    function connectAllowedRole(spaceId, data) {
+      return connectMember(spaceId) &&
+        (
+          !('allowedRoles' in data) ||
+          connectRole(spaceId) in data.get('allowedRoles', [])
+        );
+    }
+
+    function connectChannelReadable(spaceId, data) {
+      return data.get('visibility', 'publicToSpace') == 'publicToSpace'
+        ? connectAllowedRole(spaceId, data)
+        : data.get('visibility', '') == 'privateGroup' && connectAllowedRole(spaceId, data);
+    }
+
+    function connectBoardReadable(spaceId, data) {
+      return data.get('visibility', 'publicToSpace') == 'publicToSpace'
+        ? connectMember(spaceId)
+        : data.get('visibility', '') == 'paidTier'
+          ? connectMember(spaceId) && connectPaidTier(data.get('requiredTierId', ''))
+          : false;
+    }
+
+    function churchNoteServerFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'transcriptText', 'summaryDraft', 'structuredSummary', 'aiSummary',
+        'generatedBlocks', 'safetyStatus', 'moderationStatus'
       ]);
     }
 
@@ -572,9 +746,9 @@ service cloud.firestore {
     // =========================================================================
 
     match /users/{userId} {
-      // Read: any signed-in user can read public profile data.
-      // Unauthenticated access is denied (all PII lives in subcollections).
-      allow read: if isSignedIn();
+      // Read: owners/admins can read the full account document; other signed-in
+      // users only get docs that do not carry private account/security fields.
+      allow read: if isOwner(userId) || isAdmin() || (isSignedIn() && userProfilePublicReadable());
 
       // Create: must create your own profile; no premium, role, or creator spoof fields.
       allow create: if isOwner(userId) && !hasRawPII() &&
@@ -589,11 +763,7 @@ service cloud.firestore {
       // Premium entitlement fields are CF/Admin SDK only.
       // SECURITY FIX: roleAndSafetyFieldsUnchanged() blocks isAdmin, role/roles,
       // isCreator, safety, trustScore, accountStatus from being written by any client.
-      allow update: if isOwner(userId) &&
-        premiumFieldsUnchanged() &&
-        ageTierUnchanged() &&
-        roleAndSafetyFieldsUnchanged() &&
-        provenanceUnchanged();
+      allow update: if userProfileUpdateAllowed(userId);
 
       // Delete: hard delete denied — I-1. Use soft-delete (set deletedAt).
       allow delete: if false;
@@ -710,6 +880,41 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
+      // ── Berean private outputs ─────────────────────────────────────────────
+      // Premium Berean callables own all writes. Clients may only read their own
+      // generated private spiritual artifacts and may never set trusted labels.
+      // Canonical path: match /users/{userId}/bereanInsights/{insightId}
+      match /bereanInsights/{insightId} {
+        allow read: if isOwner(userId);
+        allow create, update: if false &&
+          !request.resource.data.keys().hasAny(['serverSafetyLabels', 'trustedSafetyLabels']);
+        allow delete: if false;
+      }
+
+      // Canonical path: match /users/{userId}/prayerEntries/{entryId}
+      match /prayerEntries/{entryId} {
+        allow read: if isOwner(userId);
+        allow create, update: if false &&
+          !request.resource.data.keys().hasAny(['serverSafetyLabels', 'trustedSafetyLabels']);
+        allow delete: if false;
+      }
+
+      // Canonical path: match /users/{userId}/discernmentResults/{resultId}
+      match /discernmentResults/{resultId} {
+        allow read: if isOwner(userId);
+        allow create, update: if false &&
+          !request.resource.data.keys().hasAny(['serverSafetyLabels', 'trustedSafetyLabels']);
+        allow delete: if false;
+      }
+
+      // Canonical path: match /users/{userId}/walkWithChristPath/{pathItemId}
+      match /walkWithChristPath/{pathItemId} {
+        allow read: if isOwner(userId);
+        allow create, update: if false &&
+          !request.resource.data.keys().hasAny(['serverSafetyLabels', 'trustedSafetyLabels']);
+        allow delete: if false;
+      }
+
       // ── Accessibility preferences ───────────────────────────────────────────
       match /accessibility/{prefDoc} {
         allow read: if isOwner(userId);
@@ -727,6 +932,52 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create, update: if false;
         allow delete: if isOwner(userId);
+      }
+
+      match /savedCommunities/{savedCommunityId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
+      match /privateMessageNotes/{noteId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /messageReminders/{reminderId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /selahMessageReflections/{reflectionId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /privateContactNotes/{contactId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /savedConversationObjects/{objectId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /deviceTokens/{deviceId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          request.resource.data.keys().hasOnly(['tokenHash', 'enabled', 'platform', 'createdAt', 'updatedAt']) &&
+          request.resource.data.get('tokenHash', '') is string &&
+          request.resource.data.get('enabled', false) is bool &&
+          request.resource.data.get('platform', '') in ['ios', 'iPadOS', 'macOS', 'watchOS', 'visionOS', 'web'];
+        allow delete: if isOwner(userId);
+      }
+
+      match /{contextCollection}/{contextId} {
+        allow read: if isOwner(userId) &&
+          contextCollection in [
+            'contextSelections', 'contextActions', 'ambientSuggestions',
+            'contextualMemory', 'timelineCompression', 'savedContextThreads',
+            'studyContinuity', 'readingContinuity', 'reflectionHistory',
+            'voiceReflections'
+          ];
+        allow write: if false;
       }
 
       // ── Action Layer — post-to-action transforms (AmenPostActionTransformService) ──
@@ -750,6 +1001,43 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if isOwner(userId);
       }
+    }
+
+    match /communities/{communityId} {
+      allow read: if communityReadable(communityId);
+      allow create: if false;
+      allow update: if isSignedIn() &&
+        resource.data.get('creatorId', '') == request.auth.uid &&
+        communityClientMutableFieldsOnly();
+      allow delete: if false;
+
+      match /members/{memberId} {
+        allow read: if isSignedIn() &&
+          (memberId == request.auth.uid ||
+           get(/databases/$(database)/documents/communities/$(communityId)).data.get('creatorId', '') == request.auth.uid ||
+           request.auth.uid in get(/databases/$(database)/documents/communities/$(communityId)).data.get('adminIds', []));
+        allow write: if false;
+      }
+
+      match /posts/{postId} {
+        allow read: if isSignedIn() &&
+          (
+            get(/databases/$(database)/documents/communities/$(communityId)).data.get('isPrivate', false) == false ||
+            get(/databases/$(database)/documents/communities/$(communityId)).data.get('creatorId', '') == request.auth.uid ||
+            request.auth.uid in get(/databases/$(database)/documents/communities/$(communityId)).data.get('adminIds', []) ||
+            exists(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid))
+          );
+        allow write: if false;
+      }
+    }
+
+    match /arkCommunities/{communityId} {
+      allow read: if isSignedIn();
+      allow create: if false;
+      allow update: if isSignedIn() &&
+        resource.data.get('creatorId', '') == request.auth.uid &&
+        communityClientMutableFieldsOnly();
+      allow delete: if false;
     }
 
     // =========================================================================
@@ -801,8 +1089,9 @@ service cloud.firestore {
       allow create: if
         isSignedIn() &&
         !isUnderMinimum() &&
+        requesterAccountActive() &&
         request.resource.data.get('authorId', '') == request.auth.uid &&
-        provenanceUnchanged() &&
+        !request.resource.data.keys().hasAny(['provenance']) &&
         // SECURITY: clients must not pre-set visible:true or any moderation state.
         // moderatePost CF sets visible after safety review.
         request.resource.data.get('visible', false) == false &&
@@ -874,6 +1163,29 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      match /dynamicReplyPreviews/{previewId} {
+        allow read: if isSignedIn() &&
+          get(/databases/$(database)/documents/posts/$(postId)).data.get('visibility', '') in ['everyone', 'public'] &&
+          get(/databases/$(database)/documents/posts/$(postId)).data.get('privacyLevel', 'public') != 'private' &&
+          get(/databases/$(database)/documents/posts/$(postId)).data.get('isRemoved', false) == false &&
+          get(/databases/$(database)/documents/posts/$(postId)).data.get('removed', false) == false;
+        allow write: if false;
+      }
+
+      match /dynamicReplyPreviewMeta/{metaId} {
+        allow read, write: if false;
+      }
+
+      match /postContext/{contextId} {
+        allow read: if isSignedIn() &&
+          get(/databases/$(database)/documents/posts/$(postId)).data.get('authorId', '') == request.auth.uid;
+        allow write: if false;
+      }
+
+      match /moderation/{moderationId} {
+        allow read, write: if false;
+      }
+
       // ── Action threads subcollection ────────────────────────────────────────
       match /actionThreads/{threadId} {
         allow read: if isSignedIn();
@@ -891,6 +1203,25 @@ service cloud.firestore {
         allow read: if isOwner(resource.data.get('authorId', '')) ||
           hasAnyClaimRole(['moderator', 'executive_admin']) || isAdminSDK();
         allow create, update, delete: if false; // CF only
+      }
+    }
+
+    match /threads/{threadId} {
+      match /members/{memberId} {
+        allow read: if isSignedIn() && memberId == request.auth.uid;
+        allow write: if false;
+      }
+
+      match /memories/{memoryId} {
+        allow read: if isSignedIn() &&
+          exists(/databases/$(database)/documents/threads/$(threadId)/members/$(request.auth.uid));
+        allow write: if false;
+      }
+
+      match /messageContext/{contextId} {
+        allow read: if isSignedIn() &&
+          exists(/databases/$(database)/documents/threads/$(threadId)/members/$(request.auth.uid));
+        allow write: if false;
       }
     }
 
@@ -1453,6 +1784,10 @@ service cloud.firestore {
           (
             isOwner(get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('authorId', get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('userId', ''))) ||
             request.auth.uid in get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaboratorUids', []) ||
+            (
+              exists(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)).data.get('role', '') in ['viewer', 'commenter', 'editor', 'owner']
+            ) ||
             hasAnyClaimRole(['pastor', 'leader', 'content_manager', 'owner', 'executive_admin'])
           );
       }
@@ -1463,7 +1798,22 @@ service cloud.firestore {
             isOwner(get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('authorId', get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('userId', ''))) ||
             (request.auth.uid in get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaboratorUids', []) &&
              get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaborators', {})[request.auth.uid] != null &&
-             get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaborators', {})[request.auth.uid].get('role', '') in ['editor', 'owner'])
+             get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('collaborators', {})[request.auth.uid].get('role', '') in ['editor', 'owner']) ||
+            (
+              exists(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)).data.get('role', '') in ['editor', 'owner']
+            )
+          );
+      }
+
+      function canCommentChurchNote() {
+        return canReadChurchNote() &&
+          (
+            isOwner(get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('authorId', get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('userId', ''))) ||
+            (
+              exists(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/churchNotes/$(noteId)/collaborators/$(request.auth.uid)).data.get('role', '') in ['commenter', 'editor', 'owner']
+            )
           );
       }
 
@@ -1478,10 +1828,12 @@ service cloud.firestore {
       // Update: owner or editor-role collaborator.
       allow update: if
         provenanceUnchanged() &&
+        churchNoteServerFieldsUnchanged() &&
         canWriteChurchNote();
 
-      // Delete: I-1 — hard deletes denied.
-      allow delete: if false;
+      // Owner deletion is allowed so account-deletion cascade can remove the
+      // parent note; server-owned subcollections remain callable/admin only.
+      allow delete: if canWriteChurchNote();
 
       match /blocks/{blockId} {
         allow read: if canReadChurchNote();
@@ -1495,9 +1847,10 @@ service cloud.firestore {
 
       match /comments/{commentId} {
         allow read: if canReadChurchNote();
-        allow create: if canReadChurchNote() &&
+        allow create: if canCommentChurchNote() &&
           request.resource.data.get('authorUid', '') == request.auth.uid;
-        allow update, delete: if false; // moderation/editing through callables only
+        allow update: if false; // moderation/editing through callables only
+        allow delete: if isSignedIn() && resource.data.get('authorUid', '') == request.auth.uid;
       }
 
       match /actionItems/{itemId} {
@@ -1507,7 +1860,12 @@ service cloud.firestore {
 
       match /processingJobs/{jobId} {
         allow read: if canReadChurchNote();
-        allow create, update, delete: if false; // Church Notes media callables only
+        allow create: if false; // Church Notes media callables only
+        allow update: if isSignedIn() &&
+          isOwner(get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('authorId', get(/databases/$(database)/documents/churchNotes/$(noteId)).data.get('userId', ''))) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+          request.resource.data.get('status', '') == 'canceled';
+        allow delete: if false;
       }
 
       match /transcripts/{transcriptId} {
@@ -1593,6 +1951,96 @@ service cloud.firestore {
 
       // Delete: executive admin soft-delete only (via CF).
       allow delete: if false;
+    }
+
+    // =========================================================================
+    // /scriptureReferences/{referenceId}
+    // Shared resolved Scripture metadata cache. Functions populate and refresh;
+    // clients may read cached metadata but never write canonical Scripture text.
+    // =========================================================================
+
+    match /scriptureReferences/{referenceId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    // =========================================================================
+    // Berean realtime generated streams. Session secrets and transcript/caption
+    // persistence are callable-owned; clients can read scoped outputs but never
+    // write generated chunks or moderation artifacts directly.
+    // =========================================================================
+
+    match /realtimeSessions/{sessionId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('ownerId', '')) ||
+         request.auth.uid in resource.data.get('participantIds', []));
+      allow create, update, delete: if false;
+    }
+
+    match /translatedStreams/{streamId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('ownerId', '')) ||
+         request.auth.uid in resource.data.get('participantIds', []));
+      allow create, update, delete: if false;
+    }
+
+    match /liveCaptions/{captionId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('ownerId', '')) ||
+         request.auth.uid in resource.data.get('participantIds', []));
+      allow create, update, delete: if false;
+    }
+
+    match /sermonSummaries/{summaryId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('ownerId', '')) ||
+         request.auth.uid in resource.data.get('participantIds', []));
+      allow create, update, delete: if false;
+    }
+
+    match /translationPreferences/{preferenceId} {
+      allow read: if isOwner(resource.data.get('ownerId', ''));
+      allow create, update, delete: if false;
+    }
+
+    match /multilingualContent/{contentId} {
+      allow read: if isSignedIn() &&
+        (resource.data.get('privacyLevel', 'private') == 'public' ||
+         isOwner(resource.data.get('ownerId', '')));
+      allow create, update, delete: if false;
+    }
+
+    match /livePrayerSessions/{sessionId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.get('ownerId', '')) ||
+         request.auth.uid in resource.data.get('participantIds', []));
+      allow create, update, delete: if false;
+    }
+
+    match /voiceInteractions/{interactionId} {
+      allow read: if isOwner(resource.data.get('ownerId', ''));
+      allow create, update, delete: if false;
+    }
+
+    match /translationChunks/{chunkId} {
+      allow read: if isSignedIn();
+      allow create: if false;
+      allow update, delete: if false;
+    }
+
+    match /captionChunks/{chunkId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /transcriptChunks/{chunkId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /realtimeModerationEvents/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // =========================================================================
@@ -1692,6 +2140,12 @@ service cloud.firestore {
     // =========================================================================
     // /userReports/{reportId}
     // submitReport CF writes these; direct client writes blocked.
+    // Severe report taxonomy recognized by submitReport CF:
+    // 'child_safety', 'csam', 'grooming', 'online_enticement',
+    // 'sexual_exploitation', 'sex_trafficking', 'sextortion',
+    // 'prostitution_facilitation', 'pornography',
+    // 'non_consensual_intimate_imagery', 'deepfake_sexual_content',
+    // 'sexualized_minor', 'unsolicited_obscene_material_to_child'
     // =========================================================================
 
     match /userReports/{reportId} {
@@ -2613,19 +3067,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /users/{uid}/bereanPulse/main/events/{eventId} {
-      allow read: if isOwner(uid);
-      allow create, update: if isOwner(uid) &&
-        request.resource.data.keys().hasOnly(['cardId', 'eventType', 'mode', 'timestamp', 'metadata']);
-      allow delete: if false;
-    }
+      match /users/{uid}/bereanPulse/main/events/{eventId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly(['cardId', 'eventType', 'mode', 'timestamp', 'metadata']) &&
+        request.resource.data.get('eventType', '') in ['liked', 'hidden', 'dismissed', 'opened', 'saved', 'unsaved', 'feedback'];
+        allow update: if false;
+        allow delete: if false;
+      }
 
-    match /users/{uid}/bereanPulse/main/savedCards/{cardId} {
-      allow read: if isOwner(uid);
-      allow create, update: if isOwner(uid) &&
-        request.resource.data.keys().hasOnly(['cardId', 'mode', 'title', 'savedAt']);
-      allow delete: if isOwner(uid);
-    }
+      match /users/{uid}/bereanPulse/main/savedCards/{cardId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly(['cardId', 'mode', 'title', 'savedAt']) &&
+        request.resource.data.get('cardId', '') == cardId;
+        allow delete: if isOwner(uid);
+      }
 
     // =========================================================================
     // AMEN PULSE — BOUNDED daily surface (NOT a feed)
@@ -3789,6 +4246,75 @@ service cloud.firestore {
 
     // Note access logs — admin SDK only; clients can neither read nor write the audit trail.
     match /volunteerNoteAccessLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Amen Connect — member-gated spaces, paid tiers, and server-owned commerce.
+    // =========================================================================
+
+    match /connectSpaces/{spaceId} {
+      allow read: if connectMember(spaceId);
+      allow write: if false;
+
+      match /members/{memberId} {
+        allow read: if connectMember(spaceId);
+        allow write: if false;
+      }
+
+      match /channels/{channelId} {
+        allow read: if connectChannelReadable(spaceId, resource.data);
+        allow write: if false;
+
+        match /messages/{messageId} {
+          allow read: if connectChannelReadable(spaceId, get(/databases/$(database)/documents/connectSpaces/$(spaceId)/channels/$(channelId)).data) &&
+            resource.data.get('deletedAt', null) == null &&
+            resource.data.get('aiExcluded', false) == false;
+          allow write: if false;
+        }
+      }
+
+      match /boards/{boardId} {
+        allow read: if connectBoardReadable(spaceId, resource.data);
+        allow write: if false;
+      }
+
+      match /marketplaceListings/{listingId} {
+        allow read: if connectMember(spaceId) &&
+          resource.data.get('moderationStatus', '') == 'approved';
+        allow write: if false;
+      }
+
+      match /auditLogs/{auditId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /connectMemberships/{membershipId} {
+      allow read: if isSignedIn() && resource.data.get('userId', '') == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /connectCreatorProfiles/{creatorId} {
+      allow read: if isSignedIn() && resource.data.get('safetyStatus', '') == 'allowed';
+      allow write: if false;
+
+      match /products/{productId} {
+        allow read: if isSignedIn() &&
+          (
+            resource.data.get('visibility', 'public') == 'public' ||
+            (resource.data.get('visibility', '') == 'paid' && connectPaidTier(resource.data.get('requiredTierId', '')))
+          );
+        allow write: if false;
+      }
+    }
+
+    match /connectPurchases/{purchaseId} {
+      allow read: if isSignedIn() && resource.data.get('userId', '') == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /connectPayouts/{payoutId} {
       allow read, write: if false;
     }
 
