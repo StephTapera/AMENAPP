@@ -9,9 +9,11 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "test": "jest --passWithNoTests",
-    "build:context": "node -e \"const ts=require(\"typescript\"),fs=require(\"fs\"),path=require(\"path\"),opts={module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true,skipLibCheck:true,strict:false};fs.readdirSync(\"context\").filter(f=>f.endsWith(\".ts\")).forEach(f=>{const r=ts.transpileModule(fs.readFileSync(path.join(\"context\",f),\"utf8\"),{compilerOptions:opts,fileName:f});fs.writeFileSync(path.join(\"context\",f.replace(\".ts\",\".js\")),r.outputText)})\"",
+    "build:context": "node scripts/build-context.js",
     "build:berean": "cd berean && npx tsc",
-    "build:sanctuary": "npx tsc -p tsconfig.sanctuary.json"
+    "build:sanctuary": "npx tsc -p tsconfig.sanctuary.json",
+    "build:moment": "npx tsc -p tsconfig.moment.json",
+    "build:church": "npx tsc -p tsconfig.church.json"
   },
   "jest": {
     "preset": "ts-jest",
@@ -24,7 +26,8 @@
       "**/test/phoneAuthPii.test.js",
       "**/test/safety-rules.test.js",
       "**/test/moderation-safety.test.js",
-      "**/test/rules.spec.js"
+      "**/test/rules.spec.js",
+      "**/test/guardianLink.test.js"
     ],
     "moduleFileExtensions": [
       "ts",
@@ -49,9 +52,10 @@
     "@google/generative-ai": "^0.24.1",
     "firebase-admin": "^13.6.1",
     "firebase-functions": "^7.2.5",
-    "livekit-server-sdk": "^2.14.1",
-    "jsonwebtoken": "^9.0.2",
     "form-data": "^4.0.0",
+    "geofire-common": "^6.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "livekit-server-sdk": "^2.14.1",
     "stripe": "^17.0.0",
     "twilio": "^5.0.0"
   },

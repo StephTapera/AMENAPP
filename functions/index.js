@@ -1979,3 +1979,38 @@ exports.scripture_searchVerses     = capabilityScripture.scripture_searchVerses;
 // iOS call site: AILTransformService.swift via Functions.functions(region: "us-east1").
 const ailModule = require("./ail/ailTransform");
 exports.ailTransform = ailModule.ailTransform;
+
+// ============================================================================
+// MOMENT SYSTEM v1 — Deepen endpoints + Gather gated stubs
+// Region: us-east1. Flags default OFF. Deploy per function only.
+// Prerequisite: npm --prefix functions run build:moment
+// ============================================================================
+const momentSystem = require("./lib/moment/moment");
+exports.momentSummarize = momentSystem.momentSummarize;
+exports.momentCrossReference = momentSystem.momentCrossReference;
+exports.momentGeneratePrayer = momentSystem.momentGeneratePrayer;
+exports.momentGenerateStudyGuide = momentSystem.momentGenerateStudyGuide;
+exports.momentGenerateDiscussion = momentSystem.momentGenerateDiscussion;
+exports.momentGenerateDevotional = momentSystem.momentGenerateDevotional;
+exports.momentSaveTo = momentSystem.momentSaveTo;
+exports.momentPrayLive = momentSystem.momentPrayLive;
+exports.momentJoinAudio = momentSystem.momentJoinAudio;
+exports.momentJoinDiscussion = momentSystem.momentJoinDiscussion;
+
+// ============================================================================
+// FIND A CHURCH v2 (us-east1) — map-first discovery callables.
+// Behind find_church_v2 Remote Config flags (all default OFF). Build first:
+//   npm run build:church
+// Deploy per-function only, e.g.:
+//   firebase deploy --only functions:assembleChurchDiscovery
+// ============================================================================
+const findChurchV2 = require("./lib/church");
+exports.assembleChurchDiscovery    = findChurchV2.assembleChurchDiscovery;
+exports.searchChurches             = findChurchV2.searchChurches;
+exports.getChurchProfile           = findChurchV2.getChurchProfile;
+exports.toggleSavedChurch          = findChurchV2.toggleSavedChurch;
+exports.recordChurchSearch         = findChurchV2.recordChurchSearch;
+exports.planVisit                  = findChurchV2.planVisit;
+exports.reportChurch               = findChurchV2.reportChurch;
+exports.requestChurchVerification  = findChurchV2.requestChurchVerification;
+exports.submitChurchClaim          = findChurchV2.submitChurchClaim;

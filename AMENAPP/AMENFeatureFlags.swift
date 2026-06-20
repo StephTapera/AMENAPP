@@ -33,6 +33,14 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var bereanSourceAttributionEnabled: Bool = false
     @Published private(set) var bereanStreamingResponseEnabled: Bool = false
     @Published private(set) var bereanVoiceEnabled: Bool = false
+    // Live Voice sub-flags — migrated out of the hardcoded BereanVoiceFeatureFlags
+    // struct so the voice kill switch is honored via Remote Config. All gated by
+    // bereanVoiceEnabled at the read site; default OFF.
+    @Published private(set) var bereanVoiceDuplexEnabled: Bool = false
+    @Published private(set) var bereanVoiceInterruptEnabled: Bool = false
+    @Published private(set) var bereanVoiceEmpathyMode: Bool = false
+    @Published private(set) var bereanVoiceChurchMode: Bool = false
+    @Published private(set) var bereanVoicePrayerMode: Bool = false
     @Published private(set) var bereanAdaptiveModeEnabled: Bool = false
     /// Kill switch: false disables Deep mode for all users instantly via Remote Config.
     @Published private(set) var bereanDeepEnabled: Bool = false
@@ -60,6 +68,16 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var churchJourneyTimelineEnabled: Bool = true
     @Published private(set) var churchPostCardDraftsEnabled: Bool = true
     @Published private(set) var churchExplainableRecommendationsEnabled: Bool = true
+
+    // MARK: - Find a Church v2 (all default OFF — Wave 0 scaffold, FIND_CHURCH_V2_SPEC.md §8)
+    @Published private(set) var findChurchV2Enabled: Bool = false            // master kill-switch for the whole v2 surface
+    @Published private(set) var churchDiscoveryEngineEnabled: Bool = false   // assembleChurchDiscovery server feed
+    @Published private(set) var churchVoiceSearchEnabled: Bool = false       // mic search
+    @Published private(set) var churchGuidesEnabled: Bool = false            // guide cards/sections
+    @Published private(set) var churchPlanVisitEnabled: Bool = false         // plan-visit flow (private-only path)
+    @Published private(set) var churchVisitPresenceEnabled: Bool = false     // visitor-intent mirror; HARD-OFF for minors, verified-only
+    @Published private(set) var churchOrgToolsEnabled: Bool = false          // paid/admin/analytics surface
+    @Published private(set) var churchMapLookAroundEnabled: Bool = false     // Look Around control
 
     // MARK: - System 6: Studio / Creator Marketplace
     @Published private(set) var studioEnabled: Bool = true
@@ -210,6 +228,9 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var selahMediaOSMinAppVersion: String = "1.0.0"
     @Published private(set) var selahMediaOSRolloutPercent: Int = 100
     @Published private(set) var selahMediaOSKillReason: String = ""
+    /// Wave 0 sensory contracts and engine scaffolding. Default OFF until assets,
+    /// accessibility review, and human QA sign-off are complete.
+    @Published private(set) var selahSensoryLayerEnabled: Bool = false
 
     // MARK: - Onboarding & Auth Remediation (Wave 1)
     /// Master gate for the onboarding/auth remediation (see contracts/onboarding/).
@@ -225,6 +246,38 @@ final class AMENFeatureFlags: ObservableObject {
     /// Master gate for the bounded App-Store-Today daily surface (Pulse/ module).
     /// Default OFF until the generation pipeline is deployed and the surface is verified.
     @Published private(set) var amenPulseEnabled: Bool = false
+
+    // MARK: - Sabbath Mode v2 (Rhythm — subtraction model)
+    /// Master gate for the v2 "Selah becomes smaller when it's succeeding" rhythm.
+    /// When OFF, SabbathRhythmController is inert and no surface is subtracted.
+    @Published private(set) var sabbathModeEnabled: Bool = false
+    /// Sub-flag: scheduled (day/window) rest trigger. Mic-free, no permissions.
+    @Published private(set) var sabbathTriggerScheduleEnabled: Bool = false
+    /// Sub-flag: manual (toggle) rest trigger.
+    @Published private(set) var sabbathTriggerManualEnabled: Bool = false
+
+    // MARK: - Selah Contextual Intelligence (mic-free ambient suggestion engine)
+    /// Master gate for the whole Selah Contextual subsystem (SelahContextualIntelligenceService
+    /// + controller + ambient surface). When OFF, `SelahContextualController` is inert, no signal
+    /// is collected, and `.selahContextualHost()` renders nothing. Default OFF until each cluster
+    /// is verified and permission/consent strings are reviewed.
+    @Published private(set) var selahContextualEnabled: Bool = false
+    /// Cluster 1 — In the Room (bulletin/slide capture, small-group sync, worship set, sermon memory).
+    @Published private(set) var selahContextualInTheRoomEnabled: Bool = false
+    /// Cluster 2 — Across the Week (liturgical layer, commute, travel/place, series auto-assembly).
+    @Published private(set) var selahContextualAcrossTheWeekEnabled: Bool = false
+    /// Cluster 3 — Flow of Life (copied-verse catch, photo anchoring, prayer radar, group presence).
+    @Published private(set) var selahContextualFlowOfLifeEnabled: Bool = false
+    /// Cluster 4 — Restraint Spine (Sabbath/rest, doomscroll interceptor, confidence-gated silence, reflection loop).
+    @Published private(set) var selahContextualRestraintSpineEnabled: Bool = false
+    /// Cluster 5 — Trust & Depth (Berean gate, cross-reference web, translation/tradition, stress-aware).
+    @Published private(set) var selahContextualTrustDepthEnabled: Bool = false
+    /// High-trust sensitive override: Photos (feature 10). Required ON in addition to its cluster.
+    @Published private(set) var selahContextualPhotosEnabled: Bool = false
+    /// High-trust sensitive override: Screen Time (feature 14). Required ON in addition to its cluster.
+    @Published private(set) var selahContextualScreenTimeEnabled: Bool = false
+    /// High-trust sensitive override: HealthKit (feature 20). Required ON in addition to its cluster.
+    @Published private(set) var selahContextualHealthEnabled: Bool = false
 
     // MARK: - Universal Migration & Context System
     /// Master gate for the Context System (ContextStore Passport, Migration Interview,
@@ -306,6 +359,18 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var savedCommunitiesEnabled: Bool = false
     // "View in Feed" — scopes the home timeline to a covenant/hub/topic.
     @Published private(set) var viewInFeedEnabled: Bool = false
+
+    // MARK: - Amen Communities (Wave 0 — new topic-first Community entity; CommunityKit contracts)
+    // Distinct from ark/covenant gating above. All default OFF, fail-closed (feature hidden / no-op).
+    // Ruling 2026-06-20: hybrid — new Community model, internally delegates to Covenant machinery.
+    @Published private(set) var communitiesEnabled: Bool = false
+    @Published private(set) var communityCreationEnabled: Bool = false
+    @Published private(set) var communityProfileDisplayEnabled: Bool = false
+    @Published private(set) var communityRecommendationsEnabled: Bool = false
+    @Published private(set) var communityModerationDashboardEnabled: Bool = false
+    // PERMANENTLY OFF until the four-part federal gate is satisfied (ESP/NCMEC registration,
+    // hash-provider contract, written legal sign-off, non-engineer review). Never a DIY build.
+    @Published private(set) var csamHashScanEnabled: Bool = false
 
     // MARK: - System 22 continued: Smart Share Sheet
     @Published private(set) var smartShareSheetEnabled: Bool = true
@@ -392,6 +457,13 @@ final class AMENFeatureFlags: ObservableObject {
     /// Gates CameraOS Context Lens and the full-screen camera capture surface.
     /// Default OFF until CameraOS rules/index coverage and runtime privacy review are verified.
     @Published private(set) var cameraOSEnabled: Bool = false
+    /// Berean camera MEDIA-GATE Wave 0 flags. All default OFF until human verification.
+    @Published private(set) var bereanCameraEnabled: Bool = false
+    @Published private(set) var mediaGateEnabled: Bool = false
+    @Published private(set) var mediaGateOnDevicePrecheck: Bool = false
+    @Published private(set) var mediaGateServerScan: Bool = false
+    // NOTE: csamHashScanEnabled is declared once above (see "PERMANENTLY OFF until
+    // the four-part federal gate" block) — do not redeclare it here.
 
     // MARK: - AMEN Distinctives (F1-F6)
     @Published private(set) var prayerLedgerEnabled: Bool = false
@@ -439,6 +511,8 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var healthyUseDashboardEnabled: Bool = true
     @Published private(set) var dmRiskFirewallEnabled: Bool = true
     @Published private(set) var minorSafetyModeEnabled: Bool = true
+    /// Gates the guardian email-verification flow (finding #44). Default OFF until A-03 policy decision.
+    @Published private(set) var guardianLinkEnabled: Bool = false
     @Published private(set) var sextortionPanicFlowEnabled: Bool = true
     @Published private(set) var suspiciousRelationshipDetectorEnabled: Bool = true
     @Published private(set) var trustedContactEscalationEnabled: Bool = true
@@ -457,6 +531,18 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var purposeOpenScreenEnabled: Bool = true
     @Published private(set) var engagementQualityRankingEnabled: Bool = true
     @Published private(set) var algorithmTransparencyEnabled: Bool = true
+
+    // MARK: - Trust & Safety Remediation (item 21 follow-ons)
+    /// Advisory "this account has been blocked by several people" caution before
+    /// opening a DM. UI gate only; the backend (getInboundBlockSignal) is itself
+    /// gated by INBOUND_BLOCK_WARNING_ENABLED and returns only a coarse bucket
+    /// (never the raw count or blocker identities). Default OFF — ships dark until
+    /// the callable is deployed and the surface is verified.
+    @Published private(set) var inboundBlockWarningEnabled: Bool = false
+    /// Per-field profile visibility (email / phone / birthday). When OFF, profile
+    /// fields render exactly as today (zero regression). Default OFF until the
+    /// settings UI and display-site redaction are verified.
+    @Published private(set) var profileFieldPrivacyEnabled: Bool = false
 
     // MARK: - Berean Extended Intelligence (Phases 2–8)
     @Published private(set) var bereanContextBridgeEnabled: Bool = false
@@ -526,6 +612,14 @@ final class AMENFeatureFlags: ObservableObject {
     /// only after the Wave 6 verification matrix passes for all 11 screens.
     @Published private(set) var adaptiveGlassV2Enabled: Bool = false
 
+    // MARK: - System 31: Liquid Glass Redesign (native lens + tab bar)
+    /// Master switch for the native iOS 26 Liquid Glass redesign — the rebuilt
+    /// floating glass tab bar and the app-wide functional-chrome migration.
+    /// Ships default OFF, fail-closed to the current UI. Independent of the
+    /// App Store submission-critical compliance work. Flip via Remote Config
+    /// `liquid_glass_redesign_enabled` only after the Wave 3 a11y/perf audit passes.
+    @Published private(set) var liquidGlassRedesignEnabled: Bool = false
+
     // MARK: - System 29: Liquid Glass Intelligence Layer
     /// Master switch for all Liquid Glass intelligence features.
     @Published private(set) var liquidGlassSystemEnabled: Bool = false
@@ -551,6 +645,13 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var composerPresenceActionsEnabled: Bool = false
     /// Enables the Liquid Glass bottom bar (replaces solid bar when true).
     @Published private(set) var bottomBarLiquidGlassEnabled: Bool = false
+
+    // MARK: - System 40: Resources Liquid Glass Home
+    /// Master switch for the redesigned white Liquid Glass Resources home
+    /// (ResourceGlassHomeView). Ships default OFF. When false, ResourcesView renders
+    /// its existing layout unchanged — zero regression. Flip via Remote Config
+    /// `resources_glass_home_enabled` after the redesign verification matrix passes.
+    @Published private(set) var resourcesGlassHomeEnabled: Bool = false
 
     // MARK: - System 36: Context-First Discussion OS
     @Published private(set) var discussionModesEnabled: Bool = true
@@ -588,12 +689,12 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var connectHubEnabled: Bool = true
     @Published private(set) var connectYouMenuEnabled: Bool = true
 
-    // MARK: - System 39: Connect UI Polish Waves (default OFF — flip in Remote Config after verification)
-    @Published private(set) var connectLayoutV2Enabled: Bool = false
-    @Published private(set) var connectPolishV2Enabled: Bool = false
-    @Published private(set) var connectEmptyStatesEnabled: Bool = false
-    @Published private(set) var connectSmartBereanEnabled: Bool = false
-    @Published private(set) var connectOfflineQueueEnabled: Bool = false
+    // MARK: - System 39: Connect UI Polish Waves (completed; remotely killable)
+    @Published private(set) var connectLayoutV2Enabled: Bool = true
+    @Published private(set) var connectPolishV2Enabled: Bool = true
+    @Published private(set) var connectEmptyStatesEnabled: Bool = true
+    @Published private(set) var connectSmartBereanEnabled: Bool = true
+    @Published private(set) var connectOfflineQueueEnabled: Bool = true
 
     // MARK: - System 38 (extension): Connect Live A/V Rooms
     /// HARD GATE for live audio/video rooms in Connect (the `activeLiveRoom` /
@@ -611,6 +712,40 @@ final class AMENFeatureFlags: ObservableObject {
     /// (1) and (2) silently re-exposes an unfinished child-safety surface that neither
     /// the type system, the flags, nor App Review would catch. Keep it OFF.
     @Published private(set) var connectLiveRoomsEnabled: Bool = false
+
+    // MARK: - AMEN Connect Coordination Foundation (Wave 0, all default OFF)
+    @Published private(set) var amenConnectEnabled: Bool = false
+    @Published private(set) var coordinationSchemaEnabled: Bool = false
+    @Published private(set) var readinessPillEnabled: Bool = false
+    @Published private(set) var certificationTrackingEnabled: Bool = false
+
+    // MARK: - AMEN Connect V1 — Church Intelligence Layer (Wave 0, all default OFF)
+    // Spec: AMEN_CONNECT_V1_SPEC.md §10. Old Connect path stays live while
+    // connectV2HomeEnabled == false. Server re-asserts every §5 safety gate
+    // in-function regardless of these client flags — flags gate UI surfaces only.
+    @Published private(set) var glasskitCardSystemEnabled: Bool = false        // GlassKit card family (Spaces + Connect)
+    @Published private(set) var connectV2HomeEnabled: Bool = false             // assembleConnectHome intelligence home
+    @Published private(set) var connectConciergeEnabled: Bool = false
+    @Published private(set) var connectMinistryDiscoveryEnabled: Bool = false
+    @Published private(set) var connectPrayerHubV2Enabled: Bool = false
+    @Published private(set) var connectVisitAssistantEnabled: Bool = false
+    @Published private(set) var connectResourceIntelligenceEnabled: Bool = false
+    /// Guardian-link surface (GuardianLinkFlow). The verified-guardian primitive
+    /// itself is enforced server-side unconditionally; this only gates its UI.
+    @Published private(set) var connectGuardianLinkEnabled: Bool = false
+    // V2 / ops surfaces — outlined only, contracts arrive in their own wave.
+    @Published private(set) var connectVolunteerBoardEnabled: Bool = false
+    @Published private(set) var connectHealthDashboardEnabled: Bool = false
+    @Published private(set) var connectFollowupEngineEnabled: Bool = false
+    @Published private(set) var connectEventAssistantEnabled: Bool = false
+    @Published private(set) var connectIndoorMapEnabled: Bool = false
+    // HELD — counsel-gated, hard-off. Do NOT enable without named human/counsel sign-off (§5.6).
+    @Published private(set) var connectFamilyDashboardEnabled: Bool = false    // verified-guardian gated
+    @Published private(set) var connectMatchmakingEnabled: Bool = false        // adult-only redesign, gated
+    /// BLOCKED — biometric of minors. Four-part compliance gate required before it may
+    /// even be flag-built (biometric-vendor contract, written legal sign-off, non-engineer
+    /// review, COPPA counsel). The capability is NOT scaffolded. This is a lock, not a switch.
+    @Published private(set) var connectKidsFacialVerificationEnabled: Bool = false
 
     // MARK: - SANCTUARY Living Video (Wave 0, default OFF)
     @Published private(set) var sanctuaryCoreEnabled: Bool = false
@@ -972,6 +1107,11 @@ final class AMENFeatureFlags: ObservableObject {
             "berean_source_attribution_enabled": false as NSObject,
             "berean_streaming_response_enabled": false as NSObject,
             "berean_voice_enabled": false as NSObject,
+            "berean_voice_duplex": false as NSObject,
+            "berean_voice_interrupt": false as NSObject,
+            "berean_voice_mode_empathy": false as NSObject,
+            "berean_voice_mode_church": false as NSObject,
+            "berean_voice_mode_prayer": false as NSObject,
             "berean_adaptive_mode_enabled": false as NSObject,
             "berean_deep_enabled": false as NSObject,
             "berean_entitlement_enforcement_enabled": false as NSObject,
@@ -1155,6 +1295,9 @@ final class AMENFeatureFlags: ObservableObject {
             "amen_daily_digest_selah_action_enabled": true as NSObject,
             "amen_daily_digest_ai_reflection_enabled": true as NSObject,
 
+            // Selah Sensory Layer — default OFF until Wave 0 contract sign-off
+            "selah_sensory_layer_enabled": false as NSObject,
+
             // Onboarding & Auth Remediation — SAFETY INFRASTRUCTURE, default ON (security fix H2)
             "ff_onboarding_v2": true as NSObject,
 
@@ -1163,6 +1306,22 @@ final class AMENFeatureFlags: ObservableObject {
 
             // Amen Pulse (daily surface) — default OFF
             "amen_pulse_enabled": false as NSObject,
+
+            // Sabbath Mode v2 (Rhythm subtraction model) — all default OFF
+            "sabbath_mode_enabled": false as NSObject,
+            "sabbath_trigger_schedule_enabled": false as NSObject,
+            "sabbath_trigger_manual_enabled": false as NSObject,
+
+            // Selah Contextual Intelligence — master + 5 cluster + 3 sensitive, all default OFF
+            "selah_contextual_enabled": false as NSObject,
+            "selah_contextual_in_the_room_enabled": false as NSObject,
+            "selah_contextual_across_the_week_enabled": false as NSObject,
+            "selah_contextual_flow_of_life_enabled": false as NSObject,
+            "selah_contextual_restraint_spine_enabled": false as NSObject,
+            "selah_contextual_trust_depth_enabled": false as NSObject,
+            "selah_contextual_photos_enabled": false as NSObject,
+            "selah_contextual_screentime_enabled": false as NSObject,
+            "selah_contextual_health_enabled": false as NSObject,
 
             // Spiritual OS — all default OFF until human flag flip
             "spiritualOS_enabled": false as NSObject,
@@ -1208,6 +1367,13 @@ final class AMENFeatureFlags: ObservableObject {
             "unified_feeds_switcher_enabled": false as NSObject,
             "saved_communities_enabled": false as NSObject,
             "view_in_feed_enabled": false as NSObject,
+
+            // Amen Communities (Wave 0) — all OFF, fail-closed; CSAM hash scan is owned by the media safety block below.
+            "communities_enabled": false as NSObject,
+            "community_creation_enabled": false as NSObject,
+            "community_profile_display_enabled": false as NSObject,
+            "community_recommendations_enabled": false as NSObject,
+            "community_moderation_dashboard_enabled": false as NSObject,
 
             // Smart Share Sheet
             "smart_share_sheet_enabled": true as NSObject,
@@ -1277,6 +1443,11 @@ final class AMENFeatureFlags: ObservableObject {
             "messaging_media_intelligence_enabled": false as NSObject,
             "messaging_presence_polish_enabled": false as NSObject,
             "camera_os_enabled": false as NSObject,
+            "berean_camera_enabled": false as NSObject,
+            "media_gate_enabled": false as NSObject,
+            "media_gate_ondevice_precheck": false as NSObject,
+            "media_gate_server_scan": false as NSObject,
+            "csam_hash_scan_enabled": false as NSObject,
 
             // Smart Account Resume
             "smart_account_resume_enabled": true as NSObject,
@@ -1325,6 +1496,12 @@ final class AMENFeatureFlags: ObservableObject {
             // Analytics
             "analytics_enabled": true as NSObject,
             "performance_telemetry_enabled": true as NSObject,
+
+            // AMEN Connect Coordination Foundation — default OFF until Wave 0 is verified
+            "amen_connect_enabled": false as NSObject,
+            "coordination_schema_enabled": false as NSObject,
+            "readiness_pill_enabled": false as NSObject,
+            "certification_tracking_enabled": false as NSObject,
 
             // Berean Intelligence Layer v2 — default OFF; flip via Remote Config
             "berean_theo_lens_enabled": false as NSObject,
@@ -1450,6 +1627,7 @@ final class AMENFeatureFlags: ObservableObject {
             "healthy_use_dashboard_enabled": true as NSObject,
             "dm_risk_firewall_enabled": true as NSObject,
             "minor_safety_mode_enabled": true as NSObject,
+            "guardian_link_enabled": false as NSObject,
             "sextortion_panic_flow_enabled": true as NSObject,
             "suspicious_relationship_detector_enabled": true as NSObject,
             "trusted_contact_escalation_enabled": true as NSObject,
@@ -1530,16 +1708,36 @@ final class AMENFeatureFlags: ObservableObject {
             "connect_hub_enabled": true as NSObject,
             "connect_you_menu_enabled": true as NSObject,
 
-            // System 39: Connect UI Polish Waves (default OFF)
-            "connect_layout_v2_enabled": false as NSObject,
-            "connect_polish_v2_enabled": false as NSObject,
-            "connect_empty_states_enabled": false as NSObject,
-            "connect_smart_berean_enabled": false as NSObject,
-            "connect_offline_queue_enabled": false as NSObject,
+            // System 39: Connect UI Polish Waves (completed; remotely killable)
+            "connect_layout_v2_enabled": true as NSObject,
+            "connect_polish_v2_enabled": true as NSObject,
+            "connect_empty_states_enabled": true as NSObject,
+            "connect_smart_berean_enabled": true as NSObject,
+            "connect_offline_queue_enabled": true as NSObject,
 
             // System 38 (extension): Connect Live A/V Rooms — hard gate, OFF until
             // recording-consent + CSAM hooks are built and verified. Do not flip on.
             "connect_live_rooms_enabled": false as NSObject,
+
+            // AMEN Connect V1 — Church Intelligence Layer (spec §10, all default OFF)
+            "glasskit_card_system_enabled": false as NSObject,
+            "connect_v2_home_enabled": false as NSObject,
+            "connect_concierge_enabled": false as NSObject,
+            "connect_ministry_discovery_enabled": false as NSObject,
+            "connect_prayer_hub_v2_enabled": false as NSObject,
+            "connect_visit_assistant_enabled": false as NSObject,
+            "connect_resource_intelligence_enabled": false as NSObject,
+            "connect_guardian_link_enabled": false as NSObject,
+            // V2 / ops (outlined only)
+            "connect_volunteer_board_enabled": false as NSObject,
+            "connect_health_dashboard_enabled": false as NSObject,
+            "connect_followup_engine_enabled": false as NSObject,
+            "connect_event_assistant_enabled": false as NSObject,
+            "connect_indoor_map_enabled": false as NSObject,
+            // HELD — counsel-gated, hard-off (§5.6)
+            "connect_family_dashboard_enabled": false as NSObject,
+            "connect_matchmaking_enabled": false as NSObject,
+            "connect_kids_facial_verification_enabled": false as NSObject,
 
             // SANCTUARY Living Video — all default OFF until Wave 0+ validation
             "sanctuary_core": false as NSObject,
@@ -1606,8 +1804,16 @@ final class AMENFeatureFlags: ObservableObject {
             "selah_stories_enabled": false as NSObject,
             "selah_stories_premium_ai_enabled": false as NSObject,
 
+            // Resources Liquid Glass Home (default OFF until verification)
+            "resources_glass_home_enabled":   false as NSObject,
+
+            // Trust & Safety Remediation (item 21 follow-ons) — default OFF, ship dark
+            "inbound_block_warning_enabled":  false as NSObject,
+            "profile_field_privacy_enabled":  false as NSObject,
+
             // Selah Enhancement
             "adaptive_glass_v2_enabled":      false as NSObject,
+            "liquid_glass_redesign_enabled":  false as NSObject,
             "selah_personal_corpus_enabled": false as NSObject,
             "selah_discernment_enabled": false as NSObject,
             "selah_discernment_sharing_enabled": false as NSObject,
@@ -1647,6 +1853,16 @@ final class AMENFeatureFlags: ObservableObject {
 
             // P1-1: AI Disclosure Footnote — default OFF until legal/DPO review
             "berean_ai_disclosure_enabled": false as NSObject,
+
+            // Find a Church v2 — all default OFF (FIND_CHURCH_V2_SPEC.md §8)
+            "find_church_v2_enabled": false as NSObject,
+            "church_discovery_engine_enabled": false as NSObject,
+            "church_voice_search_enabled": false as NSObject,
+            "church_guides_enabled": false as NSObject,
+            "church_plan_visit_enabled": false as NSObject,
+            "church_visit_presence_enabled": false as NSObject,
+            "church_org_tools_enabled": false as NSObject,
+            "church_map_look_around_enabled": false as NSObject,
         ]
     }
 
@@ -1662,6 +1878,11 @@ final class AMENFeatureFlags: ObservableObject {
         bereanSourceAttributionEnabled = config["berean_source_attribution_enabled"].boolValue
         bereanStreamingResponseEnabled = config["berean_streaming_response_enabled"].boolValue
         bereanVoiceEnabled = config["berean_voice_enabled"].boolValue
+        bereanVoiceDuplexEnabled = config["berean_voice_duplex"].boolValue
+        bereanVoiceInterruptEnabled = config["berean_voice_interrupt"].boolValue
+        bereanVoiceEmpathyMode = config["berean_voice_mode_empathy"].boolValue
+        bereanVoiceChurchMode = config["berean_voice_mode_church"].boolValue
+        bereanVoicePrayerMode = config["berean_voice_mode_prayer"].boolValue
         bereanAdaptiveModeEnabled = config["berean_adaptive_mode_enabled"].boolValue
         bereanDeepEnabled = config["berean_deep_enabled"].boolValue
         bereanEntitlementEnforcementEnabled = config["berean_entitlement_enforcement_enabled"].boolValue
@@ -1691,6 +1912,16 @@ final class AMENFeatureFlags: ObservableObject {
         churchJourneyTimelineEnabled = config["church_journey_timeline_enabled"].boolValue
         churchPostCardDraftsEnabled = config["church_post_card_drafts_enabled"].boolValue
         churchExplainableRecommendationsEnabled = config["church_explainable_recommendations_enabled"].boolValue
+
+        // Find a Church v2 (FIND_CHURCH_V2_SPEC.md §8) — all default OFF
+        findChurchV2Enabled = config["find_church_v2_enabled"].boolValue
+        churchDiscoveryEngineEnabled = config["church_discovery_engine_enabled"].boolValue
+        churchVoiceSearchEnabled = config["church_voice_search_enabled"].boolValue
+        churchGuidesEnabled = config["church_guides_enabled"].boolValue
+        churchPlanVisitEnabled = config["church_plan_visit_enabled"].boolValue
+        churchVisitPresenceEnabled = config["church_visit_presence_enabled"].boolValue
+        churchOrgToolsEnabled = config["church_org_tools_enabled"].boolValue
+        churchMapLookAroundEnabled = config["church_map_look_around_enabled"].boolValue
 
         studioEnabled = config["studio_enabled"].boolValue
         studioMonetizationEnabled = config["studio_monetization_enabled"].boolValue
@@ -1828,6 +2059,20 @@ final class AMENFeatureFlags: ObservableObject {
         bereanPulseEnabled = config["berean_pulse_enabled"].boolValue
         amenPulseEnabled = config["amen_pulse_enabled"].boolValue
 
+        sabbathModeEnabled = config["sabbath_mode_enabled"].boolValue
+        sabbathTriggerScheduleEnabled = config["sabbath_trigger_schedule_enabled"].boolValue
+        sabbathTriggerManualEnabled = config["sabbath_trigger_manual_enabled"].boolValue
+
+        selahContextualEnabled = config["selah_contextual_enabled"].boolValue
+        selahContextualInTheRoomEnabled = config["selah_contextual_in_the_room_enabled"].boolValue
+        selahContextualAcrossTheWeekEnabled = config["selah_contextual_across_the_week_enabled"].boolValue
+        selahContextualFlowOfLifeEnabled = config["selah_contextual_flow_of_life_enabled"].boolValue
+        selahContextualRestraintSpineEnabled = config["selah_contextual_restraint_spine_enabled"].boolValue
+        selahContextualTrustDepthEnabled = config["selah_contextual_trust_depth_enabled"].boolValue
+        selahContextualPhotosEnabled = config["selah_contextual_photos_enabled"].boolValue
+        selahContextualScreenTimeEnabled = config["selah_contextual_screentime_enabled"].boolValue
+        selahContextualHealthEnabled = config["selah_contextual_health_enabled"].boolValue
+
         syncSpiritualOSAppStorageFlags(config)
 
         contextSystemEnabled = config["context_system_enabled"].boolValue
@@ -1859,6 +2104,14 @@ final class AMENFeatureFlags: ObservableObject {
         unifiedFeedsSwitcherEnabled = config["unified_feeds_switcher_enabled"].boolValue
         savedCommunitiesEnabled = config["saved_communities_enabled"].boolValue
         viewInFeedEnabled = config["view_in_feed_enabled"].boolValue
+
+        // Amen Communities (Wave 0) gating — fail-closed; csam stays permanently OFF.
+        communitiesEnabled = config["communities_enabled"].boolValue
+        communityCreationEnabled = config["community_creation_enabled"].boolValue
+        communityProfileDisplayEnabled = config["community_profile_display_enabled"].boolValue
+        communityRecommendationsEnabled = config["community_recommendations_enabled"].boolValue
+        communityModerationDashboardEnabled = config["community_moderation_dashboard_enabled"].boolValue
+        csamHashScanEnabled = config["csam_hash_scan_enabled"].boolValue
 
         // System 33: Spatial Social OS
         spatialHomeEnabled = config["spatial_home_enabled"].boolValue
@@ -1970,6 +2223,7 @@ final class AMENFeatureFlags: ObservableObject {
         selahMediaOSMinAppVersion = config["selah_media_os_min_app_version"].stringValue
         selahMediaOSRolloutPercent = config["selah_media_os_rollout_percent"].numberValue.intValue
         selahMediaOSKillReason = config["selah_media_os_kill_reason"].stringValue
+        selahSensoryLayerEnabled = config["selah_sensory_layer_enabled"].boolValue
 
         messagingLiquidGlassAnimationsEnabled = config["messaging_liquid_glass_animations_enabled"].boolValue
         messagingTypingIndicatorEnabled = config["messaging_typing_indicator_enabled"].boolValue
@@ -1989,6 +2243,11 @@ final class AMENFeatureFlags: ObservableObject {
         messagingPresencePolishEnabled = config["messaging_presence_polish_enabled"].boolValue
         actionIntelligenceEnabled = config["ff_action_intelligence"].boolValue
         cameraOSEnabled = config["camera_os_enabled"].boolValue
+        bereanCameraEnabled = config["berean_camera_enabled"].boolValue
+        mediaGateEnabled = config["media_gate_enabled"].boolValue
+        mediaGateOnDevicePrecheck = config["media_gate_ondevice_precheck"].boolValue
+        mediaGateServerScan = config["media_gate_server_scan"].boolValue
+        csamHashScanEnabled = false
 
         // Social Safety OS
         socialSafetyOSEnabled = config["social_safety_os_enabled"].boolValue
@@ -1999,6 +2258,7 @@ final class AMENFeatureFlags: ObservableObject {
         healthyUseDashboardEnabled = config["healthy_use_dashboard_enabled"].boolValue
         dmRiskFirewallEnabled = config["dm_risk_firewall_enabled"].boolValue
         minorSafetyModeEnabled = config["minor_safety_mode_enabled"].boolValue
+        guardianLinkEnabled = config["guardian_link_enabled"].boolValue
         sextortionPanicFlowEnabled = config["sextortion_panic_flow_enabled"].boolValue
         suspiciousRelationshipDetectorEnabled = config["suspicious_relationship_detector_enabled"].boolValue
         trustedContactEscalationEnabled = config["trusted_contact_escalation_enabled"].boolValue
@@ -2041,6 +2301,12 @@ final class AMENFeatureFlags: ObservableObject {
 
         analyticsEnabled = config["analytics_enabled"].boolValue
         performanceTelemetryEnabled = config["performance_telemetry_enabled"].boolValue
+
+        // AMEN Connect Coordination Foundation
+        amenConnectEnabled = config["amen_connect_enabled"].boolValue
+        coordinationSchemaEnabled = config["coordination_schema_enabled"].boolValue
+        readinessPillEnabled = config["readiness_pill_enabled"].boolValue
+        certificationTrackingEnabled = config["certification_tracking_enabled"].boolValue
 
         // Smart Account Resume
         smartAccountResumeEnabled = config["smart_account_resume_enabled"].boolValue
@@ -2198,6 +2464,24 @@ final class AMENFeatureFlags: ObservableObject {
         // System 38 (extension): Connect Live A/V Rooms — remotely killable hard gate.
         connectLiveRoomsEnabled    = config["connect_live_rooms_enabled"].boolValue
 
+        // AMEN Connect V1 — Church Intelligence Layer (spec §10)
+        glasskitCardSystemEnabled         = config["glasskit_card_system_enabled"].boolValue
+        connectV2HomeEnabled              = config["connect_v2_home_enabled"].boolValue
+        connectConciergeEnabled           = config["connect_concierge_enabled"].boolValue
+        connectMinistryDiscoveryEnabled   = config["connect_ministry_discovery_enabled"].boolValue
+        connectPrayerHubV2Enabled         = config["connect_prayer_hub_v2_enabled"].boolValue
+        connectVisitAssistantEnabled      = config["connect_visit_assistant_enabled"].boolValue
+        connectResourceIntelligenceEnabled = config["connect_resource_intelligence_enabled"].boolValue
+        connectGuardianLinkEnabled        = config["connect_guardian_link_enabled"].boolValue
+        connectVolunteerBoardEnabled      = config["connect_volunteer_board_enabled"].boolValue
+        connectHealthDashboardEnabled     = config["connect_health_dashboard_enabled"].boolValue
+        connectFollowupEngineEnabled      = config["connect_followup_engine_enabled"].boolValue
+        connectEventAssistantEnabled      = config["connect_event_assistant_enabled"].boolValue
+        connectIndoorMapEnabled           = config["connect_indoor_map_enabled"].boolValue
+        connectFamilyDashboardEnabled     = config["connect_family_dashboard_enabled"].boolValue
+        connectMatchmakingEnabled         = config["connect_matchmaking_enabled"].boolValue
+        connectKidsFacialVerificationEnabled = config["connect_kids_facial_verification_enabled"].boolValue
+
         // SANCTUARY Living Video
         sanctuaryCoreEnabled          = config["sanctuary_core"].boolValue
         sanctuaryLayersEnabled        = config["sanctuary_layers"].boolValue
@@ -2261,9 +2545,17 @@ final class AMENFeatureFlags: ObservableObject {
         selahStoriesEnabled            = config["selah_stories_enabled"].boolValue
         selahStoriesPremiumAIEnabled   = config["selah_stories_premium_ai_enabled"].boolValue
 
+        // Resources Liquid Glass Home
+        resourcesGlassHomeEnabled       = config["resources_glass_home_enabled"].boolValue
+
+        // Trust & Safety Remediation (item 21 follow-ons)
+        inboundBlockWarningEnabled      = config["inbound_block_warning_enabled"].boolValue
+        profileFieldPrivacyEnabled      = config["profile_field_privacy_enabled"].boolValue
+
         // Selah Enhancement
         // Adaptive Glass V2
         adaptiveGlassV2Enabled          = config["adaptive_glass_v2_enabled"].boolValue
+        liquidGlassRedesignEnabled      = config["liquid_glass_redesign_enabled"].boolValue
 
         selahPersonalCorpusEnabled      = config["selah_personal_corpus_enabled"].boolValue
         selahDiscernmentEnabled         = config["selah_discernment_enabled"].boolValue
@@ -2497,24 +2789,24 @@ private enum AppVersion {
 // MARK: - Context Intelligence OS (ctx_) — all default false until staged rollout
 
 extension AMENFeatureFlags {
-    static var ctx_signal_bus_enabled: Bool { false }
-    static var ctx_permissions_center_enabled: Bool { false }
-    static var ctx_crisis_dampening_enabled: Bool { false }
-    static var ctx_gentle_check_ins_enabled: Bool { false }
-    static var ctx_rhythm_engine_enabled: Bool { false }
-    static var ctx_offline_capture_enabled: Bool { false }
-    static var ctx_basic_continuity_enabled: Bool { false }
-    static var ctx_note_to_give_bridge_enabled: Bool { false }
-    static var ctx_message_prayer_extraction_enabled: Bool { false }
-    static var ctx_visit_verification_enabled: Bool { false }
-    static var ctx_giving_receipts_enabled: Bool { false }
-    static var ctx_constellation_model_enabled: Bool { false }
-    static var ctx_berean_context_injection_enabled: Bool { false }
-    static var ctx_verse_resonance_enabled: Bool { false }
-    static var ctx_cohort_resonance_enabled: Bool { false }
-    static var ctx_giving_portfolio_enabled: Bool { false }
-    static var ctx_continuity_cross_device_enabled: Bool { false }
-    static var ctx_seasons_insights_enabled: Bool { false }
-    static var ctx_volunteer_needs_posting_enabled: Bool { false }
-    static var ctx_group_formation_analytics_enabled: Bool { false }
+    nonisolated static var ctx_signal_bus_enabled: Bool { false }
+    nonisolated static var ctx_permissions_center_enabled: Bool { false }
+    nonisolated static var ctx_crisis_dampening_enabled: Bool { false }
+    nonisolated static var ctx_gentle_check_ins_enabled: Bool { false }
+    nonisolated static var ctx_rhythm_engine_enabled: Bool { false }
+    nonisolated static var ctx_offline_capture_enabled: Bool { false }
+    nonisolated static var ctx_basic_continuity_enabled: Bool { false }
+    nonisolated static var ctx_note_to_give_bridge_enabled: Bool { false }
+    nonisolated static var ctx_message_prayer_extraction_enabled: Bool { false }
+    nonisolated static var ctx_visit_verification_enabled: Bool { false }
+    nonisolated static var ctx_giving_receipts_enabled: Bool { false }
+    nonisolated static var ctx_constellation_model_enabled: Bool { false }
+    nonisolated static var ctx_berean_context_injection_enabled: Bool { false }
+    nonisolated static var ctx_verse_resonance_enabled: Bool { false }
+    nonisolated static var ctx_cohort_resonance_enabled: Bool { false }
+    nonisolated static var ctx_giving_portfolio_enabled: Bool { false }
+    nonisolated static var ctx_continuity_cross_device_enabled: Bool { false }
+    nonisolated static var ctx_seasons_insights_enabled: Bool { false }
+    nonisolated static var ctx_volunteer_needs_posting_enabled: Bool { false }
+    nonisolated static var ctx_group_formation_analytics_enabled: Bool { false }
 }

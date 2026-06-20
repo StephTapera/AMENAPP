@@ -181,7 +181,7 @@ exports.onGuardianLinkCreated = onDocumentCreated(
     // Resolve minor display name from users/{minorId} for the email.
     let minorDisplayName = "your child";
     try {
-      const minorDoc = await db.collection("users").document(minorId).get();
+      const minorDoc = await db.collection("users").doc(minorId).get();
       if (minorDoc.exists) {
         minorDisplayName = minorDoc.data()?.displayName || minorDisplayName;
       }
@@ -345,3 +345,8 @@ exports.verifyGuardianLink = onCall(
     return { status: "approved" };
   }
 );
+
+// ── Testable internals ──────────────────────────────────────────────────────────
+// Exported for unit testing only (functions/test/guardianLink.test.js).
+// Not part of the deployed callable surface.
+exports._internal = { sha256, generateOTP, isValidEmail };

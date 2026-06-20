@@ -202,6 +202,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
     case contentPosting
     case feedDiscovery
     case bereanAI
+    case sabbathRhythm
     case ambientOS
     case churchNotes
     case accessibility
@@ -223,6 +224,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         case .contentPosting:      return "Content & Posting"
         case .feedDiscovery:       return "Feed & Discovery"
         case .bereanAI:            return "Berean AI"
+        case .sabbathRhythm:       return "Sabbath Rhythm"
         case .ambientOS:           return "Ambient OS"
         case .churchNotes:         return "Church Notes"
         case .accessibility:       return "Accessibility"
@@ -244,6 +246,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         case .contentPosting:      return "square.and.pencil"
         case .feedDiscovery:       return "rectangle.stack"
         case .bereanAI:            return "sparkles"
+        case .sabbathRhythm:       return "moon.stars"
         case .ambientOS:           return "sparkles.rectangle.stack"
         case .churchNotes:         return "note.text"
         case .accessibility:       return "accessibility"
@@ -265,6 +268,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         case .contentPosting:      return "Default audience, drafts, scheduling"
         case .feedDiscovery:       return "Feed mode, sensitive content, autoplay"
         case .bereanAI:            return "AI settings, context memory, response style"
+        case .sabbathRhythm:       return "Schedule rest and quiet Selah"
         case .ambientOS:           return "Context-aware day briefing and actions"
         case .churchNotes:         return "Folders, scripture detection, export"
         case .accessibility:       return "Text size, motion, contrast"
@@ -286,6 +290,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         case .contentPosting:      return Color(red: 0.55, green: 0.28, blue: 0.95)
         case .feedDiscovery:       return Color(red: 0.08, green: 0.62, blue: 0.92)
         case .bereanAI:            return Color(red: 0.46, green: 0.28, blue: 0.95)
+        case .sabbathRhythm:       return Color(red: 0.24, green: 0.46, blue: 0.72)
         case .ambientOS:           return Color(red: 0.95, green: 0.65, blue: 0.18)
         case .churchNotes:         return Color(red: 0.95, green: 0.65, blue: 0.18)
         case .accessibility:       return Color(red: 0.20, green: 0.72, blue: 0.54)
@@ -365,6 +370,7 @@ enum AMENSettingsSection: String, CaseIterable, Identifiable {
         // Feed & Discovery
         .init(title: "Feed Mode", section: .feedDiscovery, sectionPath: "Feed & Discovery → Feed Mode", keywords: ["feed mode", "nourish", "sabbath", "low stimulation", "comparison reset", "feed filter"], description: "Switch between feed modes"),
         .init(title: "Sabbath Mode", section: .feedDiscovery, sectionPath: "Feed & Discovery → Focus Modes", keywords: ["sabbath", "sabbath mode", "sunday", "rest", "church notes only"], description: "Limit feed to Church Notes and Resources"),
+        .init(title: "Sabbath Rhythm", section: .sabbathRhythm, sectionPath: "Sabbath Rhythm", keywords: ["sabbath", "rest", "selah", "schedule", "presence", "holy ground", "quiet"], description: "Schedule rest and configure Selah's subtraction rhythm"),
         .init(title: "Autoplay Videos", section: .feedDiscovery, sectionPath: "Feed & Discovery → Autoplay", keywords: ["autoplay", "auto play", "video autoplay", "stop autoplay"], description: "Control video autoplay in feed"),
         .init(title: "Sensitive Content", section: .feedDiscovery, sectionPath: "Feed & Discovery → Sensitive Content", keywords: ["sensitive content", "filter content", "restrict content", "content filter"], description: "Adjust sensitivity of shown content"),
         .init(title: "Show Like Counts", section: .feedDiscovery, sectionPath: "Feed & Discovery → Like Counts", keywords: ["like count feed", "hide likes feed", "show likes"], description: "Show or hide like counts in your feed"),
@@ -948,8 +954,8 @@ struct AMENSettingsView: View {
 
             // Sections list
             let intelligenceGroup: [AMENSettingsSection] = featureFlags.ambientOSEnabled
-                ? [.contentPosting, .feedDiscovery, .bereanAI, .ambientOS, .churchNotes]
-                : [.contentPosting, .feedDiscovery, .bereanAI, .churchNotes]
+                ? [.contentPosting, .feedDiscovery, .bereanAI, .sabbathRhythm, .ambientOS, .churchNotes]
+                : [.contentPosting, .feedDiscovery, .bereanAI, .sabbathRhythm, .churchNotes]
             let groups: [[AMENSettingsSection]] = [
                 [.account, .privacy, .safety, .messages, .notifications],
                 intelligenceGroup,
@@ -1012,6 +1018,7 @@ struct AMENSettingsView: View {
         case .contentPosting:      ContentPostingSettingsView()
         case .feedDiscovery:       FeedDiscoverySettingsViewNew()
         case .bereanAI:            BereanAISettingsViewNew()
+        case .sabbathRhythm:       SabbathRhythmSettingsFallbackView()
         case .ambientOS:           AmbientOSSurfaceView()
         case .churchNotes:         ChurchNotesSettingsViewNew()
         case .accessibility:       AccessibilitySettingsViewNew()
@@ -2124,6 +2131,87 @@ struct BereanAISettingsViewNew: View {
     }
 }
 
+// MARK: - Sabbath Rhythm Settings Fallback
+
+struct SabbathRhythmSettingsFallbackView: View {
+    @ObservedObject private var featureFlags = AMENFeatureFlags.shared
+
+    var body: some View {
+        STDetailScaffold(title: "Sabbath Rhythm") {
+            SettingsSectionHeader(title: "Feature Gates")
+            STGroup {
+                statusRow(
+                    icon: "moon.stars",
+                    title: "Sabbath Mode",
+                    subtitle: "Master Remote Config gate",
+                    isEnabled: featureFlags.sabbathModeEnabled
+                )
+                STDivider()
+                statusRow(
+                    icon: "hand.tap",
+                    title: "Manual Rest Trigger",
+                    subtitle: "Entry ritual from eligible surfaces",
+                    isEnabled: featureFlags.sabbathTriggerManualEnabled
+                )
+                STDivider()
+                statusRow(
+                    icon: "calendar.badge.clock",
+                    title: "Scheduled Rest Trigger",
+                    subtitle: "Local-only schedule trigger",
+                    isEnabled: featureFlags.sabbathTriggerScheduleEnabled
+                )
+            }
+
+            SettingsSectionHeader(title: "Wave 0 Status")
+            STGroup {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Sabbath Rhythm is prepared behind Remote Config.")
+                        .font(AMENFont.semiBold(15))
+                        .foregroundStyle(ST.primary)
+                    Text("The full rhythm controls live with the Sabbath Mode module. This settings route stays searchable and safe until that module is target-visible from Settings.")
+                        .font(AMENFont.regular(13))
+                        .foregroundStyle(ST.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+            }
+        }
+    }
+
+    private func statusRow(icon: String, title: String, subtitle: String, isEnabled: Bool) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.systemScaled(15, weight: .medium))
+                .foregroundStyle(ST.secondary)
+                .frame(width: 22, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(AMENFont.regular(15))
+                    .foregroundStyle(ST.primary)
+                Text(subtitle)
+                    .font(AMENFont.regular(12))
+                    .foregroundStyle(ST.tertiary)
+            }
+
+            Spacer()
+
+            Text(isEnabled ? "On" : "Off")
+                .font(AMENFont.semiBold(12))
+                .foregroundStyle(isEnabled ? Color.green : ST.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(isEnabled ? Color.green.opacity(0.12) : Color(.secondarySystemBackground))
+                )
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+    }
+}
+
 // MARK: - 9. Church Notes Settings
 
 struct ChurchNotesSettingsViewNew: View {
@@ -3033,6 +3121,9 @@ struct GuardianSupervisionSettingsView: View {
     @AppStorage("amen_guardian_digest") private var digest: String = "Weekly"
     @AppStorage("amen_guardian_invite_email") private var inviteEmail: String = ""
 
+    @ObservedObject private var flags = AMENFeatureFlags.shared
+    @State private var showGuardianLinkFlow = false
+
     var body: some View {
         STDetailScaffold(title: "Guardian Supervision") {
             SettingsSectionHeader(title: "Family Controls")
@@ -3040,21 +3131,37 @@ struct GuardianSupervisionSettingsView: View {
                 SettingsToggleRow(icon: "checkmark.shield", title: "Require Guardian Review", subtitle: "Review sensitive follows, DMs, and visibility changes", isOn: $reviewRequired)
                 STDivider()
                 SettingsPickerRow(icon: "calendar.badge.clock", title: "Guardian Digest", subtitle: "How often to summarize safety events", selection: $digest, options: ["Off", "Daily", "Weekly"])
-                STDivider()
-                HStack(spacing: 14) {
-                    Image(systemName: "envelope")
-                        .font(.systemScaled(15, weight: .medium))
-                        .foregroundStyle(ST.secondary)
-                        .frame(width: 22, alignment: .center)
-                    TextField("Guardian email", text: $inviteEmail)
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .font(AMENFont.regular(15))
+
+                // Verified guardian link (finding #44) — real email-verification flow.
+                // Gated by guardian_link_enabled; falls back to the legacy email field when OFF.
+                if flags.guardianLinkEnabled {
+                    STDivider()
+                    SettingsNavigationRow(
+                        icon: "person.2.badge.gearshape",
+                        title: "Link a Guardian",
+                        subtitle: "Send a verified invite to a parent or guardian",
+                        action: { showGuardianLinkFlow = true }
+                    )
+                } else {
+                    STDivider()
+                    HStack(spacing: 14) {
+                        Image(systemName: "envelope")
+                            .font(.systemScaled(15, weight: .medium))
+                            .foregroundStyle(ST.secondary)
+                            .frame(width: 22, alignment: .center)
+                        TextField("Guardian email", text: $inviteEmail)
+                            .textContentType(.emailAddress)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .font(AMENFont.regular(15))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 13)
             }
+        }
+        .sheet(isPresented: $showGuardianLinkFlow) {
+            GuardianLinkInvitationView()
         }
     }
 }

@@ -497,6 +497,76 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // MOMENT V1 HELPERS
+    // Deepen is the only live Moment verb family in v1. Gather remains stub-only.
+    // =========================================================================
+
+    function isDeepenAction(action) {
+      return action in [
+        'summarize',
+        'crossReference',
+        'generatePrayer',
+        'generateStudyGuide',
+        'generateDiscussion',
+        'generateDevotional',
+        'saveTo'
+      ];
+    }
+
+    function isMomentSaveTarget(target) {
+      return target in [
+        'prayerJournal',
+        'studyJournal',
+        'churchNotes',
+        'sermonCollection',
+        'savedTeachings'
+      ];
+    }
+
+    function validMomentSaveGuardian(guardian) {
+      return guardian is map &&
+        guardian.keys().hasOnly(['passed', 'policyVersion', 'reason']) &&
+        guardian.keys().hasAll(['passed', 'policyVersion']) &&
+        guardian.passed == true &&
+        guardian.policyVersion is string &&
+        (!('reason' in guardian) || guardian.reason is string);
+    }
+
+    function validMomentSaveCreate(ownerId) {
+      return request.resource.data.keys().hasOnly([
+          'schemaVersion',
+          'momentId',
+          'ownerId',
+          'target',
+          'deepenAction',
+          'content',
+          'citations',
+          'guardian',
+          'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'schemaVersion',
+          'momentId',
+          'ownerId',
+          'target',
+          'deepenAction',
+          'content',
+          'citations',
+          'guardian',
+          'createdAt'
+        ]) &&
+        request.resource.data.schemaVersion == 1 &&
+        request.resource.data.ownerId == ownerId &&
+        request.resource.data.momentId is string &&
+        isMomentSaveTarget(request.resource.data.target) &&
+        isDeepenAction(request.resource.data.deepenAction) &&
+        request.resource.data.content is string &&
+        request.resource.data.citations is list &&
+        validMomentSaveGuardian(request.resource.data.guardian) &&
+        (request.resource.data.createdAt is int || request.resource.data.createdAt is float);
+    }
+
+    // =========================================================================
     // /users/{userId}
     // C5 §2a — User Resource
     // =========================================================================
@@ -670,6 +740,16 @@ service cloud.firestore {
         allow update: if isOwner(userId);
         allow delete: if isOwner(userId);
       }
+
+      // ── Moment v1 saved Deepen outputs ─────────────────────────────────────
+      // Owner-only private saves. Creates are restricted to Deepen actions and
+      // GUARDIAN-passed output shape; Gather has no live save path in v1.
+      match /momentSaves/{saveId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && validMomentSaveCreate(userId);
+        allow update: if false;
+        allow delete: if isOwner(userId);
+      }
     }
 
     // =========================================================================
@@ -687,8 +767,14 @@ service cloud.firestore {
       // See docs/privacy-model.md §7 and isEffectivelyPublic() / isFollowersOnlyPost()
       // / isTrustedCirclePost() helpers above.
       allow read: if
-        // Public (unauthenticated ok per OPEN-5)
-        isEffectivelyPublic(resource.data)
+        // Public (unauthenticated ok per OPEN-5).
+        // NG-1 (2026-06-19): a public post is only readable by non-owners once the
+        // moderatePost Cloud Function has cleared it (visible:true). At create the client
+        // is forced to visible:false (see create rule below), so unmoderated posts are no
+        // longer visible to other users before the verdict returns. Owner bypass is the
+        // next clause. REQUIRES a one-time backfill of visible:true on already-approved
+        // legacy posts before deploy — see deploy-logs/NG1-visible-backfill note.
+        (isEffectivelyPublic(resource.data) && resource.data.get('visible', false) == true)
         // Owner always has access
         || (isSignedIn() && isOwner(resource.data.get('authorId', '')))
         // Followers-only: viewer must follow the author
@@ -1628,6 +1714,21 @@ service cloud.firestore {
     // =========================================================================
 
     match /moderationCases/{caseId} {
+      allow read, write: if false; // CF / admin SDK only
+
+      // Two-person-rule approvals (insiderThreatAudit.recordApproval). One doc
+      // per distinct approver UID. Subcollections do NOT inherit the parent
+      // lock, so this explicit rule is required. CF / admin SDK only.
+      match /approvals/{approverUid} {
+        allow read, write: if false;
+      }
+    }
+
+    // Insider-threat audit log — immutable record of who accessed sensitive data
+    // (DMs, prayer, minors, Tier-1 evidence). Itself sensitive: no client read or
+    // write. Oversight reads go through the getSensitiveAccessLog callable, which
+    // re-checks owner/executive_admin server-side. Admin SDK bypasses rules.
+    match /sensitiveAccessLog/{entryId} {
       allow read, write: if false; // CF / admin SDK only
     }
 
@@ -3056,6 +3157,29 @@ service cloud.firestore {
       allow read: if isSignedIn() && request.auth.uid == minorUid;
       // No client writes — all mutations are CF Admin SDK only.
       allow create, update, delete: if false;
+
+      // /guardianApprovedContacts/{minorUid}/contacts/{contactId}
+      // The approval document isGuardianApprovedContact() reads, written by
+      // verifyGuardianLink CF only. Minor may read; no client writes (finding #44).
+      match /contacts/{contactId} {
+        allow read: if isSignedIn() && request.auth.uid == minorUid;
+        allow create, update, delete: if false;
+      }
+    }
+
+    // /guardianLinks/{guardianUid}/minors/{minorId}
+    // Reverse index so a guardian can see the minors they are linked to.
+    // Written by verifyGuardianLink CF only (finding #44).
+    match /guardianLinks/{guardianUid}/minors/{minorId} {
+      allow read: if isSignedIn() && request.auth.uid == guardianUid;
+      allow create, update, delete: if false;
+    }
+
+    // /mail/{mailId}
+    // Trigger Email extension queue. CF Admin SDK writes guardian verification
+    // emails here; clients have zero access (no read of OTP-bearing payloads).
+    match /mail/{mailId} {
+      allow read, write: if false;
     }
 
     // /moderationAuditLog/{eventId}
@@ -3485,9 +3609,194 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // /moments/{momentId}
+    // Moment v1 finite documents. Client access is owner-read only; creation and
+    // mutation remain server-owned so Gather live rooms/feed paths are not opened.
+    // =========================================================================
+
+    match /moments/{momentId} {
+      allow read: if isOwner(resource.data.get('ownerId', ''));
+      allow create, update, delete: if false;
+    }
+
+    // =========================================================================
+    // CREATOR PROFILES (ministry hubs)  —  collections namespaced creatorHub*
+    // Deny-by-default. UGC (prayer/community) is pending-on-write and only public
+    // after an owner/moderator/admin approval. Metrics + moderationQueue + media
+    // queue + RSVPs are server-write only (Admin SDK bypasses rules). MEDIA-GATE:
+    // media metadata is owner/mod-only and quarantined; the file itself is gated
+    // in storage.rules. Server flags (system/creatorProfileFlags) are denied to
+    // clients by the catch-all below (Admin SDK only).
+    // =========================================================================
+
+    // — Creator-hub role helpers (server-trusted: ownerUid on the doc + roles subdoc + admin claim) —
+    function chHubExists(creatorId) {
+      return exists(/databases/$(database)/documents/creatorHubs/$(creatorId));
+    }
+    function chIsOwner(creatorId) {
+      return isSignedIn()
+        && chHubExists(creatorId)
+        && get(/databases/$(database)/documents/creatorHubs/$(creatorId)).data.ownerUid == request.auth.uid;
+    }
+    function chIsModerator(creatorId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/creatorHubs/$(creatorId)/roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/creatorHubs/$(creatorId)/roles/$(request.auth.uid)).data.role == 'moderator';
+    }
+    function chCanManage(creatorId) {
+      return chIsOwner(creatorId) || chIsModerator(creatorId) || isAdminSDK();
+    }
+
+    match /creatorHubs/{creatorId} {
+      // Public artist-style page (profile is public-readable).
+      allow read: if true;
+      // Owner bootstraps their hub with ownerUid == self; ownerUid is immutable thereafter.
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if (chIsOwner(creatorId) || isAdminSDK())
+        && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if isAdminSDK();
+
+      // Moderator grants — managers read; owner/admin write (never client self-grant).
+      match /roles/{uid} {
+        allow read: if chCanManage(creatorId);
+        allow write: if chIsOwner(creatorId) || isAdminSDK();
+      }
+
+      // Owner-published content. Drafts/canceled hidden from public; managers see all.
+      match /events/{eventId} {
+        allow read: if (resource.data.status in ['scheduled', 'live', 'ended'])
+          || chCanManage(creatorId);
+        allow create, update, delete: if chCanManage(creatorId);
+
+        // RSVPs are written server-side (rsvpCreatorEvent, Admin SDK). No client writes.
+        match /{rsvpDoc=**} {
+          allow read: if chCanManage(creatorId);
+          allow write: if false;
+        }
+      }
+      match /teachings/{teachingId} {
+        allow read: if true;                 // creator-published; media file gated in storage.rules
+        allow create, update, delete: if chCanManage(creatorId);
+      }
+      match /resources/{resourceId} {
+        allow read: if true;
+        allow create, update, delete: if chCanManage(creatorId);
+      }
+      match /courses/{courseId} {
+        allow read: if true;
+        allow create, update, delete: if chCanManage(creatorId);
+      }
+
+      // Moderated UGC — prayer board. Public only when approved AND not private.
+      match /prayerRequests/{prayerId} {
+        allow read: if (resource.data.status == 'approved' && resource.data.isPrivate == false)
+          || (isSignedIn() && resource.data.authorId == request.auth.uid)
+          || chCanManage(creatorId);
+        // Anyone signed-in may submit; status is forced pending, authored by self, count 0.
+        allow create: if isSignedIn()
+          && request.resource.data.status == 'pending'
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.prayedCount == 0
+          && request.resource.data.isPrivate is bool;
+        // Managers transition status. Any signed-in user may +1 prayedCount on an
+        // approved public request (and change nothing else).
+        allow update: if chCanManage(creatorId)
+          || (
+               isSignedIn()
+               && resource.data.status == 'approved' && resource.data.isPrivate == false
+               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayedCount'])
+               && request.resource.data.prayedCount == resource.data.prayedCount + 1
+             );
+        allow delete: if chCanManage(creatorId);
+      }
+
+      // Moderated UGC — community. Public only when approved.
+      match /communityPosts/{postId} {
+        allow read: if (resource.data.status == 'approved')
+          || (isSignedIn() && resource.data.authorId == request.auth.uid)
+          || chCanManage(creatorId);
+        allow create: if isSignedIn()
+          && request.resource.data.status == 'pending'
+          && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if chCanManage(creatorId);
+      }
+
+      // Moderation queue — managers read; written server-side only (Admin SDK).
+      match /moderationQueue/{queueId} {
+        allow read: if chCanManage(creatorId);
+        allow write: if false;
+      }
+
+      // MEDIA-GATE queue — quarantined media metadata. Never public; server-written only.
+      match /mediaQueue/{mediaId} {
+        allow read: if chCanManage(creatorId);
+        allow write: if false;
+      }
+    }
+
+    // Kingdom Metrics — derived, server-write only; creator-facing read.
+    match /creatorHubMetrics/{creatorId} {
+      allow read: if chCanManage(creatorId);
+      allow write: if false;
+    }
+
+    // Smart-follow subscriptions — owner of the subscription only (id = {userId}_{creatorId}).
+    match /creatorHubFollows/{followId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // =========================================================================
+    // Smart Volunteer Board (Wave 0) — server-authoritative.
+    // ALL mutations go through us-east1 callables (admin SDK bypasses these rules);
+    // clients may only READ, and only what is safe. Writes are denied here so a
+    // compromised client can never overfill a role, forge an assignment, or read a
+    // leader's private note. This is the rules-layer half of I1/I2/I4.
+    // =========================================================================
+
+    // Event metadata + its staffing needs — readable by any signed-in user (board context).
+    match /volunteerEvents/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if false;                 // createServiceEvent / addStaffingNeed callables only
+
+      match /needs/{role} {
+        allow read: if isSignedIn();
+        allow write: if false;               // addStaffingNeed callable only
+      }
+    }
+
+    // Assignments — readable (the board is derived from them); never client-written (I1).
+    match /volunteerAssignments/{assignmentId} {
+      allow read: if isSignedIn();
+      allow write: if false;                 // signUpForSlot / leaderApprove callables only
+    }
+
+    // Blackouts — a volunteer may read only their own (id = {volunteerId}_{date}); writes via callable.
+    match /volunteerBlackouts/{blackoutId} {
+      allow read: if isSignedIn() && resource.data.volunteerId == request.auth.uid;
+      allow write: if false;                 // set/clearVolunteerBlackout callables only
+    }
+
+    // Leader private notes — NEVER client-readable (I4). The getLeaderPrivateNote callable
+    // is the only read path, and it access-logs every read. Writes via callable only.
+    match /volunteerLeaderNotes/{noteId} {
+      allow read, write: if false;
+    }
+
+    // Note access logs — admin SDK only; clients can neither read nor write the audit trail.
+    match /volunteerNoteAccessLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.
     // Fail closed — add new collections explicitly, never rely on this to permit.
+    // (This also denies clients access to system/creatorProfileFlags — admin SDK only.)
     // =========================================================================
 
     match /{document=**} {
