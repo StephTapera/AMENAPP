@@ -535,6 +535,14 @@ final class AMENFeatureFlags: ObservableObject {
     /// only after the Wave 6 verification matrix passes for all 11 screens.
     @Published private(set) var adaptiveGlassV2Enabled: Bool = false
 
+    // MARK: - System 31: Liquid Glass Redesign (native lens + tab bar)
+    /// Master switch for the native iOS 26 Liquid Glass redesign — the rebuilt
+    /// floating glass tab bar and the app-wide functional-chrome migration.
+    /// Ships default OFF, fail-closed to the current UI. Independent of the
+    /// App Store submission-critical compliance work. Flip via Remote Config
+    /// `liquid_glass_redesign_enabled` only after the Wave 3 a11y/perf audit passes.
+    @Published private(set) var liquidGlassRedesignEnabled: Bool = false
+
     // MARK: - System 29: Liquid Glass Intelligence Layer
     /// Master switch for all Liquid Glass intelligence features.
     @Published private(set) var liquidGlassSystemEnabled: Bool = false
@@ -1622,6 +1630,7 @@ final class AMENFeatureFlags: ObservableObject {
 
             // Selah Enhancement
             "adaptive_glass_v2_enabled":      false as NSObject,
+            "liquid_glass_redesign_enabled":  false as NSObject,
             "selah_personal_corpus_enabled": false as NSObject,
             "selah_discernment_enabled": false as NSObject,
             "selah_discernment_sharing_enabled": false as NSObject,
@@ -2282,6 +2291,7 @@ final class AMENFeatureFlags: ObservableObject {
         // Selah Enhancement
         // Adaptive Glass V2
         adaptiveGlassV2Enabled          = config["adaptive_glass_v2_enabled"].boolValue
+        liquidGlassRedesignEnabled      = config["liquid_glass_redesign_enabled"].boolValue
 
         selahPersonalCorpusEnabled      = config["selah_personal_corpus_enabled"].boolValue
         selahDiscernmentEnabled         = config["selah_discernment_enabled"].boolValue
