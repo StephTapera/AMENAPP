@@ -63,15 +63,10 @@ cd functions && node --check spiritualOSFunctions.js
 cd functions && npm run build:sanctuary
 cd functions && npm run build:berean
 cd functions && npm run build:context
+cd Backend/rules-tests && FIREBASE_CLI_DISABLE_UPDATE_CHECK=true FIRESTORE_EMULATOR_HOST=127.0.0.1:18080 FIREBASE_DATABASE_EMULATOR_HOST=127.0.0.1:19000 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:19199 firebase emulators:exec --config ../../firebase.rules-tests.isolated.json --only firestore "npm test -- --runInBand spiritual-os.rules.test.ts"
 ```
 
-Blocked / requires human-machine verification:
-
-```sh
-FIREBASE_CLI_DISABLE_UPDATE_CHECK=true firebase emulators:exec --only firestore "echo firestore-rules-syntax-ok"
-```
-
-Result: Firestore emulator could not start because port `8080` is already occupied. Rules syntax and denial tests are **not green** yet.
+Rules syntax and Spiritual OS owner-scope denial tests passed on the isolated Firestore emulator (`127.0.0.1:18080`): `spiritual-os.rules.test.ts`, 4 tests passed.
 
 Predeploy caveat resolved on 2026-06-20: `build:context` now runs through `functions/scripts/build-context.js` instead of a fragile inline `node -e` command.
 
@@ -79,7 +74,7 @@ Predeploy caveat resolved on 2026-06-20: `build:context` now runs through `funct
 
 1. Review `git diff -- functions/spiritualOSFunctions.js`.
 2. Review `git diff -- firestore.rules`.
-3. Run Firestore rules emulator syntax and denial tests on an open Firestore emulator port.
+3. Review the isolated Firestore rules test output (`spiritual-os.rules.test.ts`, 4 passed) and rerun before deploy if the rules diff changes.
 4. Confirm `ANTHROPIC_API_KEY` is rotated/dead-in-repo before production deploy.
 5. Confirm App Check enforcement remains on for each callable.
 
@@ -126,7 +121,7 @@ All flags stay OFF until rules and function deploys are verified with real data.
 
 - Quiet/clean single-writer branch.
 - Human Xcode build at final SHA.
-- Firestore rules syntax + denial tests.
+- Firestore rules syntax + denial tests passed for Spiritual OS; rerun if the deploy rules diff changes.
 - Real data round trips for each surface.
 - Screenshot matrix: light/dark/Dynamic Type XL/reduce-motion.
 - Faith-formation review per surface.
