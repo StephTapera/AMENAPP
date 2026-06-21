@@ -209,7 +209,7 @@ enum CommentReactionKind: String, Codable, CaseIterable, Sendable {
     case save      = "save"
 }
 
-struct CommentReaction: Codable, Identifiable, Sendable {
+struct SmartCommentReaction: Codable, Identifiable, Sendable {
     let id: String
     let commentId: String
     let authorId: String
@@ -235,7 +235,7 @@ struct SmartComment: Codable, Identifiable, Sendable {
     let safetyLabels: [ModerationCategory]
     /// Internal TrustOS snapshot — never displayed, never exposed to creators
     let _trustScoreSnapshot: Double?
-    let reactions: [CommentReaction]
+    let reactions: [SmartCommentReaction]
     let replyCount: Int
     let createdAt: TimeInterval
     let updatedAt: TimeInterval
@@ -251,7 +251,7 @@ struct CommentReply: Codable, Identifiable, Sendable {
     let moderationStatus: CommentModerationStatus
     let visibilityStatus: CommentVisibilityStatus
     let safetyLabels: [ModerationCategory]
-    let reactions: [CommentReaction]
+    let reactions: [SmartCommentReaction]
     let createdAt: TimeInterval
     let updatedAt: TimeInterval
 }
@@ -298,7 +298,7 @@ struct CalmCapSettings: Codable, Sendable {
 
 /// DEFERRED: behind media-safety gate + founder ruling + App Store policy review.
 /// Requires: ESP/NCMEC registration, hash-provider contract, legal sign-off, non-engineer review.
-struct VoiceComment: Codable, Identifiable, Sendable {
+struct SmartVoiceComment: Codable, Identifiable, Sendable {
     let id: String
     let commentId: String
     let audioUrl: String

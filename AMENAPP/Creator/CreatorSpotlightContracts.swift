@@ -60,7 +60,7 @@ enum ContentFormat: String, Codable, CaseIterable, Sendable {
     case live       = "live"
 }
 
-enum LiturgicalSeason: String, Codable, CaseIterable, Sendable {
+enum CreatorLiturgicalSeason: String, Codable, CaseIterable, Sendable {
     case advent       = "advent"
     case christmas    = "christmas"
     case epiphany     = "epiphany"
@@ -76,7 +76,7 @@ struct OrientingMetadata: Codable, Sendable {
     let format: [ContentFormat]
     let approximateLengthMinutes: Int?
     let scriptureReferences: [String]
-    let liturgicalSeason: LiturgicalSeason?
+    let liturgicalSeason: CreatorLiturgicalSeason?
     let audienceDescription: String?
     let whereToStart: String?
     let seriesName: String?
@@ -258,7 +258,7 @@ struct CurationSlot: Codable, Identifiable, Sendable {
     let targetId: String
     let targetKind: String
     let intentLabel: String
-    let liturgicalSeason: LiturgicalSeason?
+    let liturgicalSeason: CreatorLiturgicalSeason?
     let activeFrom: TimeInterval
     let activeUntil: TimeInterval
     let sponsorLabel: String?  // Required when intent == .labeledSponsorship
