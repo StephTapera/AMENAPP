@@ -1063,6 +1063,86 @@ final class AMENFeatureFlags: ObservableObject {
     /// Berean responses. Default OFF — enable via Remote Config after legal/DPO review.
     @Published private(set) var bereanAiDisclosureEnabled: Bool = false
 
+    // MARK: - System 43: Berean Spiritual Intelligence (depth axis + connectors + citation + memory)
+    // All default OFF, fail-closed. No flag flip in this build.
+    // Wave 0 contracts: BereanSpiritualIntelligenceContracts.swift
+    // TS source: src/berean/spiritualIntelligenceContracts.ts
+    /// Master gate for the depth axis + Intent Switch (auto-selects mode × depth).
+    @Published private(set) var bereanDepthAxisEnabled: Bool = false
+    /// Gates the Intent Switch chip (shows proposed mode × depth transparently).
+    @Published private(set) var bereanIntentSwitchEnabled: Bool = false
+    /// Gates Tier A scripture connectors (Free Use Bible API, API.Bible proxied, NET, OSHB/SBLGNT).
+    /// ESV/NIV/NASB are absent — not free. No YouVersion path.
+    @Published private(set) var bereanTierAConnectorsEnabled: Bool = false
+    /// Gates Scripture Citation Integrity (GUARDIAN capability): every emitted verse is verified;
+    /// fabricated or unverifiable references fail closed and are never silently emitted.
+    @Published private(set) var bereanCitationIntegrityEnabled: Bool = false
+    /// Gates Berean Memory (zone-classified store; prayer history encrypted at rest).
+    /// User inspect/delete UI ships with this flag.
+    @Published private(set) var bereanSpiritualMemoryEnabled: Bool = false
+    /// Gates "Ask Berean Why" experience template (Discern + Reflect at Study/Examine depth).
+    @Published private(set) var askBereanWhyEnabled: Bool = false
+
+    // MARK: - System 44: Creator Spotlight (public page + Studio)
+    // All default OFF, fail-closed. Extends Creator Profiles — no parallel profile model.
+    // Wave 0 contracts: AMENAPP/Creator/CreatorSpotlightContracts.swift
+    // TS source: src/creator/creatorSpotlightContracts.ts
+    // CONSTITUTION LOCK: no public trust score; no leaderboards; no ads; no passive-viewer identity;
+    // no 5-star on a person; all UGC fails closed; NSPrivacyTracking=false.
+    /// Master gate for the Creator Spotlight public page render.
+    @Published private(set) var creatorSpotlightEnabled: Bool = false
+    /// Gates Testimony + GUARDIAN pre-moderation (fail-closed) + Berean theme summary.
+    @Published private(set) var creatorTestimonyEnabled: Bool = false
+    /// Gates the Privacy Panel ("What this touches" + "Never touched" list per PRIVACY-CORE zones).
+    @Published private(set) var creatorPrivacyPanelEnabled: Bool = false
+    /// Gates the Appropriateness Signal (aligned to COPPA/KOSA minor-safety invariants).
+    @Published private(set) var creatorAppropriatenessSignalEnabled: Bool = false
+    /// Gates Creator Studio (stewardship dashboard; anti-vanity; no growth chart; no streak).
+    @Published private(set) var creatorStudioDashboardEnabled: Bool = false
+    /// Gates Berean-assist in Studio (draft discussion questions; summarize; Berean proposes, creator decides).
+    @Published private(set) var creatorBereanAssistEnabled: Bool = false
+    /// Gates editorial/pastoral curation slots (NO popularity rank; NO charts; NO #1).
+    @Published private(set) var creatorCurationSlotsEnabled: Bool = false
+
+    // MARK: - System 45: Long-Press Intelligence ("Press to Ask Berean")
+    // All default OFF, fail-closed. ONE BereanDepth enum; ONE LongPressIntelligenceMenu.
+    // Wave 0 contracts: AMENAPP/AIIntelligence/LongPressIntelligenceContracts.swift
+    // TS source: src/berean/longPressContracts.ts
+    /// Master gate for the long-press intelligence menu (glass expansion + haptics + registry).
+    @Published private(set) var longPressIntelligenceEnabled: Bool = false
+    /// Gates the depth dial (manual override of IntentSwitch auto-selected depth).
+    @Published private(set) var longPressDepthDialEnabled: Bool = false
+    /// Gates the Comment Button Peek Bubble (moderated thread preview; fail-closed).
+    @Published private(set) var longPressPeekBubbleEnabled: Bool = false
+    /// Gates adaptive thumb-reach learning (on-device only; user-resettable; never exported).
+    @Published private(set) var longPressAdaptiveReachEnabled: Bool = false
+
+    // MARK: - System 46: Smart Comments (enhanced end-to-end)
+    // All default OFF, fail-closed. Spine: no-read-before-moderation.
+    // Wave 0 contracts: AMENAPP/AIIntelligence/SmartCommentsContracts.swift
+    // TS source: src/comments/smartCommentsContracts.ts
+    // PERMANENTLY OFF paths: pay-for-reach, paid boosts of spiritual content.
+    // DEFERRED (contracts only): voice audio comments, payment transactions.
+    // DEFERRED gate: csamHashScanEnabled (four-part federal gate, already defined above).
+    /// Master gate for the enhanced SmartCommentsSheet and comment composition.
+    @Published private(set) var smartCommentsEnabled: Bool = false
+    /// Gates entity detection pipeline (verse/link/music/prayer/testimony/question/crisis).
+    @Published private(set) var commentEntityDetectionEnabled: Bool = false
+    /// Gates scripture preview cards (passes Citation Integrity before display).
+    @Published private(set) var commentScripturePreviewEnabled: Bool = false
+    /// Gates link safety scanner + warning interstitial (server-expanded; fail-closed-warn on unknown).
+    @Published private(set) var commentLinkScannerEnabled: Bool = false
+    /// Gates music preview cards (never autoplay; link only).
+    @Published private(set) var commentMusicPreviewEnabled: Bool = false
+    /// Gates layered moderation pipeline (on-device pre-check + server AI + human review).
+    @Published private(set) var commentModerationPipelineEnabled: Bool = false
+    /// Gates Berean smart features (thread summary, prayer detect, testimony, questions).
+    @Published private(set) var commentBereanSmartEnabled: Bool = false
+    /// Gates CalmCap modes: Slow mode, Sabbath mode, kindness nudge (all opt-in, non-coercive).
+    @Published private(set) var commentCalmCapEnabled: Bool = false
+    /// Gates creator moderation panel (pin/restrict/restore + verified context).
+    @Published private(set) var commentCreatorModerationEnabled: Bool = false
+
     private init() {
         applyUITestOverrides()
         Task { await fetchRemoteConfig() }
