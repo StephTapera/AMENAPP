@@ -219,7 +219,9 @@ struct CommentReaction: Codable, Identifiable, Sendable {
 
 // MARK: - Comment + Reply
 
-struct Comment: Codable, Identifiable, Sendable {
+/// SmartComments contract model. Named `SmartComment` to avoid colliding with the
+/// app-wide `Comment` type in PostInteractionModels.swift.
+struct SmartComment: Codable, Identifiable, Sendable {
     let id: String
     let postId: String
     let parentCommentId: String?
