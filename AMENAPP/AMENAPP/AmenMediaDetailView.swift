@@ -429,7 +429,7 @@ struct AmenMediaDetailView: View {
 
     private var heroHeight: CGFloat {
         let ratio = max(currentItem?.computedAspectRatio ?? 4.0 / 5.0, 0.65)
-        let availableWidth = UIScreen.main.bounds.width - 32
+        let availableWidth = ScreenMetrics.bounds.width - 32
         let calculated = availableWidth / ratio
         return min(max(calculated, 320), 520)
     }

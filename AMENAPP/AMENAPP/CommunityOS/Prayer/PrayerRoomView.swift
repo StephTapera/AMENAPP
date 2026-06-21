@@ -104,7 +104,7 @@ struct PrayerRoomView: View {
     // MARK: - Main Content
 
     private var mainContent: some View {
-        NavigationView {
+        NavigationStack {
             ZStack(alignment: .bottom) {
                 Color(uiColor: .systemGroupedBackground)
                     .ignoresSafeArea()

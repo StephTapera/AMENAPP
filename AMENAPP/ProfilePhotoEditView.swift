@@ -843,7 +843,7 @@ struct ProfilePhotoEditView: View {
     /// Renders the currently-visible portion of `image` given zoomScale + panOffset into a
     /// square UIImage matching the circle diameter at screen resolution.
     private func applyZoomCrop(to image: UIImage, diameter: CGFloat) -> UIImage {
-        let scale = UIScreen.main.scale
+        let scale = ScreenMetrics.scale
         let outputSize = CGSize(width: diameter * scale, height: diameter * scale)
 
         UIGraphicsBeginImageContextWithOptions(outputSize, false, 1.0)

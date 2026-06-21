@@ -3387,7 +3387,7 @@ struct PrayerWallView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header with close button
                 HStack {
@@ -3640,7 +3640,7 @@ struct SmartPrayerChatView: View {
     @State private var showConversationActions = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header
                 VStack(spacing: 0) {

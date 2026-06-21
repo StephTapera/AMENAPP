@@ -620,7 +620,7 @@ struct PeopleDiscoveryViewNew: View {
             )
             .sheet(item: $showProfileSheet) { user in
                 if let uid = user.id, !uid.isEmpty {
-                    NavigationView { SafeUserProfileWrapper(userId: uid) }
+                    NavigationStack { SafeUserProfileWrapper(userId: uid) }
                 }
             }
             .task {
@@ -1517,7 +1517,7 @@ struct DiscoveryPostRow: View {
         .sheet(isPresented: $navigateToPost) {
             // Navigate to post detail — sheet is safe here since we're inside a list
             if let postId = Optional(post.objectID), !postId.isEmpty {
-                NavigationView {
+                NavigationStack {
                     PostDetailViewWrapper(postId: postId)
                 }
             }
@@ -1675,7 +1675,7 @@ struct DiscoveryChurchRow: View {
         .accessibilityLabel("\(church.name)\(church.denomination.map { ", \($0)" } ?? "")")
         .accessibilityHint("Tap to view church profile")
         .sheet(isPresented: $showProfile) {
-            NavigationView {
+            NavigationStack {
                 ChurchProfileView(churchId: church.id)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {

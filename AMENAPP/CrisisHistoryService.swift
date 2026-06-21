@@ -147,7 +147,7 @@ struct CrisisHistorySheet: View {
     @State private var showShareSheet = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 if service.visits.isEmpty {
                     Section {

@@ -44,7 +44,7 @@ struct ChurchProfileView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack(alignment: .topTrailing) {
                 if let profileData = viewModel.profileData {
                     // ── Scroll-driven expanding sheet layout ──────────────
@@ -1167,7 +1167,7 @@ struct PlanMyVisitView: View {
     let services = ["Sunday Morning", "Sunday Evening", "Wednesday Night", "First Service", "Second Service"]
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     // Church header

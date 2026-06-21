@@ -1863,7 +1863,7 @@ struct SermonTranscriptionView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Control bar
                 HStack(spacing: 14) {
@@ -1965,7 +1965,7 @@ struct PhotoNotesScanSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 if mgr.isProcessing {
                     ProgressView("Reading content…").padding(40)

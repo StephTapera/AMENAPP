@@ -310,7 +310,7 @@ struct ChurchLiveModeView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: UIScreen.main.bounds.height * 0.42)
+            .frame(height: ScreenMetrics.bounds.height * 0.42)
 
             // Gradient fade into bottom panel area
             LinearGradient(

@@ -328,7 +328,7 @@ final class ContextQRService: ObservableObject {
         guard let outputImage = filter.outputImage else { return nil }
 
         // Scale up for crisp rendering on retina displays.
-        let scale = UIScreen.main.scale
+        let scale = ScreenMetrics.scale
         let scaleTransform = CGAffineTransform(scaleX: 10 * scale, y: 10 * scale)
         let scaledImage = outputImage.transformed(by: scaleTransform)
 

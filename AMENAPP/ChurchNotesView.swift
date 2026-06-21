@@ -4001,7 +4001,7 @@ struct ShareNoteToOpenTableSheet: View {
     @ObservedObject private var postsManager = PostsManager.shared
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header
                 HStack {
@@ -4964,7 +4964,7 @@ struct ShareWithFriendsSheet: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Dark gradient background
                 LinearGradient(
@@ -5338,7 +5338,7 @@ struct MinimalTypographyHeader: View {
                 }
                 .buttonStyle(.plain)
                 .sheet(isPresented: $showSemanticSearch) {
-                    NavigationView {
+                    NavigationStack {
                         BereanSemanticSearchView(notes: notes)
                             .navigationTitle("Smart Search")
                             .navigationBarTitleDisplayMode(.inline)

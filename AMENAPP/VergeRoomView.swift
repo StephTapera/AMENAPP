@@ -201,7 +201,7 @@ struct VergeRoomView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
-        .frame(height: UIScreen.main.bounds.height * 0.22)
+        .frame(height: ScreenMetrics.bounds.height * 0.22)
     }
 
     // MARK: - AI Insights Bar

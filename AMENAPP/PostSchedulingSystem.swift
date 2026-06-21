@@ -328,7 +328,7 @@ struct SmartScheduleSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.white.ignoresSafeArea()
 
@@ -1587,7 +1587,7 @@ struct PostSchedulingSystem_Previews: PreviewProvider {
             .previewDisplayName("Publish Pill")
 
             // ScheduledPostsHub preview
-            NavigationView {
+            NavigationStack {
                 ScheduledPostsHub()
             }
             .previewDisplayName("Scheduled Posts Hub")

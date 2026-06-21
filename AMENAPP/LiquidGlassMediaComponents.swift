@@ -145,7 +145,7 @@ struct GlassImageView: View {
     private var heightForAspectRatio: CGFloat {
         // Use the measured container width. Fall back to screen width on first layout
         // pass before GeometryReader fires (containerWidth == 0).
-        let width = containerWidth > 0 ? containerWidth : UIScreen.main.bounds.width - 32
+        let width = containerWidth > 0 ? containerWidth : ScreenMetrics.bounds.width - 32
         let ratio = aspectRatio ?? 4.0 / 3.0
         return width / ratio
     }

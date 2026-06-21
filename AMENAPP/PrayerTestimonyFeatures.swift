@@ -629,7 +629,7 @@ struct CreatePrayerRoomView: View {
     @State private var isSaving = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section("Room Details") {
                     TextField("Prayer room title", text: $title)

@@ -567,7 +567,7 @@ struct ChurchNoteAIAssistantView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color(red: 0.96, green: 0.96, blue: 0.96)
                     .ignoresSafeArea()
