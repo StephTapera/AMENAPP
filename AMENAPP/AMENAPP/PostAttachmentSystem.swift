@@ -592,7 +592,7 @@ struct ChurchNoteAttachmentDetailView: View {
                 HStack(spacing: 10) {
                     ForEach(note.worshipSongs) { song in
                         WorshipMusicPill(song: song)
-                            .frame(width: min(280, UIScreen.main.bounds.width - 40))
+                            .frame(width: min(280, ScreenMetrics.bounds.width - 40))
                     }
                 }
                 .padding(.horizontal, 20)

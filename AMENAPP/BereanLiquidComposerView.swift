@@ -166,7 +166,7 @@ struct BereanLiquidComposerView: View {
                     Color.clear
                         .onAppear {}
                         .overlay(alignment: .top) {
-                            let windowHeight = UIScreen.main.bounds.height
+                            let windowHeight = ScreenMetrics.bounds.height
                             let composerBottom = windowHeight - keyboardHeight
                             // Available space above the composer (rough, without safe insets)
                             let availableAbove = composerBottom - geo.frame(in: .global).maxY
@@ -243,7 +243,7 @@ struct BereanLiquidComposerView: View {
         // a GeometryReader background to measure its natural height, then write that
         // back to textHeight via preference. This is a pure-SwiftUI approach that
         // doesn't require UIKit introspection.
-        let maxHeight: CGFloat = UIScreen.main.bounds.height < 700 ? 80 : 120
+        let maxHeight: CGFloat = ScreenMetrics.bounds.height < 700 ? 80 : 120
 
         return VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topLeading) {

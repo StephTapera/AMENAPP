@@ -27,7 +27,7 @@ struct ShareCardGenerator {
         )
 
         let renderer = ImageRenderer(content: cardView.frame(width: 380, height: 480))
-        renderer.scale = UIScreen.main.scale
+        renderer.scale = ScreenMetrics.scale
         return renderer.uiImage
     }
 }

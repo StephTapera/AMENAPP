@@ -9,6 +9,44 @@
 //
 
 import Foundation
+import UIKit
+
+// MARK: - Scene-Aware Screen Metrics
+//
+// Replacement for `UIScreen.main`, which is deprecated and returns the wrong
+// values under multi-window contexts (iPad Split View, Stage Manager, external
+// displays). These accessors resolve the *active foreground* window scene and
+// read its key window's bounds — the app's actual on-screen size — rather than
+// the full physical screen.
+//
+// Prefer SwiftUI's `GeometryReader` or `@Environment(\.displayScale)` inside
+// views where layout precision matters; use these as drop-in replacements for
+// legacy `UIScreen.main` call sites where a structural refactor isn't warranted.
+enum ScreenMetrics {
+    /// The active foreground window scene, falling back to any connected scene.
+    private static var activeScene: UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    }
+
+    /// Bounds of the app's key window in the active scene — the correct size to
+    /// lay out against under Split View / Stage Manager. Falls back to the
+    /// scene's screen bounds, then to a sensible default at very early launch.
+    static var bounds: CGRect {
+        if let scene = activeScene {
+            if let window = scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first {
+                return window.bounds
+            }
+            return scene.screen.bounds
+        }
+        return CGRect(x: 0, y: 0, width: 390, height: 844)
+    }
+
+    /// Display scale of the active scene's screen (e.g. for `ImageRenderer`).
+    static var scale: CGFloat {
+        activeScene?.screen.scale ?? 2.0
+    }
+}
 
 // MARK: - UserDefaults Keys
 

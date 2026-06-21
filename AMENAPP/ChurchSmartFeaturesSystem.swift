@@ -613,7 +613,7 @@ struct ChurchInviteComposer: View {
     @State private var sent = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.white.ignoresSafeArea()
 
@@ -712,7 +712,7 @@ struct OpenTablePostComposer: View {
     @State private var posted = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.white.ignoresSafeArea()
 

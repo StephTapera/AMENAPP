@@ -475,7 +475,7 @@ private struct PrayerDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text(prayer.content)
@@ -529,7 +529,7 @@ private struct IntercessorListSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List(intercessors) { person in
                 HStack(spacing: 12) {
                     AsyncImage(url: URL(string: person.photoURL ?? "")) { phase in

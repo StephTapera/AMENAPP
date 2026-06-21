@@ -240,7 +240,7 @@ struct CrisisGroundingExerciseView: View {
     @State private var isComplete = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Calm gradient background
                 LinearGradient(

@@ -44,7 +44,7 @@ struct AlgoliaSyncDebugView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 // Status Section
                 Section {

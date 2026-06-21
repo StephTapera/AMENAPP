@@ -22,7 +22,7 @@ struct AltTextEditorSheet: View {
     @FocusState private var isFocused: Bool
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Add a description for screen readers and users who can't see the image.")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -271,7 +271,7 @@ struct SensitiveContentReasonSheet: View {
     ]
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("This helps prepare readers for sensitive content")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -448,7 +448,7 @@ struct PostPreviewSheet: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Preview")

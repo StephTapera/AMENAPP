@@ -23,7 +23,7 @@ struct ImageCropEditor: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             GeometryReader { geometry in
                 ZStack {
                     Color.black.ignoresSafeArea()
@@ -96,7 +96,7 @@ struct SaveTemplateSheet: View {
     @FocusState private var isFocused: Bool
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Save this post structure as a template for future use")
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -381,7 +381,7 @@ struct TemplatePickerSheet: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Group {
                 if categoryTemplates.isEmpty {
                     VStack(spacing: 16) {

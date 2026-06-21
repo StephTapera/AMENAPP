@@ -21,7 +21,7 @@ struct WhyAmISeeingThisSheet: View {
     @State private var showFeedControls = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header
                 VStack(spacing: 12) {
@@ -371,7 +371,7 @@ struct ThinkFirstPromptSheet: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 // Icon based on action type
                 Image(systemName: iconName)

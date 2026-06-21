@@ -70,7 +70,7 @@ struct AmenShareSheet: View {
     @State private var shareErrorMessage = ""
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
 

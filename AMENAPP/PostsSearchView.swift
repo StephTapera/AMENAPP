@@ -556,7 +556,7 @@ struct PostSearchCard: View {
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showFullPost) {
-            NavigationView {
+            NavigationStack {
                 // Integrate with existing PostDetailView or create new one
                 Text("Post Detail View")
                     .font(.custom("OpenSans-Regular", size: 16))

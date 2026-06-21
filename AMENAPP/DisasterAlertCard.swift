@@ -274,7 +274,7 @@ struct PrayerIntentSheet: View {
     @State private var prayerNote = ""
     @State private var submitted = false
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
 
@@ -402,7 +402,7 @@ struct DisasterDetailSheet: View {
     @State private var showCompose = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
                 ScrollView {

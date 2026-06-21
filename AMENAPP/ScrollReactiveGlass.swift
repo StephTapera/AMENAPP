@@ -110,7 +110,7 @@ struct DynamicGlassOverlay: View {
     var rampDistance: CGFloat? = nil
 
     private var resolvedRampDistance: CGFloat {
-        rampDistance ?? UIScreen.main.bounds.height * 0.45
+        rampDistance ?? ScreenMetrics.bounds.height * 0.45
     }
 
     /// Minimum intensity even at offset 0 (subtle depth at rest).

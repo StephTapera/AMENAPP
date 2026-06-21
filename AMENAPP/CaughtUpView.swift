@@ -402,7 +402,7 @@ struct PostVisibilityTrackerForBanner: ViewModifier {
     }
     
     private func updateVisibility(frame: CGRect) {
-        let screenHeight = UIScreen.main.bounds.height
+        let screenHeight = ScreenMetrics.bounds.height
         let visibleHeight = min(frame.maxY, screenHeight) - max(frame.minY, 0)
         let totalHeight = frame.height
         

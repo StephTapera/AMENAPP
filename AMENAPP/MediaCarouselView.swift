@@ -21,7 +21,7 @@ struct MediaCarouselView: View {
     @State private var carouselAppeared = false
     @GestureState private var dragOffset: CGFloat = 0
     
-    private let itemWidth: CGFloat = UIScreen.main.bounds.width - 64 // Padding + peek
+    private let itemWidth: CGFloat = ScreenMetrics.bounds.width - 64 // Padding + peek
     private let itemSpacing: CGFloat = 12
     private let peekAmount: CGFloat = 32
     
@@ -39,7 +39,7 @@ struct MediaCarouselView: View {
                             .frame(width: itemWidth)
                     }
                 }
-                .padding(.horizontal, (UIScreen.main.bounds.width - itemWidth) / 2) // Center first item
+                .padding(.horizontal, (ScreenMetrics.bounds.width - itemWidth) / 2) // Center first item
             }
             .scrollTargetBehavior(.paging) // iOS 17+ snap paging
             .scrollIndicators(.hidden)

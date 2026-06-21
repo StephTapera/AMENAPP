@@ -661,7 +661,7 @@ struct SpaceMemberSearchSheet: View {
     ]
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Search field
                 HStack(spacing: 10) {

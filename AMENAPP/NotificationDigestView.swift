@@ -8,7 +8,7 @@ struct NotificationDigestView: View {
     @State private var selectedDigest: NotificationDigest?
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
                     // Current Pending Digest
@@ -208,7 +208,7 @@ struct DigestDetailView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     headerView

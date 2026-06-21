@@ -9,7 +9,7 @@ struct SmartNotificationSettingsView: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
 
@@ -686,7 +686,7 @@ struct TimePickerSheet: View {
     @State private var date: Date = Date()
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack {
                 DatePicker(
                     "",

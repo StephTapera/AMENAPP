@@ -228,7 +228,7 @@ struct ChurchMentionTextField: View {
             }
         }
         .sheet(isPresented: $showChurchPicker) {
-            NavigationView {
+            NavigationStack {
                 ChurchMentionPicker(
                     searchQuery: $churchSearchQuery,
                     isPresented: $showChurchPicker,

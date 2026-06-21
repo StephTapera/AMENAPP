@@ -375,7 +375,7 @@ struct ChurchExperienceComposer: View {
     // MARK: Body
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.white.ignoresSafeArea()
 
@@ -881,7 +881,7 @@ struct ChurchExperienceConcernFlow: View {
     @State private var submitted = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.white.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {

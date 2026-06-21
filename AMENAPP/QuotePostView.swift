@@ -28,7 +28,7 @@ struct QuotePostView: View {
     @FocusState private var composerFocused: Bool
 
     // MARK: PROMPT 1 — Shimmer + Reaction Tray
-    @State private var shimmerOffset: CGFloat = -UIScreen.main.bounds.width
+    @State private var shimmerOffset: CGFloat = -ScreenMetrics.bounds.width
     @State private var showReactionTray = false
     @State private var selectedReaction = ""
     @State private var cardScale: CGFloat = 1.0
@@ -247,9 +247,9 @@ struct QuotePostView: View {
     }
 
     private func triggerShimmer() {
-        shimmerOffset = -UIScreen.main.bounds.width
+        shimmerOffset = -ScreenMetrics.bounds.width
         withAnimation(.easeInOut(duration: 0.65)) {
-            shimmerOffset = UIScreen.main.bounds.width
+            shimmerOffset = ScreenMetrics.bounds.width
         }
     }
 

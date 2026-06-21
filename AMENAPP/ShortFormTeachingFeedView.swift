@@ -327,7 +327,7 @@ struct TeachingClipCard: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: UIScreen.main.bounds.height * 0.55)
+            .frame(height: ScreenMetrics.bounds.height * 0.55)
 
             Color.black.opacity(0.85)
                 .frame(height: 10)

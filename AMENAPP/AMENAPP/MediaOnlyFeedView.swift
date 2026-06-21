@@ -218,7 +218,7 @@ private struct ShimmerModifier: ViewModifier {
             )
             .onAppear {
                 withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                    phase = UIScreen.main.bounds.width
+                    phase = ScreenMetrics.bounds.width
                 }
             }
     }

@@ -30,7 +30,7 @@ struct ChurchNotesMediaCaptureView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Group {
                 if !AMENFeatureFlags.shared.mediaCreationEnabled {
                     featureUnavailableView

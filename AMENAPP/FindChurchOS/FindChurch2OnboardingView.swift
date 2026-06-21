@@ -48,7 +48,7 @@ struct FindChurch2OnboardingView: View {
 
     @ViewBuilder
     private var onboardingContent: some View {
-        NavigationView {
+        NavigationStack {
             ZStack(alignment: .bottom) {
                 // Phase pages via TabView (swipe disabled — navigation is button-driven)
                 TabView(selection: $phase) {
@@ -114,7 +114,6 @@ struct FindChurch2OnboardingView: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
     }
 }
 

@@ -531,7 +531,7 @@ private struct SuggestTimesSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Suggest service times for \(churchName) to help others planning a visit.")
                     .font(.subheadline)
@@ -555,7 +555,6 @@ private struct SuggestTimesSheet: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
     }
 }
 

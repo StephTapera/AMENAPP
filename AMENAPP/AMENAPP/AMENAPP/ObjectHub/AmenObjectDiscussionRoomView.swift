@@ -385,7 +385,7 @@ private struct DiscussionMessageBubble: View {
                     bubbleBody
                 }
                 .frame(
-                    maxWidth: UIScreen.main.bounds.width * 0.72,
+                    maxWidth: ScreenMetrics.bounds.width * 0.72,
                     alignment: isOwn ? .trailing : .leading
                 )
 

@@ -364,7 +364,7 @@ struct SemanticSearchButton: View {
                 .font(.systemScaled(16))
         }
         .sheet(isPresented: $showSearch) {
-            NavigationView {
+            NavigationStack {
                 BereanSemanticSearchView(notes: notes)
                     .navigationTitle("Smart Search")
                     .navigationBarTitleDisplayMode(.inline)

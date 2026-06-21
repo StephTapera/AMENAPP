@@ -17,7 +17,7 @@ struct TrustedCircleView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
 
@@ -316,7 +316,7 @@ struct AddTrustedContactSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
                     Picker("Add method", selection: $selectedTab) {

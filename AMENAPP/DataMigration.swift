@@ -330,7 +330,7 @@ struct DataMigrationView: View {
     @State private var alertMessage = ""
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 // Warning banner
                 VStack(alignment: .leading, spacing: 8) {

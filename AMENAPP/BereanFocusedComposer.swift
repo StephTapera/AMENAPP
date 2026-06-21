@@ -25,7 +25,7 @@ struct BereanFocusedComposer: View {
     /// a 4-line composer eats the majority of the visible area. Cap to 2 lines on
     /// any screen shorter than 700pt (SE portrait/landscape, iPod Touch).
     private var adaptiveLineLimit: ClosedRange<Int> {
-        UIScreen.main.bounds.height < 700 ? 1...2 : 1...4
+        ScreenMetrics.bounds.height < 700 ? 1...2 : 1...4
     }
 
     var body: some View {

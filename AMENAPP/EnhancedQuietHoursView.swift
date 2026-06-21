@@ -30,7 +30,7 @@ struct EnhancedQuietHoursView: View {
     @State private var quietHoursSource: String = "manual"
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
 
@@ -765,7 +765,7 @@ struct SuggestionDetailView: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack {
                 Text("Apply this suggestion?")
                 Text("\(suggestion.startTime) - \(suggestion.endTime)")
