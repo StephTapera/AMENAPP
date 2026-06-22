@@ -38,7 +38,12 @@ struct ContentView: View {
     @ObservedObject private var featureFlags = AMENFeatureFlags.shared
     private var isShowingLoadingScreen: Bool { appReadyState.isShowingLoadingScreen }
     private var hasRealFirebaseUser: Bool {
-        authViewModel.isAuthenticated && Auth.auth().currentUser?.uid != nil
+#if DEBUG
+        if authViewModel.isDebugAuthBypassActive {
+            return true
+        }
+#endif
+        return authViewModel.isAuthenticated && Auth.auth().currentUser?.uid != nil
     }
 
     // ── SabbathMode: Additive wiring (extends existing ShabbatModeService/RestModeGate) ──
@@ -89,13 +94,186 @@ struct ContentView: View {
         viewModel.selectedTab == 3
     }
 
+    private var shouldRenderTabBar: Bool {
+        // The Selah Break modal covers the full screen; the real floating tab bar
+        // must not render on top of it (it caused a duplicate "+" composite button
+        // and overlapped the break content).
+        showTabBar && !showLimitReachedDialog
+    }
+
     private var shouldShowAssistantBar: Bool {
-        showTabBar && !isResourcesTabActive
+        showTabBar && !isResourcesTabActive && !showLimitReachedDialog
     }
 
     private var bottomChromeReservedHeight: CGFloat {
         guard showTabBar else { return 24 }
         return isResourcesTabActive ? 190 : 268
+    }
+
+    @ViewBuilder
+    private var bottomTabBarOverlay: some View {
+        if shouldRenderTabBar {
+            AMENTabBar(
+                selectedTab: $viewModel.selectedTab,
+                badges: $tabBarBadges,
+                onCompose: {
+                    tabScrollBridge.expand()
+                    withAnimation(.amenSpringStandard) {
+                        showAudiencePicker = true
+                    }
+                },
+                onCameraOS: {
+                    showCameraOS = true
+                },
+                profilePhotoURL: currentUserProfileImageURL.isEmpty ? nil : currentUserProfileImageURL,
+                isMinimized: tabScrollBridge.isMinimized
+            )
+            .adaptiveSurface(.bottomNav)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .onChange(of: viewModel.selectedTab) { _, _ in
+                tabScrollBridge.expand()
+            }
+        }
+    }
+
+    private var bottomAssistantPadding: CGFloat {
+        shouldRenderTabBar ? 108 : 12
+    }
+
+    @ViewBuilder
+    private var bottomAssistantOverlay: some View {
+        VStack(spacing: 10) {
+            if featureFlags.audioNarrationEnabled {
+                AudioMiniPlayerBar()
+            }
+
+            if shouldShowAssistantBar {
+                AmenAssistantBarOverlay(coordinator: assistantCoordinator)
+            }
+        }
+        .padding(.bottom, bottomAssistantPadding)
+        .animation(.easeOut(duration: 0.25), value: shouldShowAssistantBar)
+    }
+
+    private var cameraOSPresented: Binding<Bool> {
+        Binding(
+            get: { showCameraOS && featureFlags.cameraOSEnabled },
+            set: { showCameraOS = $0 }
+        )
+    }
+
+    private var cameraOSSheet: some View {
+        AmenCameraOSHubView(
+            onMediaCaptured: { _, _ in showCameraOS = false },
+            onPrayerCaptured: { _ in showCameraOS = false },
+            onDismiss: { showCameraOS = false }
+        )
+    }
+
+    private var bereanConversionSheet: some View {
+        let placeholder = BereanCapture(
+            id: UUID().uuidString,
+            sourceType: .answer,
+            content: "",
+            scriptureRefs: [],
+            studyOutlinePoints: [],
+            capturedAt: Date()
+        )
+        return AmenBereanConversionMenu(capture: placeholder) {
+            showBereanConversionMenu = false
+        }
+    }
+
+    private var creatorKitSheet: some View {
+        NavigationStack {
+            AmenCreatorKitHome()
+        }
+    }
+
+    private var audiencePickerSheet: some View {
+        AmenAudienceFirstPickerView(isPresented: $showAudiencePicker) { audience, metadata in
+            selectedAudience = audience
+            selectedAudienceMetadata = metadata
+            selectedPostCategory = audience.suggestedPostCategory ?? .openTable
+            withAnimation(.amenSpringStandard) {
+                showCreatePost = true
+            }
+        }
+    }
+
+    private var createPostPresented: Binding<Bool> {
+        Binding(
+            get: { showCreatePost && killSwitch.createPostEnabled },
+            set: { showCreatePost = $0 }
+        )
+    }
+
+    private var createPostSheet: some View {
+        CreatePostView(
+            initialCategory: selectedPostCategory,
+            initialAudience: selectedAudience,
+            initialAudienceMetadata: selectedAudienceMetadata
+        )
+    }
+
+    @ViewBuilder
+    private var topAccessibilityOverlay: some View {
+        if featureFlags.adaptiveAccessibilityEnabled {
+            AccessibilitySuggestionBanner()
+                .padding(.top, 50)
+        }
+    }
+
+    @ViewBuilder
+    private var ftueCoachMarkOverlay: some View {
+        if showFTUE {
+            CoachMarkOverlay(
+                ftueManager: FTUEManager.shared,
+                postCardFrame: postCardFrame,
+                bereanButtonFrame: bereanButtonFrame
+            )
+            .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+            .zIndex(1000)
+        }
+    }
+
+    private func handlePostCardFrameChange(_ equatableFrame: EquatableCGRect?) {
+        guard let frame = equatableFrame else { return }
+        if postCardFrame == nil || !FTUEManager.shared.shouldShowCoachMarks {
+            postCardFrame = frame.rect
+        }
+    }
+
+    private func handleBereanButtonFrameChange(_ equatableFrame: EquatableCGRect?) {
+        guard let frame = equatableFrame else { return }
+        if bereanButtonFrame == nil || !FTUEManager.shared.shouldShowCoachMarks {
+            bereanButtonFrame = frame.rect
+        }
+    }
+
+    private func handleActiveDeepLinkRoute(_ route: DeepLinkRouter.DeepLinkRoute?) {
+        guard let route else { return }
+        switch route {
+        case .post, .userProfile, .category, .church, .comment:
+            viewModel.selectedTab = 0
+        case .search:
+            viewModel.selectedTab = 1
+        case .conversation, .chat, .messages, .groupJoin:
+            viewModel.selectedTab = 2
+        case .prayer, .churchNote:
+            viewModel.selectedTab = 3
+        case .notification, .notifications:
+            viewModel.selectedTab = 4
+        case .settings:
+            viewModel.selectedTab = 5
+        case .space:
+            viewModel.selectedTab = 6
+        case .intelligence:
+            viewModel.selectedTab = 7
+        case .event:
+            viewModel.selectedTab = 3
+        }
+        DeepLinkRouter.shared.clearRoute()
     }
     @State private var showCommunityCovenant = false
     @State private var needsCovenantAgreement = false
@@ -813,214 +991,95 @@ struct ContentView: View {
     }
 
     private var mainContentWithOverlays: some View {
-        mainContentBody
-        // P0 FIX: Wire push notification deep links to tab navigation.
-        // NotificationDeepLinkRouter.shared publishes activeDestination whenever
-        // a push is tapped. This modifier observes it and switches selectedTab.
-        .handleNotificationNavigation(selectedTab: $viewModel.selectedTab)
-        // A2-P1: Bridge DeepLinkRouter.activeRoute → viewModel.selectedTab.
-        // DeepLinkRouter.navigate() already sets selectedTab on the router's own
-        // property; this observer mirrors it onto ContentView's viewModel so
-        // the keep-mounted tab ZStack responds, then clears the route.
-        .onChange(of: DeepLinkRouter.shared.activeRoute) { _, newRoute in
-            guard let route = newRoute else { return }
-            switch route {
-            case .post, .userProfile, .category, .church, .comment:
-                viewModel.selectedTab = 0
-            case .search:
-                viewModel.selectedTab = 1
-                    case .conversation, .chat, .messages, .groupJoin:
-                        viewModel.selectedTab = 2
-                    case .prayer, .churchNote:
-                        viewModel.selectedTab = 3
-            case .notification, .notifications:
-                viewModel.selectedTab = 4
-            case .settings:
-                viewModel.selectedTab = 5
-            case .space:
-                viewModel.selectedTab = 6
-            case .intelligence:
-                viewModel.selectedTab = 7
-            case .event:
-                viewModel.selectedTab = 3
-            }
-            DeepLinkRouter.shared.clearRoute()
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            // Reserve the exact floating chrome footprint so content never sits under it.
-            Color.clear
-                .frame(height: bottomChromeReservedHeight)
-                .animation(.easeOut(duration: 0.25), value: bottomChromeReservedHeight)
-        }
-        .overlay(alignment: .bottom) {
-            // Always render tab bar, move it offscreen when keyboard appears
-            AMENTabBar(
-                selectedTab: $viewModel.selectedTab,
-                badges: $tabBarBadges,
-                onCompose: {
-                    tabScrollBridge.expand()
-                    // Audience-First: show the audience picker before opening the composer.
-                    // The picker's callback sets selectedAudience + selectedPostCategory,
-                    // then sets showCreatePost = true so the glass sheet opens.
-                    withAnimation(.amenSpringStandard) {
-                        showAudiencePicker = true
-                    }
-                },
-                onCameraOS: {
-                    showCameraOS = true
-                },
-                profilePhotoURL: currentUserProfileImageURL.isEmpty ? nil : currentUserProfileImageURL,
-                isMinimized: tabScrollBridge.isMinimized
-            )
-            .adaptiveSurface(.bottomNav)
-            .offset(y: showTabBar ? 0 : 150) // Move offscreen when keyboard appears
-            .animation(.easeOut(duration: 0.25), value: showTabBar)
-            .onChange(of: viewModel.selectedTab) { _, _ in
-                tabScrollBridge.expand()
-            }
-        }
-        .overlay(alignment: .bottom) {
-            VStack(spacing: 10) {
-                // Audio mini player bar — shown during speech playback
-                if AMENFeatureFlags.shared.audioNarrationEnabled {
-                    AudioMiniPlayerBar()
-                }
+        contentWithEnvironmentObjects
+    }
 
-                // Spiritual OS — hidden on Resources so crisis/support flows stay human-first.
-                if shouldShowAssistantBar {
-                    AmenAssistantBarOverlay(coordinator: assistantCoordinator)
-                }
+    private var contentWithRouting: some View {
+        mainContentBody
+            .handleNotificationNavigation(selectedTab: $viewModel.selectedTab)
+            .onChange(of: DeepLinkRouter.shared.activeRoute) { _, newRoute in
+                handleActiveDeepLinkRoute(newRoute)
             }
-            .padding(.bottom, showTabBar ? 108 : 12)
-            .animation(.easeOut(duration: 0.25), value: shouldShowAssistantBar)
-        }
-        .overlay(alignment: .top) {
-            // Adaptive accessibility suggestion banner
-            if AMENFeatureFlags.shared.adaptiveAccessibilityEnabled {
-                AccessibilitySuggestionBanner()
-                    .padding(.top, 50)
+    }
+
+    private var contentWithChrome: some View {
+        contentWithRouting
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: bottomChromeReservedHeight)
+                    .animation(.easeOut(duration: 0.25), value: bottomChromeReservedHeight)
             }
-        }
-        .overlay {
-            // Long press menu as a separate overlay - won't affect tab bar
-            createPostQuickActionsOverlay
-        }
-        .overlay {
-            // Berean Bible icon menu as full-screen overlay
-            bereanQuickActionsOverlay
-        }
-        .overlay {
-            // FTUE Coach Marks overlay
-            if showFTUE {
-                CoachMarkOverlay(
-                    ftueManager: FTUEManager.shared,
-                    postCardFrame: postCardFrame,
-                    bereanButtonFrame: bereanButtonFrame
-                )
-                .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-                .zIndex(1000)
+            .overlay(alignment: .bottom) {
+                bottomTabBarOverlay
             }
-        }
-        .environment(\.tabBarVisible, $showTabBar)  // ✅ Pass visibility to child views
-        .environment(\.mainTabSelection, $viewModel.selectedTab)  // ✅ Pass tab selection to child views
-        .onPreferenceChange(PostCardFramePreferenceKey.self) { equatableFrame in
-            // ✅ FIX: Only update if frame not yet captured OR FTUE is not showing
-            // Once FTUE shows, freeze the frame to prevent scroll stuttering
-            if let frame = equatableFrame {
-                // Only update if we don't have a frame yet, or FTUE is not active
-                if postCardFrame == nil || !FTUEManager.shared.shouldShowCoachMarks {
-                    postCardFrame = frame.rect
-                }
+            .overlay(alignment: .bottom) {
+                bottomAssistantOverlay
             }
-        }
-        .onPreferenceChange(BereanButtonFramePreferenceKey.self) { equatableFrame in
-            // ✅ FIX: Only update if frame not yet captured OR FTUE is not showing
-            // Once FTUE shows, freeze the frame to prevent scroll stuttering
-            if let frame = equatableFrame {
-                // Only update if we don't have a frame yet, or FTUE is not active
-                if bereanButtonFrame == nil || !FTUEManager.shared.shouldShowCoachMarks {
-                    bereanButtonFrame = frame.rect
-                }
+            .overlay(alignment: .top) {
+                topAccessibilityOverlay
             }
-        }
-        // CameraOS is default-off until rules/index coverage and runtime privacy review pass.
-        .fullScreenCover(isPresented: Binding(
-            get: { showCameraOS && featureFlags.cameraOSEnabled },
-            set: { showCameraOS = $0 }
-        )) {
-            AmenCameraOSHubView(
-                onMediaCaptured: { _, _ in showCameraOS = false },
-                onPrayerCaptured: { _ in showCameraOS = false },
-                onDismiss: { showCameraOS = false }
-            )
-        }
-        // Berean Conversion Menu — convert a Berean AI capture into a post, prayer, study, etc.
-        .sheet(isPresented: $showBereanConversionMenu) {
-            let placeholder = BereanCapture(
-                id: UUID().uuidString,
-                sourceType: .answer,
-                content: "",
-                scriptureRefs: [],
-                studyOutlinePoints: [],
-                capturedAt: Date()
-            )
-            AmenBereanConversionMenu(capture: placeholder) {
-                showBereanConversionMenu = false
+            .overlay {
+                createPostQuickActionsOverlay
             }
-        }
-        // Creator Kit — AI-powered content drafting for creators.
-        .sheet(isPresented: $showCreatorKit) {
-            NavigationStack {
-                AmenCreatorKitHome()
+            .overlay {
+                bereanQuickActionsOverlay
             }
-        }
-        // Audience-First picker — shown before the compose editor opens via the compose button.
-        // After selection the picker closes itself and fires the callback below.
-        // Space audience: the picker handles the sub-Space selection internally and passes
-        // AmenAudienceMetadata (spaceId, spaceName, spaceType) back here.
-        .sheet(isPresented: $showAudiencePicker) {
-            AmenAudienceFirstPickerView(isPresented: $showAudiencePicker) { audience, metadata in
-                selectedAudience = audience
-                selectedAudienceMetadata = metadata
-                selectedPostCategory = audience.suggestedPostCategory ?? .openTable
-                withAnimation(.amenSpringStandard) {
-                    showCreatePost = true
-                }
+            .overlay {
+                ftueCoachMarkOverlay
             }
-        }
-        // Contextual glass sheet — emerges from the compose button with staged content reveal.
-        // CreatePostView receives the audience-informed category. selectedAudience + metadata
-        // are stored on ContentView for downstream wiring into the Firestore post document.
-        // GAP P0-7: createPost kill switch — only open the sheet when enabled.
-        .glassContextualSheet(
-            isPresented: Binding(
-                get: { showCreatePost && killSwitch.createPostEnabled },
-                set: { showCreatePost = $0 }
-            ),
-            sourceId: "composeButton",
-            namespace: createPostNamespace
-        ) {
-            CreatePostView(initialCategory: selectedPostCategory)
-        }
-        // Berean Dynamic Island — sits above all content, dismisses on outside tap
-        .overlay(alignment: .top) {
-            BereanDynamicIsland(
-                vm: BereanIslandViewModel.shared,
-                onOpenFull: {
-                    BereanIslandViewModel.shared.onOpenFullSheet?()
-                }
-            )
-            .zIndex(999)
-        }
-        .environmentObject(AppUsageTracker.shared)
-        .environmentObject(NotificationManager.shared)
-        .environmentObject(BadgeCountManager.shared)  // ✅ P0-10, P0-11, P0-12: Provide for all child views
-        .environmentObject(SundayChurchFocusManager.shared)  // ✅ Shabbat Mode: Provide to all child views
-        .environmentObject(FirebaseMessagingService.shared)  // P0-7: Provide for CompactTabBar
-        .environmentObject(PostsManager.shared)  // P0-7: Provide for CompactTabBar
-        .environmentObject(UserService.shared)  // P0-7: Provide for CompactTabBar
-        .environmentObject(NotificationService.shared)  // P0-7: Provide for CompactTabBar
-        .environmentObject(contextManager)  // Spiritual OS — Context Engine (Agent H)
+            .environment(\.tabBarVisible, $showTabBar)
+            .environment(\.mainTabSelection, $viewModel.selectedTab)
+            .onPreferenceChange(PostCardFramePreferenceKey.self, perform: handlePostCardFrameChange)
+            .onPreferenceChange(BereanButtonFramePreferenceKey.self, perform: handleBereanButtonFrameChange)
+    }
+
+    private var contentWithSheets: some View {
+        contentWithChrome
+            .fullScreenCover(isPresented: cameraOSPresented) {
+                cameraOSSheet
+            }
+            .sheet(isPresented: $showBereanConversionMenu) {
+                bereanConversionSheet
+            }
+            .sheet(isPresented: $showCreatorKit) {
+                creatorKitSheet
+            }
+            .sheet(isPresented: $showAudiencePicker) {
+                audiencePickerSheet
+            }
+            .glassContextualSheet(
+                isPresented: createPostPresented,
+                sourceId: "composeButton",
+                namespace: createPostNamespace
+            ) {
+                createPostSheet
+            }
+    }
+
+    private var contentWithEnvironmentObjects: some View {
+        contentWithSheets
+            .overlay(alignment: .top) {
+                bereanDynamicIslandOverlay
+            }
+            .environmentObject(AppUsageTracker.shared)
+            .environmentObject(NotificationManager.shared)
+            .environmentObject(BadgeCountManager.shared)
+            .environmentObject(SundayChurchFocusManager.shared)
+            .environmentObject(FirebaseMessagingService.shared)
+            .environmentObject(PostsManager.shared)
+            .environmentObject(UserService.shared)
+            .environmentObject(NotificationService.shared)
+            .environmentObject(contextManager)
+    }
+
+    private var bereanDynamicIslandOverlay: some View {
+        BereanDynamicIsland(
+            vm: BereanIslandViewModel.shared,
+            onOpenFull: {
+                BereanIslandViewModel.shared.onOpenFullSheet?()
+            }
+        )
+        .zIndex(999)
     }
 
     private var mainContent: some View {
@@ -1137,6 +1196,12 @@ struct ContentView: View {
             setupSavedSearchObserver()
             setupPostSuccessObserver()
             setupDiscoverTabObserver()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .switchToDiscoverTab)) { _ in
+            tabScrollBridge.expand()
+            withAnimation(Motion.adaptive(.spring(response: 0.32, dampingFraction: 0.82))) {
+                viewModel.selectedTab = AMENTab.search.tag
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCreatePost)) { _ in
             // GAP P0-7: respect the createPost kill switch.
