@@ -1216,7 +1216,13 @@ struct FindChurchView: View {
                                 onRetry: {
                                     showErrorAlert = false
                                     isLocationPermissionError = false
-                                    performRealSearch()
+                                    // If the user typed a place, retry via geocoded manual
+                                    // search (works without location); otherwise retry GPS.
+                                    if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                        performTextGeocodedSearch()
+                                    } else {
+                                        performRealSearch()
+                                    }
                                 },
                                 onOpenSettings: {
                                     if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -1691,14 +1697,76 @@ struct FindChurchView: View {
             performRealSearch()
             return
         }
-        
+
         let haptic = UISelectionFeedbackGenerator()
         haptic.selectionChanged()
-        
+
         dlog("🔍 Searching for: '\(searchText)'")
-        
-        // The filtering happens in filteredChurches computed property
-        // This just provides haptic feedback and logs the search
+
+        // When location is available AND we already have loaded results, the
+        // `filteredChurches` computed property narrows them locally (fast path).
+        // When location is unavailable or we have no data yet, geocode the typed
+        // city/zip so manual search actually returns churches instead of
+        // dead-ending — this is the fix for the denied-location dead end.
+        if userLocation == nil || churchSearchService.searchResults.isEmpty {
+            performTextGeocodedSearch()
+        }
+    }
+
+    /// Location-independent manual search: forward-geocode the typed city/zip
+    /// into a coordinate, then search churches around it. Without this, typing a
+    /// place while location is denied yields nothing (the previous behavior only
+    /// filtered an already-empty array).
+    @MainActor
+    private func performTextGeocodedSearch() {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            performRealSearch()
+            return
+        }
+        guard !isSearching else { return }
+        hasSearchedOnce = true
+
+        searchTask?.cancel()
+        searchTask = Task {
+            defer { Task { @MainActor in searchTask = nil } }
+            do {
+                let placemarks = try await CLGeocoder().geocodeAddressString(query)
+                guard let coord = placemarks.first?.location?.coordinate else {
+                    await MainActor.run {
+                        isLocationPermissionError = false
+                        errorMessage = "We couldn’t find “\(query)”. Try a city, state, or zip code."
+                        showErrorAlert = true
+                    }
+                    return
+                }
+
+                let results = try await churchSearchService.searchChurches(near: coord, radius: searchRadius)
+                await MainActor.run {
+                    if results.isEmpty {
+                        errorMessage = "No churches found near “\(query)”. Try increasing the search radius."
+                        showErrorAlert = true
+                    } else {
+                        isLocationPermissionError = false
+                        showErrorAlert = false
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    }
+                }
+            } catch is CancellationError {
+                // Expected when a newer search supersedes this one.
+            } catch ChurchSearchError.noResultsFound {
+                await MainActor.run {
+                    errorMessage = "No churches found near “\(query)”. Try increasing the search radius."
+                    showErrorAlert = true
+                }
+            } catch {
+                await MainActor.run {
+                    isLocationPermissionError = false
+                    errorMessage = "We couldn’t complete that search. Please check your connection and try again."
+                    showErrorAlert = true
+                }
+            }
+        }
     }
     
     /// Pull-to-refresh handler with haptic feedback
@@ -6717,24 +6785,27 @@ struct FindChurchMapView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Map(coordinateRegion: $region, showsUserLocation: true, annotationItems: churches) { church in
-                MapAnnotation(coordinate: church.coordinate) {
-                    ChurchMapPin(
-                        church: church,
-                        isLive: isServiceLive(church),
-                        isVisible: pinsVisible[church.id] ?? false
-                    )
-                    .onTapGesture {
-                        withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
-                            selectedChurch = church
-                            showMiniSheet = true
+            Map(initialPosition: .region(region)) {
+                UserAnnotation()
+                ForEach(churches) { church in
+                    Annotation(church.name, coordinate: church.coordinate) {
+                        ChurchMapPin(
+                            church: church,
+                            isLive: isServiceLive(church),
+                            isVisible: pinsVisible[church.id] ?? false
+                        )
+                        .onTapGesture {
+                            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.7))) {
+                                selectedChurch = church
+                                showMiniSheet = true
+                            }
                         }
-                    }
-                    .onAppear {
-                        let idx = churches.firstIndex(where: { $0.id == church.id }) ?? 0
-                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(idx) * 0.08) {
-                            withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
-                                pinsVisible[church.id] = true
+                        .onAppear {
+                            let idx = churches.firstIndex(where: { $0.id == church.id }) ?? 0
+                            DispatchQueue.main.asyncAfter(deadline: .now() + Double(idx) * 0.08) {
+                                withAnimation(Motion.adaptive(.spring(response: 0.5, dampingFraction: 0.6))) {
+                                    pinsVisible[church.id] = true
+                                }
                             }
                         }
                     }
