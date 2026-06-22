@@ -28,6 +28,18 @@ final class LongPressActionRegistry {
 
     private let verseActions: [IntelligenceAction] = [
         IntelligenceAction(
+            id: "verse_ask_why",
+            label: "Ask Berean Why",
+            accessibilityLabel: "Ask Berean why this passage was written and why it matters",
+            category: .smart,
+            bereanMode: .discern,
+            usesDepthDial: true,
+            requiresCitationIntegrity: true,
+            requiresGuardianModeration: false,
+            privacyZone: .functional,
+            applicableObjectTypes: [.verse]
+        ),
+        IntelligenceAction(
             id: "verse_explain_simply",
             label: "Explain Simply",
             accessibilityLabel: "Explain Simply",

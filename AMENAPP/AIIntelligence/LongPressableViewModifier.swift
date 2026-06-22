@@ -18,6 +18,11 @@ struct LongPressableModifier: ViewModifier {
 
     @State private var showMenu: Bool = false
     @State private var activeContext: BereanObjectContext? = nil
+    // Centralized result routing (Wave 2): the menu only emits an action; this
+    // modifier is the single place that decides which result surface to present.
+    @State private var presentedSmartAction: IntelligenceAction? = nil
+    @State private var whyPassage: WhyPassage? = nil
+    @State private var depthCoordinator: LongPressDepthDialCoordinator? = nil
 
     func body(content: Content) -> some View {
         guard AMENFeatureFlags.shared.longPressIntelligenceEnabled else {
@@ -40,7 +45,7 @@ struct LongPressableModifier: ViewModifier {
                         LongPressIntelligenceMenu(
                             context: ctx,
                             onAction: { action in
-                                onAction(action)
+                                route(action)
                             },
                             onDismiss: {
                                 showMenu = false
@@ -50,7 +55,47 @@ struct LongPressableModifier: ViewModifier {
                         .transition(.opacity)
                     }
                 }
+                // AI action → streaming result surface (self-gates on its own flag).
+                .sheet(item: $presentedSmartAction) { action in
+                    if let ctx = activeContext, let coordinator = depthCoordinator {
+                        LongPressStreamingResultView(
+                            action: action,
+                            context: ctx,
+                            depthState: coordinator.dialState,
+                            onDepthChange: { newDepth in coordinator.overrideDepth(newDepth) },
+                            onDismiss: { presentedSmartAction = nil }
+                        )
+                    }
+                }
+                // "Ask Berean Why" → dedicated five-section experience.
+                .sheet(item: $whyPassage) { wp in
+                    NavigationStack {
+                        AskBereanWhyView(passage: wp.passage)
+                    }
+                }
         )
+    }
+
+    /// Single routing decision for every emitted action. Preserves the host's
+    /// onAction callback, then presents the appropriate result surface for AI actions.
+    /// Quick / relationship / safety actions are left to the host (and the menu's
+    /// own internal handling) — only `.smart` actions open a Berean result surface.
+    private func route(_ action: IntelligenceAction) {
+        onAction(action)
+        showMenu = false
+
+        guard action.category == .smart, let ctx = activeContext else { return }
+
+        // The five-section "why" experience is verse-specific.
+        if action.id == "verse_ask_why", AMENFeatureFlags.shared.askBereanWhyEnabled {
+            let passage = ctx.payloadReference ?? ctx.payloadText ?? ""
+            whyPassage = WhyPassage(passage: passage)
+            return
+        }
+
+        // All other AI actions → streaming result surface.
+        depthCoordinator = LongPressDepthDialCoordinator(context: ctx)
+        presentedSmartAction = action
     }
 
     private func presentIntelligenceMenu() {
@@ -81,4 +126,10 @@ extension View {
             onAction: onAction
         ))
     }
+}
+
+/// Identifiable wrapper so a passage string can drive `.sheet(item:)`.
+private struct WhyPassage: Identifiable {
+    let id = UUID()
+    let passage: String
 }

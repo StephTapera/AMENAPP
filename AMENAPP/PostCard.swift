@@ -2231,7 +2231,8 @@ struct PostCard: View {
         cardWithActionPill
             // Long-Press Intelligence ("Press to Ask Berean"). Self-gates: when
             // longPressIntelligenceEnabled is OFF (current build) this adds nothing.
-            // TODO(longpress-w2): route onAction into the streaming result surface.
+            // Result routing (streaming sheet / Ask-Why) is centralized inside the
+            // modifier, so the host onAction is intentionally a no-op here.
             .longPressIntelligence(
                 objectType: .post,
                 objectId: post?.firestoreId ?? "",
