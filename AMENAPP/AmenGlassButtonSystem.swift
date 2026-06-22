@@ -337,6 +337,38 @@ extension View {
 // system is `ToastManager` (+ `ToastManagerExtensions`), already mounted
 // app-wide. Use `ToastManager.shared.failure(_:retry:)` / `.success(_:)`.
 
+private enum AmenInteractionState: String, Equatable {
+    case idle
+    case loading
+    case success
+    case failed
+}
+
+@MainActor
+private final class AmenInteractionStateMachine: ObservableObject {
+    @Published private(set) var state: AmenInteractionState = .idle
+
+    @discardableResult
+    func transition(to next: AmenInteractionState) -> Bool {
+        switch (state, next) {
+        case (.idle, .loading),
+             (.loading, .success),
+             (.loading, .failed),
+             (.success, .idle),
+             (.failed, .idle),
+             (.failed, .loading):
+            state = next
+            return true
+        default:
+            return false
+        }
+    }
+
+    func reset() {
+        state = .idle
+    }
+}
+
 /// Primary async button with a built-in loading/disabled lifecycle driven by
 /// `AmenInteractionStateMachine`. Rapid re-taps are ignored while loading (the
 /// machine rejects an illegal idle→loading repeat), giving free double-submit
