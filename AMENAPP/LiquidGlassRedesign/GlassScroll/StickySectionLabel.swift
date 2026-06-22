@@ -34,5 +34,8 @@ struct StickySectionLabel: View {
         .liquidGlassSurface(.light, emphasis: .none, in: Capsule())
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 6)
+        // Pinned section chrome reads as a header to VoiceOver, matching its visual role.
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }

@@ -49,10 +49,12 @@ struct CollapsibleGlassHeader<Artwork: View>: View {
         )
 
         ZStack(alignment: .bottomLeading) {
-            // Optional hero artwork fades out as the header pins (decorative).
+            // Optional hero artwork fades out as the header pins (decorative —
+            // hidden from VoiceOver so it never becomes a stray swipe stop).
             artwork()
                 .opacity(1 - i.eased)
                 .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -71,6 +73,10 @@ struct CollapsibleGlassHeader<Artwork: View>: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 14)
+            // One header element regardless of scroll-driven scale/opacity: VoiceOver
+            // reads "Title, subtitle" as a single navigable header, not two drifting nodes.
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
         }
         .frame(maxWidth: .infinity, alignment: .bottomLeading)
         .frame(height: topInset + i.contentHeight, alignment: .bottom)
