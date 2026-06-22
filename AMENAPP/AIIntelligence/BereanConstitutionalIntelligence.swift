@@ -233,10 +233,21 @@ actor BereanConstitutionalReviewGate {
             "prescription", "symptom", "disease", "cancer", "diabetes",
             "mental health", "depression", "anxiety", "therapy"
         ]
+        // Hard-refuse subset: direct clinical-advice requests are REFUSED outright.
+        // A medicalGuardrail/disclaimer flag cannot unlock these — Berean must never
+        // diagnose, prescribe, or advise on medication/dosage.
+        let medicalHardRefuseKeywords = [
+            "diagnosis", "diagnose", "dosage", "prescription", "prescribe",
+            "medication", "should i take", "how much should i take", "stop taking"
+        ]
         let lower = combinedText.lowercased()
-        let hasMedical = medicalKeywords.contains { lower.contains($0) }
-        if hasMedical && payload.metadata["medicalGuardrail"] == nil {
-            reasons.append("Medical topic detected but medicalGuardrail not declared — use BereanContextCoordinator.addMedicalGuardrail(to:) before dispatching.")
+        if medicalHardRefuseKeywords.contains(where: { lower.contains($0) }) {
+            reasons.append("Direct medical/clinical advice requested — Berean cannot diagnose, prescribe, or advise on medication or dosage. Please consult a licensed medical professional. (action refused)")
+        } else {
+            let hasMedical = medicalKeywords.contains { lower.contains($0) }
+            if hasMedical && payload.metadata["medicalGuardrail"] == nil {
+                reasons.append("Medical topic detected but medicalGuardrail not declared — use BereanContextCoordinator.addMedicalGuardrail(to:) before dispatching.")
+            }
         }
 
         // Check 4: high-impact action types must not use .build mode
@@ -291,10 +302,20 @@ actor BereanConstitutionalReviewGate {
             "prescription", "symptom", "disease", "cancer", "diabetes",
             "mental health", "depression", "anxiety", "therapy"
         ]
+        // Hard-refuse subset: direct clinical-advice requests are REFUSED outright,
+        // regardless of any medicalGuardrail flag.
+        let medicalHardRefuseKeywords = [
+            "diagnosis", "diagnose", "dosage", "prescription", "prescribe",
+            "medication", "should i take", "how much should i take", "stop taking"
+        ]
         let lower = combined.lowercased()
-        let hasMedical = medicalKeywords.contains { lower.contains($0) }
-        if hasMedical && metadata["medicalGuardrail"] == nil {
-            reasons.append("Medical topic detected in study call — consider adding a medical guardrail note before dispatching.")
+        if medicalHardRefuseKeywords.contains(where: { lower.contains($0) }) {
+            reasons.append("Direct medical/clinical advice requested — Berean cannot diagnose, prescribe, or advise on medication or dosage. Please consult a licensed medical professional. (action refused)")
+        } else {
+            let hasMedical = medicalKeywords.contains { lower.contains($0) }
+            if hasMedical && metadata["medicalGuardrail"] == nil {
+                reasons.append("Medical topic detected in study call — use a medical guardrail note before dispatching.")
+            }
         }
 
         if !reasons.isEmpty {
