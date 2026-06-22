@@ -1,6 +1,42 @@
 {
   "indexes": [
     {
+      "collectionGroup": "communityReflections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "targetCreatorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "moderationStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "visibleToPublic",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "submittedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "creatorStudioInsights",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "creatorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "generatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "churchNoteProcessingJobs",
       "queryScope": "COLLECTION",
       "fields": [

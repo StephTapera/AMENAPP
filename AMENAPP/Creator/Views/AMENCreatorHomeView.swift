@@ -33,6 +33,36 @@ struct AMENCreatorHomeView: View {
                     }
                 }
 
+                if AMENFeatureFlags.shared.creatorStudioDashboardEnabled {
+                    NavigationLink {
+                        CreatorStudioView(creatorId: ownerID)
+                            .navigationTitle("Studio")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        CreatorGlassCard {
+                            HStack(spacing: 12) {
+                                Image(systemName: "heart.text.square.fill")
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundStyle(Color.accentColor)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Studio")
+                                        .font(AMENFont.semiBold(15))
+                                        .foregroundStyle(.primary)
+                                    Text("Your stewardship — how your content is serving people")
+                                        .font(AMENFont.regular(12))
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.leading)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 CreatorGlassCard {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Recent projects")

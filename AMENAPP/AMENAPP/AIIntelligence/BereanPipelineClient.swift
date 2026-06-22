@@ -24,6 +24,7 @@
 // Remote Config flag: "constitutionalIntelligence_enabled"
 
 import Foundation
+import FirebaseAuth
 import FirebaseFunctions
 import FirebaseRemoteConfig
 
@@ -36,6 +37,12 @@ final class BereanPipelineClient: ObservableObject {
 
     static let shared = BereanPipelineClient()
     private init() {}
+
+    /// Convenience: the current Firebase auth UID, or "anonymous" when signed out.
+    /// Call sites that build a `BereanQuery` use this so they don't each import FirebaseAuth.
+    static var currentUserId: String {
+        Auth.auth().currentUser?.uid ?? "anonymous"
+    }
 
     // MARK: Private Dependencies
 
@@ -65,6 +72,11 @@ final class BereanPipelineClient: ObservableObject {
         /// Conversation history for multi-turn sessions.
         /// Each element is {"role": "user"|"assistant", "content": "…"}.
         var conversationHistory: [[String: String]]?
+        /// Reasoning depth (quick/study/deep/multiSource/research). Drives the
+        /// backend's model tier, token ceiling, evidence breadth, and prompt posture.
+        /// Optional on the wire: when nil the backend falls back to its mode-derived default,
+        /// so older deployments simply ignore the field.
+        var depth: BereanDepth?
     }
 
     // MARK: BereanResponse

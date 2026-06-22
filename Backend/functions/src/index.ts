@@ -330,6 +330,7 @@ export * from "./creator/verifyAuthenticitySignals";
 export * from "./creator/saveBrandKit";
 export * from "./creator/cloneTemplateToProject";
 export * from "./creator/recordCreatorAnalytics";
+export * from "./creator/generateStudioInsights";
 export * from "./creator/enforceCreatorEntitlement";
 export * from "./creator/cleanupOrphanedAssets";
 export * from "./creator/retryFailedCreatorJob";

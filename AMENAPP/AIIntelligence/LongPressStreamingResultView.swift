@@ -217,7 +217,8 @@ struct LongPressStreamingResultView: View {
                     query: Self.buildQuery(action: action, context: context),
                     mode: Self.pipelineMode(for: action),
                     userId: Auth.auth().currentUser?.uid ?? "anonymous",
-                    conversationHistory: nil
+                    conversationHistory: nil,
+                    depth: depthState.effectiveDepth
                 )
                 let response = try await BereanPipelineClient.shared.sendQuery(pipelineQuery)
                 guard !Task.isCancelled else { return }

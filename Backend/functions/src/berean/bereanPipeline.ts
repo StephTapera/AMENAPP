@@ -44,6 +44,100 @@ const PIPELINE_TIMEOUT_MS = 15_000;
 const MODEL_FAST = "claude-haiku-4-5-20251001";   // FAST_CONVERSATIONAL
 const MODEL_DEEP = "claude-sonnet-4-6";            // DEEP_THEOLOGICAL
 
+// ─── Depth Dial ─────────────────────────────────────────────────────────────────
+//
+// The client depth dial (BereanDepth: quick/study/deep/multiSource/research) is the
+// orthogonal "how thorough" axis. It deterministically drives FOUR knobs here:
+//   1. model tier (force the deep model from `deep` upward)
+//   2. candidate max_tokens (response length ceiling)
+//   3. evidence breadth (how many user notes to retrieve)
+//   4. system-prompt posture (how the model is told to answer)
+// plus the generation request timeout, which must grow with the token ceiling.
+//
+// Mirrors the Swift `BereanDepth` enum (BereanSpiritualIntelligenceContracts.swift).
+// When depth is absent (older clients), `resolveDepthProfile` falls back to `deep`,
+// which preserves the pre-depth behaviour (deep model, 1600 tokens, 10 notes).
+
+type BereanDepthLevel =
+  | "quick"
+  | "study"
+  | "deep"
+  | "multiSource"
+  | "research";
+
+interface DepthProfile {
+  /** Force MODEL_DEEP regardless of intent heuristics. */
+  preferDeepModel: boolean;
+  /** Candidate-generation max_tokens. */
+  maxTokens: number;
+  /** Number of user-note evidence chunks to retrieve. */
+  evidenceLimit: number;
+  /** Generation request timeout (ms); scales with token ceiling. */
+  timeoutMs: number;
+  /** Appended to the candidate system prompt to set answer posture. */
+  posture: string;
+}
+
+const DEPTH_PROFILES: Record<BereanDepthLevel, DepthProfile> = {
+  quick: {
+    preferDeepModel: false,
+    maxTokens: 500,
+    evidenceLimit: 3,
+    timeoutMs: 15_000,
+    posture:
+      "DEPTH — Quick Look: Answer in 2–4 sentences. Lead with one key Scripture. " +
+      "No headings, no lists. Warm and direct.",
+  },
+  study: {
+    preferDeepModel: false,
+    maxTokens: 1_000,
+    evidenceLimit: 5,
+    timeoutMs: 20_000,
+    posture:
+      "DEPTH — Studying: One or two focused paragraphs with 1–2 cited passages " +
+      "and a single practical takeaway.",
+  },
+  deep: {
+    preferDeepModel: true,
+    maxTokens: 1_600,
+    evidenceLimit: 10,
+    timeoutMs: 30_000,
+    posture:
+      "DEPTH — Deep Study: Thorough analysis with cross-references, historical " +
+      "context, and clear application. Cite each significant claim.",
+  },
+  multiSource: {
+    preferDeepModel: true,
+    maxTokens: 2_200,
+    evidenceLimit: 15,
+    timeoutMs: 45_000,
+    posture:
+      "DEPTH — Multi-Source: Compare multiple faithful traditions on this text. " +
+      "Cite several passages, and name plainly where traditions diverge and why.",
+  },
+  research: {
+    preferDeepModel: true,
+    maxTokens: 3_000,
+    evidenceLimit: 20,
+    timeoutMs: 60_000,
+    posture:
+      "DEPTH — Full Research: Scholarly depth. Include original-language notes " +
+      "(clearly hedged, never fabricated), canonical context, cross-references, and " +
+      "a structured synthesis. Still humble — defer to pastoral counsel on disputes.",
+  },
+};
+
+/**
+ * Resolve a validated depth string to its profile. Unknown/absent depth falls back
+ * to `deep` — the pre-depth-dial default — so older clients are unaffected.
+ */
+function resolveDepthProfile(depth: BereanDepthLevel | undefined): DepthProfile {
+  if (depth && depth in DEPTH_PROFILES) {
+    return DEPTH_PROFILES[depth];
+  }
+  return DEPTH_PROFILES.deep;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type IntentLabel =
@@ -61,6 +155,8 @@ interface BereanQuery {
   mode: "Ask" | "Discern" | "Build" | "Guard" | "Reflect";
   userId: string;
   conversationHistory?: { role: string; content: string }[];
+  /** Reasoning depth from the client depth dial. Absent → `deep` (legacy default). */
+  depth?: BereanDepthLevel;
 }
 
 interface EvidenceChunk {
@@ -170,6 +266,13 @@ async function stageQueryIntake(
     ? (raw.mode as BereanQuery["mode"])
     : "Ask";
 
+  // Depth dial — validate against the known levels; unknown/absent stays undefined
+  // and resolveDepthProfile() applies the legacy `deep` default downstream.
+  const validDepths = ["quick", "study", "deep", "multiSource", "research"] as const;
+  const depth = (validDepths as readonly string[]).includes(raw.depth as string)
+    ? (raw.depth as BereanDepthLevel)
+    : undefined;
+
   // Sanitize conversation history — same pattern as bereanChatProxy.
   const rawHistory = Array.isArray(raw.conversationHistory)
     ? raw.conversationHistory
@@ -187,7 +290,7 @@ async function stageQueryIntake(
     })
     .filter((e): e is { role: string; content: string } => e !== null);
 
-  return { query, mode, userId: uid, conversationHistory };
+  return { query, mode, userId: uid, conversationHistory, depth };
 }
 
 // ─── Stage 2: Intent Detection ─────────────────────────────────────────────────
@@ -355,19 +458,21 @@ async function stageIntentDetection(
 async function stageEvidenceRetrieval(
   query: string,
   userId: string,
-  intentLabels: IntentLabel[]
+  intentLabels: IntentLabel[],
+  evidenceLimit: number
 ): Promise<EvidenceChunk[]> {
   const db = admin.firestore();
   const chunks: EvidenceChunk[] = [];
 
   // ── Real: Firestore user notes scoped by userId ────────────────────────────
+  // The fetch breadth is set by the depth dial (3 at Quick → 20 at Research).
   try {
     const notesQuery = db
       .collection("users")
       .doc(userId)
       .collection("bereanNotes")
       .orderBy("updatedAt", "desc")
-      .limit(10);
+      .limit(Math.max(1, evidenceLimit));
 
     const notesSnap = await notesQuery.get();
 
@@ -459,7 +564,16 @@ const CRISIS_SAFE_ANSWER = [
  * Choose the model tier based on intent labels and mode.
  * Deep theological analysis uses DEEP; everything else uses FAST.
  */
-function selectModel(intentLabels: IntentLabel[], mode: BereanQuery["mode"]): string {
+function selectModel(
+  intentLabels: IntentLabel[],
+  mode: BereanQuery["mode"],
+  preferDeepModel: boolean
+): string {
+  // Depth dial can force the deep model (deep/multiSource/research) even when the
+  // intent heuristics would otherwise pick the fast tier.
+  if (preferDeepModel) {
+    return MODEL_DEEP;
+  }
   if (
     intentLabels.includes("Theology") ||
     intentLabels.includes("Bible") ||
@@ -478,7 +592,8 @@ function selectModel(intentLabels: IntentLabel[], mode: BereanQuery["mode"]): st
 function buildCandidateSystemPrompt(
   mode: BereanQuery["mode"],
   intentLabels: IntentLabel[],
-  hasGuardianHook: boolean
+  hasGuardianHook: boolean,
+  depthPosture: string
 ): string {
   const parts: string[] = [];
 
@@ -519,6 +634,11 @@ function buildCandidateSystemPrompt(
       "Ground your response in Scripture and help them apply it personally.",
   };
   parts.push(modeInstructions[mode]);
+
+  // Depth posture overlay — sets answer length/thoroughness from the depth dial.
+  if (depthPosture) {
+    parts.push(depthPosture);
+  }
 
   // Safety/GUARDIAN override.
   if (hasGuardianHook || intentLabels.includes("Safety")) {
@@ -572,8 +692,14 @@ async function stageGenerateCandidate(
     }
   }
 
-  const model = selectModel(intentLabels, query.mode);
-  const systemPrompt = buildCandidateSystemPrompt(query.mode, intentLabels, hasGuardianHook);
+  const depthProfile = resolveDepthProfile(query.depth);
+  const model = selectModel(intentLabels, query.mode, depthProfile.preferDeepModel);
+  const systemPrompt = buildCandidateSystemPrompt(
+    query.mode,
+    intentLabels,
+    hasGuardianHook,
+    depthProfile.posture
+  );
 
   // Build user message with evidence injection.
   const evidenceBlock =
@@ -604,11 +730,12 @@ async function stageGenerateCandidate(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1600,
+      max_tokens: depthProfile.maxTokens,
       system: systemPrompt,
       messages,
     }),
-    signal: AbortSignal.timeout(PIPELINE_TIMEOUT_MS),
+    // Generation timeout scales with depth (longer responses need longer windows).
+    signal: AbortSignal.timeout(depthProfile.timeoutMs),
   });
 
   if (!response.ok) {
@@ -929,6 +1056,7 @@ async function stageFinalResponse(
         ...trace,
         uid: state.uid,
         mode: state.query.mode,
+        depth: state.query.depth ?? "deep",
         queryLength: state.query.query.length,
         hasGuardianHook: state.hasGuardianHook,
         evidenceChunkCount: state.evidenceChunks.length,
@@ -1045,7 +1173,8 @@ export const bereanPipeline = onCall(
       state.evidenceChunks = await stageEvidenceRetrieval(
         state.query.query,
         uid,
-        state.intentLabels
+        state.intentLabels,
+        resolveDepthProfile(state.query.depth).evidenceLimit
       );
 
       // ─────────────────────────────────────────────────────────────────────

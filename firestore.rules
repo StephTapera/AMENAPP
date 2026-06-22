@@ -4349,6 +4349,36 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Creator Spotlight — community reflections (testimony).
+    // Fail-closed: clients may only read APPROVED + public-visible reflections
+    // (or their own). Submissions must land as pending/invisible; approval and any
+    // mutation happen server-side (Admin SDK / GUARDIAN) only.
+    match /communityReflections/{reflectionId} {
+      allow read: if (resource.data.moderationStatus == 'approved'
+                      && resource.data.visibleToPublic == true)
+                  || (isSignedIn() && resource.data.authorId == request.auth.uid)
+                  || isAdmin();
+      allow create: if isSignedIn()
+                    && request.resource.data.authorId == request.auth.uid
+                    && request.resource.data.moderationStatus == 'pending'
+                    && request.resource.data.visibleToPublic == false;
+      allow update, delete: if false;
+    }
+
+    // Berean theme summaries over approved reflections — read-only to clients;
+    // generated and written server-side.
+    match /bereanReflectionSummaries/{summaryId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // Creator Studio stewardship insights — a creator reads ONLY their own;
+    // computed and written server-side (generateStudioInsights).
+    match /creatorStudioInsights/{insightId} {
+      allow read:  if isSignedIn() && resource.data.creatorId == request.auth.uid;
+      allow write: if false;
+    }
+
     // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.

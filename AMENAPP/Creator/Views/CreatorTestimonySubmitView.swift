@@ -54,6 +54,17 @@ struct CreatorTestimonySubmitView: View {
                 confirmationOverlay
             }
         }
+        .alert(
+            "Couldn't share reflection",
+            isPresented: Binding(
+                get: { viewModel.submitError != nil },
+                set: { if !$0 { viewModel.submitError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { viewModel.submitError = nil }
+        } message: {
+            Text(viewModel.submitError ?? "")
+        }
     }
 
     // MARK: - Section Title

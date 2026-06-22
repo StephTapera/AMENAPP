@@ -12,6 +12,8 @@ struct CreatorSpotlightView: View {
     let creatorId: String
 
     @StateObject private var viewModel: CreatorSpotlightViewModel
+    @StateObject private var testimonyViewModel = CreatorTestimonyViewModel()
+    @State private var showTestimonySubmit = false
 
     init(creatorId: String) {
         self.creatorId = creatorId
@@ -24,6 +26,16 @@ struct CreatorSpotlightView: View {
         } else {
             content
                 .task { await viewModel.load() }
+                .task { await testimonyViewModel.load(creatorId: creatorId) }
+                .sheet(isPresented: $showTestimonySubmit, onDismiss: {
+                    Task { await testimonyViewModel.load(creatorId: creatorId) }
+                }) {
+                    CreatorTestimonySubmitView(
+                        creatorId: creatorId,
+                        contentId: featuredContent?.id,
+                        viewModel: testimonyViewModel
+                    )
+                }
         }
     }
 
@@ -64,6 +76,12 @@ struct CreatorSpotlightView: View {
                     CreatorMoreByView(contentIds: moreIds)
                 }
 
+                // Community reflections (fail-closed behind creatorTestimonyEnabled).
+                if AMENFeatureFlags.shared.creatorTestimonyEnabled {
+                    Divider().padding(.horizontal, 20)
+                    reflectionsSection
+                }
+
                 Spacer(minLength: 40)
             }
         }
@@ -86,6 +104,32 @@ struct CreatorSpotlightView: View {
                 }
                 .padding(32)
             }
+        }
+    }
+
+    // MARK: - Reflections Section
+
+    @ViewBuilder
+    private var reflectionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Reflections")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Button {
+                    showTestimonySubmit = true
+                } label: {
+                    Label("Share", systemImage: "square.and.pencil")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+
+            CreatorTestimonyFeedView(viewModel: testimonyViewModel)
         }
     }
 
