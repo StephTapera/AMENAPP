@@ -7,7 +7,14 @@ struct BereanPulseHeaderView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(String(localized: "Berean workspace"))
+            Label(String(localized: "Berean"), systemImage: "sparkle")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.accentColor)
+                .textCase(.uppercase)
+                .tracking(3)
+                .labelStyle(.titleAndIcon)
+
+            Text(String(localized: "Today's Berean Pulse"))
                 .font(.largeTitle.weight(.semibold))
                 .foregroundStyle(.primary)
                 .minimumScaleFactor(0.82)
@@ -27,6 +34,6 @@ struct BereanPulseHeaderView: View {
         .offset(y: -(collapseProgress * 10))
         .opacity(1 - (collapseProgress * 0.16))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text("Berean workspace. \(titleDate). \(intro)"))
+        .accessibilityLabel(Text("Today's Berean Pulse. \(titleDate). \(intro)"))
     }
 }

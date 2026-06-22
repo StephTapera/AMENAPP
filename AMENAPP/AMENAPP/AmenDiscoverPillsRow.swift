@@ -138,7 +138,7 @@ private extension View {
     @ViewBuilder
     func discoverSearchMorph(namespace: Namespace.ID?) -> some View {
         if let namespace {
-            matchedGeometryEffect(id: "discover_search_capsule", in: namespace)
+            self.matchedGeometryEffect(id: "discover_search_capsule", in: namespace)
         } else {
             self
         }
