@@ -248,9 +248,19 @@ export const finalizePostOnCreate = onDocumentCreated(
         // Only index posts that passed moderation (not auto-banned, not on hold).
         // Flagged-but-published posts are indexed with a "flagged" tag so they
         // can be filtered out of public search results if needed.
+        // Prayer posts must NEVER be indexed into search, regardless of
+        // visibility — they are private spiritual content. This mirrors the
+        // client-side guards in CreatePostView.swift / AlgoliaSyncService.swift
+        // and enforces them server-side so a prayer post can never leak into
+        // the Algolia "posts" index even if a client bypasses those checks.
         const algoliaKey = await getAlgoliaAdminKey();
 
-        if (algoliaKey) {
+        if (data.category === "prayer") {
+            logger.info(
+                `[onPostCreated] Skipping Algolia indexing for prayer post ${postId} ` +
+                `(prayers are excluded from search regardless of visibility)`
+            );
+        } else if (algoliaKey) {
             const record: Record<string, unknown> = {
                 postId,
                 authorId,

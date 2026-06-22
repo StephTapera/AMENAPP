@@ -478,6 +478,35 @@ exports.moderateDMMessage = ugcFunctions.firestore
     const authorId = message.senderId || null;
 
     if (!text) {
+      // SECURITY (DM video gap, 2026-06-21): video DMs are written by
+      // VideoAttachmentHandler with messageType "video" + a `mediaURL` field that
+      // the image path below does NOT recognize, so video content was never scanned.
+      // We cannot run vision moderation on a raw video URL here (no frame
+      // extraction). Fail closed: hold the message (not visible) and flag it as an
+      // unmoderated video for the review pipeline rather than letting video content
+      // reach the recipient unscanned. (Delivery is unchanged — such messages were
+      // already held under pending_image_review; this only makes the hold explicit.)
+      const isVideo =
+        message.messageType === "video" ||
+        (!!message.mediaURL && !message.imageUrl && !message.mediaUrl);
+      if (isVideo) {
+        await snap.ref.update({
+          visible: false,
+          moderation: {
+            status: "pending_video_review",
+            categories: [],
+            provider: "video-review-pending",
+            unmoderatedVideo: true,
+            checkedAt: FieldValue.serverTimestamp(),
+          },
+        });
+        console.warn(
+          `[moderateDMMessage] DM VIDEO held for review — no automated video ` +
+          `moderation available; msg ${snap.id}`,
+        );
+        return;
+      }
+
       // SECURITY (C2 fix 2026-06-11): Run vision moderation on image-only DMs so CSAM
       // in direct messages reaches the mandatory escalation pipeline rather than
       // silently sitting in pending_image_review with no legalHold or NCMEC entry.
