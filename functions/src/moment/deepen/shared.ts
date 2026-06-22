@@ -71,8 +71,8 @@ interface MomentDeepenAdapter {
 
 type MomentDeepenDependencies = Record<string, unknown>;
 
-const momentSystemEnabled = defineBoolean("moment_system_enabled", { default: false });
-const deepenActionsEnabled = defineBoolean("deepen_actions_enabled", { default: false });
+const momentSystemEnabled = defineBoolean("MOMENT_SYSTEM_ENABLED", { default: false });
+const deepenActionsEnabled = defineBoolean("DEEPEN_ACTIONS_ENABLED", { default: false });
 let momentDeepenDependencies: MomentDeepenDependencies | undefined;
 
 const validMomentTypes = new Set<MomentType>([

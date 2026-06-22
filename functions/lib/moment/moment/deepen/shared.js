@@ -6,8 +6,8 @@ exports.configureMomentDeepenDependencies = configureMomentDeepenDependencies;
 const params_1 = require("firebase-functions/params");
 const https_1 = require("firebase-functions/v2/https");
 exports.MOMENT_REGION = "us-east1";
-const momentSystemEnabled = (0, params_1.defineBoolean)("moment_system_enabled", { default: false });
-const deepenActionsEnabled = (0, params_1.defineBoolean)("deepen_actions_enabled", { default: false });
+const momentSystemEnabled = (0, params_1.defineBoolean)("MOMENT_SYSTEM_ENABLED", { default: false });
+const deepenActionsEnabled = (0, params_1.defineBoolean)("DEEPEN_ACTIONS_ENABLED", { default: false });
 let momentDeepenDependencies;
 const validMomentTypes = new Set([
     "prayer",

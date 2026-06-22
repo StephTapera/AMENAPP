@@ -5,9 +5,9 @@ exports.makeGatherHandler = makeGatherHandler;
 const params_1 = require("firebase-functions/params");
 const https_1 = require("firebase-functions/v2/https");
 exports.MOMENT_REGION = "us-east1";
-const momentSystemEnabled = (0, params_1.defineBoolean)("moment_system_enabled", { default: false });
-const gatherLiveEnabled = (0, params_1.defineBoolean)("gather_live_enabled", { default: false });
-const gatherComplianceGateCleared = (0, params_1.defineBoolean)("gather_compliance_gate_cleared", { default: false });
+const momentSystemEnabled = (0, params_1.defineBoolean)("MOMENT_SYSTEM_ENABLED", { default: false });
+const gatherLiveEnabled = (0, params_1.defineBoolean)("GATHER_LIVE_ENABLED", { default: false });
+const gatherComplianceGateCleared = (0, params_1.defineBoolean)("GATHER_COMPLIANCE_GATE_CLEARED", { default: false });
 function isRecord(value) {
     return !!value && typeof value === "object" && !Array.isArray(value);
 }

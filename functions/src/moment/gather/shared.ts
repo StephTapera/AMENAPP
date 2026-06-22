@@ -22,9 +22,9 @@ export interface GatherResult {
   reason: "complianceGateRequired" | "flagDisabled" | "v1StubOnly";
 }
 
-const momentSystemEnabled = defineBoolean("moment_system_enabled", { default: false });
-const gatherLiveEnabled = defineBoolean("gather_live_enabled", { default: false });
-const gatherComplianceGateCleared = defineBoolean("gather_compliance_gate_cleared", { default: false });
+const momentSystemEnabled = defineBoolean("MOMENT_SYSTEM_ENABLED", { default: false });
+const gatherLiveEnabled = defineBoolean("GATHER_LIVE_ENABLED", { default: false });
+const gatherComplianceGateCleared = defineBoolean("GATHER_COMPLIANCE_GATE_CLEARED", { default: false });
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
