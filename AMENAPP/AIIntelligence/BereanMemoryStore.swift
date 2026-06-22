@@ -39,6 +39,8 @@ final class BereanMemoryStore: ObservableObject {
     /// No-op if bereanSpiritualMemoryEnabled is false.
     func save(field: MemoryField, value: String) async {
         guard AMENFeatureFlags.shared.bereanSpiritualMemoryEnabled else { return }
+        // Wave 3 — user-level pause (MemoryLedgerService) blocks new memory writes.
+        guard !UserDefaults.standard.bool(forKey: "berean.memory.userPaused") else { return }
 
         if field.mustEncryptAtRest {
             // AES-256-GCM encrypt and store in Keychain
