@@ -1053,6 +1053,9 @@ struct ContentView: View {
         .onReceive(AppUsageTracker.shared.$showLimitReachedDialog) { show in
             showLimitReachedDialog = show
         }
+        // Selah Contextual ambient surface — self-gating (no-op while master flag OFF),
+        // drives evaluation on appear + foreground. Mounts the suggestion card overlay.
+        .selahContextualHost()
         .onChange(of: SundayChurchFocusManager.shared.isInChurchFocusWindow) { oldValue, newValue in
             // ✅ Real-time transition: Force re-render when Shabbat state changes
             // Use ShabbatModeService.isShabbatActive (combines isSunday + isEnabled)

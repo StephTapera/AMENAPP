@@ -269,34 +269,38 @@ final class AMENFeatureFlags: ObservableObject {
     // MARK: - Sabbath Mode v2 (Rhythm — subtraction model)
     /// Master gate for the v2 "Selah becomes smaller when it's succeeding" rhythm.
     /// When OFF, SabbathRhythmController is inert and no surface is subtracted.
-    @Published private(set) var sabbathModeEnabled: Bool = false
+    /// Flipped ON 2026-06-22 (human directive) — Sabbath Rhythm live.
+    @Published private(set) var sabbathModeEnabled: Bool = true
     /// Sub-flag: scheduled (day/window) rest trigger. Mic-free, no permissions.
-    @Published private(set) var sabbathTriggerScheduleEnabled: Bool = false
+    @Published private(set) var sabbathTriggerScheduleEnabled: Bool = true
     /// Sub-flag: manual (toggle) rest trigger.
-    @Published private(set) var sabbathTriggerManualEnabled: Bool = false
+    @Published private(set) var sabbathTriggerManualEnabled: Bool = true
 
     // MARK: - Selah Contextual Intelligence (mic-free ambient suggestion engine)
     /// Master gate for the whole Selah Contextual subsystem (SelahContextualIntelligenceService
     /// + controller + ambient surface). When OFF, `SelahContextualController` is inert, no signal
     /// is collected, and `.selahContextualHost()` renders nothing. Default OFF until each cluster
     /// is verified and permission/consent strings are reviewed.
-    @Published private(set) var selahContextualEnabled: Bool = false
+    /// Flipped ON 2026-06-22 (human directive) — full Selah Contextual engine live.
+    @Published private(set) var selahContextualEnabled: Bool = true
     /// Cluster 1 — In the Room (bulletin/slide capture, small-group sync, worship set, sermon memory).
-    @Published private(set) var selahContextualInTheRoomEnabled: Bool = false
+    @Published private(set) var selahContextualInTheRoomEnabled: Bool = true
     /// Cluster 2 — Across the Week (liturgical layer, commute, travel/place, series auto-assembly).
-    @Published private(set) var selahContextualAcrossTheWeekEnabled: Bool = false
+    @Published private(set) var selahContextualAcrossTheWeekEnabled: Bool = true
     /// Cluster 3 — Flow of Life (copied-verse catch, photo anchoring, prayer radar, group presence).
-    @Published private(set) var selahContextualFlowOfLifeEnabled: Bool = false
+    @Published private(set) var selahContextualFlowOfLifeEnabled: Bool = true
     /// Cluster 4 — Restraint Spine (Sabbath/rest, doomscroll interceptor, confidence-gated silence, reflection loop).
-    @Published private(set) var selahContextualRestraintSpineEnabled: Bool = false
+    @Published private(set) var selahContextualRestraintSpineEnabled: Bool = true
     /// Cluster 5 — Trust & Depth (Berean gate, cross-reference web, translation/tradition, stress-aware).
-    @Published private(set) var selahContextualTrustDepthEnabled: Bool = false
+    @Published private(set) var selahContextualTrustDepthEnabled: Bool = true
     /// High-trust sensitive override: Photos (feature 10). Required ON in addition to its cluster.
-    @Published private(set) var selahContextualPhotosEnabled: Bool = false
+    /// NOTE: requires NSPhotoLibraryUsageDescription before any Photos access path is reached.
+    @Published private(set) var selahContextualPhotosEnabled: Bool = true
     /// High-trust sensitive override: Screen Time (feature 14). Required ON in addition to its cluster.
-    @Published private(set) var selahContextualScreenTimeEnabled: Bool = false
+    @Published private(set) var selahContextualScreenTimeEnabled: Bool = true
     /// High-trust sensitive override: HealthKit (feature 20). Required ON in addition to its cluster.
-    @Published private(set) var selahContextualHealthEnabled: Bool = false
+    /// NOTE: requires HealthKit entitlement + NSHealth*UsageDescription before any Health access path.
+    @Published private(set) var selahContextualHealthEnabled: Bool = true
 
     // MARK: - Universal Migration & Context System
     /// Master gate for the Context System (ContextStore Passport, Migration Interview,
@@ -1437,21 +1441,21 @@ final class AMENFeatureFlags: ObservableObject {
             // Amen Pulse (daily surface) — default OFF
             "amen_pulse_enabled": false as NSObject,
 
-            // Sabbath Mode v2 (Rhythm subtraction model) — all default OFF
-            "sabbath_mode_enabled": false as NSObject,
-            "sabbath_trigger_schedule_enabled": false as NSObject,
-            "sabbath_trigger_manual_enabled": false as NSObject,
+            // Sabbath Mode v2 (Rhythm subtraction model) — flipped ON 2026-06-22 (human directive)
+            "sabbath_mode_enabled": true as NSObject,
+            "sabbath_trigger_schedule_enabled": true as NSObject,
+            "sabbath_trigger_manual_enabled": true as NSObject,
 
-            // Selah Contextual Intelligence — master + 5 cluster + 3 sensitive, all default OFF
-            "selah_contextual_enabled": false as NSObject,
-            "selah_contextual_in_the_room_enabled": false as NSObject,
-            "selah_contextual_across_the_week_enabled": false as NSObject,
-            "selah_contextual_flow_of_life_enabled": false as NSObject,
-            "selah_contextual_restraint_spine_enabled": false as NSObject,
-            "selah_contextual_trust_depth_enabled": false as NSObject,
-            "selah_contextual_photos_enabled": false as NSObject,
-            "selah_contextual_screentime_enabled": false as NSObject,
-            "selah_contextual_health_enabled": false as NSObject,
+            // Selah Contextual Intelligence — master + 5 cluster + 3 sensitive, flipped ON 2026-06-22 (human directive)
+            "selah_contextual_enabled": true as NSObject,
+            "selah_contextual_in_the_room_enabled": true as NSObject,
+            "selah_contextual_across_the_week_enabled": true as NSObject,
+            "selah_contextual_flow_of_life_enabled": true as NSObject,
+            "selah_contextual_restraint_spine_enabled": true as NSObject,
+            "selah_contextual_trust_depth_enabled": true as NSObject,
+            "selah_contextual_photos_enabled": true as NSObject,
+            "selah_contextual_screentime_enabled": true as NSObject,
+            "selah_contextual_health_enabled": true as NSObject,
 
             // Spiritual OS — all default OFF until human flag flip
             "spiritualOS_enabled": false as NSObject,
