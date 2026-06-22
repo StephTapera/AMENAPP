@@ -40,6 +40,11 @@ struct TrustCenterView: View {
                         row("AI permissions", "What AI can access, on your terms", "switch.2")
                     }
                 }
+                if SocialV2RuntimeFlags.shared.isSocialV2Enabled {
+                    NavigationLink { SocialV2RootView() } label: {
+                        row("Social V2", "Spaces, feeds, search, messages, identity, privacy, and vault", "person.3.sequence")
+                    }
+                }
             } header: { Text("Your data & AI") }
 
             Section {

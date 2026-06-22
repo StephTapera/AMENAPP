@@ -878,11 +878,18 @@ struct ContentView: View {
                 }
 
                 keepMountedTab(isActive: viewModel.selectedTab == 6) {
-                    AmenConnectSpacesHubView()
-                        .id("spaces")
-                        .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.none)
+                    Group {
+                        if SocialV2RuntimeFlags.shared.isSocialV2Enabled {
+                            SocialV2RootView()
+                                .id("socialV2")
+                        } else {
+                            AmenConnectSpacesHubView()
+                                .id("spaces")
                         }
+                    }
+                    .task {
+                        NotificationAggregationService.shared.updateCurrentScreen(.none)
+                    }
                 }
 
                 keepMountedTab(isActive: viewModel.selectedTab == 7) {
