@@ -26,7 +26,9 @@ by a pre-existing `TestingMacros` plugin failure unrelated to this work).
 |---|---|---|---|---|
 | `AmenInteractionStateMachine` (§4 lifecycle w/ valid-transition enforcement + reset) + `ToastCoordinator` (single app-wide queue → kills the "silent failure" pattern) + `ModalCoordinator` (one-active-at-a-time → kills modal-stacking/recursive-sheet). Pure infra, inert until Phase C consumes it. | `AMENAPP/DeepLinkRouter.swift` | _this commit_ | 0 | ✅ landed |
 | `ButtonActionRouter` (debounced/in-flight dispatch → kills double-submit), `PaywallCoordinator` (+`AmenTier`/`AmenPaywallRequest` → consolidates ×5 paywalls), `PermissionCoordinator` (+priming sheet → explain-before-prompt). `NavigationCoordinator` = existing `DeepLinkRouter` (not forked, documented in-file). | `AMENAPP/DeepLinkRouter.swift` | _this commit_ | 0 | ✅ landed |
-| Reusable components (extend `AmenGlassButtonSystem`/`AmenToast`/`AmenActionPill`; add ToastHost, Loading/Destructive buttons) | `AMENAPP/AmenGlassButtonSystem.swift` | _next_ | — | ⏳ in progress |
+| `AmenToastHost` (renders the ToastCoordinator queue; calm, two-accent, reduce-transparency aware, VoiceOver announce) + `.amenToastHost()` + `AmenLoadingButton` (state-machine-driven loading/disabled, double-tap-safe, ≥44pt, labeled). | `AMENAPP/AmenGlassButtonSystem.swift` | _this commit_ | 0 | ✅ landed |
+
+**Phase B status: substantively complete.** State machine + ToastCoordinator + ModalCoordinator + ButtonActionRouter + PaywallCoordinator + PermissionCoordinator + AmenToastHost + AmenLoadingButton, all compile-verified. NavigationCoordinator = existing DeepLinkRouter (not forked).
 
 ## Finding correction
 - **#6 (CreatorProfile hero CTAs)** — downgraded from CRITICAL-shipping to **latent dead code**. The surface is already gated by `isGateOpen` (the `enabled` param) and the only `CreatorProfileView(...)` call site is a DEBUG preview with `enabled: false` — no production caller passes `enabled: true`, so the `break` CTAs are not reachable in a shipped build. Real fix (wire the actions) belongs to the Wave-4 work that owns the surface; no urgent change made.

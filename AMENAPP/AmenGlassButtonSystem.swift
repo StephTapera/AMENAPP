@@ -328,3 +328,145 @@ extension View {
         )
     }
 }
+
+// =====================================================================
+// MARK: - Phase B reusable components (from the §13 interaction audit)
+// =====================================================================
+
+/// Renders the app-wide single toast queue (`ToastCoordinator`). Attach once near
+/// the app root with `.amenToastHost()`. Calm + non-punitive: green=status,
+/// blue=affordance (two-accent contract), solid fill under Reduce Transparency,
+/// fades-only motion, and a VoiceOver announcement on appear.
+public struct AmenToastHost: ViewModifier {
+    @ObservedObject private var coordinator = ToastCoordinator.shared
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    public func body(content: Content) -> some View {
+        content.overlay(alignment: .bottom) {
+            if let toast = coordinator.current {
+                toastView(toast)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .onAppear { AccessibilityNotification.Announcement(toast.message).post() }
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: coordinator.current)
+    }
+
+    @ViewBuilder
+    private func toastView(_ toast: AmenToastModel) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon(for: toast.kind))
+                .foregroundStyle(tint(for: toast.kind))
+            Text(toast.message)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            if let actionTitle = toast.actionTitle {
+                Button(actionTitle) { ToastCoordinator.shared.dismissCurrent() }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.blue)            // blue = affordance
+                    .frame(minHeight: 44)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+            if reduceTransparency {
+                shape.fill(Color(.secondarySystemBackground))
+            } else {
+                shape.fill(.regularMaterial)
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color(.separator).opacity(0.4), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
+        .contentShape(Rectangle())
+        .onTapGesture { ToastCoordinator.shared.dismissCurrent() }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(toast.message)
+    }
+
+    private func icon(for kind: AmenToastModel.Kind) -> String {
+        switch kind {
+        case .info:    return "info.circle.fill"
+        case .success: return "checkmark.circle.fill"
+        case .failure: return "exclamationmark.circle.fill"
+        }
+    }
+
+    private func tint(for kind: AmenToastModel.Kind) -> Color {
+        switch kind {
+        case .info:    return .secondary
+        case .success: return .green                                   // green = state/status
+        case .failure: return Color(red: 0.85, green: 0.25, blue: 0.30) // calm alert, never playful
+        }
+    }
+}
+
+public extension View {
+    /// Attach once near the app root to render the app-wide toast queue.
+    func amenToastHost() -> some View { modifier(AmenToastHost()) }
+}
+
+/// Primary async button with a built-in loading/disabled lifecycle driven by
+/// `AmenInteractionStateMachine`. Rapid re-taps are ignored while loading (the
+/// machine rejects an illegal idle→loading repeat), giving free double-submit
+/// protection. Enforces the 44pt minimum target and a VoiceOver label.
+public struct AmenLoadingButton: View {
+    private let title: String
+    private let systemImage: String?
+    private let role: ButtonRole?
+    private let action: () async -> Void
+
+    @StateObject private var machine = AmenInteractionStateMachine()
+    @Environment(\.isEnabled) private var isEnabled
+
+    public init(
+        _ title: String,
+        systemImage: String? = nil,
+        role: ButtonRole? = nil,
+        action: @escaping () async -> Void
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.role = role
+        self.action = action
+    }
+
+    private var isLoading: Bool { machine.state == .loading }
+
+    public var body: some View {
+        Button(role: role) {
+            run()
+        } label: {
+            HStack(spacing: 8) {
+                if isLoading {
+                    ProgressView().controlSize(.small)
+                } else if let systemImage {
+                    Image(systemName: systemImage)
+                }
+                Text(isLoading ? "" : title)
+                    .font(.body.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .disabled(isLoading || !isEnabled)
+        .accessibilityLabel(title)
+        .accessibilityValue(isLoading ? Text("Loading") : Text(""))
+    }
+
+    private func run() {
+        guard machine.transition(to: .loading) else { return }   // ignore rapid re-taps
+        Task { @MainActor in
+            await action()
+            machine.transition(to: .success)
+            machine.reset()
+        }
+    }
+}
