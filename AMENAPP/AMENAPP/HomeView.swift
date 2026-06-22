@@ -354,6 +354,9 @@ struct HomeView: View {
                 .animation(.amenSpringStandard, value: bereanMenuManager.activePayload != nil)
                 .overlay(alignment: .bottomTrailing) {
                     VStack(alignment: .trailing, spacing: 12) {
+                        // Sabbath v2: discreet manual entry to rest (gated, default hidden).
+                        SabbathEnterRestPill()
+
                         if featureFlags.bilWave1Enabled {
                             Button {
                                 showBILWave1 = true
@@ -427,6 +430,9 @@ struct HomeView: View {
                 }
             }
         }
+        // Sabbath v2: the rest surface + threshold sheets are hosted at the ContentView root
+        // (covers every tab, not just Home). Home only contributes the subtraction call sites
+        // (.sabbathSubtracted) and the manual entry pill below.
     }
 
     // MARK: - Computed Properties to help type checker
@@ -443,10 +449,12 @@ struct HomeView: View {
                         }
 
                     // Spiritual OS — Daily Digest (Agent A, gated by AppStorage flag)
+                    // Sabbath v2: the Today digest is a metrics surface; removed in `.rest` (I3).
                     AmenDailyDigestView(
                         viewModel: digestViewModel,
                         userId: Auth.auth().currentUser?.uid ?? ""
                     )
+                    .sabbathSubtracted(.metrics)
 
                     // Spiritual OS — Context Mode Banners
                     contextModeBanner
@@ -477,7 +485,9 @@ struct HomeView: View {
                     }
 
                     // Dynamic Content Based on Selected Category
+                    // Sabbath v2: the feed is removed in `.rest` (I3).
                     selectedCategoryView
+                        .sabbathSubtracted(.feeds)
                 }
                 .padding(.bottom, expandedBottomChromeHeight)
             }
