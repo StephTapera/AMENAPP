@@ -121,6 +121,7 @@ struct BereanSmartPillEngine {
 
     /// Returns the appropriate smart pills for the given context.
     /// Safety state overrides all mode-based preferences.
+    @MainActor
     static func pills(
         lens: BereanTheoLens,
         isCrisisState: Bool,
@@ -188,6 +189,7 @@ struct BereanSmartPillsView: View {
 
     @State private var showSelahSheet = false
     @State private var showChurchNotesSheet = false
+    @State private var showCrisisOverlay = false
 
     @ObservedObject private var lensStore = BereanTheoLensStore.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -232,6 +234,10 @@ struct BereanSmartPillsView: View {
                 isPresented: $showChurchNotesSheet
             )
         }
+        .fullScreenCover(isPresented: $showCrisisOverlay) {
+            CrisisResourceOverlayView(isPresented: $showCrisisOverlay)
+        }
+        .interactiveDismissDisabled(showCrisisOverlay)
     }
 
     private func handlePillTap(_ pill: BereanSmartPill) {
@@ -299,8 +305,11 @@ struct BereanSmartPillsView: View {
 
         case .findImmediateHelp:
             AMENAnalyticsService.shared.track(.bereanHumanSupportSuggested(context: "crisis_pill"))
-            // In a real app this would open a crisis resources view
-            onAskFollowUp("Please show me crisis support resources.")
+            // Crisis "find help" must reach real crisis resources (988 / Crisis Text Line),
+            // never loop back into the AI. Present the always-on CRISIS-001 overlay directly,
+            // mirroring BereanChatView's escalation presentation. (Companion Boundary: the AI
+            // is never the terminus for a person in crisis.)
+            showCrisisOverlay = true
 
         case .readPsalm23:
             onAskFollowUp("Show me Psalm 23 and help me reflect on it slowly.")
