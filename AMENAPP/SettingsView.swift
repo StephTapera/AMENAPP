@@ -116,6 +116,10 @@ struct LegacySettingsView: View {
                         SDGroup {
                             SDNavRow(icon: "sparkles", label: "Berean AI", subtitle: "AI settings, Scripture sources", iconBg: .purple) { BereanAISettingsView() }
                             SDDivider()
+                            // Trust & Transparency hub — AI receipts, moderation timeline,
+                            // memory ledger, flourishing/focus, safety, red team (all flag-gated).
+                            SDNavRow(icon: "checkmark.shield", label: "Trust & Transparency", subtitle: "AI receipts, moderation, your data", iconBg: .blue) { TrustCenterView() }
+                            SDDivider()
                             SDNavRow(icon: "slider.horizontal.3", label: "Feed & Content", subtitle: "What you see and when", iconBg: .orange) { ContentFeedGroupView() }
                             SDDivider()
                             SDToggleRow(
