@@ -3291,6 +3291,8 @@ struct PostCard: View {
     private var interactionButtons: some View {
         HStack(spacing: 16) {
             // 1. Lightbulb (OpenTable) / Amen (Prayer + other categories)
+            // Wave 5 — Focus mode hides the like/Amen affordance (fail-open; flag-gated OFF).
+            Group {
             if category == .openTable {
                 circularInteractionButton(
                     icon: hasLitLightbulb ? "lightbulb.fill" : "lightbulb",
@@ -3327,6 +3329,8 @@ struct PostCard: View {
                     }
                 }
             }
+            }
+            .hiddenInFocus(.likes)
 
             // 2. Comment — illuminates when current user has commented
             circularInteractionButton(

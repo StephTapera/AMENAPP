@@ -727,7 +727,9 @@ struct FollowingFeedView: View {
                 // The parent ScrollView in ContentView handles the scrolling.
                 VStack(spacing: 0) {
                     ForEach(followingPosts) { post in
+                        // Wave 5 — feed is set down in Sabbath / Digital-Fast focus modes (fail-open; flag-gated OFF).
                         PostCard(post: post)
+                            .hiddenInFocus(.feed)
 
                         if AMENFeatureFlags.shared.postDividerEnabled {
                             FeedPostDivider()
@@ -809,7 +811,9 @@ struct QuietFeedView: View {
                 // The parent ScrollView in ContentView handles the scrolling.
                 VStack(spacing: 0) {
                     ForEach(quietPosts) { post in
+                        // Wave 5 — feed is set down in Sabbath / Digital-Fast focus modes (fail-open; flag-gated OFF).
                         PostCard(post: post)
+                            .hiddenInFocus(.feed)
 
                         if AMENFeatureFlags.shared.postDividerEnabled {
                             FeedPostDivider()

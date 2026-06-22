@@ -697,6 +697,8 @@ struct AMENNotificationsView: View {
                 }
                 .padding(.top, 4)
 
+                // Wave 5 — notifications are hidden in Focus / Reflection / Sabbath / Digital-Fast modes (fail-open; flag-gated OFF).
+                Group {
                 // Needs Your Attention
                 if !viewModel.needsAttention.isEmpty {
                     NeedsAttentionPanel(
@@ -747,6 +749,8 @@ struct AMENNotificationsView: View {
                         onAction: handleAction
                     )
                 }
+                }
+                .hiddenInFocus(.notifications)
 
                 Spacer(minLength: 32)
             }
