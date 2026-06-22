@@ -1102,10 +1102,12 @@ final class AMENFeatureFlags: ObservableObject {
     @Published private(set) var bereanIntentSwitchEnabled: Bool = false
     /// Gates Tier A scripture connectors (Free Use Bible API, API.Bible proxied, NET, OSHB/SBLGNT).
     /// ESV/NIV/NASB are absent — not free. No YouVersion path.
-    @Published private(set) var bereanTierAConnectorsEnabled: Bool = false
+    /// LIVE: backed by the real bible.helloao.org connector (public-domain BSB/KJV/WEB, no key, no proxy).
+    @Published private(set) var bereanTierAConnectorsEnabled: Bool = true
     /// Gates Scripture Citation Integrity (GUARDIAN capability): every emitted verse is verified;
     /// fabricated or unverifiable references fail closed and are never silently emitted.
-    @Published private(set) var bereanCitationIntegrityEnabled: Bool = false
+    /// LIVE: verifies references via the knowledge graph + fetches real verse text from the connector.
+    @Published private(set) var bereanCitationIntegrityEnabled: Bool = true
     /// Gates Berean Memory (zone-classified store; prayer history encrypted at rest).
     /// User inspect/delete UI ships with this flag.
     @Published private(set) var bereanSpiritualMemoryEnabled: Bool = false

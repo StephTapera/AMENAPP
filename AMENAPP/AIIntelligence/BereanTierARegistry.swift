@@ -22,8 +22,9 @@ final class BereanTierARegistry {
         id: "free-use-bible-api",
         name: "Free Use Bible API (BSB)",
         tier: .a,
-        // Always false in this build — flag is OFF, no flip.
-        enabled: false,
+        // LIVE: public-domain, no API key, safe to call directly from the client.
+        // Gated at runtime by `bereanTierAConnectorsEnabled` via `activeSources`.
+        enabled: true,
         defaultTranslation: "BSB",
         availableTranslations: ["BSB", "KJV", "WEB"],
         license: LicenseMetadata(
@@ -115,8 +116,9 @@ final class BereanTierARegistry {
     // MARK: - Active Sources
 
     /// Returns only sources that are both flag-enabled and individually enabled.
-    /// Currently returns [] because `bereanTierAConnectorsEnabled` is OFF and all
-    /// sources have `enabled: false`. This is correct fail-closed behavior.
+    /// LIVE: when `bereanTierAConnectorsEnabled` is ON this returns the public-domain
+    /// Free Use Bible API source. Proxied/key sources (API.Bible) stay `enabled: false`
+    /// until their server proxy is deployed. Fail-closed when the flag is OFF.
     var activeSources: [ScriptureSource] {
         guard AMENFeatureFlags.shared.bereanTierAConnectorsEnabled else { return [] }
         return allSources.filter { $0.enabled }
