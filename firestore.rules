@@ -4319,6 +4319,37 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // TRUST & TRANSPARENCY (Waves 2 & 6) — additive, fail-closed.
+    // Flag-gated in-app (default OFF). Users read only their OWN records; logs
+    // are append-only and never client-deletable; recognition is admin-only.
+    // =========================================================================
+
+    // Moderation audit log — user reads own history (Wave 2 timeline).
+    match /moderationAuditLogs/{auditId} {
+      allow read:   if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Moderation appeals — user creates + reads own appeals (Wave 2). Resolved
+    // by reviewers via Admin SDK only. Snake_case fields per ModerationAppeal.
+    match /moderation_appeals/{appealId} {
+      allow read:   if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Red-team reports (Wave 6) — user creates + reads own. recognitionAwarded
+    // must be false on create; recognition is granted by reviewers (Admin SDK).
+    match /redTeamReports/{reportId} {
+      allow read:   if isSignedIn() && resource.data.reporterId == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.reporterId == request.auth.uid
+                    && request.resource.data.recognitionAwarded == false;
+      allow update, delete: if false;
+    }
+
+    // =========================================================================
     // CATCH-ALL
     // Any collection not explicitly listed above is denied by default.
     // Fail closed — add new collections explicitly, never rely on this to permit.
