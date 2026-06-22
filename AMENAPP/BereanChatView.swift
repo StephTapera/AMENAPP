@@ -19,10 +19,6 @@ struct BereanChatMsg: Identifiable, Equatable {
     var isStreaming: Bool = false
     var structure: BereanResponseStructure? = nil
     var processingState: String? = nil
-    // Wave 1 — AI Receipt: real receipt derived from the pipeline response for
-    // this assistant turn (nil for user turns / when no grounding exists).
-    var receipt: AIReceipt? = nil
-    var interpretations: [String] = []
 
     enum BereanChatMsgRole: String, Codable {
         case user, assistant
@@ -183,14 +179,6 @@ final class BereanChatViewModel: ObservableObject {
                 ?? "Berean is temporarily unavailable. Please try again."
             messages[assistantIndex].content = answer
             messages[assistantIndex].isStreaming = false
-            // Wave 1 — derive the real AI Receipt from this response (flag-gated at render).
-            if let response = pipeline.lastResponse {
-                messages[assistantIndex].receipt = AIReceiptService.makeReceipt(
-                    from: response,
-                    mode: pipelineMode.rawValue
-                )
-                messages[assistantIndex].interpretations = response.interpretations
-            }
             if self.isStudyModeEnabled {
                 self.resolveReasoning()
             }
@@ -2578,8 +2566,6 @@ struct BereanChatBubble: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(bubbleBackground)
-            // Wave 1 — AI Receipt under the answer (flag-gated, no-op for user turns).
-            .aiReceipt(message.receipt, interpretations: message.interpretations)
     }
 
     @ViewBuilder

@@ -29,7 +29,7 @@ enum AIReceiptService {
         // A degraded response carries no real grounding; do not surface a receipt.
         guard !response.traceId.isEmpty else { return nil }
 
-        let sources = response.evidence.map { makeSource($0) }
+        let sources = response.evidence.map(makeSource)
         let confidence = deriveConfidence(from: response, sourceCount: sources.count)
 
         return AIReceipt(
