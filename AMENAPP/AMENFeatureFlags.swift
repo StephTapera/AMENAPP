@@ -20,6 +20,25 @@ final class AMENFeatureFlags: ObservableObject {
 
     static let shared = AMENFeatureFlags()
 
+    // MARK: - System: Trust, Transparency & Human-Flourishing OS
+    // Wave 0 foundation (build brief §4b). Every flag defaults OFF and is
+    // fail-closed. This block is the single owner of these flags — frozen
+    // after Wave 0; later waves must not edit the registry.
+    @Published private(set) var aiReceiptEnabled: Bool = false
+    @Published private(set) var uncertaintyModeEnabled: Bool = false
+    @Published private(set) var constitutionalModerationEnabled: Bool = false
+    @Published private(set) var moderationAuditTrailEnabled: Bool = false
+    @Published private(set) var memoryLedgerEnabled: Bool = false
+    @Published private(set) var dataVaultEnabled: Bool = false
+    @Published private(set) var aiPermissionsHubEnabled: Bool = false
+    @Published private(set) var provenanceLabelsEnabled: Bool = false
+    @Published private(set) var flourishingMetricsEnabled: Bool = false
+    @Published private(set) var focusModesEnabled: Bool = false
+    @Published private(set) var childSafetySurfaceEnabled: Bool = false
+    @Published private(set) var redTeamSurfaceEnabled: Bool = false
+    @Published private(set) var recommendationTransparencyEnabled: Bool = false
+    @Published private(set) var truthfulnessLabEnabled: Bool = false
+
     // MARK: - System 1: Advanced Moderation
     @Published private(set) var moderationV2Enabled: Bool = true
     @Published private(set) var imageModerationEnabled: Bool = true
@@ -1180,6 +1199,22 @@ final class AMENFeatureFlags: ObservableObject {
 
     private func buildDefaults() -> [String: NSObject] {
         [
+            // Trust, Transparency & Human-Flourishing OS — all OFF (Wave 0, §4b)
+            "trust_ai_receipt_enabled": false as NSObject,
+            "trust_uncertainty_mode_enabled": false as NSObject,
+            "trust_constitutional_moderation_enabled": false as NSObject,
+            "trust_moderation_audit_trail_enabled": false as NSObject,
+            "trust_memory_ledger_enabled": false as NSObject,
+            "trust_data_vault_enabled": false as NSObject,
+            "trust_ai_permissions_hub_enabled": false as NSObject,
+            "trust_provenance_labels_enabled": false as NSObject,
+            "trust_flourishing_metrics_enabled": false as NSObject,
+            "trust_focus_modes_enabled": false as NSObject,
+            "trust_child_safety_surface_enabled": false as NSObject,
+            "trust_red_team_surface_enabled": false as NSObject,
+            "trust_recommendation_transparency_enabled": false as NSObject,
+            "trust_truthfulness_lab_enabled": false as NSObject,
+
             // Moderation
             "moderation_v2_enabled": true as NSObject,
             "image_moderation_enabled": true as NSObject,
@@ -1958,6 +1993,22 @@ final class AMENFeatureFlags: ObservableObject {
     }
 
     private func applyRemoteConfig(_ config: RemoteConfig) {
+        // Trust, Transparency & Human-Flourishing OS (Wave 0, §4b)
+        aiReceiptEnabled = config["trust_ai_receipt_enabled"].boolValue
+        uncertaintyModeEnabled = config["trust_uncertainty_mode_enabled"].boolValue
+        constitutionalModerationEnabled = config["trust_constitutional_moderation_enabled"].boolValue
+        moderationAuditTrailEnabled = config["trust_moderation_audit_trail_enabled"].boolValue
+        memoryLedgerEnabled = config["trust_memory_ledger_enabled"].boolValue
+        dataVaultEnabled = config["trust_data_vault_enabled"].boolValue
+        aiPermissionsHubEnabled = config["trust_ai_permissions_hub_enabled"].boolValue
+        provenanceLabelsEnabled = config["trust_provenance_labels_enabled"].boolValue
+        flourishingMetricsEnabled = config["trust_flourishing_metrics_enabled"].boolValue
+        focusModesEnabled = config["trust_focus_modes_enabled"].boolValue
+        childSafetySurfaceEnabled = config["trust_child_safety_surface_enabled"].boolValue
+        redTeamSurfaceEnabled = config["trust_red_team_surface_enabled"].boolValue
+        recommendationTransparencyEnabled = config["trust_recommendation_transparency_enabled"].boolValue
+        truthfulnessLabEnabled = config["trust_truthfulness_lab_enabled"].boolValue
+
         moderationV2Enabled = config["moderation_v2_enabled"].boolValue
         imageModerationEnabled = config["image_moderation_enabled"].boolValue
         dmEnhancedScanningEnabled = config["dm_enhanced_scanning_enabled"].boolValue
