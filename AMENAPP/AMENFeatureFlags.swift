@@ -653,6 +653,14 @@ final class AMENFeatureFlags: ObservableObject {
     /// `resources_glass_home_enabled` after the redesign verification matrix passes.
     @Published private(set) var resourcesGlassHomeEnabled: Bool = false
 
+    // MARK: - Collapsible Liquid Glass Header
+    /// Master switch for the Apple-Weather-style collapsible Liquid Glass header +
+    /// scroll motion system (CollapsibleGlassScrollView / CollapsibleGlassHeader).
+    /// Ships default OFF. When false, host screens (e.g. ActivityFeedView) render their
+    /// existing layout unchanged — zero regression. Flip via Remote Config
+    /// `collapsible_glass_header_enabled` after the a11y/perf verification matrix passes.
+    @Published private(set) var collapsibleGlassHeaderEnabled: Bool = false
+
     // MARK: - System 36: Context-First Discussion OS
     @Published private(set) var discussionModesEnabled: Bool = true
     @Published private(set) var contextParticipationEnabled: Bool = true
@@ -1887,6 +1895,9 @@ final class AMENFeatureFlags: ObservableObject {
             // Resources Liquid Glass Home (default OFF until verification)
             "resources_glass_home_enabled":   false as NSObject,
 
+            // Collapsible Liquid Glass Header (default OFF until verification)
+            "collapsible_glass_header_enabled": false as NSObject,
+
             // Trust & Safety Remediation (item 21 follow-ons) — default OFF, ship dark
             "inbound_block_warning_enabled":  false as NSObject,
             "profile_field_privacy_enabled":  false as NSObject,
@@ -2627,6 +2638,9 @@ final class AMENFeatureFlags: ObservableObject {
 
         // Resources Liquid Glass Home
         resourcesGlassHomeEnabled       = config["resources_glass_home_enabled"].boolValue
+
+        // Collapsible Liquid Glass Header
+        collapsibleGlassHeaderEnabled   = config["collapsible_glass_header_enabled"].boolValue
 
         // Trust & Safety Remediation (item 21 follow-ons)
         inboundBlockWarningEnabled      = config["inbound_block_warning_enabled"].boolValue
