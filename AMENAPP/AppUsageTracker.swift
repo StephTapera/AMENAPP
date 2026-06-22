@@ -248,20 +248,12 @@ struct DailyLimitReachedDialog: View {
     @State private var lastScrollY: CGFloat = 0
     @State private var scrollVelocity: CGFloat = 0
     @State private var velocityToken = 0
-    // Living-background drift phase + AI-orb orbit phase.
+    // Living-background drift phase + slow ambient hero zoom (1.00 → 1.03).
     @State private var ambientPhase: CGFloat = 0
-    @State private var orbPhase: CGFloat = 0
+    @State private var heroZoom: CGFloat = 1.0
     // Dynamic-Island-style in-screen toast.
     @State private var toast: SelahToast?
     @State private var toastToken = 0
-
-    private enum BreakPresentationState {
-        case underLimit
-        case overLimit(minutes: Int)
-        case snoozed(until: Date)
-        case breakStarted
-        case confirmingContinue
-    }
 
     private struct SelahToast: Equatable {
         let icon: String
@@ -284,19 +276,6 @@ struct DailyLimitReachedDialog: View {
     private var usageFraction: Double {
         guard tracker.dailyLimitMinutes > 0 else { return 0 }
         return min(1.0, Double(displayedUsageMinutes) / Double(tracker.dailyLimitMinutes))
-    }
-
-    private var overageFraction: Double {
-        guard tracker.dailyLimitMinutes > 0 else { return 0 }
-        return min(0.74, Double(overGoalMinutes) / Double(tracker.dailyLimitMinutes))
-    }
-
-    private var presentationState: BreakPresentationState {
-        if isBreakStarting { return .breakStarted }
-        if showContinueConfirmation { return .confirmingContinue }
-        if let snoozeUntil = tracker.snoozeUntil, Date() < snoozeUntil { return .snoozed(until: snoozeUntil) }
-        if overGoalMinutes > 0 { return .overLimit(minutes: overGoalMinutes) }
-        return .underLimit
     }
 
     // MARK: Personalization
@@ -340,43 +319,12 @@ struct DailyLimitReachedDialog: View {
         }
     }
 
-    private var statusChipText: String {
-        switch presentationState {
-        case .underLimit:
-            return "Within today's rhythm"
-        case .overLimit(let minutes):
-            return "Over goal by \(minutes) min"
-        case .snoozed(let until):
-            return "Snoozed until \(until.formatted(date: .omitted, time: .shortened))"
-        case .breakStarted:
-            return "Break started"
-        case .confirmingContinue:
-            return "Choose with intention"
-        }
-    }
-
-    private var subtitleText: String {
-        if overGoalMinutes == 0 {
-            return "You're moving gently — \(displayedUsageMinutes) of \(tracker.dailyLimitMinutes) min today."
-        }
-        if overageSeverity >= 1.0 {
-            return "You've spent \(displayedUsageMinutes) min here today. Your soul deserves rest more than the feed."
-        }
-        if overGoalMinutes <= 15 {
-            return "Just past your \(tracker.dailyLimitMinutes)-min goal. A short pause keeps your rhythm."
-        }
-        return "You're \(overGoalMinutes) min over your \(tracker.dailyLimitMinutes)-min goal today. Selah — let's breathe."
-    }
-
-    /// True when the moment warrants a gentle, non-judgmental nudge toward rest.
-    private var showsGentleSuggestion: Bool { overageSeverity >= 0.66 }
-
     var body: some View {
         ZStack {
             background
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 16) {
+                VStack(spacing: 18) {
                     // Scroll probe — reports content offset in the named space.
                     GeometryReader { geo in
                         Color.clear.preference(
@@ -386,29 +334,44 @@ struct DailyLimitReachedDialog: View {
                     }
                     .frame(height: 0)
 
-                    header
-                        .padding(.top, 64)
-                        .scaleEffect(1 - 0.14 * headerCollapse, anchor: .top)
-                        .opacity((appear ? 1 : 0) * Double(1 - headerCollapse))
-                        .offset(y: appear ? 0 : 18)
-
-                    heroUsageCard
+                    heroCard
+                        .padding(.top, 56)
                         .offset(y: appear ? 0 : 24)
-                        .scaleEffect(appear ? 1 : 0.96)
+                        .scaleEffect(appear ? 1 : 0.97, anchor: .top)
                         .blur(radius: appear ? 0 : 8)
                         .opacity(appear ? 1 : 0)
 
-                    mainBreakCard
-                        .offset(y: appear ? 0 : 28)
-                        .scaleEffect(appear ? 1 : 0.97)
-                        .blur(radius: appear ? 0 : 10)
+                    milestoneCard
+                        .offset(y: appear ? 0 : 22)
+                        .opacity(appear ? 1 : 0)
+
+                    scriptureCard
+                        .offset(y: appear ? 0 : 24)
+                        .blur(radius: appear ? 0 : 8)
+                        .opacity(appear ? 1 : 0)
+
+                    reflectionCard
+                        .offset(y: appear ? 0 : 26)
+                        .opacity(appear ? 1 : 0)
+
+                    rhythmCard
+                        .offset(y: appear ? 0 : 26)
+                        .opacity(appear ? 1 : 0)
+
+                    dailyLimitControl
+                        .offset(y: appear ? 0 : 22)
                         .opacity(appear ? 1 : 0)
 
                     snoozeSection
                         .offset(y: appear ? 0 : 18)
                         .opacity(appear ? 1 : 0)
 
-                    Spacer(minLength: 118)
+                    continueAnywayButton
+                        .padding(.top, 2)
+                        .offset(y: appear ? 0 : 16)
+                        .opacity(appear ? 1 : 0)
+
+                    Spacer(minLength: 48)
                 }
                 .padding(.horizontal, 18)
                 .blur(radius: velocityBlur)
@@ -418,8 +381,8 @@ struct DailyLimitReachedDialog: View {
                 let delta = value - lastScrollY
                 lastScrollY = value
                 if abs(value - scrollY) >= 0.5 { scrollY = value }
-                // Velocity (Velocity Blur + Floating Tuck). Debounced reset so the
-                // effect is "removed instantly after stop."
+                // Velocity (Velocity Blur). Debounced reset so the effect is
+                // "removed instantly after stop."
                 scrollVelocity = delta
                 velocityToken += 1
                 let token = velocityToken
@@ -435,23 +398,13 @@ struct DailyLimitReachedDialog: View {
             compactHeader
                 .frame(maxHeight: .infinity, alignment: .top)
 
+            // Close affordance — dismisses the break screen (top-trailing).
+            closeButton
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
             // Dynamic-Island-style toast.
             toastOverlay
                 .frame(maxHeight: .infinity, alignment: .top)
-
-            continueAnywayPinnedButton
-                .padding(.horizontal, 48)
-                .padding(.bottom, 92)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .offset(y: appear ? 0 : 18)
-                .opacity(appear ? 1 : 0)
-
-            floatingTabBar
-                .padding(.horizontal, 18)
-                .padding(.bottom, 18)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .offset(y: appear ? 0 : 30)
-                .opacity(appear ? 1 : 0)
         }
         .ignoresSafeArea()
         .sheet(isPresented: $showContinueConfirmation) {
@@ -480,18 +433,6 @@ struct DailyLimitReachedDialog: View {
         min(1, max(0, -scrollY / 70))
     }
 
-    /// 0 (tab bar expanded) → 1 (compressed) — slightly slower ramp than the header.
-    private var tabCollapse: CGFloat {
-        min(1, max(0, -scrollY / 110))
-    }
-
-    /// Floating Tuck: the bar drops away on a fast downward flick, returns when slow.
-    private var tabTuckOffset: CGFloat {
-        guard !reduceMotion else { return 0 }
-        // scrollVelocity < 0 == content moving up == scrolling down.
-        return scrollVelocity < -10 ? 46 : 0
-    }
-
     /// Velocity Blur — a whisper of directional blur during fast scroll, capped low
     /// so the screen stays calm. Cleared the instant scrolling stops.
     private var velocityBlur: CGFloat {
@@ -499,10 +440,10 @@ struct DailyLimitReachedDialog: View {
         return min(1.8, abs(scrollVelocity) * 0.05)
     }
 
-    /// Sub-pixel parallax shift for inner hero layers (Parallax Hero Depth).
+    /// Parallax shift for the hero scene as the content scrolls (Parallax Hero Depth).
     private func parallax(_ factor: CGFloat) -> CGFloat {
         guard !reduceMotion else { return 0 }
-        return max(-8, min(8, scrollY * factor))
+        return max(-26, min(26, scrollY * factor))
     }
 
     private func startAmbientMotion() {
@@ -511,9 +452,24 @@ struct DailyLimitReachedDialog: View {
         withAnimation(.easeInOut(duration: 22).repeatForever(autoreverses: true)) {
             ambientPhase = 1
         }
-        // AI-orb orbit on the "+" fab.
-        withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
-            orbPhase = 1
+        // Ambient hero zoom — 1.00 → 1.03 over 20s, almost invisible.
+        withAnimation(.easeInOut(duration: 20).repeatForever(autoreverses: true)) {
+            heroZoom = 1.03
+        }
+    }
+
+    /// Begins a Selah break: dismisses the modal and gently suspends the app so
+    /// the user can step away. Shared by the hero pill and the confirmation sheet.
+    private func beginBreak() {
+        isBreakStarting = true
+        haptic(.takeBreak)
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+            tracker.showLimitReachedDialog = false
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if UIApplication.shared.connectedScenes.first is UIWindowScene {
+                UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
+            }
         }
     }
 
@@ -583,62 +539,181 @@ struct DailyLimitReachedDialog: View {
 
     // MARK: Headers
 
-    private var header: some View {
-        VStack(spacing: 7) {
-            Text(greeting)
-                .font(.systemScaled(11, weight: .semibold))
-                .tracking(1.6)
-                .foregroundStyle(Color(red: 0.62, green: 0.46, blue: 0.12).opacity(0.85))
-            Text("Selah Break")
-                .font(.systemScaled(22, weight: .semibold, design: .rounded))
-                .foregroundStyle(.black.opacity(0.86))
-            Text("A gentle pause before continuing.")
-                .font(.systemScaled(13, weight: .regular))
-                .foregroundStyle(.black.opacity(0.46))
+    // MARK: Mood system (time-aware hero palette)
 
-            contextTags
-                .padding(.top, 4)
+    private enum SelahMood {
+        case morning, afternoon, evening, night
+
+        /// Vertical sky gradient for the hero scene.
+        var skyColors: [Color] {
+            switch self {
+            case .morning:
+                return [Color(red: 1.00, green: 0.90, blue: 0.76),
+                        Color(red: 1.00, green: 0.84, blue: 0.58),
+                        Color(red: 0.97, green: 0.74, blue: 0.50)]
+            case .afternoon:
+                return [Color(red: 0.74, green: 0.86, blue: 1.00),
+                        Color(red: 0.83, green: 0.91, blue: 1.00),
+                        Color(red: 0.70, green: 0.82, blue: 0.97)]
+            case .evening:
+                return [Color(red: 1.00, green: 0.70, blue: 0.48),
+                        Color(red: 0.91, green: 0.55, blue: 0.55),
+                        Color(red: 0.43, green: 0.36, blue: 0.62)]
+            case .night:
+                return [Color(red: 0.07, green: 0.10, blue: 0.22),
+                        Color(red: 0.10, green: 0.15, blue: 0.31),
+                        Color(red: 0.14, green: 0.21, blue: 0.40)]
+            }
         }
-        .multilineTextAlignment(.center)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(greeting). Selah Break. A gentle pause before continuing.")
+
+        /// Soft "sun"/moon glow tint.
+        var glowColor: Color {
+            switch self {
+            case .morning:   return Color(red: 1.00, green: 0.93, blue: 0.66)
+            case .afternoon: return Color.white
+            case .evening:   return Color(red: 1.00, green: 0.78, blue: 0.52)
+            case .night:     return Color(red: 0.55, green: 0.66, blue: 1.00)
+            }
+        }
+
+        var glowCenter: UnitPoint {
+            switch self {
+            case .morning:   return UnitPoint(x: 0.78, y: 0.30)
+            case .afternoon: return UnitPoint(x: 0.50, y: 0.18)
+            case .evening:   return UnitPoint(x: 0.24, y: 0.34)
+            case .night:     return UnitPoint(x: 0.74, y: 0.26)
+            }
+        }
+
+        /// Lower horizon band tint.
+        var horizonColor: Color {
+            switch self {
+            case .morning:   return Color(red: 0.93, green: 0.66, blue: 0.40)
+            case .afternoon: return Color(red: 0.62, green: 0.76, blue: 0.92)
+            case .evening:   return Color(red: 0.33, green: 0.26, blue: 0.47)
+            case .night:     return Color(red: 0.04, green: 0.06, blue: 0.16)
+            }
+        }
     }
 
-    /// Dynamic Glass Tags — small frosted chips describing the moment. They tilt
-    /// subtly with scroll velocity for a living, physical feel.
-    private var contextTags: some View {
-        HStack(spacing: 8) {
-            contextTag(icon: "clock", text: rhythmTagText)
-            contextTag(icon: overGoalMinutes > 0 ? "circle.bottomhalf.filled" : "leaf",
-                       text: "\(displayedUsageMinutes) min")
-        }
-        .rotation3DEffect(
-            .degrees(reduceMotion ? 0 : Double(max(-6, min(6, scrollVelocity * 0.18)))),
-            axis: (x: 1, y: 0, z: 0),
-            anchor: .top
-        )
-    }
-
-    private var rhythmTagText: String {
+    private var mood: SelahMood {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12:  return "Morning rhythm"
-        case 12..<17: return "Midday rhythm"
-        case 17..<22: return "Evening rhythm"
-        default:      return "Night rhythm"
+        case 5..<12:  return .morning
+        case 12..<17: return .afternoon
+        case 17..<21: return .evening
+        default:      return .night
         }
     }
 
-    private func contextTag(icon: String, text: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.systemScaled(10, weight: .semibold))
-            Text(text)
-                .font(.systemScaled(11, weight: .semibold))
+    // MARK: Hero (large editorial, mood-aware scene)
+
+    private var heroCard: some View {
+        ZStack {
+            heroScene
+                .scaleEffect(reduceMotion ? 1 : heroZoom)
+                .offset(y: parallax(0.06))
+
+            // Legibility scrim under the editorial text.
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.06), .black.opacity(0.38)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            VStack {
+                Spacer()
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(greeting)
+                            .font(.systemScaled(12, weight: .semibold))
+                            .tracking(1.4)
+                            .foregroundStyle(.white.opacity(0.88))
+                        Text("Selah Break")
+                            .font(.systemScaled(30, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                        Text("\(displayedUsageMinutes) minutes today")
+                            .font(.systemScaled(14, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.84))
+                        Text("Your soul deserves rest more than the feed.")
+                            .font(.systemScaled(13, weight: .regular))
+                            .foregroundStyle(.white.opacity(0.74))
+                            .padding(.top, 2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+                    Spacer(minLength: 8)
+                }
+                .padding(20)
+            }
         }
-        .foregroundStyle(Color(red: 0.50, green: 0.38, blue: 0.10).opacity(0.85))
-        .padding(.horizontal, 11)
-        .padding(.vertical, 6)
-        .selahWhiteGlass(cornerRadius: 14, tint: Color(red: 1.0, green: 0.97, blue: 0.88), capsule: true)
+        .frame(height: 380)
+        .clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
+        .overlay(alignment: .bottomTrailing) {
+            heroTakeBreakPill
+                .padding(20)
+        }
+        .overlay(
+            // Glass edge treatment — soft internal highlight + hairline.
+            RoundedRectangle(cornerRadius: 38, style: .continuous)
+                .stroke(
+                    LinearGradient(colors: [.white.opacity(0.7), .white.opacity(0.12)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
+        )
+        .selahLightSweep(cornerRadius: 38, delay: 0.6)
+        .shadow(color: .black.opacity(0.12), radius: 40, y: 16)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(greeting). Selah Break. \(displayedUsageMinutes) minutes today. Your soul deserves rest more than the feed.")
+    }
+
+    private var heroScene: some View {
+        let m = mood
+        return ZStack {
+            LinearGradient(colors: m.skyColors, startPoint: .top, endPoint: .bottom)
+
+            RadialGradient(colors: [m.glowColor.opacity(0.85), .clear],
+                           center: m.glowCenter, startRadius: 6, endRadius: 280)
+                .offset(y: ambientPhase * 12 - 6)
+                .opacity(0.85 + Double(ambientPhase) * 0.15)
+
+            // Distant horizon band grounds the scene.
+            VStack {
+                Spacer()
+                LinearGradient(colors: [.clear, m.horizonColor.opacity(0.6)],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: 168)
+            }
+        }
+    }
+
+    /// Floating glass "Take Break" pill — black translucent material, VisionOS style.
+    private var heroTakeBreakPill: some View {
+        Button {
+            beginBreak()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: isBreakStarting ? "pause.fill" : "hands.sparkles.fill")
+                    .font(.systemScaled(14, weight: .semibold))
+                Text(isBreakStarting ? "Starting" : "Take Break")
+                    .font(.systemScaled(15, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .background(
+                ZStack {
+                    Capsule().fill(.ultraThinMaterial).environment(\.colorScheme, .dark)
+                    Capsule().fill(.black.opacity(0.34))
+                    Capsule().stroke(.white.opacity(0.22), lineWidth: 1)
+                }
+            )
+            .shadow(color: .black.opacity(0.28), radius: 16, y: 8)
+        }
+        .buttonStyle(SelahPressButtonStyle())
+        .selahBreathing()
+        .accessibilityLabel("Take a break")
+        .accessibilityHint("Closes AMEN so you can step away for prayer or rest")
     }
 
     private var compactHeader: some View {
@@ -673,155 +748,220 @@ struct DailyLimitReachedDialog: View {
         }
     }
 
-    private var heroUsageCard: some View {
-        VStack(spacing: 16) {
-            progressRing
+    // MARK: Milestone (replaces the giant progress ring)
 
-            Text(statusChipText)
-                .font(.systemScaled(12, weight: .semibold))
-                .foregroundStyle(Color(red: 0.48, green: 0.32, blue: 0.05))
-                .padding(.horizontal, 14)
-                .frame(minHeight: 34)
-                .background(
-                    Capsule()
-                        .fill(Color(red: 1.00, green: 0.90, blue: 0.56).opacity(0.32))
-                        .overlay(Capsule().stroke(Color(red: 0.83, green: 0.61, blue: 0.16).opacity(0.22), lineWidth: 1))
-                )
+    private var milestoneCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("TODAY")
+                        .font(.systemScaled(10, weight: .semibold))
+                        .tracking(1.6)
+                        .foregroundStyle(.black.opacity(0.40))
+                    Text("\(displayedUsageMinutes) min")
+                        .font(.systemScaled(32, weight: .medium, design: .rounded))
+                        .foregroundStyle(.black.opacity(0.86))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+
+                Spacer(minLength: 8)
+
+                Text(milestoneSubtitle)
+                    .font(.systemScaled(12, weight: .semibold))
+                    .foregroundStyle(milestoneTint)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(milestoneTint.opacity(0.14)))
+            }
+
+            progressBar
         }
+        .padding(20)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 26)
-        .padding(.horizontal, 20)
-        .selahWhiteGlass(cornerRadius: 34)
-        .selahLightSweep(cornerRadius: 34, delay: 0.5)
-        .shadow(color: Color(red: 0.60, green: 0.45, blue: 0.14).opacity(0.10), radius: 30, y: 14)
+        .selahWhiteGlass(cornerRadius: 30)
+        .selahLightSweep(cornerRadius: 30, delay: 1.2)
+        .shadow(color: .black.opacity(0.07), radius: 30, y: 12)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Daily usage, \(displayedUsageMinutes) minutes today, \(statusChipText)")
+        .accessibilityLabel("Today, \(displayedUsageMinutes) minutes. \(milestoneSubtitle).")
     }
 
-    private var progressRing: some View {
-        ZStack {
-            // Background rings — the "far" parallax layer (moves less).
-            Group {
-                Circle()
-                    .stroke(Color.black.opacity(0.055), lineWidth: 9)
-
-                Circle()
-                    .trim(from: 0, to: ringProgress)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.98, green: 0.81, blue: 0.21),
-                                Color(red: 0.88, green: 0.62, blue: 0.13),
-                                Color(red: 1.00, green: 0.91, blue: 0.52)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        style: StrokeStyle(lineWidth: 9, lineCap: .round)
+    private var progressBar: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.black.opacity(0.06))
+                Capsule()
+                    .fill(
+                        LinearGradient(colors: milestoneBarColors,
+                                       startPoint: .leading, endPoint: .trailing)
                     )
-                    .rotationEffect(.degrees(-90))
+                    .frame(width: max(12, geo.size.width * CGFloat(min(1, ringProgress))))
+            }
+        }
+        .frame(height: 10)
+    }
 
-                if overageFraction > 0 {
-                    Circle()
-                        .trim(from: 0.06, to: 0.06 + min(0.82, overageFraction * 0.82))
-                        .stroke(
-                            Color(red: 0.88, green: 0.46, blue: 0.18).opacity(0.50),
-                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-72))
+    private var milestoneSubtitle: String {
+        if overGoalMinutes > 0 {
+            return "\(overGoalMinutes) min above goal"
+        }
+        let toGoal = max(0, tracker.dailyLimitMinutes - displayedUsageMinutes)
+        return toGoal == 0 ? "At your goal" : "\(toGoal) min to goal"
+    }
+
+    private var milestoneTint: Color {
+        overGoalMinutes > 0
+            ? Color(red: 0.78, green: 0.52, blue: 0.10)
+            : Color(red: 0.30, green: 0.56, blue: 0.36)
+    }
+
+    private var milestoneBarColors: [Color] {
+        overGoalMinutes > 0
+            ? [Color(red: 0.98, green: 0.81, blue: 0.31), Color(red: 0.90, green: 0.58, blue: 0.16)]
+            : [Color(red: 0.55, green: 0.80, blue: 0.60), Color(red: 0.34, green: 0.64, blue: 0.42)]
+    }
+
+    // MARK: Scripture (premium quote card)
+
+    private var scriptureCard: some View {
+        VStack(spacing: 12) {
+            Text("\u{201C}\(verse.text)\u{201D}")
+                .font(.systemScaled(21, weight: .regular, design: .serif))
+                .italic()
+                .foregroundStyle(.black.opacity(0.78))
+                .multilineTextAlignment(.center)
+                .lineSpacing(6)
+            Text(verse.reference)
+                .font(.systemScaled(11, weight: .semibold))
+                .tracking(2.0)
+                .foregroundStyle(.black.opacity(0.36))
+        }
+        .padding(.vertical, 36)
+        .padding(.horizontal, 26)
+        .frame(maxWidth: .infinity)
+        .selahWhiteGlass(cornerRadius: 34)
+        .selahLightSweep(cornerRadius: 34, delay: 2.0)
+        .shadow(color: .black.opacity(0.06), radius: 30, y: 14)
+        .id(verse.reference)
+        .transition(.opacity)
+    }
+
+    // MARK: Reflection (Apple Journal style — invitation, not warning)
+
+    private var reflectionCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "leaf.fill")
+                    .font(.systemScaled(13, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.36, green: 0.62, blue: 0.40))
+                Text("Reflection")
+                    .font(.systemScaled(13, weight: .semibold))
+                    .tracking(0.4)
+                    .foregroundStyle(.black.opacity(0.50))
+            }
+
+            Text(reflectionBody)
+                .font(.systemScaled(17, weight: .regular))
+                .foregroundStyle(.black.opacity(0.74))
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                ForEach(["Walk", "Pray", "Breathe", "Reflect"], id: \.self) { word in
+                    Text(word)
+                        .font(.systemScaled(13, weight: .medium))
+                        .foregroundStyle(.black.opacity(0.58))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color.black.opacity(0.045)))
                 }
             }
-            .offset(y: parallax(0.04))
-
-            // Foreground readout — the "near" parallax layer (moves more).
-            VStack(spacing: 3) {
-                Text("\(displayedUsageMinutes)")
-                    .font(.systemScaled(52, weight: .ultraLight, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.7)
-                    .foregroundStyle(.black.opacity(0.88))
-                    .contentTransition(.numericText())
-                Text("MIN TODAY")
-                    .font(.systemScaled(11, weight: .medium))
-                    .tracking(1.6)
-                    .foregroundStyle(.black.opacity(0.44))
-            }
-            .padding(.horizontal, 18)
-            .offset(y: parallax(-0.05))
-        }
-        .frame(width: 190, height: 190)
-    }
-
-    private var mainBreakCard: some View {
-        VStack(spacing: 20) {
-            VStack(spacing: 8) {
-                Text("Time for a Break")
-                    .font(.systemScaled(28, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.black.opacity(0.88))
-                    .multilineTextAlignment(.center)
-
-                Text(subtitleText)
-                    .font(.systemScaled(15, weight: .regular))
-                    .foregroundStyle(.black.opacity(0.56))
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(3)
-            }
-
-            Divider().overlay(Color.black.opacity(0.06))
-
-            VStack(spacing: 7) {
-                Text("\"\(verse.text)\"")
-                    .font(.systemScaled(15, weight: .regular, design: .serif))
-                    .italic()
-                    .foregroundStyle(.black.opacity(0.72))
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                Text(verse.reference)
-                    .font(.systemScaled(10, weight: .semibold))
-                    .tracking(1.8)
-                    .foregroundStyle(.black.opacity(0.34))
-            }
-            .padding(.horizontal, 8)
-            .id(verse.reference)
-            .transition(.opacity)
-
-            if showsGentleSuggestion {
-                gentleSuggestion
-            }
-
-            dailyLimitControl
-
-            takeBreakButton
         }
         .padding(22)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .selahWhiteGlass(cornerRadius: 34)
-        .selahLightSweep(cornerRadius: 34, delay: 2.4)
-        .shadow(color: .black.opacity(0.07), radius: 34, y: 18)
+        .shadow(color: .black.opacity(0.06), radius: 30, y: 14)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Reflection. \(reflectionBody)")
     }
 
-    private var gentleSuggestion: some View {
-        HStack(spacing: 9) {
-            Image(systemName: "leaf.fill")
-                .font(.systemScaled(13, weight: .semibold))
-                .foregroundStyle(Color(red: 0.36, green: 0.62, blue: 0.40))
-            Text("You've gone well past today — even five quiet minutes can reset your pace.")
-                .font(.systemScaled(13, weight: .regular))
-                .foregroundStyle(.black.opacity(0.60))
-                .fixedSize(horizontal: false, vertical: true)
+    private var reflectionBody: String {
+        if overageSeverity >= 1.0 {
+            return "You've spent more time than usual today. Take five quiet minutes to step away and let your pace settle."
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        if overGoalMinutes > 0 {
+            return "You're a little past your rhythm. A short pause now keeps the rest of your day unhurried."
+        }
+        return "You're moving gently today. A brief Selah keeps your heart present and your pace your own."
+    }
+
+    // MARK: Today's Rhythm (minimal, honest day timeline — no charts)
+
+    private struct RhythmSegment {
+        let label: String
+        let fill: CGFloat
+        let isCurrent: Bool
+    }
+
+    private var rhythmSegments: [RhythmSegment] {
+        let hour = Calendar.current.component(.hour, from: Date())
+        func segment(_ label: String, start: Int, end: Int) -> RhythmSegment {
+            let span = CGFloat(end - start)
+            let fill: CGFloat
+            if hour >= end { fill = 1.0 }
+            else if hour < start { fill = 0.08 }
+            else { fill = max(0.12, min(1.0, CGFloat(hour - start) / span)) }
+            return RhythmSegment(label: label, fill: fill, isCurrent: hour >= start && hour < end)
+        }
+        return [
+            segment("Morning", start: 5, end: 12),
+            segment("Afternoon", start: 12, end: 17),
+            segment("Evening", start: 17, end: 24)
+        ]
+    }
+
+    private var rhythmCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Today\u{2019}s Rhythm")
+                .font(.systemScaled(13, weight: .semibold))
+                .tracking(0.4)
+                .foregroundStyle(.black.opacity(0.50))
+
+            ForEach(rhythmSegments, id: \.label) { seg in
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(seg.label)
+                        .font(.systemScaled(12, weight: .medium))
+                        .foregroundStyle(seg.isCurrent ? .black.opacity(0.80) : .black.opacity(0.44))
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.black.opacity(0.05))
+                            Capsule()
+                                .fill(rhythmFill(seg.isCurrent))
+                                .frame(width: max(8, geo.size.width * seg.fill))
+                        }
+                    }
+                    .frame(height: 8)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(seg.label)\(seg.isCurrent ? ", current" : "")")
+            }
+        }
+        .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(red: 0.93, green: 0.97, blue: 0.93).opacity(0.7))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color(red: 0.36, green: 0.62, blue: 0.40).opacity(0.18), lineWidth: 1)
+        .selahWhiteGlass(cornerRadius: 34)
+        .shadow(color: .black.opacity(0.06), radius: 30, y: 14)
+    }
+
+    private func rhythmFill(_ isCurrent: Bool) -> AnyShapeStyle {
+        if isCurrent {
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [Color(red: 0.98, green: 0.81, blue: 0.31), Color(red: 0.90, green: 0.62, blue: 0.16)],
+                    startPoint: .leading, endPoint: .trailing
                 )
-        )
-        .accessibilityElement(children: .combine)
+            )
+        }
+        return AnyShapeStyle(Color.black.opacity(0.16))
     }
 
     private var dailyLimitControl: some View {
@@ -891,49 +1031,6 @@ struct DailyLimitReachedDialog: View {
         .accessibilityLabel(label)
     }
 
-    private var takeBreakButton: some View {
-        Button {
-            isBreakStarting = true
-            haptic(.takeBreak)
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
-                tracker.showLimitReachedDialog = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                if UIApplication.shared.connectedScenes.first is UIWindowScene {
-                    UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
-                }
-            }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: isBreakStarting ? "pause.fill" : "hands.sparkles.fill")
-                    .font(.systemScaled(16, weight: .semibold))
-                Text(isBreakStarting ? "Starting Break" : "Take a Break")
-                    .font(.systemScaled(17, weight: .semibold))
-            }
-            .foregroundStyle(.black.opacity(0.86))
-            .frame(maxWidth: .infinity, minHeight: 56)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.95), Color(red: 1.00, green: 0.94, blue: 0.68).opacity(0.78)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(Color(red: 0.95, green: 0.72, blue: 0.20).opacity(0.36), lineWidth: 1)
-                    )
-                    .shadow(color: Color(red: 0.95, green: 0.72, blue: 0.20).opacity(0.26), radius: 20, y: 8)
-            )
-        }
-        .buttonStyle(SelahMagneticButtonStyle())
-        .selahBreathing()
-        .accessibilityLabel("Take a break")
-        .accessibilityHint("Closes AMEN so you can step away for prayer or rest")
-    }
-
     private var snoozeSection: some View {
         VStack(spacing: 10) {
             Text("Snooze Reminder")
@@ -962,93 +1059,42 @@ struct DailyLimitReachedDialog: View {
         }
     }
 
-    private var continueAnywayPinnedButton: some View {
+    private var continueAnywayButton: some View {
         Button {
             showContinueConfirmation = true
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         } label: {
             Text("Continue Anyway")
                 .font(.systemScaled(15, weight: .semibold))
-                .foregroundStyle(.black.opacity(0.62))
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.86))
-                        .overlay(Capsule(style: .continuous).stroke(Color.black.opacity(0.08), lineWidth: 0.75))
-                        .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
-                )
+                .foregroundStyle(.black.opacity(0.58))
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .selahWhiteGlass(cornerRadius: 26, capsule: true)
+                .shadow(color: .black.opacity(0.05), radius: 12, y: 5)
         }
         .buttonStyle(SelahPressButtonStyle())
         .accessibilityLabel("Continue anyway")
         .accessibilityHint("Shows a confirmation before continuing without a break")
     }
 
-    private var floatingTabBar: some View {
-        ZStack(alignment: .top) {
-            HStack(alignment: .center, spacing: 0) {
-                navItem(icon: "house", label: "Home", isSelected: false)
-                navItem(icon: "magnifyingglass", label: "Search", isSelected: false)
-                navItem(icon: "bubble.left.and.bubble.right.fill", label: "Messages", isSelected: true)
-                    .padding(.top, 18 * (1 - tabCollapse))
-                navItem(icon: "books.vertical", label: "Resources", isSelected: false)
-                navItem(icon: "person.circle", label: "Profile", isSelected: false)
+    /// Small frosted close control, top-trailing. Dismisses the break screen.
+    private var closeButton: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                tracker.showLimitReachedDialog = false
             }
-            // Compress: icons pull inward as the bar shrinks.
-            .padding(.horizontal, 10 + 16 * tabCollapse)
-            .padding(.top, 14 - 6 * tabCollapse)
-            .padding(.bottom, 10 - 4 * tabCollapse)
-            .frame(maxWidth: .infinity, minHeight: 86 - 20 * tabCollapse)
-            .selahWhiteGlass(cornerRadius: 34)
-            // Glass becomes slightly more opaque when compressed.
-            .overlay(
-                RoundedRectangle(cornerRadius: 34, style: .continuous)
-                    .fill(.white.opacity(0.12 * tabCollapse))
-                    .allowsHitTesting(false)
-            )
-            .shadow(color: .black.opacity(0.10 + 0.04 * tabCollapse), radius: 28, y: 14)
-
-            Button {
-                haptic(.reflect)
-            } label: {
-                Image(systemName: "plus")
-                    .font(.systemScaled(24 - 3 * tabCollapse, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.82))
-                    .frame(width: 62 - 8 * tabCollapse, height: 62 - 8 * tabCollapse)
-                    .selahWhiteGlass(cornerRadius: 31, capsule: true)
-                    .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
-            }
-            .buttonStyle(SelahPressButtonStyle())
-            // AI-orb motion — a barely-there orbit so the create action feels alive.
-            .offset(
-                x: reduceMotion ? 0 : sin(orbPhase * .pi * 2) * 1.0,
-                y: (-28 + 8 * tabCollapse) + (reduceMotion ? 0 : cos(orbPhase * .pi * 2) * 1.0)
-            )
-            .accessibilityLabel("Create")
+        } label: {
+            Image(systemName: "xmark")
+                .font(.systemScaled(14, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.55))
+                .frame(width: 38, height: 38)
+                .selahWhiteGlass(cornerRadius: 19, capsule: true)
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
         }
-        // Floating Tuck — bar drops away on a fast flick, springs back when slow.
-        .offset(y: tabTuckOffset)
-        .animation(.spring(response: 0.42, dampingFraction: 0.82), value: tabTuckOffset)
-        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: tabCollapse)
-    }
-
-    private func navItem(icon: String, label: String, isSelected: Bool) -> some View {
-        VStack(spacing: 4 * (1 - tabCollapse)) {
-            Image(systemName: icon)
-                .font(.systemScaled(isSelected ? 25 : 23, weight: isSelected ? .semibold : .regular))
-                .frame(height: 25)
-                .scaleEffect(1 - 0.12 * tabCollapse)
-            // Labels fade out and collapse their height as the bar compresses.
-            Text(label)
-                .font(.systemScaled(12, weight: isSelected ? .semibold : .regular))
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .opacity(Double(1 - tabCollapse))
-                .frame(height: 15 * (1 - tabCollapse))
-        }
-        .foregroundStyle(isSelected ? .black : .black.opacity(0.38))
-        .frame(maxWidth: .infinity, minHeight: 54 - 16 * tabCollapse)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label) tab\(isSelected ? ", selected" : "")")
+        .buttonStyle(SelahPressButtonStyle())
+        .padding(.top, 56)
+        .padding(.trailing, 18)
+        .accessibilityLabel("Close")
     }
 
     private var continueConfirmationSheet: some View {
