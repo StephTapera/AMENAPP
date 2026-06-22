@@ -8,6 +8,8 @@
 
 import SwiftUI
 import WebKit
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Entry point (type-erased)
 
@@ -34,6 +36,8 @@ struct AMENResourceDetailView: View {
     let entry: AMENMediaEntry
     @Environment(\.dismiss) private var dismiss
     @State private var isSaved = false
+    @State private var isSavePending = false
+    @State private var saveErrorShown = false
     @State private var showPlayer = false
     @State private var activeTab: MediaTab = .overview
     @State private var heroOffset: CGFloat = 0
@@ -163,6 +167,65 @@ struct AMENResourceDetailView: View {
                 Task { await loadRelated() }
             }
         }
+        .task { await loadSavedState() }
+        .alert("Couldn’t update your saved items", isPresented: $saveErrorShown) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Please check your connection and try again.")
+        }
+    }
+
+    // MARK: - Saved persistence
+    // Mirrors AMENResourcesHubView: users/{uid}/savedResources/{entry.id}.
+    // Replaces the previous ephemeral @State toggle that silently lost every save.
+
+    private func savedDocument() -> DocumentReference? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        return Firestore.firestore()
+            .collection("users").document(uid)
+            .collection("savedResources").document(entry.id)
+    }
+
+    private func loadSavedState() async {
+        guard let doc = savedDocument() else { return }
+        let snapshot = try? await doc.getDocument()
+        let saved = (snapshot?.data()?["isSaved"] as? Bool) ?? false
+        await MainActor.run { isSaved = saved }
+    }
+
+    private func toggleSaved() async {
+        guard !isSavePending else { return }
+        guard let doc = savedDocument() else {
+            // Not signed in — can't persist, so don't pretend it saved.
+            await MainActor.run { saveErrorShown = true }
+            return
+        }
+        let target = !isSaved
+        await MainActor.run {
+            isSavePending = true
+            withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) { isSaved = target }
+        }
+        do {
+            if target {
+                let kind = entry.id.split(separator: "_").first.map(String.init) ?? "resource"
+                try await doc.setData([
+                    "isSaved": true,
+                    "title":   title,
+                    "kind":    kind,
+                    "savedAt": FieldValue.serverTimestamp(),
+                ])
+            } else {
+                try await doc.delete()
+            }
+        } catch {
+            // Roll back to the truthful state and surface the failure.
+            await MainActor.run {
+                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) { isSaved = !target }
+                saveErrorShown = true
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            }
+        }
+        await MainActor.run { isSavePending = false }
     }
 
     private func loadRelated() async {
@@ -331,7 +394,7 @@ struct AMENResourceDetailView: View {
             // Save
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                withAnimation(Motion.adaptive(.spring(response: 0.3, dampingFraction: 0.6))) { isSaved.toggle() }
+                Task { await toggleSaved() }
             } label: {
                 Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
                     .font(.systemScaled(16, weight: .semibold))
@@ -344,6 +407,9 @@ struct AMENResourceDetailView: View {
                     )
             }
             .buttonStyle(.plain)
+            .disabled(isSavePending)
+            .accessibilityLabel(isSaved ? "Saved" : "Save")
+            .accessibilityHint("Saves this to your library")
 
             // Share
             if let url = deepLinkURL {

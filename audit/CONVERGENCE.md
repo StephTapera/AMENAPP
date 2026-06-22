@@ -11,13 +11,15 @@ Full-app `xcodebuild` + on-device QA remain **HUMAN-PENDING** and are never asse
 ## Phase C — Targeted CRITICAL fixes (ahead of full foundation)
 | Item | File | Commit | Per-file diags | Status |
 |---|---|---|---|---|
-| CRITICAL #1 — Berean crisis pill no longer loops back into the AI; "Find immediate help" now presents the always-on `CrisisResourceOverlayView` (988-first) via `.fullScreenCover` + `interactiveDismissDisabled`, mirroring `BereanChatView` escalation. Safety + Companion-Boundary fix. | `AMENAPP/BereanSmartPillSystem.swift` | _pending_ | 0 | ✅ fix landed |
+| CRITICAL #1 — Berean crisis pill no longer loops back into the AI; "Find immediate help" now presents the always-on `CrisisResourceOverlayView` (988-first) via `.fullScreenCover` + `interactiveDismissDisabled`, mirroring `BereanChatView` escalation. Safety + Companion-Boundary fix. | `AMENAPP/BereanSmartPillSystem.swift` | `cdcb326a` | 0 | ✅ landed |
+| CRITICAL #5 — Media Save was ephemeral `@State` (silently lost). Now persists to `users/{uid}/savedResources/{entry.id}` (same store/scheme as `AMENResourcesHubView`): loads initial state on appear, optimistic write, double-tap guard, rollback + error alert on failure, adds VoiceOver label. | `AMENAPP/AMENResourceDetailView.swift` | `cdcb326a`+1 | 0 | ✅ landed |
 
-## Remaining CRITICALs (not yet started — gated on user direction / Phase B)
+## Finding correction
+- **#6 (CreatorProfile hero CTAs)** — downgraded from CRITICAL-shipping to **latent dead code**. The surface is already gated by `isGateOpen` (the `enabled` param) and the only `CreatorProfileView(...)` call site is a DEBUG preview with `enabled: false` — no production caller passes `enabled: true`, so the `break` CTAs are not reachable in a shipped build. Real fix (wire the actions) belongs to the Wave-4 work that owns the surface; no urgent change made.
+
+## Remaining CRITICALs
 | # | Surface | File:line | Note |
 |---|---|---|---|
 | 2 | Spaces | `SpacesViewModel.swift:77` | join idempotency → needs transactional CF (Phase D, TS-first) |
 | 3 | Spaces | `AmenSpaceModerationDashboardView.swift:631` | moderator data loaders are stubs → wire Firestore |
-| 4 | Find a Church | `FindChurchView.swift:1216/1689/2351` | denied-location dead end → geocode-from-text fallback |
-| 5 | Resources | `AMENResourceDetailView.swift:332` | media Save ephemeral → persist + load initial |
-| 6 | Profile | `CreatorProfileView.swift:237` | hero CTAs `break` → wire or flag-gate off |
+| 4 | Find a Church | `FindChurchView.swift:1216/1689/2351` | denied-location dead end → geocode-from-text fallback (in progress) |
