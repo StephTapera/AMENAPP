@@ -15,6 +15,19 @@ Full-app `xcodebuild` + on-device QA remain **HUMAN-PENDING** and are never asse
 | CRITICAL #5 — Media Save was ephemeral `@State` (silently lost). Now persists to `users/{uid}/savedResources/{entry.id}` (same store/scheme as `AMENResourcesHubView`): loads initial state on appear, optimistic write, double-tap guard, rollback + error alert on failure, adds VoiceOver label. | `AMENAPP/AMENResourceDetailView.swift` | `684cb976` | 0 | ✅ landed |
 | CRITICAL #4 — Denied-location dead end. Added `performTextGeocodedSearch()` (forward-geocodes the typed city/zip via `CLGeocoder`, then searches around it via `ChurchSearchService`). Wired into search-bar submit (`performSearchWithText`) and the inline error-card retry. Manual search now returns churches without GPS. Follow-ups (not CRITICAL): `performMKLocalSearch` still GPS-guarded; `kCLLocationAccuracyBest`→reduced — both deferred to surface repair. | `AMENAPP/FindChurchView.swift` | _this commit_ | 0 | ✅ landed |
 
+## Phase B — Shared foundation
+Per repo memory ("prefer appending types to existing in-target files"), foundation
+types are housed in the already-indexed `DeepLinkRouter.swift` (the existing
+coordinator) rather than a new synced-folder file — new files cannot be per-file
+compile-verified in this environment (not yet indexed; `RunCodeSnippet` is blocked
+by a pre-existing `TestingMacros` plugin failure unrelated to this work).
+
+| Item | File | Commit | Per-file diags | Status |
+|---|---|---|---|---|
+| `AmenInteractionStateMachine` (§4 lifecycle w/ valid-transition enforcement + reset) + `ToastCoordinator` (single app-wide queue → kills the "silent failure" pattern) + `ModalCoordinator` (one-active-at-a-time → kills modal-stacking/recursive-sheet). Pure infra, inert until Phase C consumes it. | `AMENAPP/DeepLinkRouter.swift` | _this commit_ | 0 | ✅ landed |
+| Remaining coordinators: `ButtonActionRouter`, `NavigationCoordinator`, `PermissionCoordinator`, `PaywallCoordinator` | — | — | — | ⏳ pending |
+| Reusable components (extend `AmenGlassButtonSystem`/`AmenToast`/`AmenActionPill`; add Primary/Secondary/Destructive/Loading/BottomSheet/ConfirmationDialog/PermissionSheet/PaywallSheet) | — | — | — | ⏳ pending |
+
 ## Finding correction
 - **#6 (CreatorProfile hero CTAs)** — downgraded from CRITICAL-shipping to **latent dead code**. The surface is already gated by `isGateOpen` (the `enabled` param) and the only `CreatorProfileView(...)` call site is a DEBUG preview with `enabled: false` — no production caller passes `enabled: true`, so the `break` CTAs are not reachable in a shipped build. Real fix (wire the actions) belongs to the Wave-4 work that owns the surface; no urgent change made.
 
