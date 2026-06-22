@@ -1121,7 +1121,8 @@ final class AMENFeatureFlags: ObservableObject {
     // CONSTITUTION LOCK: no public trust score; no leaderboards; no ads; no passive-viewer identity;
     // no 5-star on a person; all UGC fails closed; NSPrivacyTracking=false.
     /// Master gate for the Creator Spotlight public page render.
-    @Published private(set) var creatorSpotlightEnabled: Bool = false
+    /// LIVE: renders over real CreatorHubService profile/teaching/event data (no fabricated data).
+    @Published private(set) var creatorSpotlightEnabled: Bool = true
     /// Gates Testimony + GUARDIAN pre-moderation (fail-closed) + Berean theme summary.
     @Published private(set) var creatorTestimonyEnabled: Bool = false
     /// Gates the Privacy Panel ("What this touches" + "Never touched" list per PRIVACY-CORE zones).

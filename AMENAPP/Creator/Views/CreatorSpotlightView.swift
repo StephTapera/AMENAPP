@@ -89,22 +89,24 @@ struct CreatorSpotlightView: View {
         }
     }
 
-    // MARK: - Derived Data
+    // MARK: - Derived Data (real, from the loaded CreatorHubService payload)
 
-    /// Placeholder display name until a profile model is loaded.
+    /// Display name from the loaded creator profile.
     private var displayName: String {
-        "Creator"
+        viewModel.displayName
     }
 
-    /// The featured content item, if spotlight and Firestore are loaded.
+    /// The featured content item, resolved against the loaded, approved content.
     private var featuredContent: CreatorContent? {
-        // TODO: resolve spotlight.featuredContentId against loaded content collection
-        nil
+        guard let id = viewModel.spotlight?.featuredContentId else { return viewModel.contents.first }
+        return viewModel.contents.first { $0.id == id }
     }
 
-    /// Content IDs for the "More by" rail, excluding the featured item.
+    /// Approved content IDs for the "More by" rail, excluding the featured item.
     private var moreContentIds: [String] {
-        // TODO: populate from loaded content collection
-        []
+        let featuredId = featuredContent?.id
+        return viewModel.contents
+            .filter { $0.moderationStatus == .approved && $0.id != featuredId }
+            .map { $0.id }
     }
 }
