@@ -1157,7 +1157,8 @@ final class AMENFeatureFlags: ObservableObject {
     // DEFERRED (contracts only): voice audio comments, payment transactions.
     // DEFERRED gate: csamHashScanEnabled (four-part federal gate, already defined above).
     /// Master gate for the enhanced SmartCommentsSheet and comment composition.
-    @Published private(set) var smartCommentsEnabled: Bool = false
+    /// LIVE: real CommentService persistence + existing server moderation; visibleComments gates on .public.
+    @Published private(set) var smartCommentsEnabled: Bool = true
     /// Gates entity detection pipeline (verse/link/music/prayer/testimony/question/crisis).
     @Published private(set) var commentEntityDetectionEnabled: Bool = false
     /// Gates scripture preview cards (passes Citation Integrity before display).
@@ -1167,7 +1168,8 @@ final class AMENFeatureFlags: ObservableObject {
     /// Gates music preview cards (never autoplay; link only).
     @Published private(set) var commentMusicPreviewEnabled: Bool = false
     /// Gates layered moderation pipeline (on-device pre-check + server AI + human review).
-    @Published private(set) var commentModerationPipelineEnabled: Bool = false
+    /// LIVE: routes to deployed callModelCommentCoach + CommentService server moderation; fail-closed.
+    @Published private(set) var commentModerationPipelineEnabled: Bool = true
     /// Gates Berean smart features (thread summary, prayer detect, testimony, questions).
     @Published private(set) var commentBereanSmartEnabled: Bool = false
     /// Gates CalmCap modes: Slow mode, Sabbath mode, kindness nudge (all opt-in, non-coercive).
