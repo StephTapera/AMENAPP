@@ -6,8 +6,6 @@
 	<string>$(ALGOLIA_SEARCH_KEY)</string>
 	<key>AMENBuildGitBranch</key>
 	<string>cert/reanchor-eee648b4</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 	<key>AMENBuildGitDirty</key>
 	<string>dirty</string>
 	<key>AMENBuildGitSHA</key>
@@ -63,21 +61,31 @@
 	<false/>
 	<key>GOOGLE_VISION_API_KEY</key>
 	<string>$(GOOGLE_VISION_API_KEY)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>AMEN uses the camera to let you take photos and videos for posts, stories, and profile pictures.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>AMEN uses your contacts to help you find friends already in your faith community and to set up trusted contacts for account recovery.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>AMEN uses Face ID to securely unlock the app and protect your private prayers and account.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>AMEN uses your location to show nearby churches and help you find faith communities in your area.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AMEN uses the microphone for voice prayer recordings, voice messages, and AI voice features.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>AMEN uses motion data to detect when you arrive at or are near your saved churches.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AMEN accesses your photo library to let you share photos and videos in posts and set your profile picture.</string>
+	<key>NSSiriUsageDescription</key>
+	<string>AMEN uses Siri to let you open prayers, scripture, and church notes hands-free, and to resume Selah reading sessions on other devices.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>AMEN uses speech recognition to transcribe your voice prayers, sermon notes, and voice messages into text on your device.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>
 		<string>app.amen.selah.read.scripture</string>
 	</array>
-	<key>NSSiriUsageDescription</key>
-	<string>AMEN uses Siri to let you open prayers, scripture, and church notes hands-free, and to resume Selah reading sessions on other devices.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>AMEN uses the camera to let you take photos and videos for posts, stories, and profile pictures.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>AMEN uses your location to show nearby churches and help you find faith communities in your area.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>AMEN uses the microphone for voice prayer recordings, voice messages, and AI voice features.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>AMEN accesses your photo library to let you share photos and videos in posts and set your profile picture.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>We'll send you reminders about church service times and when you're near your saved churches</string>
 	<key>NSUserTrackingUsageDescription</key>
